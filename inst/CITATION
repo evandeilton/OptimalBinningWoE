@@ -1,0 +1,13 @@
+bibentry(
+  bibtype  = {"Package"},
+  title    = {"OptimalBinningWoE"},
+  author   = {"LOPES, J. E"},
+  journal  = {},
+  year     = {2024},
+  volume   = {},
+  number   = {},
+  pages    = {},
+  doi      = {},
+  note = {R package version 0.0.1},
+  url = {https://evandeilton.github.io/OptimalBinningWoE/},
+)
