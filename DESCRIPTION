@@ -13,6 +13,7 @@ LinkingTo:
     Rcpp
 Imports: 
     data.table,
+    magrittr,
     Rcpp
 Suggests: 
     testthat (>= 3.0.0)
