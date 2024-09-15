@@ -29,8 +29,7 @@
 OptimalBinningDataPreprocessorInterface <- function(
     target, feature, num_miss_value = -999, char_miss_value = "N/A",
     outlier_method = "grubbs", outlier_process = TRUE, preprocess = as.character(c("both")),
-    iqr_k = 1.5, zscore_threshold = 3, grubbs_alpha = 0.05
-) {
+    iqr_k = 1.5, zscore_threshold = 3, grubbs_alpha = 0.05) {
   # Convert input vectors to data.table
   data <- data.table::data.table(target = target, feature = feature)
 
@@ -44,7 +43,7 @@ OptimalBinningDataPreprocessorInterface <- function(
   )
 
   # Convert the result to data.table
-  result_dt <- data.table::as.data.table(feature = data[,get(target)], feature_woe = result$feature_woe)
+  result_dt <- data.table::as.data.table(feature = data[, get(target)], feature_woe = result$feature_woe)
 
   return(result_dt)
 }
