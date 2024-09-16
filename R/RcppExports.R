@@ -28,9 +28,9 @@
 #'   \item \code{pos}: Vector with the count of positive events in each bin.
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
-#'
+#' @export
 OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min_bins = 2L, max_bins = 5L) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalMIP', PACKAGE = 'OptimalBinningWoE', target, feature, cat_cutoff, min_bins, max_bins)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMIP`, target, feature, cat_cutoff, min_bins, max_bins)
 }
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using Monotonic Optimal Binning (MOB)
@@ -63,8 +63,9 @@ OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningCategoricalMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalMOB', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, cat_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMOB`, target, feature, min_bins, max_bins, cat_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
@@ -97,9 +98,9 @@ OptimalBinningCategoricalMOB <- function(target, feature, min_bins = 2L, max_bin
 #'   \item \code{pos}: Vector with the count of positive events in each bin.
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
-#'
+#' @export
 OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalChiMerge', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, pvalue_threshold, cat_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, cat_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the Minimum Description Length Principle (MDLP) criterion
@@ -131,8 +132,9 @@ OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, ma
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalMDLP', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMDLP`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
@@ -164,8 +166,9 @@ OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalCAIM', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalCAIM`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV), ensuring monotonicity and maximizing IV
@@ -197,8 +200,9 @@ OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call('_OptimalBinningWoE_OptimalBinningCategoricalIV', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalIV`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using a Mixed-Integer Programming (MIP) approach
@@ -230,8 +234,9 @@ OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericMIP', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericMIP`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Monotonic Optimal Binning (MOB) approach
@@ -264,8 +269,9 @@ OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericMOB', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericMOB`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
@@ -299,8 +305,9 @@ OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericChiMerge', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, pvalue_threshold, bin_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, bin_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Minimum Description Length Principle (MDLP) criterion
@@ -333,8 +340,9 @@ OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericMDLP', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericMDLP`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
@@ -367,8 +375,9 @@ OptimalBinningNumericMDLP <- function(target, feature, min_bins = 2L, max_bins =
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericCAIM', PACKAGE = 'OptimalBinningWoE', target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericCAIM`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Pool Adjacent Violators Algorithm (PAVA) to enforce monotonicity
@@ -401,8 +410,9 @@ OptimalBinningNumericCAIM <- function(target, feature, min_bins = 2L, max_bins =
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericPAVA <- function(target, feature, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L, monotonicity_direction = "increase") {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericPAVA', PACKAGE = 'OptimalBinningWoE', target, feature, max_bins, bin_cutoff, min_bads, max_n_prebins, monotonicity_direction)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericPAVA`, target, feature, max_bins, bin_cutoff, min_bads, max_n_prebins, monotonicity_direction)
 }
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using a decision tree-based approach
@@ -435,8 +445,9 @@ OptimalBinningNumericPAVA <- function(target, feature, max_bins = 7L, bin_cutoff
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
+#' @export
 OptimalBinningNumericTree <- function(target, feature, max_bins = 7L, lambda = 0.1, min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10L, monotonicity_direction = "increase") {
-    .Call('_OptimalBinningWoE_OptimalBinningNumericTree', PACKAGE = 'OptimalBinningWoE', target, feature, max_bins, lambda, min_bin_size, min_iv_gain, max_depth, monotonicity_direction)
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericTree`, target, feature, max_bins, lambda, min_bin_size, min_iv_gain, max_depth, monotonicity_direction)
 }
 
 #' Preprocesses a numeric or categorical variable for optimal binning with handling of missing values and outliers
@@ -471,9 +482,9 @@ OptimalBinningNumericTree <- function(target, feature, max_bins = 7L, lambda = 0
 #' result <- OptimalBinningDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
 #' result <- OptimalBinningDataPreprocessor(target, feature_categorical)
 #' }
-#'
+#' @export
 OptimalBinningDataPreprocessor <- function(target, feature, num_miss_value = -999.0, char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, preprocess = as.character( c("both")), iqr_k = 1.5, zscore_threshold = 3.0, grubbs_alpha = 0.05) {
-    .Call('_OptimalBinningWoE_OptimalBinningDataPreprocessor', PACKAGE = 'OptimalBinningWoE', target, feature, num_miss_value, char_miss_value, outlier_method, outlier_process, preprocess, iqr_k, zscore_threshold, grubbs_alpha)
+    .Call(`_OptimalBinningWoE_OptimalBinningDataPreprocessor`, target, feature, num_miss_value, char_miss_value, outlier_method, outlier_process, preprocess, iqr_k, zscore_threshold, grubbs_alpha)
 }
 
 #' Generates a Gains Table from the results of optimal binning
@@ -516,8 +527,9 @@ OptimalBinningDataPreprocessor <- function(target, feature, num_miss_value = -99
 #' gains_table <- OptimalBinningGainsTable(binning_result)
 #' }
 #'
+#' @export
 OptimalBinningGainsTable <- function(binning_result) {
-    .Call('_OptimalBinningWoE_OptimalBinningGainsTable', PACKAGE = 'OptimalBinningWoE', binning_result)
+    .Call(`_OptimalBinningWoE_OptimalBinningGainsTable`, binning_result)
 }
 
 #' Generates a Gains Table from the Weight of Evidence (WoE) and target feature data
@@ -564,7 +576,8 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' target <- c(1, 0, 1, 0, 1)
 #' gains_table <- OptimalBinningGainsTableFeature(feature_woe, target)
 #' }
+#' @export
 OptimalBinningGainsTableFeature <- function(feature_woe, target) {
-    .Call('_OptimalBinningWoE_OptimalBinningGainsTableFeature', PACKAGE = 'OptimalBinningWoE', feature_woe, target)
+    .Call(`_OptimalBinningWoE_OptimalBinningGainsTableFeature`, feature_woe, target)
 }
 

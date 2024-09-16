@@ -59,5 +59,4 @@ feature_categorical <- c("A", "B", NA, "B", "A")
 result <- OptimalBinningDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
 result <- OptimalBinningDataPreprocessor(target, feature_categorical)
 }
-
 }

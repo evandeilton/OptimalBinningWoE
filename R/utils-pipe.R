@@ -12,3 +12,14 @@
 #' @param rhs A function call using the magrittr semantics.
 #' @return The result of calling `rhs(lhs)`.
 NULL
+
+## usethis namespace: start
+#' @importFrom Rcpp sourceCpp
+## usethis namespace: end
+NULL
+
+## usethis namespace: start
+#' @useDynLib OptimalBinningWoE, .registration = TRUE
+## usethis namespace: end
+NULL
+
