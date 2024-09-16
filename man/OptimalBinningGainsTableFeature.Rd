@@ -52,4 +52,5 @@ feature_woe <- c(-0.5, 0.2, 0.2, -0.5, 0.3)
 target <- c(1, 0, 1, 0, 1)
 gains_table <- OptimalBinningGainsTableFeature(feature_woe, target)
 }
+
 }

@@ -50,7 +50,7 @@ using namespace Rcpp;
 //'   \item \code{pos}: Vector with the count of positive events in each bin.
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalMIP(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, double cat_cutoff = 0.05, int min_bins = 2, int max_bins = 5) {
   int N = target.size();
@@ -288,7 +288,7 @@ Rcpp::List OptimalBinningCategoricalMIP(Rcpp::IntegerVector target, Rcpp::Charac
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int N = target.size();
@@ -565,7 +565,7 @@ Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::Charac
 //'   \item \code{pos}: Vector with the count of positive events in each bin.
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalChiMerge(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double pvalue_threshold = 0.05, double cat_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int N = target.size();
@@ -895,7 +895,7 @@ Rcpp::List OptimalBinningCategoricalChiMerge(Rcpp::IntegerVector target, Rcpp::C
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalMDLP(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05) {
   int N = target.size();
@@ -1205,7 +1205,7 @@ Rcpp::List OptimalBinningCategoricalMDLP(Rcpp::IntegerVector target, Rcpp::Chara
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalCAIM(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05) {
   int N = target.size();
@@ -1506,7 +1506,7 @@ Rcpp::List OptimalBinningCategoricalCAIM(Rcpp::IntegerVector target, Rcpp::Chara
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningCategoricalIV(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05) {
   int N = target.size();
@@ -1822,7 +1822,7 @@ Rcpp::List OptimalBinningCategoricalIV(Rcpp::IntegerVector target, Rcpp::Charact
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, int max_n_prebins = 20) {
   int N = target.size();
@@ -2117,7 +2117,7 @@ Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVec
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningNumericMOB(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int N = target.size();
@@ -2425,7 +2425,7 @@ double compute_p_value(Bin& bin1, Bin& bin2) {
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningNumericChiMerge(IntegerVector target, NumericVector feature, int min_bins = 2, int max_bins = 7, double pvalue_threshold = 0.05, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int n = feature.size();
@@ -2955,7 +2955,7 @@ void compute_woe_iv(const IntegerVector& target, const std::vector<Interval>& in
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningNumericMDLP(IntegerVector target, NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int n = feature.size();
@@ -3150,7 +3150,7 @@ double compute_caim(const std::vector<int>& bin_starts,
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 Rcpp::List OptimalBinningNumericCAIM(IntegerVector target, NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
   int n = feature.size();
@@ -3506,7 +3506,7 @@ std::string format_double(double val) {
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 List OptimalBinningNumericPAVA(IntegerVector target, NumericVector feature, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20, std::string monotonicity_direction = "increase") {
   // Ensure input vectors are of the same length
@@ -4024,7 +4024,7 @@ void pruneBins(std::vector<BinTree>& bins, double min_iv_gain){
 //'   \item \code{neg}: Vector with the count of negative events in each bin.
 //' }
 //'
-//' @export
+//'
 // [[Rcpp::export]]
 List OptimalBinningNumericTree(IntegerVector target, NumericVector feature, int max_bins = 7, double lambda = 0.1, double min_bin_size = 0.05, double min_iv_gain = 0.01, int max_depth = 10, std::string monotonicity_direction = "increase"){
 

@@ -28,7 +28,7 @@
 #'   \item \code{pos}: Vector with the count of positive events in each bin.
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
-#' @export
+#'
 OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min_bins = 2L, max_bins = 5L) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMIP`, target, feature, cat_cutoff, min_bins, max_bins)
 }
@@ -63,7 +63,7 @@ OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningCategoricalMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMOB`, target, feature, min_bins, max_bins, cat_cutoff, min_bads, max_n_prebins)
 }
@@ -98,7 +98,7 @@ OptimalBinningCategoricalMOB <- function(target, feature, min_bins = 2L, max_bin
 #'   \item \code{pos}: Vector with the count of positive events in each bin.
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
-#' @export
+#'
 OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, cat_cutoff, min_bads, max_n_prebins)
 }
@@ -132,7 +132,7 @@ OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, ma
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMDLP`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
@@ -166,7 +166,7 @@ OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalCAIM`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
@@ -200,7 +200,7 @@ OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
     .Call(`_OptimalBinningWoE_OptimalBinningCategoricalIV`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
 }
@@ -234,7 +234,7 @@ OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericMIP`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
@@ -269,7 +269,7 @@ OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericMOB`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
@@ -305,7 +305,7 @@ OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, bin_cutoff, min_bads, max_n_prebins)
 }
@@ -340,7 +340,7 @@ OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bi
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericMDLP`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
@@ -375,7 +375,7 @@ OptimalBinningNumericMDLP <- function(target, feature, min_bins = 2L, max_bins =
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericCAIM`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
@@ -410,7 +410,7 @@ OptimalBinningNumericCAIM <- function(target, feature, min_bins = 2L, max_bins =
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericPAVA <- function(target, feature, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L, monotonicity_direction = "increase") {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericPAVA`, target, feature, max_bins, bin_cutoff, min_bads, max_n_prebins, monotonicity_direction)
 }
@@ -445,7 +445,7 @@ OptimalBinningNumericPAVA <- function(target, feature, max_bins = 7L, bin_cutoff
 #'   \item \code{neg}: Vector with the count of negative events in each bin.
 #' }
 #'
-#' @export
+#'
 OptimalBinningNumericTree <- function(target, feature, max_bins = 7L, lambda = 0.1, min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10L, monotonicity_direction = "increase") {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericTree`, target, feature, max_bins, lambda, min_bin_size, min_iv_gain, max_depth, monotonicity_direction)
 }
@@ -576,7 +576,7 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' target <- c(1, 0, 1, 0, 1)
 #' gains_table <- OptimalBinningGainsTableFeature(feature_woe, target)
 #' }
-#' @export
+#'
 OptimalBinningGainsTableFeature <- function(feature_woe, target) {
     .Call(`_OptimalBinningWoE_OptimalBinningGainsTableFeature`, feature_woe, target)
 }

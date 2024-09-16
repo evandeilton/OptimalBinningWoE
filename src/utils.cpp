@@ -201,7 +201,7 @@ DataFrame OptimalBinningGainsTable(List binning_result) {
 //' target <- c(1, 0, 1, 0, 1)
 //' gains_table <- OptimalBinningGainsTableFeature(feature_woe, target)
 //' }
-//' @export
+//'
 // [[Rcpp::export]]
 DataFrame OptimalBinningGainsTableFeature(NumericVector feature_woe, NumericVector target) {
   if (feature_woe.size() != target.size()) {
