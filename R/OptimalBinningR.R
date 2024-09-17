@@ -2,21 +2,21 @@
 ## Main
 ## --------------------------------------------------------------------------------------------- ##
 
-# ## Simulate data
-# 
-# da <- scorecard::germancredit
-# da$target <- ifelse(da$creditability == "good", 1, 0)
-# 
-# feature <- "credit.history"
-# target <- "target"
-# dt <- data.table::setDT(da)
-# 
-# 
-# oo <- OptimalBinningWoE(dt, "target", feature = "credit.history", method = "caim", min_bins = 2, max_bins = 3, preprocess = FALSE)
-# 
-# View(oo$prep_report)
-# View(oo$woe_woebins)
-# View(oo$woe_feature)
+## Simulate data
+
+da <- scorecard::germancredit
+da$target <- ifelse(da$creditability == "good", 1, 0)
+
+feature <- c("credit.history","duration.in.month" )
+target <- "target"
+dt <- data.table::setDT(da)
+
+
+oo <- OptimalBinningWoE(dt, "target", feature = "credit.history", method = "caim", min_bins = 2, max_bins = 3, preprocess = FALSE)
+
+View(oo$prep_report)
+View(oo$woe_woebins)
+View(oo$woe_feature)
 
 #' Optimal Binning and Weight of Evidence Calculation
 #'
@@ -450,3 +450,4 @@ OptimalBinningselectBestModel <- function(dt, target, feature, control, min_bins
     return(binning_result)  
   }
 }
+
