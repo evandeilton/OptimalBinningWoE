@@ -49,81 +49,81 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>O pacote OptimalBinningWoE oferece uma implementação robusta e flexível de binning ótimo e cálculo de Weight of Evidence (WoE) para análise de dados e modelagem preditiva. Este pacote é particularmente útil para preparação de dados em modelos de credit scoring, mas pode ser aplicado em diversos contextos de modelagem estatística.</p>
+<p>The OptimalBinningWoE package offers a robust and flexible implementation of optimal binning and Weight of Evidence (WoE) calculation for data analysis and predictive modeling. This package is particularly useful for data preparation in credit scoring models but can be applied in various statistical modeling contexts.</p>
 <div class="section level2">
-<h2 id="instalação">Instalação<a class="anchor" aria-label="anchor" href="#instala%C3%A7%C3%A3o"></a>
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>Você pode instalar a versão em desenvolvimento do OptimalBinningWoE do <a href="https://github.com/" class="external-link">GitHub</a> com:</p>
+<p>You can install the development version of OptimalBinningWoE from <a href="https://github.com/" class="external-link">GitHub</a> with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"seu_usuario/OptimalBinningWoE"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"your_username/OptimalBinningWoE"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="visão-geral">Visão Geral<a class="anchor" aria-label="anchor" href="#vis%C3%A3o-geral"></a>
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>O OptimalBinningWoE oferece as seguintes funcionalidades principais:</p>
+<p>OptimalBinningWoE offers the following main functionalities:</p>
 <ol style="list-style-type: decimal">
-<li>Binning ótimo para variáveis categóricas e numéricas</li>
-<li>Cálculo de Weight of Evidence (WoE)</li>
-<li>Seleção automática do melhor método de binning</li>
-<li>Pré-processamento de dados, incluindo tratamento de valores ausentes e outliers</li>
+<li>Optimal binning for categorical and numerical variables</li>
+<li>Weight of Evidence (WoE) calculation</li>
+<li>Automatic selection of the best binning method</li>
+<li>Data preprocessing, including handling of missing values and outliers</li>
 </ol>
 </div>
 <div class="section level2">
-<h2 id="algoritmos-suportados">Algoritmos Suportados<a class="anchor" aria-label="anchor" href="#algoritmos-suportados"></a>
+<h2 id="supported-algorithms">Supported Algorithms<a class="anchor" aria-label="anchor" href="#supported-algorithms"></a>
 </h2>
-<p>O OptimalBinningWoE suporta os seguintes algoritmos de binning:</p>
+<p>OptimalBinningWoE supports the following binning algorithms:</p>
 <ol style="list-style-type: decimal">
-<li>CAIM (Class-Attribute Interdependence Maximization): Aplicável a variáveis categóricas e numéricas.</li>
-<li>ChiMerge: Aplicável a variáveis categóricas e numéricas.</li>
-<li>MDLP (Minimum Description Length Principle): Aplicável a variáveis categóricas e numéricas.</li>
-<li>MIP (Minimum Information Pure): Aplicável a variáveis categóricas e numéricas.</li>
-<li>MOB (Monotone Optimal Binning): Aplicável a variáveis categóricas e numéricas.</li>
-<li>IV (Information Value): Aplicável apenas a variáveis categóricas.</li>
-<li>PAVA (Pool Adjacent Violators Algorithm): Aplicável apenas a variáveis numéricas.</li>
-<li>Tree-based binning: Aplicável apenas a variáveis numéricas.</li>
+<li>CAIM (Class-Attribute Interdependence Maximization): Applicable to both categorical and numerical variables.</li>
+<li>ChiMerge: Applicable to both categorical and numerical variables.</li>
+<li>MDLP (Minimum Description Length Principle): Applicable to both categorical and numerical variables.</li>
+<li>MIP (Minimum Information Pure): Applicable to both categorical and numerical variables.</li>
+<li>MOB (Monotone Optimal Binning): Applicable to both categorical and numerical variables.</li>
+<li>IV (Information Value): Applicable only to categorical variables.</li>
+<li>PAVA (Pool Adjacent Violators Algorithm): Applicable only to numerical variables.</li>
+<li>Tree-based binning: Applicable only to numerical variables.</li>
 </ol>
-<p>Cada algoritmo tem suas próprias forças e pode performar diferentemente dependendo da natureza dos dados. A opção de seleção automática de método testa os algoritmos aplicáveis e escolhe o que produz o maior Information Value.</p>
+<p>Each algorithm has its own strengths and may perform differently depending on the nature of the data. The automatic method selection option tests applicable algorithms and chooses the one that produces the highest Information Value.</p>
 </div>
 <div class="section level2">
-<h2 id="parâmetros-de-controle">Parâmetros de Controle<a class="anchor" aria-label="anchor" href="#par%C3%A2metros-de-controle"></a>
+<h2 id="control-parameters">Control Parameters<a class="anchor" aria-label="anchor" href="#control-parameters"></a>
 </h2>
-<p>O pacote oferece diversos parâmetros de controle para ajustar o comportamento do binning e pré-processamento:</p>
+<p>The package offers various control parameters to adjust the behavior of binning and preprocessing:</p>
 <ul>
 <li>
-<code>min_bads</code>: Proporção mínima de casos “ruins” em cada bin (padrão: 0.05)</li>
+<code>min_bads</code>: Minimum proportion of “bad” cases in each bin (default: 0.05)</li>
 <li>
-<code>pvalue_threshold</code>: Limiar de p-valor para testes estatísticos (padrão: 0.05)</li>
+<code>pvalue_threshold</code>: P-value threshold for statistical tests (default: 0.05)</li>
 <li>
-<code>max_n_prebins</code>: Número máximo de pré-bins antes da otimização (padrão: 20)</li>
+<code>max_n_prebins</code>: Maximum number of pre-bins before optimization (default: 20)</li>
 <li>
-<code>monotonicity_direction</code>: Direção da monotonia (“increase” ou “decrease”) (padrão: “increase”)</li>
+<code>monotonicity_direction</code>: Direction of monotonicity (“increase” or “decrease”) (default: “increase”)</li>
 <li>
-<code>lambda</code>: Parâmetro de regularização para métodos baseados em árvore (padrão: 0.1)</li>
+<code>lambda</code>: Regularization parameter for tree-based methods (default: 0.1)</li>
 <li>
-<code>min_bin_size</code>: Proporção mínima de casos em cada bin (padrão: 0.05)</li>
+<code>min_bin_size</code>: Minimum proportion of cases in each bin (default: 0.05)</li>
 <li>
-<code>min_iv_gain</code>: Ganho mínimo de IV para criar uma nova divisão (padrão: 0.01)</li>
+<code>min_iv_gain</code>: Minimum IV gain for creating a new split (default: 0.01)</li>
 <li>
-<code>max_depth</code>: Profundidade máxima para métodos baseados em árvore (padrão: 10)</li>
+<code>max_depth</code>: Maximum depth for tree-based methods (default: 10)</li>
 <li>
-<code>num_miss_value</code>: Valor para representar valores numéricos ausentes (padrão: -999.0)</li>
+<code>num_miss_value</code>: Value to represent missing numeric values (default: -999.0)</li>
 <li>
-<code>char_miss_value</code>: Valor para representar valores categóricos ausentes (padrão: “N/A”)</li>
+<code>char_miss_value</code>: Value to represent missing categorical values (default: “N/A”)</li>
 <li>
-<code>outlier_method</code>: Método para detecção de outliers (“iqr”, “zscore”, ou “grubbs”) (padrão: “iqr”)</li>
+<code>outlier_method</code>: Method for outlier detection (“iqr”, “zscore”, or “grubbs”) (default: “iqr”)</li>
 <li>
-<code>outlier_process</code>: Se deve processar outliers (padrão: FALSE)</li>
+<code>outlier_process</code>: Whether to process outliers (default: FALSE)</li>
 <li>
-<code>iqr_k</code>: Fator para o método IQR (padrão: 1.5)</li>
+<code>iqr_k</code>: Factor for the IQR method (default: 1.5)</li>
 <li>
-<code>zscore_threshold</code>: Limiar para o método Z-score (padrão: 3)</li>
+<code>zscore_threshold</code>: Threshold for the Z-score method (default: 3)</li>
 <li>
-<code>grubbs_alpha</code>: Nível de significância para o teste de Grubbs (padrão: 0.05)</li>
+<code>grubbs_alpha</code>: Significance level for Grubbs’ test (default: 0.05)</li>
 </ul>
 </div>
 <div class="section level2">
-<h2 id="exemplos-de-uso">Exemplos de uso<a class="anchor" aria-label="anchor" href="#exemplos-de-uso"></a>
+<h2 id="usage-examples">Usage Examples<a class="anchor" aria-label="anchor" href="#usage-examples"></a>
 </h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://evandeilton.github.io/OptimalBinningWoE/">OptimalBinningWoE</a></span><span class="op">)</span></span>
@@ -131,154 +131,160 @@
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/sfirke/janitor" class="external-link">janitor</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Carregar os dados</span></span>
+<span><span class="co"># Load the data</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span><span class="op">)</span></span>
-<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span> </span>
+<span><span class="va">da</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/setDT.html" class="external-link">setDT</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span> </span>
 <span>  <span class="fu">janitor</span><span class="fu">::</span><span class="fu">clean_names</span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Definir a variável target</span></span>
-<span><span class="va">dt</span><span class="op">[</span>, <span class="va">default</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">dt</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="co"># Define the target variable</span></span>
+<span><span class="va">da</span><span class="op">[</span>, <span class="va">default</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">da</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="va">target</span> <span class="op">&lt;-</span> <span class="st">"default"</span></span>
 <span></span>
-<span><span class="co"># Executar OptimalBinningWoE com seleção automática de método</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, method <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
+<span><span class="co"># Copy data</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="va">da</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Visualizar resultados</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe_feature</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prep_report</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Run OptimalBinningWoE with automatic method selection</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, method <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># View results</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">woe_feature</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">prep_report</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="exemplos-detalhados">Exemplos Detalhados<a class="anchor" aria-label="anchor" href="#exemplos-detalhados"></a>
+<h2 id="detailed-examples">Detailed Examples<a class="anchor" aria-label="anchor" href="#detailed-examples"></a>
 </h2>
 <div class="section level3">
-<h3 id="id_1-binning-de-variável-numérica-com-método-específico">1. Binning de variável numérica com método específico<a class="anchor" aria-label="anchor" href="#id_1-binning-de-vari%C3%A1vel-num%C3%A9rica-com-m%C3%A9todo-espec%C3%ADfico"></a>
+<h3 id="id_1-binning-a-numeric-variable-with-a-specific-method">1. Binning a numeric variable with a specific method<a class="anchor" aria-label="anchor" href="#id_1-binning-a-numeric-variable-with-a-specific-method"></a>
 </h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Usando o método MDLP para a variável 'age_in_years'</span></span>
-<span><span class="va">numeric_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"age_in_years"</span>, method <span class="op">=</span> <span class="st">"mdlp"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">numeric_result</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Copy data</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="va">da</span><span class="op">)</span></span>
+<span><span class="co"># Using the MDLP method for the 'age_in_years' variable</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"age_in_years"</span>, method <span class="op">=</span> <span class="st">"mdlp"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_2-binning-de-variável-categórica">2. Binning de variável categórica<a class="anchor" aria-label="anchor" href="#id_2-binning-de-vari%C3%A1vel-categ%C3%B3rica"></a>
+<h3 id="id_2-binning-a-categorical-variable">2. Binning a categorical variable<a class="anchor" aria-label="anchor" href="#id_2-binning-a-categorical-variable"></a>
 </h3>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Usando o método ChiMerge para a variável 'purpose'</span></span>
-<span><span class="va">categorical_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"purpose"</span>, method <span class="op">=</span> <span class="st">"chimerge"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">categorical_result</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Copy data</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="va">da</span><span class="op">)</span></span>
+<span><span class="co"># Using the ChiMerge method for the 'purpose' variable</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"purpose"</span>, method <span class="op">=</span> <span class="st">"chimerge"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">out</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_3-tratamento-de-valores-ausentes-no-pré-processamento">3. Tratamento de valores ausentes no pré-processamento<a class="anchor" aria-label="anchor" href="#id_3-tratamento-de-valores-ausentes-no-pr%C3%A9-processamento"></a>
+<h3 id="id_3-handling-missing-values-in-preprocessing">3. Handling missing values in preprocessing<a class="anchor" aria-label="anchor" href="#id_3-handling-missing-values-in-preprocessing"></a>
 </h3>
-<p>Para este exemplo, vamos adicionar alguns valores ausentes artificialmente:</p>
+<p>For this example, we’ll artificially add some missing values:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Adicionar valores ausentes</span></span>
+<code class="sourceCode R"><span><span class="co"># Copy data</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="va">da</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Add missing values</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
 <span><span class="va">dt</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span>, <span class="fl">50</span><span class="op">)</span>, <span class="va">age_in_years</span> <span class="op">:=</span> <span class="cn">NA</span><span class="op">]</span></span>
 <span><span class="va">dt</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span>, <span class="fl">30</span><span class="op">)</span>, <span class="va">credit_amount</span> <span class="op">:=</span> <span class="cn">NA</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Executar OptimalBinningWoE com pré-processamento</span></span>
-<span><span class="va">result_with_missing</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_in_years"</span>, <span class="st">"credit_amount"</span><span class="op">)</span>, </span>
-<span>                                         preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>                                         control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>num_miss_value <span class="op">=</span> <span class="op">-</span><span class="fl">999</span>, char_miss_value <span class="op">=</span> <span class="st">"MISSING"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Verificar o relatório de pré-processamento</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_with_missing</span><span class="op">$</span><span class="va">prep_report</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Run OptimalBinningWoE with preprocessing</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, </span>
+<span>                         feature <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_in_years"</span>, <span class="st">"credit_amount"</span><span class="op">)</span>, </span>
+<span>                         preprocess <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_4-tratamento-de-outliers">4. Tratamento de outliers<a class="anchor" aria-label="anchor" href="#id_4-tratamento-de-outliers"></a>
+<h3 id="id_4-handling-outliers">4. Handling outliers<a class="anchor" aria-label="anchor" href="#id_4-handling-outliers"></a>
 </h3>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Adicionar alguns outliers aos dados</span></span>
+<code class="sourceCode R"><span><span class="co"># Copy data</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/copy.html" class="external-link">copy</a></span><span class="op">(</span><span class="va">da</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Add some outliers to the data</span></span>
 <span><span class="va">dt</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span>, <span class="fl">10</span><span class="op">)</span>, <span class="va">credit_amount</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span>, mean <span class="op">=</span> <span class="fl">100000</span>, sd <span class="op">=</span> <span class="fl">10000</span><span class="op">)</span><span class="op">]</span></span>
 <span></span>
-<span><span class="co"># Executar OptimalBinningWoE com tratamento de outliers</span></span>
-<span><span class="va">result_with_outliers</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"credit_amount"</span>, preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>                                          control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>outlier_method <span class="op">=</span> <span class="st">"iqr"</span>, outlier_process <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Verificar o relatório de pré-processamento</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_with_outliers</span><span class="op">$</span><span class="va">prep_report</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Run OptimalBinningWoE with outlier treatment</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, </span>
+<span>                         feature <span class="op">=</span> <span class="st">"credit_amount"</span>, preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                         control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>outlier_method <span class="op">=</span> <span class="st">"iqr"</span>, outlier_process <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_5-comparação-de-diferentes-métodos">5. Comparação de diferentes métodos<a class="anchor" aria-label="anchor" href="#id_5-compara%C3%A7%C3%A3o-de-diferentes-m%C3%A9todos"></a>
+<h3 id="id_5-comparison-of-different-methods">5. Comparison of different methods<a class="anchor" aria-label="anchor" href="#id_5-comparison-of-different-methods"></a>
 </h3>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">methods</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"caim"</span>, <span class="st">"chimerge"</span>, <span class="st">"mdlp"</span>, <span class="st">"mip"</span>, <span class="st">"mob"</span><span class="op">)</span></span>
-<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">method</span> <span class="kw">in</span> <span class="va">methods</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">results</span><span class="op">[[</span><span class="va">method</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"duration_in_month"</span>, method <span class="op">=</span> <span class="va">method</span><span class="op">)</span></span>
+<span>  <span class="va">out</span><span class="op">[[</span><span class="va">method</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, </span>
+<span>                                     feature <span class="op">=</span> <span class="st">"duration_in_month"</span>, </span>
+<span>                                     method <span class="op">=</span> <span class="va">method</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># Comparar o número de bins e IV total para cada método</span></span>
+<span><span class="co"># Compare the number of bins and total IV for each method</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Method <span class="op">=</span> <span class="va">methods</span>,</span>
-<span>  Num_Bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">results</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  Total_IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">results</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span></code></pre></div>
+<span>  Num_Bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">out</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  Total_IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">out</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_6-processamento-de-múltiplas-variáveis">6. Processamento de múltiplas variáveis<a class="anchor" aria-label="anchor" href="#id_6-processamento-de-m%C3%BAltiplas-vari%C3%A1veis"></a>
+<h3 id="id_6-processing-multiple-variables">6. Processing multiple variables<a class="anchor" aria-label="anchor" href="#id_6-processing-multiple-variables"></a>
 </h3>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Selecionar múltiplas features para processamento</span></span>
-<span><span class="va">selected_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_in_years"</span>, <span class="st">"credit_amount"</span>, <span class="st">"duration_in_month"</span>, <span class="st">"present_residence_since"</span>, <span class="st">"number_of_existing_credits_at_this_bank"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Select multiple features for processing</span></span>
+<span><span class="va">selected_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_in_years"</span>, <span class="st">"credit_amount"</span>, <span class="st">"duration_in_month"</span>, </span>
+<span>                       <span class="st">"present_residence_since"</span>, <span class="st">"number_of_existing_credits_at_this_bank"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Executar OptimalBinningWoE para múltiplas features</span></span>
-<span><span class="va">multi_feature_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="va">selected_features</span>, method <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
+<span><span class="co"># Run OptimalBinningWoE for multiple features</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="va">selected_features</span>, method <span class="op">=</span> <span class="st">"auto"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Visualizar resultados resumidos</span></span>
-<span><span class="va">summary_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  Feature <span class="op">=</span> <span class="va">selected_features</span>,</span>
-<span>  Num_Bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">multi_feature_result</span><span class="op">$</span><span class="va">woe_woebins</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  Total_IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">multi_feature_result</span><span class="op">$</span><span class="va">woe_woebins</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">x</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">summary_results</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># View summarized results</span></span>
+<span><span class="va">summary_results</span> <span class="op">&lt;-</span> <span class="va">out</span><span class="op">$</span><span class="va">woe_woebins</span></span>
+<span><span class="va">summary_results</span> <span class="op">&lt;-</span> <span class="va">summary_results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"total_iv"</span>, <span class="st">"nclass"</span><span class="op">)</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">iv</span><span class="op">)</span>, <span class="va">.N</span><span class="op">)</span>, by <span class="op">=</span> <span class="va">feature</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="id_7-análise-de-uma-variável-ordinal">7. Análise de uma variável ordinal<a class="anchor" aria-label="anchor" href="#id_7-an%C3%A1lise-de-uma-vari%C3%A1vel-ordinal"></a>
+<h3 id="id_7-analysis-of-an-ordinal-variable">7. Analysis of an ordinal variable<a class="anchor" aria-label="anchor" href="#id_7-analysis-of-an-ordinal-variable"></a>
 </h3>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Analisar a variável 'present_residence_since'</span></span>
-<span><span class="va">ordinal_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"present_residence_since"</span>, method <span class="op">=</span> <span class="st">"mob"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">ordinal_result</span><span class="op">$</span><span class="va">woe_woebins</span><span class="op">)</span></span></code></pre></div>
-<p>Estes exemplos demonstram o uso do OptimalBinningWoE com o conjunto de dados German Credit, incluindo:</p>
+<code class="sourceCode R"><span><span class="co"># Analyze the 'present_residence_since' variable</span></span>
+<span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/OptimalBinningWoE.html">OptimalBinningWoE</a></span><span class="op">(</span><span class="va">dt</span>, target <span class="op">=</span> <span class="st">"default"</span>, </span>
+<span>                         feature <span class="op">=</span> <span class="st">"present_residence_since"</span>, method <span class="op">=</span> <span class="st">"mob"</span><span class="op">)</span></span></code></pre></div>
+<p>These examples demonstrate the use of OptimalBinningWoE with the German Credit dataset, including:</p>
 <ol style="list-style-type: decimal">
-<li>Uso de variáveis reais de um conjunto de dados de credit scoring.</li>
-<li>Tratamento de variáveis numéricas, categóricas e ordinais.</li>
-<li>Lidar com valores ausentes e outliers (artificialmente introduzidos para demonstração).</li>
-<li>Comparação de diferentes métodos de binning.</li>
-<li>Processamento de múltiplas variáveis simultaneamente.</li>
-<li>Análise específica de uma variável ordinal.</li>
+<li>Use of real variables from a credit scoring dataset.</li>
+<li>Handling of numeric, categorical, and ordinal variables.</li>
+<li>Dealing with missing values and outliers (artificially introduced for demonstration).</li>
+<li>Comparison of different binning methods.</li>
+<li>Simultaneous processing of multiple variables.</li>
+<li>Specific analysis of an ordinal variable.</li>
 </ol>
-<p><code>Esta versão dos exemplos usa o conjunto de dados German Credit, que é um conjunto de dados real e amplamente utilizado em estudos de credit scoring. Os exemplos cobrem uma variedade de cenários e tipos de variáveis presentes neste conjunto de dados, proporcionando uma demonstração mais realista e relevante do uso do pacote OptimalBinningWoE.</code></p>
+<p><code>This version of the examples uses the German Credit dataset, which is a real dataset widely used in credit scoring studies. The examples cover a variety of scenarios and variable types present in this dataset, providing a more realistic and relevant demonstration of the OptimalBinningWoE package usage.</code></p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="considerações-finais">Considerações Finais<a class="anchor" aria-label="anchor" href="#considera%C3%A7%C3%B5es-finais"></a>
+<h2 id="final-considerations">Final Considerations<a class="anchor" aria-label="anchor" href="#final-considerations"></a>
 </h2>
-<p>O pacote OptimalBinningWoE oferece uma solução abrangente para binning e cálculo de WoE, com suporte para diversos algoritmos e opções de pré-processamento. Ao usar este pacote, considere os seguintes pontos:</p>
+<p>The OptimalBinningWoE package offers a comprehensive solution for binning and WoE calculation, with support for various algorithms and preprocessing options. When using this package, consider the following points:</p>
 <ol style="list-style-type: decimal">
-<li><p>A seleção automática de método (<code>method = "auto"</code>) pode ser útil quando você não tem certeza sobre qual algoritmo usar, mas pode ser computacionalmente intensiva para grandes conjuntos de dados.</p></li>
-<li><p>O pré-processamento de dados, incluindo o tratamento de valores ausentes e outliers, pode ter um impacto significativo nos resultados do binning. Ajuste os parâmetros de controle conforme necessário para seu conjunto de dados específico.</p></li>
-<li><p>Diferentes métodos de binning podem produzir resultados significativamente diferentes. É uma boa prática comparar os resultados de vários métodos antes de fazer uma escolha final.</p></li>
-<li><p>Para conjuntos de dados muito grandes, considere usar uma amostra representativa para determinar os bins ótimos e depois aplicar esses bins ao conjunto de dados completo.</p></li>
-<li><p>O pacote fornece flexibilidade para lidar com diferentes tipos de dados e cenários de modelagem. Experimente diferentes configurações para encontrar a melhor abordagem para seus dados específicos.</p></li>
+<li><p>Automatic method selection (<code>method = "auto"</code>) can be useful when you’re unsure which algorithm to use, but it may be computationally intensive for large datasets.</p></li>
+<li><p>Data preprocessing, including handling missing values and outliers, can significantly impact binning results. Adjust the control parameters as necessary for your specific dataset.</p></li>
+<li><p>Different binning methods can produce significantly different results. It’s good practice to compare the results of several methods before making a final choice.</p></li>
+<li><p>For very large datasets, consider using a representative sample to determine the optimal bins and then apply these bins to the full dataset.</p></li>
+<li><p>The package provides flexibility to handle different types of data and modeling scenarios. Experiment with different settings to find the best approach for your specific data.</p></li>
 </ol>
-<p>Para mais detalhes sobre as opções disponíveis e interpretação dos resultados, consulte a documentação completa do pacote.</p>
+<p>For more details on available options and interpretation of results, please refer to the complete package documentation.</p>
 </div>
 <div class="section level2">
-<h2 id="contribuindo">Contribuindo<a class="anchor" aria-label="anchor" href="#contribuindo"></a>
+<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
 </h2>
-<p>Contribuições para o OptimalBinningWoE são bem-vindas! Por favor, consulte o arquivo CONTRIBUTING.md para diretrizes sobre como contribuir para este projeto.</p>
+<p>Contributions to OptimalBinningWoE are welcome! Please refer to the CONTRIBUTING.md file for guidelines on how to contribute to this project.</p>
 </div>
 <div class="section level2">
-<h2 id="licença">Licença<a class="anchor" aria-label="anchor" href="#licen%C3%A7a"></a>
+<h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
 </h2>
-<p>Este projeto está licenciado sob a Licença MIT - Veja o arquivo LICENSE.md para detalhes.</p>
+<p>This project is licensed under the MIT License - see the LICENSE.md file for details.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="license">
