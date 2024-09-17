@@ -14,11 +14,7 @@ OptimalBinningWoE(
   max_bins = 4,
   cat_cutoff = 0.05,
   bin_cutoff = 0.05,
-  control = list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20,
-    monotonicity_direction = "increase", lambda = 0.1, min_bin_size = 0.05, min_iv_gain =
-    0.01, max_depth = 10, num_miss_value = -999, char_miss_value = "N/A", outlier_method
-    = "iqr", outlier_process = FALSE, iqr_k = 1.5, zscore_threshold = 3, grubbs_alpha =
-    0.05)
+  control = list()
 )
 }
 \arguments{
