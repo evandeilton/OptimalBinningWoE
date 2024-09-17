@@ -11,7 +11,6 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningCategoricalMIP.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningCategoricalMOB.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningDataPreprocessor.html</loc></url>
-<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningDataPreprocessorInterface.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningGainsTable.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningGainsTableFeature.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningNumericCAIM.html</loc></url>
@@ -21,6 +20,10 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningNumericMOB.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningNumericPAVA.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningNumericTree.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningSelectAlgorithm.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningValidateInputs.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningWoE.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OptimalBinningselectBestModel.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/index.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/pipe.html</loc></url>
 </urlset>
