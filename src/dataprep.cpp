@@ -182,7 +182,7 @@ List OptimalBinningDataPreprocessor(
     is_numeric = true;
     feature_numeric = as<NumericVector>(feature);
     variable_type = "numeric";
-  } else if(TYPEOF(feature) == STRSXP) {
+  } else if(TYPEOF(feature) == STRSXP || Rf_isFactor(feature)) {
     is_character = true;
     feature_character = as<CharacterVector>(feature);
     variable_type = "categorical";
@@ -379,7 +379,7 @@ List OptimalBinningDataPreprocessor(
       );
     }
   }
-
+  
   // Prepare report DataFrame with serialized stats
   DataFrame report_df = DataFrame::create(
     Named("variable_type") = variable_type,
@@ -388,6 +388,9 @@ List OptimalBinningDataPreprocessor(
     Named("original_stats") = original_stats_str,
     Named("preprocessed_stats") = preprocessed_stats_str
   );
+  
+  preprocess_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+  report_df.attr("class") = CharacterVector::create("data.table", "data.frame");
 
   // Prepare output List
   List output;
@@ -397,5 +400,8 @@ List OptimalBinningDataPreprocessor(
   if(vector_contains(preprocess, "report") || vector_contains(preprocess, "both")) {
     output["report"] = report_df;
   }
+  
+  output.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
   return output;
 }

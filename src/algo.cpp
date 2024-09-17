@@ -237,25 +237,35 @@ Rcpp::List OptimalBinningCategoricalMIP(Rcpp::IntegerVector target, Rcpp::Charac
     neg[i] = bins[i].neg_count;
   }
 
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
 
   // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+    // Named("woe") = woe,
+    // Named("iv") = total_iv,
+    // Named("pos") = pos,
+    // Named("neg") = neg
   );
+  
+  return output_list;
 }
 
 //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using Monotonic Optimal Binning (MOB)
@@ -514,25 +524,57 @@ Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::Charac
     neg[i] = bins[i].neg_count;
   }
 
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
-
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
   // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
+  
+  // // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
 }
 
 //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
@@ -843,26 +885,58 @@ Rcpp::List OptimalBinningCategoricalChiMerge(Rcpp::IntegerVector target, Rcpp::C
     pos[i] = bins[i].pos_count;
     neg[i] = bins[i].neg_count;
   }
-
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
+  );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  // Return output
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
 
-  // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
-  );
+  // // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
 }
 
 
@@ -1155,25 +1229,57 @@ Rcpp::List OptimalBinningCategoricalMDLP(Rcpp::IntegerVector target, Rcpp::Chara
     neg[i] = bins[i].neg_count;
   }
 
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
-
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
   // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
+  
+  // // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
 }
 
 //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
@@ -1455,26 +1561,59 @@ Rcpp::List OptimalBinningCategoricalCAIM(Rcpp::IntegerVector target, Rcpp::Chara
     pos[i] = bins[i].pos_count;
     neg[i] = bins[i].neg_count;
   }
-
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
+  );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  // Return output
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
 
-  // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
-  );
+  // // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
 
 //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV), ensuring monotonicity and maximizing IV
@@ -1768,25 +1907,58 @@ Rcpp::List OptimalBinningCategoricalIV(Rcpp::IntegerVector target, Rcpp::Charact
     neg[i] = bins[i].neg_count;
   }
 
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
-
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
   // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv_bins,
-    Named("pos") = pos,
-    Named("neg") = neg
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
+  
+  // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
 
 // ---------------------------------------------------------------------------------------------- //
@@ -2065,26 +2237,59 @@ Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVec
     pos[i] = bins[i].pos_count;
     neg[i] = bins[i].neg_count;
   }
-
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
+  );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  // Return output
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
 
-  // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
-  );
+  // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
 
 //' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Monotonic Optimal Binning (MOB) approach
@@ -2333,25 +2538,58 @@ Rcpp::List OptimalBinningNumericMOB(Rcpp::IntegerVector target, Rcpp::NumericVec
     neg[i] = bins[i].neg_count;
   }
 
-  // Create DataFrame for bins
-  DataFrame bin_df = DataFrame::create(
+  // Create List for bins
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
     Named("iv") = iv_bin,
     Named("count") = count,
     Named("count_pos") = pos,
-    Named("count_neg") = neg
+    Named("count_neg") = neg);
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
-
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
   // Return output
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = total_iv,
-    Named("pos") = pos,
-    Named("neg") = neg
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
   );
+  
+  // Create DataFrame for bins
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("iv") = iv_bin,
+  //   Named("count") = count,
+  //   Named("count_pos") = pos,
+  //   Named("count_neg") = neg
+  // );
+  // 
+  // // Return output
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
 
 
@@ -2725,22 +2963,34 @@ Rcpp::List OptimalBinningNumericChiMerge(IntegerVector target, NumericVector fea
     bin_names[i] = lower_str + ";" + upper_str;
   }
 
-  DataFrame bin_df = DataFrame::create(
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
+    Named("iv") = iv,
     Named("count") = bin_count,
     Named("count_pos") = bin_count_pos,
     Named("count_neg") = bin_count_neg
   );
 
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = iv,
-    Named("pos") = bin_count_pos,
-    Named("neg") = bin_count_neg
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
+  );
+  
+  return output_list;
 }
 
 // Structure to represent an interval
@@ -3070,22 +3320,55 @@ Rcpp::List OptimalBinningNumericMDLP(IntegerVector target, NumericVector feature
     bin_names[i] = lower_str + ";" + upper_str;
   }
 
-  DataFrame bin_df = DataFrame::create(
+  
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe_values,
+    Named("iv") = iv,
     Named("count") = bin_count,
     Named("count_pos") = bin_count_pos,
     Named("count_neg") = bin_count_neg
   );
-
-  return List::create(
-    Named("feature_woe") = feature_woe_original,
-    Named("bin") = bin_df,
-    Named("woe") = woe_values,
-    Named("iv") = iv,
-    Named("pos") = bin_count_pos,
-    Named("neg") = bin_count_neg
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
+  );
+  
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe_values,
+  //   Named("count") = bin_count,
+  //   Named("count_pos") = bin_count_pos,
+  //   Named("count_neg") = bin_count_neg
+  // );
+  // 
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
 
 // Function to compute the CAIM criterion
@@ -3451,22 +3734,52 @@ Rcpp::List OptimalBinningNumericCAIM(IntegerVector target, NumericVector feature
     bin_names[i] = lower_str + ";" + upper_str;
   }
 
-  DataFrame bin_df = DataFrame::create(
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe_values,
+    Named("iv") = iv,
     Named("count") = bin_counts,
     Named("count_pos") = pos_counts,
     Named("count_neg") = neg_counts
   );
-
-  return List::create(
-    Named("feature_woe") = feature_woe_original,
-    Named("bin") = bin_df,
-    Named("woe") = woe_values,
-    Named("iv") = iv,
-    Named("pos") = pos_counts,
-    Named("neg") = neg_counts
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
+  );
+  
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe_values,
+  //   Named("count") = bin_counts,
+  //   Named("count_pos") = pos_counts,
+  //   Named("count_neg") = neg_counts
+  // );
+  // 
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
 }
 
 // Function to format doubles to six decimal places
@@ -3713,35 +4026,55 @@ List OptimalBinningNumericPAVA(IntegerVector target, NumericVector feature, int 
     bin_count_pos[i] = bins[i].count_pos;
     bin_count_neg[i] = bins[i].count_neg;
   }
-
-  DataFrame bin_df = DataFrame::create(
+  
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe,
+    Named("iv") = iv,
     Named("count") = bin_count,
     Named("count_pos") = bin_count_pos,
     Named("count_neg") = bin_count_neg
   );
-
-  return List::create(
-    Named("feature_woe") = feature_woe,
-    Named("bin") = bin_df,
-    Named("woe") = woe,
-    Named("iv") = iv,
-    Named("pos") = bin_count_pos,
-    Named("neg") = bin_count_neg
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
+  );
+
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe,
+  //   Named("count") = bin_count,
+  //   Named("count_pos") = bin_count_pos,
+  //   Named("count_neg") = bin_count_neg
+  // );
+  // 
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe,
+  //   Named("woebin") = bin_df
+  // // Named("woe") = woe,
+  // // Named("iv") = total_iv,
+  // // Named("pos") = pos,
+  // // Named("neg") = neg
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  // 
+  return output_list;
 }
-
-
-// [[Rcpp::depends(Rcpp)]]
-#include <Rcpp.h>
-#include <vector>
-#include <algorithm>
-#include <cmath>
-#include <string>
-#include <limits>
-
-using namespace Rcpp;
 
 // Structure to hold bin information, renamed to BinTree
 struct BinTree {
@@ -4179,11 +4512,13 @@ List OptimalBinningNumericTree(IntegerVector target, NumericVector feature, int 
 
   // Prepare vectors for bin DataFrame
   std::vector<double> woe_values;
+  std::vector<double> iv_values;
   std::vector<int> bin_counts;
   std::vector<int> pos_counts;
   std::vector<int> neg_counts;
   for(int i = 0; i < bins.size(); ++i){
     woe_values.push_back(bins[i].woe);
+    iv_values.push_back(bins[i].iv);
     bin_counts.push_back(bins[i].count);
     pos_counts.push_back(bins[i].count_pos);
     neg_counts.push_back(bins[i].count_neg);
@@ -4194,23 +4529,57 @@ List OptimalBinningNumericTree(IntegerVector target, NumericVector feature, int 
   for(int i = 0; i < bins.size(); ++i){
     total_iv += bins[i].iv;
   }
+  
+  // total_iv
 
-  // Create bin DataFrame with updated bin names
-  DataFrame bin_df = DataFrame::create(
+  List bin_lst = List::create(
     Named("bin") = bin_names,
     Named("woe") = woe_values,
+    Named("iv") = iv_values,
     Named("count") = bin_counts,
     Named("count_pos") = pos_counts,
     Named("count_neg") = neg_counts
   );
-
-  // Return as Rcpp List with the desired structure
-  return List::create(
-    Named("feature_woe") = feature_woe_original,
-    Named("bin") = bin_df,
-    Named("woe") = woe_values,
-    Named("iv") = total_iv,
-    Named("pos") = pos_counts,
-    Named("neg") = neg_counts
+  
+  // Create List for woe vector feature
+  List woe_lst = List::create(
+    Named("woefeature") = feature_woe_original
   );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  List output_list = List::create(
+    Named("woefeature") = woe_lst,
+    Named("woebin") = bin_lst
+  // Named("woe") = woe,
+  // Named("iv") = total_iv,
+  // Named("pos") = pos,
+  // Named("neg") = neg
+  );
+  
+  // // Create bin DataFrame with updated bin names
+  // DataFrame bin_df = DataFrame::create(
+  //   Named("bin") = bin_names,
+  //   Named("woe") = woe_values,
+  //   Named("count") = bin_counts,
+  //   Named("count_pos") = pos_counts,
+  //   Named("count_neg") = neg_counts
+  // );
+  // 
+  // // Return as Rcpp List with the desired structure
+  // List output_list = List::create(
+  //   Named("woefeature") = feature_woe_original,
+  //   Named("woebin") = bin_df
+  //   // Named("woe") = woe_values,
+  //   // Named("iv") = total_iv,
+  //   // Named("pos") = pos_counts,
+  //   // Named("neg") = neg_counts
+  // );
+  // 
+  // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
+  
+  return output_list;
+  
 }
