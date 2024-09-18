@@ -2,20 +2,6 @@
 ## Main
 ## --------------------------------------------------------------------------------------------- ##
 
-# da <- scorecard::germancredit
-# da$target <- ifelse(da$creditability == "good", 1, 0)
-# 
-# feature <- c("credit.history","duration.in.month" )
-# target <- "target"
-# dt <- data.table::setDT(da)
-# 
-# 
-# oo <- OptimalBinningWoE(dt, "target", feature = "credit.history", method = "caim", min_bins = 2, max_bins = 3, preprocess = FALSE)
-# 
-# View(oo$prep_report)
-# View(oo$woe_woebins)
-# View(oo$woe_feature)
-
 #' Optimal Binning and Weight of Evidence Calculation
 #'
 #' @description
@@ -141,8 +127,8 @@
 #'
 #' @export
 OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
-                              min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
-                              control = list()) {
+                               min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
+                               control = list()) {
   
   # Default pars
   default_control <- list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20, 
@@ -178,22 +164,31 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
           grubbs_alpha = control$grubbs_alpha
         )
         
-        preprocessed_dt <- data.table::copy(preprocessed_data$preprocess)
-        preprocess_report <- data.table::copy(preprocessed_data$report)
+        preprocessed_dt <- data.table::setalloccol(preprocessed_data$preprocess) # data.table::copy(preprocessed_data$preprocess)
+        preprocess_report <- data.table::setalloccol(preprocessed_data$report) #data.table::copy(preprocessed_data$report)
         
+        # Identify special values
+        is_special <- is.na(preprocessed_dt$feature_preprocessed) | 
+          preprocessed_dt$feature_preprocessed == control$num_miss_value |
+          preprocessed_dt$feature_preprocessed == control$char_miss_value
       } else {
-        preprocessed_dt <- data.table::data.table(feature_preprocessed = dt[[feat]])
+        preprocessed_dt <- data.table::data.table(feature_preprocessed = dt[[feat]]) #data.table::data.table(feature_preprocessed = dt[[feat]])
         preprocess_report <- data.table::data.table()
+        is_special <- is.na(preprocessed_dt$feature_preprocessed)
       }
+      
+      # Separate normal and special data
+      normal_data <- preprocessed_dt[!is_special]
+      special_data <- preprocessed_dt[is_special]
       
       # Select the best method if method is "auto"
       if (method == "auto") {
-        preprocessed_dt[,(target) := dt[[target]]]
-        binning_result <- OptimalBinningselectBestModel(preprocessed_dt, target, "feature_preprocessed", control, min_bins, max_bins)
+        normal_data[, (target) := dt[[target]][!is_special]]
+        binning_result <- OptimalBinningselectBestModel(normal_data, target, "feature_preprocessed", control, min_bins, max_bins)
       } else {
-        best_method <- method
+        normal_data[, (target) := dt[[target]][!is_special]]
         # Select the appropriate algorithm and get its parameters
-        algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", best_method, preprocessed_dt, control)
+        algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", method, normal_data, control)
         
         if(algo_info$method %in% c("pava","tree")){
           algo_params <- modifyList(
@@ -208,17 +203,41 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
         }
         # Apply binning
         binning_result <- do.call(algo_info$algorithm,
-                                  c(list(target = dt[[target]], feature = preprocessed_dt$feature_preprocessed), algo_params))
+                                  c(list(target = normal_data[[target]], feature = normal_data$feature_preprocessed), algo_params))
+      }
+      
+      # Create special bin for missing/special values if any
+      if (nrow(special_data) > 0) {
+        special_bin <- data.table::data.table(
+          bin = paste0("Special(", ifelse(binning_result$is_categorical, control$char_miss_value, control$num_miss_value),")"),
+          count = nrow(special_data),
+          count_pos = sum(dt[[target]][is_special] == 1), #bad
+          count_neg = sum(dt[[target]][is_special] == 0)  #good
+        )
+        special_bin[, `:=`(
+          woe = log((count_pos / sum(binning_result$woebin$count_pos)) / (count_neg / sum(binning_result$woebin$count_neg))))
+        ][,`:=` (iv = (count_pos / sum(binning_result$woebin$count_pos) - count_neg / sum(binning_result$woebin$count_neg)) * woe)]
+        
+        # Add special bin to binning result
+        binning_result$woebin <- rbind(binning_result$woebin, special_bin, fill = TRUE)
+      }
+      
+      # Assign WOE to original data
+      woe_vector <- numeric(nrow(dt))
+      woe_vector[!is_special] <- binning_result$woefeature$woefeature
+      if (nrow(special_data) > 0) {
+        woe_vector[is_special] <- special_bin$woe
       }
       
       # Create new column name with "_woe" suffix
       woe_col_name <- paste0(feat, "_woe")
+      
       # Update dt efficiently using data.table syntax
-      dt[, (woe_col_name) := binning_result$woefeature$woefeature]
+      dt[, (woe_col_name) := woe_vector]
       
       # Update report list
       reports[[woe_col_name]] <- preprocess_report
-      woebins[[woe_col_name]] <- binning_result$woebin
+      woebins[[woe_col_name]] <- OptimalBinningGainsTable(binning_result)
     }, error = function(e) {
       warning(paste("Error processing feature:", feat, "-", e$message))
     })
@@ -230,6 +249,97 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
   
   return(results)
 }
+# 
+# OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
+#                               min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
+#                               control = list()) {
+#   
+#   # Default pars
+#   default_control <- list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20, 
+#                           monotonicity_direction = "increase", lambda = 0.1, min_bin_size = 0.05, 
+#                           min_iv_gain = 0.01, max_depth = 10, num_miss_value = -999.0,
+#                           char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, 
+#                           iqr_k = 1.5, zscore_threshold = 3, grubbs_alpha = 0.05)
+#   
+#   # Update control, if needed
+#   control <- modifyList(default_control, control)
+#   
+#   # Determine the features to process
+#   features_to_process <- if(is.null(feature)) setdiff(names(dt), target) else feature
+#   
+#   # Initialize results list
+#   results <- reports <- woebins <- list()
+#   
+#   # Process each feature
+#   for (feat in features_to_process) {
+#     tryCatch({
+#       # Preprocess data if required
+#       if (preprocess) {
+#         preprocessed_data <- OptimalBinningDataPreprocessor(
+#           target = dt[[target]],
+#           feature = dt[[feat]],
+#           num_miss_value = control$num_miss_value,
+#           char_miss_value = control$char_miss_value,
+#           outlier_method = control$outlier_method,
+#           outlier_process = control$outlier_process,
+#           preprocess = "both",
+#           iqr_k = control$iqr_k,
+#           zscore_threshold = control$zscore_threshold,
+#           grubbs_alpha = control$grubbs_alpha
+#         )
+#         
+#         preprocessed_dt <- data.table::copy(preprocessed_data$preprocess)
+#         preprocess_report <- data.table::copy(preprocessed_data$report)
+#       } else {
+#         preprocessed_dt <- data.table::data.table(feature_preprocessed = dt[[feat]])
+#         preprocess_report <- data.table::data.table()
+#       }
+#       
+#       # Select the best method if method is "auto"
+#       if (method == "auto") {
+#         preprocessed_dt[,(target) := dt[[target]]]
+#         binning_result <- OptimalBinningselectBestModel(preprocessed_dt, target, "feature_preprocessed", control, min_bins, max_bins)
+#       } else {
+#         best_method <- method
+#         # Select the appropriate algorithm and get its parameters
+#         algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", best_method, preprocessed_dt, control)
+#         
+#         if(algo_info$method %in% c("pava","tree")){
+#           algo_params <- modifyList(
+#             list(max_bins = max_bins),
+#             algo_info$params
+#           )
+#         } else {
+#           algo_params <- modifyList(
+#             list(min_bins = min_bins, max_bins = max_bins),
+#             algo_info$params
+#           )
+#         }
+#         # Apply binning
+#         binning_result <- do.call(algo_info$algorithm,
+#                                   c(list(target = dt[[target]], feature = preprocessed_dt$feature_preprocessed), algo_params))
+#       }
+#       
+#       # Create new column name with "_woe" suffix
+#       woe_col_name <- paste0(feat, "_woe")
+#       # Update dt efficiently using data.table syntax
+#       dt[, (woe_col_name) := binning_result$woefeature$woefeature]
+#       
+#       # Update report list
+#       reports[[woe_col_name]] <- preprocess_report
+#       woebins[[woe_col_name]] <- OptimalBinningGainsTable(binning_result) # binning_result$woebin
+#     }, error = function(e) {
+#       warning(paste("Error processing feature:", feat, "-", e$message))
+#     })
+#   }
+#   
+#   results$woe_feature <- data.table::copy(dt)
+#   results$woe_woebins <- data.table::rbindlist(woebins, fill = TRUE, idcol = "feature")
+#   results$prep_report <- data.table::rbindlist(reports, fill = TRUE, idcol = "feature")
+#   
+#   return(results)
+# }
+
 
 ## --------------------------------------------------------------------------------------------- ##
 ## Validade imputs
@@ -445,6 +555,8 @@ OptimalBinningselectBestModel <- function(dt, target, feature, control, min_bins
       warning(paste("Error processing method:", method, "for feature:", feature, "-", e$message))
     })
   }
+  # Get variable type
+  binning_result$is_categorical <- is_categorical
   
   if (is.null(best_method)) {
     stop(paste("No suitable method found for feature:", feature))

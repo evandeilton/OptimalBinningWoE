@@ -50,7 +50,7 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 DataFrame OptimalBinningGainsTable(List binning_result) {
   // Extract bin DataFrame from the binning_result list
-  DataFrame bin = as<DataFrame>(binning_result["bin"]);
+  DataFrame bin = as<DataFrame>(binning_result["woebin"]);
 
   // Extract columns from the bin DataFrame
   CharacterVector bin_labels = bin["bin"];
