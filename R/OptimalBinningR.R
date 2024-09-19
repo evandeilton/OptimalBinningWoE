@@ -129,7 +129,9 @@
 OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
                                min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
                                control = list()) {
-  dt$target
+  
+  dt <- data.table::copy(data.table::setDT(dt))
+  
   # Default pars
   default_control <- list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20, 
                           monotonicity_direction = "increase", lambda = 0.1, min_bin_size = 0.05, 

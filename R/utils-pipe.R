@@ -1,4 +1,4 @@
-utils::globalVariables(c(":=", "target"))
+utils::globalVariables(c(":=", "target","count_pos","count_neg","woe"))
 
 #' Pipe operator
 #'
