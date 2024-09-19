@@ -14,7 +14,8 @@ OptimalBinningWoE(
   max_bins = 4,
   cat_cutoff = 0.05,
   bin_cutoff = 0.05,
-  control = list()
+  control = list(),
+  positive = "bad|1"
 )
 }
 \arguments{
@@ -37,6 +38,8 @@ OptimalBinningWoE(
 \item{bin_cutoff}{Cutoff for numeric variables.}
 
 \item{control}{A list of additional control parameters. See Details for more information.}
+
+\item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
 }
 \value{
 A list containing:
@@ -54,56 +57,21 @@ It supports automatic method selection and data preprocessing.
 Supported Algorithms:
 The function supports the following binning algorithms:
 \itemize{
-\item CAIM (Class-Attribute Interdependence Maximization):
-Applicable to both categorical and numeric variables.
-It maximizes the class-attribute interdependence to find optimal bins.
-- Categorical: OptimalBinningCategoricalCAIM
-- Numeric: OptimalBinningNumericCAIM
-
-\item ChiMerge:
-Applicable to both categorical and numeric variables.
-It uses chi-square statistic to iteratively merge adjacent intervals until a stopping criterion is met.
-- Categorical: OptimalBinningCategoricalChiMerge
-- Numeric: OptimalBinningNumericChiMerge
-
-\item MDLP (Minimum Description Length Principle):
-Applicable to both categorical and numeric variables.
-It uses the principle of minimum description length to find the optimal splitting points.
-- Categorical: OptimalBinningCategoricalMDLP
-- Numeric: OptimalBinningNumericMDLP
-
-\item MIP (Minimum Information Pure):
-Applicable to both categorical and numeric variables.
-It aims to minimize the impurity of information within each bin.
-- Categorical: OptimalBinningCategoricalMIP
-- Numeric: OptimalBinningNumericMIP
-
-\item MOB (Monotone Optimal Binning):
-Applicable to both categorical and numeric variables.
-It ensures monotonicity in the binning process while optimizing a chosen metric.
-- Categorical: OptimalBinningCategoricalMOB
-- Numeric: OptimalBinningNumericMOB
-
-\item IV (Information Value):
-Applicable only to categorical variables.
-It bins categories based on their information value with respect to the target variable.
-- Categorical: OptimalBinningCategoricalIV
-
-\item PAVA (Pool Adjacent Violators Algorithm):
-Applicable only to numeric variables.
-It ensures monotonicity in the binning process by pooling adjacent bins that violate the monotonicity constraint.
-- Numeric: OptimalBinningNumericPAVA
-
-\item Tree-based binning:
-Applicable only to numeric variables.
-It uses decision tree algorithms to create bins, allowing for more flexible and potentially non-linear binning.
-- Numeric: OptimalBinningNumericTree
+\item CAIM (Class-Attribute Interdependence Maximization)
+\item ChiMerge
+\item MDLP (Minimum Description Length Principle)
+\item MIP (Minimum Information Pure)
+\item MOB (Monotone Optimal Binning)
+\item IV (Information Value)
+\item PAVA (Pool Adjacent Violators Algorithm)
+\item Tree-based binning
 }
 
 Each algorithm has its own strengths and may perform differently depending on the nature of the data.
 The automatic method selection option tests applicable algorithms and chooses the one that produces the highest Information Value.
 
 When specifying a method, use the short name (e.g., "caim", "chimerge") rather than the full algorithm name.
+
 Control Parameters:
 The control list can include the following parameters:
 \itemize{

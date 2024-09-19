@@ -9,11 +9,13 @@ OptimalBinningValidateInputs(
   target,
   feature,
   method,
+  preprocess,
   min_bins,
   max_bins,
   cat_cutoff,
   bin_cutoff,
-  control
+  control,
+  positive
 )
 }
 \arguments{
@@ -25,6 +27,8 @@ OptimalBinningValidateInputs(
 
 \item{method}{The binning method to use.}
 
+\item{preprocess}{Logical. Whether to preprocess the data before binning.}
+
 \item{min_bins}{Minimum number of bins.}
 
 \item{max_bins}{Maximum number of bins.}
@@ -34,6 +38,8 @@ OptimalBinningValidateInputs(
 \item{bin_cutoff}{Cutoff for numeric variables.}
 
 \item{control}{A list of additional control parameters.}
+
+\item{positive}{Character string specifying which category should be considered as positive.}
 }
 \value{
 No return value, called for side effects
