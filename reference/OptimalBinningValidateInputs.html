@@ -42,11 +42,13 @@
 <span>  <span class="va">target</span>,</span>
 <span>  <span class="va">feature</span>,</span>
 <span>  <span class="va">method</span>,</span>
+<span>  <span class="va">preprocess</span>,</span>
 <span>  <span class="va">min_bins</span>,</span>
 <span>  <span class="va">max_bins</span>,</span>
 <span>  <span class="va">cat_cutoff</span>,</span>
 <span>  <span class="va">bin_cutoff</span>,</span>
-<span>  <span class="va">control</span></span>
+<span>  <span class="va">control</span>,</span>
+<span>  <span class="va">positive</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -70,6 +72,10 @@
 <dd><p>The binning method to use.</p></dd>
 
 
+<dt id="arg-preprocess">preprocess<a class="anchor" aria-label="anchor" href="#arg-preprocess"></a></dt>
+<dd><p>Logical. Whether to preprocess the data before binning.</p></dd>
+
+
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
 <dd><p>Minimum number of bins.</p></dd>
 
@@ -88,6 +94,10 @@
 
 <dt id="arg-control">control<a class="anchor" aria-label="anchor" href="#arg-control"></a></dt>
 <dd><p>A list of additional control parameters.</p></dd>
+
+
+<dt id="arg-positive">positive<a class="anchor" aria-label="anchor" href="#arg-positive"></a></dt>
+<dd><p>Character string specifying which category should be considered as positive.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -50,7 +50,8 @@ It supports automatic method selection and data preprocessing.</p>
 <span>  max_bins <span class="op">=</span> <span class="fl">4</span>,</span>
 <span>  cat_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  positive <span class="op">=</span> <span class="st">"bad|1"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -97,6 +98,10 @@ It supports automatic method selection and data preprocessing.</p>
 <dt id="arg-control">control<a class="anchor" aria-label="anchor" href="#arg-control"></a></dt>
 <dd><p>A list of additional control parameters. See Details for more information.</p></dd>
 
+
+<dt id="arg-positive">positive<a class="anchor" aria-label="anchor" href="#arg-positive"></a></dt>
+<dd><p>Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -107,47 +112,18 @@ It supports automatic method selection and data preprocessing.</p>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Supported Algorithms:
-The function supports the following binning algorithms:</p><ul><li><p>CAIM (Class-Attribute Interdependence Maximization):
-Applicable to both categorical and numeric variables.
-It maximizes the class-attribute interdependence to find optimal bins.
-- Categorical: OptimalBinningCategoricalCAIM
-- Numeric: OptimalBinningNumericCAIM</p></li>
-<li><p>ChiMerge:
-Applicable to both categorical and numeric variables.
-It uses chi-square statistic to iteratively merge adjacent intervals until a stopping criterion is met.
-- Categorical: OptimalBinningCategoricalChiMerge
-- Numeric: OptimalBinningNumericChiMerge</p></li>
-<li><p>MDLP (Minimum Description Length Principle):
-Applicable to both categorical and numeric variables.
-It uses the principle of minimum description length to find the optimal splitting points.
-- Categorical: OptimalBinningCategoricalMDLP
-- Numeric: OptimalBinningNumericMDLP</p></li>
-<li><p>MIP (Minimum Information Pure):
-Applicable to both categorical and numeric variables.
-It aims to minimize the impurity of information within each bin.
-- Categorical: OptimalBinningCategoricalMIP
-- Numeric: OptimalBinningNumericMIP</p></li>
-<li><p>MOB (Monotone Optimal Binning):
-Applicable to both categorical and numeric variables.
-It ensures monotonicity in the binning process while optimizing a chosen metric.
-- Categorical: OptimalBinningCategoricalMOB
-- Numeric: OptimalBinningNumericMOB</p></li>
-<li><p>IV (Information Value):
-Applicable only to categorical variables.
-It bins categories based on their information value with respect to the target variable.
-- Categorical: OptimalBinningCategoricalIV</p></li>
-<li><p>PAVA (Pool Adjacent Violators Algorithm):
-Applicable only to numeric variables.
-It ensures monotonicity in the binning process by pooling adjacent bins that violate the monotonicity constraint.
-- Numeric: OptimalBinningNumericPAVA</p></li>
-<li><p>Tree-based binning:
-Applicable only to numeric variables.
-It uses decision tree algorithms to create bins, allowing for more flexible and potentially non-linear binning.
-- Numeric: OptimalBinningNumericTree</p></li>
+The function supports the following binning algorithms:</p><ul><li><p>CAIM (Class-Attribute Interdependence Maximization)</p></li>
+<li><p>ChiMerge</p></li>
+<li><p>MDLP (Minimum Description Length Principle)</p></li>
+<li><p>MIP (Minimum Information Pure)</p></li>
+<li><p>MOB (Monotone Optimal Binning)</p></li>
+<li><p>IV (Information Value)</p></li>
+<li><p>PAVA (Pool Adjacent Violators Algorithm)</p></li>
+<li><p>Tree-based binning</p></li>
 </ul><p>Each algorithm has its own strengths and may perform differently depending on the nature of the data.
 The automatic method selection option tests applicable algorithms and chooses the one that produces the highest Information Value.</p>
-<p>When specifying a method, use the short name (e.g., "caim", "chimerge") rather than the full algorithm name.
-Control Parameters:
+<p>When specifying a method, use the short name (e.g., "caim", "chimerge") rather than the full algorithm name.</p>
+<p>Control Parameters:
 The control list can include the following parameters:</p><ul><li><p>min_bads: Minimum proportion of "bad" cases in each bin (default: 0.05)</p></li>
 <li><p>pvalue_threshold: P-value threshold for statistical tests (default: 0.05)</p></li>
 <li><p>max_n_prebins: Maximum number of pre-bins before optimization (default: 20)</p></li>
