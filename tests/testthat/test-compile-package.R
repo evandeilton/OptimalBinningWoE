@@ -21,7 +21,7 @@ library(data.table);library(Rcpp);library(testthat);
 # devtools::build_manual()
 # devtools::build()
 # devtools::install()
-# usethis::use_version()
+usethis::use_version()
 
 
 # usethis::use_github_action()

@@ -21,7 +21,7 @@ test_that("OptimalBinningWoE funciona corretamente", {
   
   # Teste 1: Funcionamento básico
   dt <- create_test_data()
-  result <- OptimalBinningWoE(dt, target = "target")
+  result <- OptimalBinningWoE(dt, "target")
   expect_type(result, "list")
   expect_named(result, c("woe_feature", "woe_woebins", "prep_report"))
   expect_true(all(paste0(c("num_feat1", "num_feat2", "cat_feat1", "cat_feat2", "missing_feat"), "_woe") %in% names(result$woe_feature)))
