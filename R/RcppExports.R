@@ -2,313 +2,7 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV)
-#'
-#' This function processes a categorical variable by grouping rare categories, ordering them by event rate, and generating bins to maximize WoE monotonicity. It also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 5.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min_bins = 2L, max_bins = 5L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMIP`, target, feature, cat_cutoff, min_bins, max_bins)
-}
-
-#' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using Monotonic Optimal Binning (MOB)
-#'
-#' This function processes a categorical variable by grouping rare categories, ordering them by event rate, and generating bins to maximize WoE monotonicity. It also applies constraints to ensure that bins have a minimum number of bad events (min_bads) and calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningCategoricalMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMOB`, target, feature, min_bins, max_bins, cat_cutoff, min_bads, max_n_prebins)
-}
-
-#' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
-#'
-#' This function processes a categorical variable by grouping rare categories, ordering them by event rate, and applying the ChiMerge algorithm to merge categories into bins based on the chi-square test of independence. It also ensures monotonicity of event rates and calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param pvalue_threshold (Optional) P-value threshold for the chi-square test used to determine whether to merge bins. Default is 0.05.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, cat_cutoff, min_bads, max_n_prebins)
-}
-
-#' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the Minimum Description Length Principle (MDLP) criterion
-#'
-#' This function processes a categorical variable by grouping rare categories, calculating event rates, and iteratively merging bins using the MDLP criterion to maximize the information gain. The function also ensures monotonicity of event rates and calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMDLP`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
-}
-
-#' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
-#'
-#' This function processes a categorical variable by grouping rare categories, calculating event rates, and iteratively merging bins to maximize the CAIM criterion. The function also ensures monotonicity of event rates and calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalCAIM`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
-}
-
-#' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV), ensuring monotonicity and maximizing IV
-#'
-#' This function processes a categorical variable by grouping rare categories, calculating event rates, and iteratively merging bins to maximize Information Value (IV) while ensuring monotonicity of event rates. It also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Character vector representing the categorical variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: Names of the categories grouped into each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalIV`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
-}
-
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using a Mixed-Integer Programming (MIP) approach
-#'
-#' This function processes a numeric variable, removes missing values, and creates pre-bins based on unique values. It iteratively splits bins to maximize Information Value (IV) while ensuring monotonicity. The function also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame containing the generated bins, with the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningNumericMIP`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
-}
-
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Monotonic Optimal Binning (MOB) approach
-#'
-#' This function processes a numeric variable by removing missing values and creating pre-bins based on unique values. It iteratively merges or splits bins to ensure monotonicity of event rates, with constraints on the minimum number of bad events (\code{min_bads}) and the number of pre-bins. The function also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningNumericMOB`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
-}
-
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
-#'
-#' This function processes a numeric variable by removing missing values and creating pre-bins based on unique values. It iteratively merges bins using the Chi-square test of independence, with a p-value threshold to determine whether bins should be merged. It ensures the minimum number of bad events (\code{min_bads}) is respected, while also calculating WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param pvalue_threshold (Optional) P-value threshold for the chi-square test used to determine whether to merge bins. Default is 0.05.
-#' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
-OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_OptimalBinningNumericChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, bin_cutoff, min_bads, max_n_prebins)
-}
+NULL
 
 #' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Minimum Description Length Principle (MDLP) criterion
 #'
@@ -341,113 +35,62 @@ OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bi
 #' }
 #'
 #'
+NULL
+
+OptimalBinningCategoricalMIP <- function(target, feature, cat_cutoff = 0.05, min_bins = 2L, max_bins = 5L) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMIP`, target, feature, cat_cutoff, min_bins, max_bins)
+}
+
+OptimalBinningCategoricalChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, cat_cutoff, min_bads, max_n_prebins)
+}
+
+OptimalBinningCategoricalMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalMDLP`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+}
+
+OptimalBinningCategoricalCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalCAIM`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+}
+
+OptimalBinningCategoricalIV <- function(target, feature, min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalIV`, target, feature, min_bins, max_bins, cat_cutoff, min_bads)
+}
+
+OptimalBinningNumericMIP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericMIP`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+}
+
+OptimalBinningNumericMOB <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericMOB`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
+}
+
+OptimalBinningNumericChiMerge <- function(target, feature, min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericChiMerge`, target, feature, min_bins, max_bins, pvalue_threshold, bin_cutoff, min_bads, max_n_prebins)
+}
+
 OptimalBinningNumericMDLP <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericMDLP`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
 
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
-#'
-#' This function processes a numeric variable by creating pre-bins based on unique values. It iteratively merges or splits bins to maximize the CAIM criterion, ensuring monotonicity of event rates while respecting the minimum number of bad events (\code{min_bads}) per bin. It also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
 OptimalBinningNumericCAIM <- function(target, feature, min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericCAIM`, target, feature, min_bins, max_bins, bin_cutoff, min_bads, max_n_prebins)
 }
 
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Pool Adjacent Violators Algorithm (PAVA) to enforce monotonicity
-#'
-#' This function processes a numeric variable by removing missing values and creating pre-bins based on unique values. It then applies the Pool Adjacent Violators Algorithm (PAVA) to ensure the monotonicity of event rates, either increasing or decreasing based on the specified direction. The function respects the minimum number of bad events (\code{min_bads}) per bin and calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
-#' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
-#' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
-#' @param monotonicity_direction (Optional) String that defines the monotonicity direction of event rates, either "increase" for increasing monotonicity or "decrease" for decreasing monotonicity. Default is "increase".
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{iv}: Information Value (IV) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
 OptimalBinningNumericPAVA <- function(target, feature, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L, monotonicity_direction = "increase") {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericPAVA`, target, feature, max_bins, bin_cutoff, min_bads, max_n_prebins, monotonicity_direction)
 }
 
-#' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using a decision tree-based approach
-#'
-#' This function processes a numeric variable and applies a decision tree algorithm to iteratively split the data into bins. The tree splits are based on Information Value (IV) gain, with constraints on minimum bin size and maximum depth. The function ensures monotonicity in event rates, merging bins if necessary to reduce the number of bins to the specified maximum. It also calculates WoE and IV for the generated bins.
-#'
-#' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
-#' @param feature Numeric vector representing the numeric variable to be binned.
-#' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
-#' @param lambda (Optional) Regularization parameter to penalize tree splits. Default is 0.1.
-#' @param min_bin_size (Optional) Minimum size a bin must have as a proportion of the total data. Default is 0.05.
-#' @param min_iv_gain (Optional) Minimum Information Value (IV) gain required to perform a split. Default is 0.01.
-#' @param max_depth (Optional) Maximum depth of the decision tree. Default is 10.
-#' @param monotonicity_direction (Optional) String that defines the monotonicity direction of event rates, either "increase" for increasing monotonicity or "decrease" for decreasing monotonicity. Default is "increase".
-#'
-#' @return A list with the following elements:
-#' \itemize{
-#'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
-#'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
-#'     \itemize{
-#'       \item \code{bin}: String representing the range of values for each bin.
-#'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
-#'       \item \code{count}: Total number of observations in each bin.
-#'       \item \code{count_pos}: Count of positive events in each bin.
-#'       \item \code{count_neg}: Count of negative events in each bin.
-#'     }
-#'   \item \code{woe}: Numeric vector with the WoE for each bin.
-#'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
-#'   \item \code{pos}: Vector with the count of positive events in each bin.
-#'   \item \code{neg}: Vector with the count of negative events in each bin.
-#' }
-#'
-#'
 OptimalBinningNumericTree <- function(target, feature, max_bins = 7L, lambda = 0.1, min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10L, monotonicity_direction = "increase") {
     .Call(`_OptimalBinningWoE_OptimalBinningNumericTree`, target, feature, max_bins, lambda, min_bin_size, min_iv_gain, max_depth, monotonicity_direction)
+}
+
+OptimalBinningCategoricalBreakList <- function(target, feature, predefined_bins) {
+    .Call(`_OptimalBinningWoE_OptimalBinningCategoricalBreakList`, target, feature, predefined_bins)
+}
+
+OptimalBinningNumericalBreakList <- function(target, feature, break_points) {
+    .Call(`_OptimalBinningWoE_OptimalBinningNumericalBreakList`, target, feature, break_points)
 }
 
 #' Preprocesses a numeric or categorical variable for optimal binning with handling of missing values and outliers
