@@ -129,7 +129,7 @@
 OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
                                min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
                                control = list()) {
-  
+  dt$target
   # Default pars
   default_control <- list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20, 
                           monotonicity_direction = "increase", lambda = 0.1, min_bin_size = 0.05, 
@@ -183,10 +183,10 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
       
       # Select the best method if method is "auto"
       if (method == "auto") {
-        normal_data[, (target) := dt[[target]][!is_special]]
-        binning_result <- OptimalBinningselectBestModel(normal_data, target, "feature_preprocessed", control, min_bins, max_bins)
+        normal_data[, (target) := dt[[get(target)]][!is_special]]
+        binning_result <- OptimalBinningselectBestModel(normal_data, target = target, "feature_preprocessed", control, min_bins, max_bins)
       } else {
-        normal_data[, (target) := dt[[target]][!is_special]]
+        normal_data[, (target) := dt[[get(target)]][!is_special]]
         # Select the appropriate algorithm and get its parameters
         algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", method, normal_data, control)
         
@@ -249,6 +249,7 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
   
   return(results)
 }
+
 # 
 # OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
 #                               min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
