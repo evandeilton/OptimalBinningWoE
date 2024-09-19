@@ -4776,421 +4776,796 @@ Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::Charac
 //    return output_list;
 //  }
  
+// Function to compute the CAIM criterion
+double compute_caim(const std::vector<int>& bin_starts,
+                   const std::vector<int>& bin_ends,
+                   const std::vector<int>& sorted_target) {
+ int r = bin_starts.size();
+ double caim = 0.0;
  
- 
- 
- 
- 
- // Function to compute the CAIM criterion
- double compute_caim(const std::vector<int>& bin_starts,
-                     const std::vector<int>& bin_ends,
-                     const IntegerVector& sorted_target) {
-   int r = bin_starts.size();
-   double caim = 0.0;
+ for (int i = 0; i < r; ++i) {
+   int start = bin_starts[i];
+   int end = bin_ends[i];
    
-   for (int i = 0; i < r; ++i) {
-     int start = bin_starts[i];
-     int end = bin_ends[i];
-     
-     int count_pos = 0;
-     int count_neg = 0;
-     for (int j = start; j <= end; ++j) {
-       if (sorted_target[j] == 1)
-         ++count_pos;
-       else
-         ++count_neg;
-     }
-     
-     int M_i = count_pos + count_neg;
-     int max_i = std::max(count_pos, count_neg);
-     
-     if (M_i > 0) {
-       caim += (max_i * max_i) / static_cast<double>(M_i);
-     }
+   int count_pos = 0;
+   int count_neg = 0;
+   for (int j = start; j <= end; ++j) {
+     if (sorted_target[j] == 1)
+       ++count_pos;
+     else
+       ++count_neg;
    }
    
-   caim /= r;
-   return caim;
+   int M_i = count_pos + count_neg;
+   int max_i = std::max(count_pos, count_neg);
+   
+   if (M_i > 0) {
+     caim += (max_i * max_i) / static_cast<double>(M_i);
+   }
  }
  
- //' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
- //'
- //' This function processes a numeric variable by creating pre-bins based on unique values. It iteratively merges or splits bins to maximize the CAIM criterion, ensuring monotonicity of event rates while respecting the minimum number of bad events (\code{min_bads}) per bin. It also calculates WoE and IV for the generated bins.
- //'
- //' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
- //' @param feature Numeric vector representing the numeric variable to be binned.
- //' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
- //' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
- //' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
- //' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
- //' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
- //'
- //' @return A list with the following elements:
- //' \itemize{
- //'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
- //'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
- //'     \itemize{
- //'       \item \code{bin}: String representing the range of values for each bin.
- //'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
- //'       \item \code{iv}: Information Value (IV) for each bin.
- //'       \item \code{count}: Total number of observations in each bin.
- //'       \item \code{count_pos}: Count of positive events in each bin.
- //'       \item \code{count_neg}: Count of negative events in each bin.
- //'     }
- //'   \item \code{woe}: Numeric vector with the WoE for each bin.
- //'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
- //'   \item \code{pos}: Vector with the count of positive events in each bin.
- //'   \item \code{neg}: Vector with the count of negative events in each bin.
- //' }
- //'
- //'
- // [[Rcpp::export]]
- Rcpp::List OptimalBinningNumericCAIM(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
-   int n = feature.size();
-   int total_bads = std::accumulate(target.begin(), target.end(), 0);
-   int total_goods = n - total_bads;
-   
-   double min_bads_count = min_bads * total_bads;
-   double bin_cutoff_count = bin_cutoff * n;
-   
-   // Create indices and sort them based on feature values
-   std::vector<int> indices(n);
-   for (int i = 0; i < n; ++i) indices[i] = i;
-   
-   std::sort(indices.begin(), indices.end(), [&](int i1, int i2) {
-     return feature[i1] < feature[i2];
-   });
-   
-   // Sort feature and target accordingly
-   NumericVector sorted_feature(n);
-   IntegerVector sorted_target(n);
-   for (int i = 0; i < n; ++i) {
-     sorted_feature[i] = feature[indices[i]];
-     sorted_target[i] = target[indices[i]];
+ caim /= r;
+ return caim;
+}
+
+//' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
+//'
+//' This function processes a numeric variable by creating pre-bins based on unique values. It iteratively merges or splits bins to maximize the CAIM criterion, ensuring monotonicity of event rates while respecting the minimum number of bad events (\code{min_bads}) per bin. It also calculates WoE and IV for the generated bins.
+//'
+//' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
+//' @param feature Numeric vector representing the numeric variable to be binned.
+//' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
+//' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
+//' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
+//' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
+//' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
+//'
+//' @return A list with the following elements:
+//' \itemize{
+//'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
+//'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
+//'     \itemize{
+//'       \item \code{bin}: String representing the range of values for each bin.
+//'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
+//'       \item \code{iv}: Information Value (IV) for each bin.
+//'       \item \code{count}: Total number of observations in each bin.
+//'       \item \code{count_pos}: Count of positive events in each bin.
+//'       \item \code{count_neg}: Count of negative events in each bin.
+//'     }
+//'   \item \code{woe}: Numeric vector with the WoE for each bin.
+//'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
+//'   \item \code{pos}: Vector with the count of positive events in each bin.
+//'   \item \code{neg}: Vector with the count of negative events in each bin.
+//' }
+//'
+// [[Rcpp::export]]
+Rcpp::List OptimalBinningNumericCAIM(Rcpp::IntegerVector target, Rcpp::NumericVector feature,
+                                    int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05,
+                                    double min_bads = 0.05, int max_n_prebins = 20) {
+ 
+ // Input validation
+ if (target.size() != feature.size()) {
+   stop("'target' and 'feature' must have the same length");
+ }
+ 
+ int n = feature.size();
+ std::vector<int> target_vec = as<std::vector<int>>(target);
+ std::vector<double> feature_vec = as<std::vector<double>>(feature);
+ 
+ // Check for invalid values in target and feature
+ int total_bads = 0;
+ int total_goods = 0;
+ std::vector<bool> valid_indices(n, true);
+ for (int i = 0; i < n; ++i) {
+   if (target_vec[i] != 0 && target_vec[i] != 1) {
+     stop("'target' must contain only 0s and 1s");
    }
-   
-   // Initialize bins
-   std::vector<int> bin_starts = {0};
-   std::vector<int> bin_ends = {n - 1};
-   
-   // Compute initial CAIM
-   double current_caim = compute_caim(bin_starts, bin_ends, sorted_target);
-   
-   bool improvement = true;
-   
-   while (improvement) {
-     improvement = false;
-     double best_caim = current_caim;
-     int best_bin = -1;
-     int best_split = -1;
-     
-     // For each bin, consider all possible splits
-     for (size_t b = 0; b < bin_starts.size(); ++b) {
-       int start = bin_starts[b];
-       int end = bin_ends[b];
-       
-       // Potential split points are where the feature value changes
-       std::vector<int> split_candidates;
-       for (int i = start; i < end; ++i) {
-         if (sorted_feature[i] != sorted_feature[i + 1]) {
-           split_candidates.push_back(i);
-         }
-       }
-       
-       // Consider each split candidate
-       for (int split : split_candidates) {
-         // Temporarily add split
-         std::vector<int> temp_bin_starts = bin_starts;
-         std::vector<int> temp_bin_ends = bin_ends;
-         
-         temp_bin_starts.erase(temp_bin_starts.begin() + b);
-         temp_bin_ends.erase(temp_bin_ends.begin() + b);
-         
-         temp_bin_starts.insert(temp_bin_starts.begin() + b, start);
-         temp_bin_starts.insert(temp_bin_starts.begin() + b + 1, split + 1);
-         
-         temp_bin_ends.insert(temp_bin_ends.begin() + b, split);
-         temp_bin_ends.insert(temp_bin_ends.begin() + b + 1, end);
-         
-         // Check bin constraints
-         int left_count = split - start + 1;
-         int right_count = end - split;
-         
-         if (left_count < bin_cutoff_count || right_count < bin_cutoff_count)
-           continue;
-         
-         // Count bads in each bin
-         int left_bads = std::accumulate(sorted_target.begin() + start, sorted_target.begin() + split + 1, 0);
-         int right_bads = std::accumulate(sorted_target.begin() + split + 1, sorted_target.begin() + end + 1, 0);
-         
-         if (left_bads < min_bads_count || right_bads < min_bads_count)
-           continue;
-         
-         // Compute CAIM
-         double new_caim = compute_caim(temp_bin_starts, temp_bin_ends, sorted_target);
-         
-         if (new_caim > best_caim) {
-           best_caim = new_caim;
-           best_bin = b;
-           best_split = split;
-           improvement = true;
-         }
-       }
-     }
-     
-     if (improvement && bin_starts.size() < static_cast<size_t>(max_bins)) {
-       // Accept the best split
-       int start = bin_starts[best_bin];
-       int end = bin_ends[best_bin];
-       
-       bin_starts.erase(bin_starts.begin() + best_bin);
-       bin_ends.erase(bin_ends.begin() + best_bin);
-       
-       bin_starts.insert(bin_starts.begin() + best_bin, start);
-       bin_starts.insert(bin_starts.begin() + best_bin + 1, best_split + 1);
-       
-       bin_ends.insert(bin_ends.begin() + best_bin, best_split);
-       bin_ends.insert(bin_ends.begin() + best_bin + 1, end);
-       
-       current_caim = best_caim;
-     } else {
-       improvement = false;
-     }
-     
-     // Check if maximum number of bins reached
-     if (bin_starts.size() >= static_cast<size_t>(max_bins)) {
-       break;
-     }
+   if (std::isnan(feature_vec[i]) || std::isinf(feature_vec[i])) {
+     valid_indices[i] = false;
+   } else {
+     total_bads += target_vec[i];
+     total_goods += (1 - target_vec[i]);
    }
+ }
+ 
+ // Remove invalid indices
+ feature_vec.erase(
+   std::remove_if(feature_vec.begin(), feature_vec.end(), 
+                  [&](double) { return !valid_indices[&feature_vec[0] - &*feature_vec.begin()]; }),
+                  feature_vec.end()
+ );
+ target_vec.erase(
+   std::remove_if(target_vec.begin(), target_vec.end(), 
+                  [&](int) { return !valid_indices[&target_vec[0] - &*target_vec.begin()]; }),
+                  target_vec.end()
+ );
+ n = feature_vec.size();
+ 
+ double min_bads_count = min_bads * total_bads;
+ double bin_cutoff_count = bin_cutoff * n;
+ 
+ // Create indices and sort them based on feature values
+ std::vector<int> indices(n);
+ std::iota(indices.begin(), indices.end(), 0);
+ std::sort(indices.begin(), indices.end(), [&](int i1, int i2) {
+   return feature_vec[i1] < feature_vec[i2];
+ });
+ 
+ // Sort feature and target accordingly
+ std::vector<double> sorted_feature(n);
+ std::vector<int> sorted_target(n);
+ for (int i = 0; i < n; ++i) {
+   sorted_feature[i] = feature_vec[indices[i]];
+   sorted_target[i] = target_vec[indices[i]];
+ }
+ 
+ // Initialize bins
+ std::vector<int> bin_starts = {0};
+ std::vector<int> bin_ends = {n - 1};
+ 
+ // Compute initial CAIM
+ double current_caim = compute_caim(bin_starts, bin_ends, sorted_target);
+ 
+ bool improvement = true;
+ 
+ while (improvement && bin_starts.size() < static_cast<size_t>(max_bins)) {
+   improvement = false;
+   double best_caim = current_caim;
+   int best_bin = -1;
+   int best_split = -1;
    
-   // Enforce minimum number of bins by splitting bins
-   while (bin_starts.size() < static_cast<size_t>(min_bins)) {
-     // Find the bin with the largest count to split
-     size_t max_bin_idx = 0;
-     int max_bin_count = bin_ends[0] - bin_starts[0] + 1;
-     for (size_t i = 1; i < bin_starts.size(); ++i) {
-       int bin_count = bin_ends[i] - bin_starts[i] + 1;
-       if (bin_count > max_bin_count) {
-         max_bin_idx = i;
-         max_bin_count = bin_count;
-       }
-     }
-     
-     int start = bin_starts[max_bin_idx];
-     int end = bin_ends[max_bin_idx];
+   // For each bin, consider all possible splits
+   for (size_t b = 0; b < bin_starts.size(); ++b) {
+     int start = bin_starts[b];
+     int end = bin_ends[b];
      
      // Potential split points are where the feature value changes
      std::vector<int> split_candidates;
+     split_candidates.reserve(end - start);
      for (int i = start; i < end; ++i) {
        if (sorted_feature[i] != sorted_feature[i + 1]) {
          split_candidates.push_back(i);
        }
      }
      
-     if (split_candidates.empty()) {
-       // Cannot split further
-       break;
-     }
-     
-     // Choose the middle split candidate
-     int split = split_candidates[split_candidates.size() / 2];
-     
-     // Check bin constraints
-     int left_count = split - start + 1;
-     int right_count = end - split;
-     
-     if (left_count < bin_cutoff_count || right_count < bin_cutoff_count) {
-       // Cannot split due to bin size constraint
-       break;
-     }
-     
-     // Split the bin
-     bin_starts.erase(bin_starts.begin() + max_bin_idx);
-     bin_ends.erase(bin_ends.begin() + max_bin_idx);
-     
-     bin_starts.insert(bin_starts.begin() + max_bin_idx, start);
-     bin_starts.insert(bin_starts.begin() + max_bin_idx + 1, split + 1);
-     
-     bin_ends.insert(bin_ends.begin() + max_bin_idx, split);
-     bin_ends.insert(bin_ends.begin() + max_bin_idx + 1, end);
-   }
-   
-   // Compute WoE and IV
-   int num_bins = bin_starts.size();
-   std::vector<double> woe_values(num_bins);
-   double iv = 0.0;
-   std::vector<int> pos_counts(num_bins);
-   std::vector<int> neg_counts(num_bins);
-   std::vector<double> event_rates(num_bins);
-   
-   for (int i = 0; i < num_bins; ++i) {
-     int start = bin_starts[i];
-     int end = bin_ends[i];
-     
-     int count_pos = 0;
-     int count_neg = 0;
-     for (int j = start; j <= end; ++j) {
-       if (sorted_target[j] == 1)
-         ++count_pos;
-       else
-         ++count_neg;
-     }
-     
-     pos_counts[i] = count_pos;
-     neg_counts[i] = count_neg;
-     
-     double dist_pos = count_pos / static_cast<double>(total_bads);
-     double dist_neg = count_neg / static_cast<double>(total_goods);
-     
-     if (dist_pos == 0.0) dist_pos = 1e-10;
-     if (dist_neg == 0.0) dist_neg = 1e-10;
-     
-     woe_values[i] = std::log(dist_pos / dist_neg);
-     iv += (dist_pos - dist_neg) * woe_values[i];
-     
-     event_rates[i] = count_pos / static_cast<double>(count_pos + count_neg);
-   }
-   
-   // Enforce monotonicity
-   bool increasing = event_rates.front() < event_rates.back();
-   bool monotonic = false;
-   
-   while (!monotonic) {
-     monotonic = true;
-     for (int i = 0; i < num_bins - 1; ++i) {
-       if (increasing) {
-         if (event_rates[i] > event_rates[i + 1]) {
-           // Merge bins i and i+1
-           bin_ends[i] = bin_ends[i + 1];
-           bin_starts.erase(bin_starts.begin() + i + 1);
-           bin_ends.erase(bin_ends.begin() + i + 1);
-           
-           pos_counts[i] += pos_counts[i + 1];
-           neg_counts[i] += neg_counts[i + 1];
-           pos_counts.erase(pos_counts.begin() + i + 1);
-           neg_counts.erase(neg_counts.begin() + i + 1);
-           
-           event_rates[i] = pos_counts[i] / static_cast<double>(pos_counts[i] + neg_counts[i]);
-           event_rates.erase(event_rates.begin() + i + 1);
-           
-           woe_values.erase(woe_values.begin() + i + 1);
-           
-           num_bins -= 1;
-           monotonic = false;
-           break;
-         }
-       } else {
-         if (event_rates[i] < event_rates[i + 1]) {
-           // Merge bins i and i+1
-           bin_ends[i] = bin_ends[i + 1];
-           bin_starts.erase(bin_starts.begin() + i + 1);
-           bin_ends.erase(bin_ends.begin() + i + 1);
-           
-           pos_counts[i] += pos_counts[i + 1];
-           neg_counts[i] += neg_counts[i + 1];
-           pos_counts.erase(pos_counts.begin() + i + 1);
-           neg_counts.erase(neg_counts.begin() + i + 1);
-           
-           event_rates[i] = pos_counts[i] / static_cast<double>(pos_counts[i] + neg_counts[i]);
-           event_rates.erase(event_rates.begin() + i + 1);
-           
-           woe_values.erase(woe_values.begin() + i + 1);
-           
-           num_bins -= 1;
-           monotonic = false;
-           break;
-         }
+     // Consider each split candidate
+     for (int split : split_candidates) {
+       // Check bin constraints
+       int left_count = split - start + 1;
+       int right_count = end - split;
+       
+       if (left_count < bin_cutoff_count || right_count < bin_cutoff_count)
+         continue;
+       
+       // Count bads in each bin
+       int left_bads = std::accumulate(sorted_target.begin() + start, sorted_target.begin() + split + 1, 0);
+       int right_bads = std::accumulate(sorted_target.begin() + split + 1, sorted_target.begin() + end + 1, 0);
+       
+       if (left_bads < min_bads_count || right_bads < min_bads_count)
+         continue;
+       
+       // Temporarily add split
+       std::vector<int> temp_bin_starts = bin_starts;
+       std::vector<int> temp_bin_ends = bin_ends;
+       
+       temp_bin_starts.erase(temp_bin_starts.begin() + b);
+       temp_bin_ends.erase(temp_bin_ends.begin() + b);
+       
+       temp_bin_starts.insert(temp_bin_starts.begin() + b, start);
+       temp_bin_starts.insert(temp_bin_starts.begin() + b + 1, split + 1);
+       
+       temp_bin_ends.insert(temp_bin_ends.begin() + b, split);
+       temp_bin_ends.insert(temp_bin_ends.begin() + b + 1, end);
+       
+       // Compute CAIM
+       double new_caim = compute_caim(temp_bin_starts, temp_bin_ends, sorted_target);
+       
+       if (new_caim > best_caim) {
+         best_caim = new_caim;
+         best_bin = b;
+         best_split = split;
+         improvement = true;
        }
      }
    }
    
-   // Map WoE back to feature vector
-   NumericVector feature_woe(n);
-   std::vector<double> bin_upper_bounds(num_bins);
-   for (int i = 0; i < num_bins; ++i) {
-     bin_upper_bounds[i] = sorted_feature[bin_ends[i]];
+   if (improvement) {
+     // Accept the best split
+     int start = bin_starts[best_bin];
+     int end = bin_ends[best_bin];
+     
+     bin_starts.erase(bin_starts.begin() + best_bin);
+     bin_ends.erase(bin_ends.begin() + best_bin);
+     
+     bin_starts.insert(bin_starts.begin() + best_bin, start);
+     bin_starts.insert(bin_starts.begin() + best_bin + 1, best_split + 1);
+     
+     bin_ends.insert(bin_ends.begin() + best_bin, best_split);
+     bin_ends.insert(bin_ends.begin() + best_bin + 1, end);
+     
+     current_caim = best_caim;
+   }
+ }
+ 
+ // Enforce minimum number of bins by splitting bins
+ while (bin_starts.size() < static_cast<size_t>(min_bins)) {
+   // Find the bin with the largest count to split
+   size_t max_bin_idx = 0;
+   int max_bin_count = bin_ends[0] - bin_starts[0] + 1;
+   for (size_t i = 1; i < bin_starts.size(); ++i) {
+     int bin_count = bin_ends[i] - bin_starts[i] + 1;
+     if (bin_count > max_bin_count) {
+       max_bin_idx = i;
+       max_bin_count = bin_count;
+     }
    }
    
+   int start = bin_starts[max_bin_idx];
+   int end = bin_ends[max_bin_idx];
+   
+   // Potential split points are where the feature value changes
+   std::vector<int> split_candidates;
+   for (int i = start; i < end; ++i) {
+     if (sorted_feature[i] != sorted_feature[i + 1]) {
+       split_candidates.push_back(i);
+     }
+   }
+   
+   if (split_candidates.empty()) {
+     // Cannot split further
+     break;
+   }
+   
+   // Choose the middle split candidate
+   int split = split_candidates[split_candidates.size() / 2];
+   
+   // Check bin constraints
+   int left_count = split - start + 1;
+   int right_count = end - split;
+   
+   if (left_count < bin_cutoff_count || right_count < bin_cutoff_count) {
+     // Cannot split due to bin size constraint
+     break;
+   }
+   
+   // Split the bin
+   bin_starts.insert(bin_starts.begin() + max_bin_idx + 1, split + 1);
+   bin_ends.insert(bin_ends.begin() + max_bin_idx, split);
+ }
+ 
+ // Compute WoE and IV
+ int num_bins = bin_starts.size();
+ std::vector<double> woe_values(num_bins);
+ double iv = 0.0;
+ std::vector<int> pos_counts(num_bins);
+ std::vector<int> neg_counts(num_bins);
+ std::vector<double> event_rates(num_bins);
+ 
+ for (int i = 0; i < num_bins; ++i) {
+   int start = bin_starts[i];
+   int end = bin_ends[i];
+   
+   int count_pos = 0;
+   int count_neg = 0;
+   for (int j = start; j <= end; ++j) {
+     if (sorted_target[j] == 1)
+       ++count_pos;
+     else
+       ++count_neg;
+   }
+   
+   pos_counts[i] = count_pos;
+   neg_counts[i] = count_neg;
+   
+   double dist_pos = count_pos / static_cast<double>(total_bads);
+   double dist_neg = count_neg / static_cast<double>(total_goods);
+   
+   if (dist_pos == 0.0) dist_pos = 1e-10;
+   if (dist_neg == 0.0) dist_neg = 1e-10;
+   
+   woe_values[i] = std::log(dist_pos / dist_neg);
+   iv += (dist_pos - dist_neg) * woe_values[i];
+   
+   event_rates[i] = count_pos / static_cast<double>(count_pos + count_neg);
+ }
+ 
+ // Enforce monotonicity
+ bool increasing = event_rates.front() < event_rates.back();
+ bool monotonic = false;
+ 
+ while (!monotonic && num_bins > min_bins) {
+   monotonic = true;
+   for (int i = 0; i < num_bins - 1; ++i) {
+     if ((increasing && event_rates[i] > event_rates[i + 1]) ||
+         (!increasing && event_rates[i] < event_rates[i + 1])) {
+       // Merge bins i and i+1
+       bin_ends[i] = bin_ends[i + 1];
+       bin_starts.erase(bin_starts.begin() + i + 1);
+       bin_ends.erase(bin_ends.begin() + i + 1);
+       
+       pos_counts[i] += pos_counts[i + 1];
+       neg_counts[i] += neg_counts[i + 1];
+       pos_counts.erase(pos_counts.begin() + i + 1);
+       neg_counts.erase(neg_counts.begin() + i + 1);
+       
+       event_rates[i] = pos_counts[i] / static_cast<double>(pos_counts[i] + neg_counts[i]);
+       event_rates.erase(event_rates.begin() + i + 1);
+       
+       woe_values.erase(woe_values.begin() + i + 1);
+       
+       num_bins -= 1;
+       monotonic = false;
+       break;
+     }
+   }
+ }
+ 
+ // Map WoE back to feature vector
+ std::vector<double> feature_woe(n);
+ std::vector<double> bin_upper_bounds(num_bins);
+ for (int i = 0; i < num_bins; ++i) {
+   bin_upper_bounds[i] = sorted_feature[bin_ends[i]];
+ }
+ 
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-   for (int i = 0; i < n; ++i) {
-     double val = sorted_feature[i];
-     auto it = std::upper_bound(bin_upper_bounds.begin(), bin_upper_bounds.end(), val);
-     int idx = it - bin_upper_bounds.begin();
-     if (idx >= num_bins) idx = num_bins - 1;
-     feature_woe[i] = woe_values[idx];
-   }
-   
-   // Map feature_woe back to original order
-   NumericVector feature_woe_original(n);
-   for (int i = 0; i < n; ++i) {
-     feature_woe_original[indices[i]] = feature_woe[i];
-   }
-   
-   // Prepare bin information
-   std::vector<std::string> bin_names(num_bins);
-   std::vector<double> bin_lower_bounds(num_bins);
-   std::vector<double> bin_upper_bounds_output(num_bins);
-   std::vector<int> bin_counts(num_bins);
-   
-   for (int i = 0; i < num_bins; ++i) {
-     bin_lower_bounds[i] = sorted_feature[bin_starts[i]];
-     bin_upper_bounds_output[i] = sorted_feature[bin_ends[i]];
-     bin_counts[i] = bin_ends[i] - bin_starts[i] + 1;
-     
-     std::string lower_str = (i == 0) ? "[-Inf" : "[" + std::to_string(bin_lower_bounds[i]);
-     std::string upper_str = (i == num_bins - 1) ? "+Inf]" : std::to_string(bin_upper_bounds_output[i]) + ")";
-     bin_names[i] = lower_str + ";" + upper_str;
-   }
-   
-   List bin_lst = List::create(
-     Named("bin") = bin_names,
-     Named("woe") = woe_values,
-     Named("iv") = iv,
-     Named("count") = bin_counts,
-     Named("count_pos") = pos_counts,
-     Named("count_neg") = neg_counts
-   );
-   
-   // Create List for woe vector feature
-   List woe_lst = List::create(
-     Named("woefeature") = feature_woe
-   );
-   
-   // Attrib class for compatibility with data.table in memory superfast tables
-   bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
-   woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
-   
-   List output_list = List::create(
-     Named("woefeature") = woe_lst,
-     Named("woebin") = bin_lst
-   // Named("woe") = woe,
-   // Named("iv") = total_iv,
-   // Named("pos") = pos,
-   // Named("neg") = neg
-   );
-   
-   // DataFrame bin_df = DataFrame::create(
-   //   Named("bin") = bin_names,
-   //   Named("woe") = woe_values,
-   //   Named("count") = bin_counts,
-   //   Named("count_pos") = pos_counts,
-   //   Named("count_neg") = neg_counts
-   // );
-   // 
-   // List output_list = List::create(
-   //   Named("woefeature") = feature_woe,
-   //   Named("woebin") = bin_df
-   // // Named("woe") = woe,
-   // // Named("iv") = total_iv,
-   // // Named("pos") = pos,
-   // // Named("neg") = neg
-   // );
-   // output_list.attr("class") = CharacterVector::create("data.table", "data.frame");
-   
-   return output_list;
+ for (int i = 0; i < n; ++i) {
+   double val = sorted_feature[i];
+   auto it = std::upper_bound(bin_upper_bounds.begin(), bin_upper_bounds.end(), val);
+   int idx = it - bin_upper_bounds.begin();
+   if (idx >= num_bins) idx = num_bins - 1;
+   feature_woe[i] = woe_values[idx];
  }
+ 
+ // Map feature_woe back to original order
+ std::vector<double> feature_woe_original(feature.size(), std::numeric_limits<double>::quiet_NaN());
+ for (int i = 0; i < n; ++i) {
+   feature_woe_original[indices[i]] = feature_woe[i];
+ }
+ 
+ // Prepare bin information
+ std::vector<std::string> bin_names(num_bins);
+ std::vector<double> bin_lower_bounds(num_bins);
+ std::vector<double> bin_upper_bounds_output(num_bins);
+ std::vector<int> bin_counts(num_bins);
+ 
+ for (int i = 0; i < num_bins; ++i) {
+   bin_lower_bounds[i] = sorted_feature[bin_starts[i]];
+   bin_upper_bounds_output[i] = sorted_feature[bin_ends[i]];
+   bin_counts[i] = bin_ends[i] - bin_starts[i] + 1;
+   
+   std::ostringstream oss;
+   oss << std::fixed << std::setprecision(4);
+   oss << (i == 0 ? "[-Inf;" : "[") << bin_lower_bounds[i] << ";";
+   oss << (i == num_bins - 1 ? "+Inf]" : std::to_string(bin_upper_bounds_output[i]) + ")");
+   bin_names[i] = oss.str();
+ }
+ 
+ DataFrame bin_df = DataFrame::create(
+   Named("bin") = bin_names,
+   Named("woe") = woe_values,
+   Named("iv") = iv,
+   Named("count") = bin_counts,
+   Named("count_pos") = pos_counts,
+   Named("count_neg") = neg_counts
+ );
+ 
+ // Create DataFrame for woe vector feature
+ DataFrame woe_df = DataFrame::create(
+   Named("woefeature") = feature_woe_original
+ );
+ 
+ // Set class attributes for compatibility with data.table
+ bin_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+ woe_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+ 
+ List output_list = List::create(
+   Named("woefeature") = woe_df,
+   Named("woebin") = bin_df,
+   Named("total_iv") = iv
+ );
+ 
+ return output_list;
+}
+ 
+//  // Function to compute the CAIM criterion
+//  double compute_caim(const std::vector<int>& bin_starts,
+//                      const std::vector<int>& bin_ends,
+//                      const IntegerVector& sorted_target) {
+//    int r = bin_starts.size();
+//    double caim = 0.0;
+//    
+//    for (int i = 0; i < r; ++i) {
+//      int start = bin_starts[i];
+//      int end = bin_ends[i];
+//      
+//      int count_pos = 0;
+//      int count_neg = 0;
+//      for (int j = start; j <= end; ++j) {
+//        if (sorted_target[j] == 1)
+//          ++count_pos;
+//        else
+//          ++count_neg;
+//      }
+//      
+//      int M_i = count_pos + count_neg;
+//      int max_i = std::max(count_pos, count_neg);
+//      
+//      if (M_i > 0) {
+//        caim += (max_i * max_i) / static_cast<double>(M_i);
+//      }
+//    }
+//    
+//    caim /= r;
+//    return caim;
+//  }
+//  
+//  //' Performs optimal binning of a numeric variable for Weight of Evidence (WoE) and Information Value (IV) using the Class-Attribute Interdependence Maximization (CAIM) criterion
+//  //'
+//  //' This function processes a numeric variable by creating pre-bins based on unique values. It iteratively merges or splits bins to maximize the CAIM criterion, ensuring monotonicity of event rates while respecting the minimum number of bad events (\code{min_bads}) per bin. It also calculates WoE and IV for the generated bins.
+//  //'
+//  //' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
+//  //' @param feature Numeric vector representing the numeric variable to be binned.
+//  //' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
+//  //' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
+//  //' @param bin_cutoff (Optional) Cutoff value that determines the frequency of values to define pre-bins. Default is 0.05.
+//  //' @param min_bads (Optional) Minimum proportion of bad events (positive target events) that a bin must contain. Default is 0.05.
+//  //' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
+//  //'
+//  //' @return A list with the following elements:
+//  //' \itemize{
+//  //'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed numeric variable.
+//  //'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
+//  //'     \itemize{
+//  //'       \item \code{bin}: String representing the range of values for each bin.
+//  //'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
+//  //'       \item \code{iv}: Information Value (IV) for each bin.
+//  //'       \item \code{count}: Total number of observations in each bin.
+//  //'       \item \code{count_pos}: Count of positive events in each bin.
+//  //'       \item \code{count_neg}: Count of negative events in each bin.
+//  //'     }
+//  //'   \item \code{woe}: Numeric vector with the WoE for each bin.
+//  //'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
+//  //'   \item \code{pos}: Vector with the count of positive events in each bin.
+//  //'   \item \code{neg}: Vector with the count of negative events in each bin.
+//  //' }
+//  //'
+//  //'
+//  Rcpp::List OptimalBinningNumericCAIM(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
+//    int n = feature.size();
+//    int total_bads = std::accumulate(target.begin(), target.end(), 0);
+//    int total_goods = n - total_bads;
+//    
+//    double min_bads_count = min_bads * total_bads;
+//    double bin_cutoff_count = bin_cutoff * n;
+//    
+//    // Create indices and sort them based on feature values
+//    std::vector<int> indices(n);
+//    for (int i = 0; i < n; ++i) indices[i] = i;
+//    
+//    std::sort(indices.begin(), indices.end(), [&](int i1, int i2) {
+//      return feature[i1] < feature[i2];
+//    });
+//    
+//    // Sort feature and target accordingly
+//    NumericVector sorted_feature(n);
+//    IntegerVector sorted_target(n);
+//    for (int i = 0; i < n; ++i) {
+//      sorted_feature[i] = feature[indices[i]];
+//      sorted_target[i] = target[indices[i]];
+//    }
+//    
+//    // Initialize bins
+//    std::vector<int> bin_starts = {0};
+//    std::vector<int> bin_ends = {n - 1};
+//    
+//    // Compute initial CAIM
+//    double current_caim = compute_caim(bin_starts, bin_ends, sorted_target);
+//    
+//    bool improvement = true;
+//    
+//    while (improvement) {
+//      improvement = false;
+//      double best_caim = current_caim;
+//      int best_bin = -1;
+//      int best_split = -1;
+//      
+//      // For each bin, consider all possible splits
+//      for (size_t b = 0; b < bin_starts.size(); ++b) {
+//        int start = bin_starts[b];
+//        int end = bin_ends[b];
+//        
+//        // Potential split points are where the feature value changes
+//        std::vector<int> split_candidates;
+//        for (int i = start; i < end; ++i) {
+//          if (sorted_feature[i] != sorted_feature[i + 1]) {
+//            split_candidates.push_back(i);
+//          }
+//        }
+//        
+//        // Consider each split candidate
+//        for (int split : split_candidates) {
+//          // Temporarily add split
+//          std::vector<int> temp_bin_starts = bin_starts;
+//          std::vector<int> temp_bin_ends = bin_ends;
+//          
+//          temp_bin_starts.erase(temp_bin_starts.begin() + b);
+//          temp_bin_ends.erase(temp_bin_ends.begin() + b);
+//          
+//          temp_bin_starts.insert(temp_bin_starts.begin() + b, start);
+//          temp_bin_starts.insert(temp_bin_starts.begin() + b + 1, split + 1);
+//          
+//          temp_bin_ends.insert(temp_bin_ends.begin() + b, split);
+//          temp_bin_ends.insert(temp_bin_ends.begin() + b + 1, end);
+//          
+//          // Check bin constraints
+//          int left_count = split - start + 1;
+//          int right_count = end - split;
+//          
+//          if (left_count < bin_cutoff_count || right_count < bin_cutoff_count)
+//            continue;
+//          
+//          // Count bads in each bin
+//          int left_bads = std::accumulate(sorted_target.begin() + start, sorted_target.begin() + split + 1, 0);
+//          int right_bads = std::accumulate(sorted_target.begin() + split + 1, sorted_target.begin() + end + 1, 0);
+//          
+//          if (left_bads < min_bads_count || right_bads < min_bads_count)
+//            continue;
+//          
+//          // Compute CAIM
+//          double new_caim = compute_caim(temp_bin_starts, temp_bin_ends, sorted_target);
+//          
+//          if (new_caim > best_caim) {
+//            best_caim = new_caim;
+//            best_bin = b;
+//            best_split = split;
+//            improvement = true;
+//          }
+//        }
+//      }
+//      
+//      if (improvement && bin_starts.size() < static_cast<size_t>(max_bins)) {
+//        // Accept the best split
+//        int start = bin_starts[best_bin];
+//        int end = bin_ends[best_bin];
+//        
+//        bin_starts.erase(bin_starts.begin() + best_bin);
+//        bin_ends.erase(bin_ends.begin() + best_bin);
+//        
+//        bin_starts.insert(bin_starts.begin() + best_bin, start);
+//        bin_starts.insert(bin_starts.begin() + best_bin + 1, best_split + 1);
+//        
+//        bin_ends.insert(bin_ends.begin() + best_bin, best_split);
+//        bin_ends.insert(bin_ends.begin() + best_bin + 1, end);
+//        
+//        current_caim = best_caim;
+//      } else {
+//        improvement = false;
+//      }
+//      
+//      // Check if maximum number of bins reached
+//      if (bin_starts.size() >= static_cast<size_t>(max_bins)) {
+//        break;
+//      }
+//    }
+//    
+//    // Enforce minimum number of bins by splitting bins
+//    while (bin_starts.size() < static_cast<size_t>(min_bins)) {
+//      // Find the bin with the largest count to split
+//      size_t max_bin_idx = 0;
+//      int max_bin_count = bin_ends[0] - bin_starts[0] + 1;
+//      for (size_t i = 1; i < bin_starts.size(); ++i) {
+//        int bin_count = bin_ends[i] - bin_starts[i] + 1;
+//        if (bin_count > max_bin_count) {
+//          max_bin_idx = i;
+//          max_bin_count = bin_count;
+//        }
+//      }
+//      
+//      int start = bin_starts[max_bin_idx];
+//      int end = bin_ends[max_bin_idx];
+//      
+//      // Potential split points are where the feature value changes
+//      std::vector<int> split_candidates;
+//      for (int i = start; i < end; ++i) {
+//        if (sorted_feature[i] != sorted_feature[i + 1]) {
+//          split_candidates.push_back(i);
+//        }
+//      }
+//      
+//      if (split_candidates.empty()) {
+//        // Cannot split further
+//        break;
+//      }
+//      
+//      // Choose the middle split candidate
+//      int split = split_candidates[split_candidates.size() / 2];
+//      
+//      // Check bin constraints
+//      int left_count = split - start + 1;
+//      int right_count = end - split;
+//      
+//      if (left_count < bin_cutoff_count || right_count < bin_cutoff_count) {
+//        // Cannot split due to bin size constraint
+//        break;
+//      }
+//      
+//      // Split the bin
+//      bin_starts.erase(bin_starts.begin() + max_bin_idx);
+//      bin_ends.erase(bin_ends.begin() + max_bin_idx);
+//      
+//      bin_starts.insert(bin_starts.begin() + max_bin_idx, start);
+//      bin_starts.insert(bin_starts.begin() + max_bin_idx + 1, split + 1);
+//      
+//      bin_ends.insert(bin_ends.begin() + max_bin_idx, split);
+//      bin_ends.insert(bin_ends.begin() + max_bin_idx + 1, end);
+//    }
+//    
+//    // Compute WoE and IV
+//    int num_bins = bin_starts.size();
+//    std::vector<double> woe_values(num_bins);
+//    double iv = 0.0;
+//    std::vector<int> pos_counts(num_bins);
+//    std::vector<int> neg_counts(num_bins);
+//    std::vector<double> event_rates(num_bins);
+//    
+//    for (int i = 0; i < num_bins; ++i) {
+//      int start = bin_starts[i];
+//      int end = bin_ends[i];
+//      
+//      int count_pos = 0;
+//      int count_neg = 0;
+//      for (int j = start; j <= end; ++j) {
+//        if (sorted_target[j] == 1)
+//          ++count_pos;
+//        else
+//          ++count_neg;
+//      }
+//      
+//      pos_counts[i] = count_pos;
+//      neg_counts[i] = count_neg;
+//      
+//      double dist_pos = count_pos / static_cast<double>(total_bads);
+//      double dist_neg = count_neg / static_cast<double>(total_goods);
+//      
+//      if (dist_pos == 0.0) dist_pos = 1e-10;
+//      if (dist_neg == 0.0) dist_neg = 1e-10;
+//      
+//      woe_values[i] = std::log(dist_pos / dist_neg);
+//      iv += (dist_pos - dist_neg) * woe_values[i];
+//      
+//      event_rates[i] = count_pos / static_cast<double>(count_pos + count_neg);
+//    }
+//    
+//    // Enforce monotonicity
+//    bool increasing = event_rates.front() < event_rates.back();
+//    bool monotonic = false;
+//    
+//    while (!monotonic) {
+//      monotonic = true;
+//      for (int i = 0; i < num_bins - 1; ++i) {
+//        if (increasing) {
+//          if (event_rates[i] > event_rates[i + 1]) {
+//            // Merge bins i and i+1
+//            bin_ends[i] = bin_ends[i + 1];
+//            bin_starts.erase(bin_starts.begin() + i + 1);
+//            bin_ends.erase(bin_ends.begin() + i + 1);
+//            
+//            pos_counts[i] += pos_counts[i + 1];
+//            neg_counts[i] += neg_counts[i + 1];
+//            pos_counts.erase(pos_counts.begin() + i + 1);
+//            neg_counts.erase(neg_counts.begin() + i + 1);
+//            
+//            event_rates[i] = pos_counts[i] / static_cast<double>(pos_counts[i] + neg_counts[i]);
+//            event_rates.erase(event_rates.begin() + i + 1);
+//            
+//            woe_values.erase(woe_values.begin() + i + 1);
+//            
+//            num_bins -= 1;
+//            monotonic = false;
+//            break;
+//          }
+//        } else {
+//          if (event_rates[i] < event_rates[i + 1]) {
+//            // Merge bins i and i+1
+//            bin_ends[i] = bin_ends[i + 1];
+//            bin_starts.erase(bin_starts.begin() + i + 1);
+//            bin_ends.erase(bin_ends.begin() + i + 1);
+//            
+//            pos_counts[i] += pos_counts[i + 1];
+//            neg_counts[i] += neg_counts[i + 1];
+//            pos_counts.erase(pos_counts.begin() + i + 1);
+//            neg_counts.erase(neg_counts.begin() + i + 1);
+//            
+//            event_rates[i] = pos_counts[i] / static_cast<double>(pos_counts[i] + neg_counts[i]);
+//            event_rates.erase(event_rates.begin() + i + 1);
+//            
+//            woe_values.erase(woe_values.begin() + i + 1);
+//            
+//            num_bins -= 1;
+//            monotonic = false;
+//            break;
+//          }
+//        }
+//      }
+//    }
+//    
+//    // Map WoE back to feature vector
+//    NumericVector feature_woe(n);
+//    std::vector<double> bin_upper_bounds(num_bins);
+//    for (int i = 0; i < num_bins; ++i) {
+//      bin_upper_bounds[i] = sorted_feature[bin_ends[i]];
+//    }
+//    
+// #ifdef _OPENMP
+// #pragma omp parallel for
+// #endif
+//    for (int i = 0; i < n; ++i) {
+//      double val = sorted_feature[i];
+//      auto it = std::upper_bound(bin_upper_bounds.begin(), bin_upper_bounds.end(), val);
+//      int idx = it - bin_upper_bounds.begin();
+//      if (idx >= num_bins) idx = num_bins - 1;
+//      feature_woe[i] = woe_values[idx];
+//    }
+//    
+//    // Map feature_woe back to original order
+//    NumericVector feature_woe_original(n);
+//    for (int i = 0; i < n; ++i) {
+//      feature_woe_original[indices[i]] = feature_woe[i];
+//    }
+//    
+//    // Prepare bin information
+//    std::vector<std::string> bin_names(num_bins);
+//    std::vector<double> bin_lower_bounds(num_bins);
+//    std::vector<double> bin_upper_bounds_output(num_bins);
+//    std::vector<int> bin_counts(num_bins);
+//    
+//    for (int i = 0; i < num_bins; ++i) {
+//      bin_lower_bounds[i] = sorted_feature[bin_starts[i]];
+//      bin_upper_bounds_output[i] = sorted_feature[bin_ends[i]];
+//      bin_counts[i] = bin_ends[i] - bin_starts[i] + 1;
+//      
+//      std::string lower_str = (i == 0) ? "[-Inf" : "[" + std::to_string(bin_lower_bounds[i]);
+//      std::string upper_str = (i == num_bins - 1) ? "+Inf]" : std::to_string(bin_upper_bounds_output[i]) + ")";
+//      bin_names[i] = lower_str + ";" + upper_str;
+//    }
+//    
+//    List bin_lst = List::create(
+//      Named("bin") = bin_names,
+//      Named("woe") = woe_values,
+//      Named("iv") = iv,
+//      Named("count") = bin_counts,
+//      Named("count_pos") = pos_counts,
+//      Named("count_neg") = neg_counts
+//    );
+//    
+//    // Create List for woe vector feature
+//    List woe_lst = List::create(
+//      Named("woefeature") = feature_woe
+//    );
+//    
+//    // Attrib class for compatibility with data.table in memory superfast tables
+//    bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+//    woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+//    
+//    List output_list = List::create(
+//      Named("woefeature") = woe_lst,
+//      Named("woebin") = bin_lst
+//    // Named("woe") = woe,
+//    // Named("iv") = total_iv,
+//    // Named("pos") = pos,
+//    // Named("neg") = neg
+//    );
+//    return output_list;
+//  }
+ 
+ 
+ 
+ 
+ 
+ 
+ 
  
  // Function to format doubles to six decimal places
  std::string format_double(double val) {
