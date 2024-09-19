@@ -545,291 +545,291 @@ using namespace Rcpp;
  // }
  
  
- //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using Monotonic Optimal Binning (MOB)
- //'
- //' This function processes a categorical variable by grouping rare categories, ordering them by event rate, and generating bins to maximize WoE monotonicity. It also applies constraints to ensure that bins have a minimum number of bad events (min_bads) and calculates WoE and IV for the generated bins.
- //'
- //' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
- //' @param feature Character vector representing the categorical variable to be binned.
- //' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
- //' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
- //' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
- //' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
- //' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
- //'
- //' @return A list with the following elements:
- //' \itemize{
- //'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
- //'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
- //'     \itemize{
- //'       \item \code{bin}: Names of the categories grouped into each bin.
- //'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
- //'       \item \code{iv}: Information Value (IV) for each bin.
- //'       \item \code{count}: Total number of observations in each bin.
- //'       \item \code{count_pos}: Count of positive events in each bin.
- //'       \item \code{count_neg}: Count of negative events in each bin.
- //'     }
- //'   \item \code{woe}: Numeric vector with the WoE for each bin.
- //'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
- //'   \item \code{pos}: Vector with the count of positive events in each bin.
- //'   \item \code{neg}: Vector with the count of negative events in each bin.
- //' }
- //'
- //'
- 
- // Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
- //   int N = target.size();
- //   if (feature.size() != N) {
- //     Rcpp::stop("Length of target and feature must be the same.");
- //   }
- //   
- //   // Parameters
- //   
- //   // Compute frequencies of each category
- //   std::map<std::string, int> category_counts;
- //   for (int i = 0; i < N; ++i) {
- //     std::string cat = Rcpp::as<std::string>(feature[i]);
- //     category_counts[cat]++;
- //   }
- //   
- //   // Handle rare categories
- //   std::map<std::string, double> category_freq;
- //   for (auto& it : category_counts) {
- //     category_freq[it.first] = (double)it.second / N;
- //   }
- //   std::set<std::string> rare_categories;
- //   for (auto& it : category_freq) {
- //     if (it.second < cat_cutoff) {
- //       rare_categories.insert(it.first);
- //     }
- //   }
- //   
- //   // Map categories, combining rare categories into 'Other'
- //   std::vector<std::string> feature_processed(N);
- //   for (int i = 0; i < N; ++i) {
- //     std::string cat = Rcpp::as<std::string>(feature[i]);
- //     if (rare_categories.find(cat) != rare_categories.end()) {
- //       feature_processed[i] = "Other";
- //     } else {
- //       feature_processed[i] = cat;
- //     }
- //   }
- //   
- //   // Recompute category counts and frequencies
- //   category_counts.clear();
- //   for (int i = 0; i < N; ++i) {
- //     category_counts[feature_processed[i]]++;
- //   }
- //   
- //   // Compute event rates per category
- //   std::map<std::string, int> category_positive_count;
- //   std::map<std::string, int> category_negative_count;
- //   for (auto& it : category_counts) {
- //     category_positive_count[it.first] = 0;
- //     category_negative_count[it.first] = 0;
- //   }
- //   for (int i = 0; i < N; ++i) {
- //     std::string cat = feature_processed[i];
- //     int tgt = target[i];
- //     if (tgt == 1) {
- //       category_positive_count[cat]++;
- //     } else {
- //       category_negative_count[cat]++;
- //     }
- //   }
- //   
- //   // Compute event rates
- //   std::vector<std::pair<std::string, double>> categories_event_rates;
- //   for (auto& it : category_counts) {
- //     int pos = category_positive_count[it.first];
- //     int neg = category_negative_count[it.first];
- //     double event_rate = (double)pos / (pos + neg);
- //     categories_event_rates.push_back(std::make_pair(it.first, event_rate));
- //   }
- //   
- //   // Sort categories by event rate
- //   std::sort(categories_event_rates.begin(), categories_event_rates.end(),
- //             [](const std::pair<std::string, double>& a, const std::pair<std::string, double>& b) {
- //               return a.second < b.second;
- //             });
- //   
- //   // Initialize bins with each category as a bin
- //   struct Bin {
- //     std::vector<std::string> categories;
- //     int pos_count;
- //     int neg_count;
- //     double event_rate;
- //   };
- //   std::vector<Bin> bins;
- //   for (size_t i = 0; i < categories_event_rates.size(); ++i) {
- //     Bin bin;
- //     bin.categories.push_back(categories_event_rates[i].first);
- //     bin.pos_count = category_positive_count[categories_event_rates[i].first];
- //     bin.neg_count = category_negative_count[categories_event_rates[i].first];
- //     bin.event_rate = categories_event_rates[i].second;
- //     bins.push_back(bin);
- //   }
- //   
- //   // Function to check if bins satisfy monotonicity
- //   auto is_monotonic = [](const std::vector<Bin>& bins) {
- //     bool increasing = true, decreasing = true;
- //     for (size_t i = 1; i < bins.size(); ++i) {
- //       if (bins[i].event_rate < bins[i - 1].event_rate) {
- //         increasing = false;
- //       }
- //       if (bins[i].event_rate > bins[i - 1].event_rate) {
- //         decreasing = false;
- //       }
- //     }
- //     return increasing || decreasing;
- //   };
- //   
- //   // Merge bins to satisfy min_bads constraint
- //   bool merged = true;
- //   while (merged) {
- //     merged = false;
- //     for (size_t i = 0; i < bins.size(); ++i) {
- //       double bad_rate = (double)bins[i].pos_count / N;
- //       if (bad_rate < min_bads && bins.size() > (size_t)min_bins) {
- //         // Merge with neighbor bin with closest event rate
- //         size_t merge_idx = (i == 0) ? i + 1 : i - 1;
- //         bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
- //                                           bins[i].categories.begin(),
- //                                           bins[i].categories.end());
- //         bins[merge_idx].pos_count += bins[i].pos_count;
- //         bins[merge_idx].neg_count += bins[i].neg_count;
- //         bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
- //           (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
- //         bins.erase(bins.begin() + i);
- //         merged = true;
- //         break;
- //       }
- //     }
- //   }
- //   
- //   // Merge bins to reduce to max_bins
- //   while (bins.size() > (size_t)max_bins) {
- //     double min_diff = std::numeric_limits<double>::max();
- //     size_t merge_idx = 0;
- //     for (size_t i = 0; i < bins.size() - 1; ++i) {
- //       double diff = bins[i + 1].event_rate - bins[i].event_rate;
- //       if (diff < min_diff) {
- //         min_diff = diff;
- //         merge_idx = i;
- //       }
- //     }
- //     // Merge bins
- //     bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
- //                                       bins[merge_idx + 1].categories.begin(),
- //                                       bins[merge_idx + 1].categories.end());
- //     bins[merge_idx].pos_count += bins[merge_idx + 1].pos_count;
- //     bins[merge_idx].neg_count += bins[merge_idx + 1].neg_count;
- //     bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
- //       (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
- //     bins.erase(bins.begin() + merge_idx + 1);
- //   }
- //   
- //   // Ensure monotonicity
- //   while (!is_monotonic(bins) && bins.size() > (size_t)min_bins) {
- //     // Find the bin to merge based on event rate deviation
- //     double min_deviation = std::numeric_limits<double>::max();
- //     size_t merge_idx = 0;
- //     for (size_t i = 0; i < bins.size() - 1; ++i) {
- //       if (bins[i].event_rate > bins[i + 1].event_rate) {
- //         double deviation = bins[i].event_rate - bins[i + 1].event_rate;
- //         if (deviation < min_deviation) {
- //           min_deviation = deviation;
- //           merge_idx = i;
- //         }
- //       }
- //     }
- //     // Merge bins
- //     bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
- //                                       bins[merge_idx + 1].categories.begin(),
- //                                       bins[merge_idx + 1].categories.end());
- //     bins[merge_idx].pos_count += bins[merge_idx + 1].pos_count;
- //     bins[merge_idx].neg_count += bins[merge_idx + 1].neg_count;
- //     bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
- //       (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
- //     bins.erase(bins.begin() + merge_idx + 1);
- //   }
- //   
- //   // Compute WoE and IV
- //   int total_pos = 0;
- //   int total_neg = 0;
- //   for (auto& bin : bins) {
- //     total_pos += bin.pos_count;
- //     total_neg += bin.neg_count;
- //   }
- //   std::vector<double> woe(bins.size());
- //   std::vector<double> iv_bin(bins.size());
- //   double total_iv = 0.0;
- //   for (size_t i = 0; i < bins.size(); ++i) {
- //     double dist_pos = (double)bins[i].pos_count / total_pos;
- //     double dist_neg = (double)bins[i].neg_count / total_neg;
- //     if (dist_pos == 0) dist_pos = 1e-10;
- //     if (dist_neg == 0) dist_neg = 1e-10;
- //     woe[i] = log(dist_pos / dist_neg);
- //     iv_bin[i] = (dist_pos - dist_neg) * woe[i];
- //     total_iv += iv_bin[i];
- //   }
- //   
- //   // Map categories to WoE
- //   std::map<std::string, double> category_woe_map;
- //   for (size_t i = 0; i < bins.size(); ++i) {
- //     for (auto& cat : bins[i].categories) {
- //       category_woe_map[cat] = woe[i];
- //     }
- //   }
- //   NumericVector feature_woe(N);
- //   for (int i = 0; i < N; ++i) {
- //     feature_woe[i] = category_woe_map[feature_processed[i]];
- //   }
- //   
- //   // Prepare bin output
- //   std::vector<std::string> bin_names(bins.size());
- //   std::vector<int> count(bins.size());
- //   std::vector<int> pos(bins.size());
- //   std::vector<int> neg(bins.size());
- //   for (size_t i = 0; i < bins.size(); ++i) {
- //     bin_names[i] = bins[i].categories[0];
- //     for (size_t j = 1; j < bins[i].categories.size(); ++j) {
- //       bin_names[i] += "+" + bins[i].categories[j];
- //     }
- //     count[i] = bins[i].pos_count + bins[i].neg_count;
- //     pos[i] = bins[i].pos_count;
- //     neg[i] = bins[i].neg_count;
- //   }
- //   
- //   // Create List for bins
- //   List bin_lst = List::create(
- //     Named("bin") = bin_names,
- //     Named("woe") = woe,
- //     Named("iv") = iv_bin,
- //     Named("count") = count,
- //     Named("count_pos") = pos,
- //     Named("count_neg") = neg);
- //   
- //   // Create List for woe vector feature
- //   List woe_lst = List::create(
- //     Named("woefeature") = feature_woe
- //   );
- //   
- //   // Attrib class for compatibility with data.table in memory superfast tables
- //   bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
- //   woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
- //   
- //   // Return output
- //   List output_list = List::create(
- //     Named("woefeature") = woe_lst,
- //     Named("woebin") = bin_lst
- //   // Named("woe") = woe,
- //   // Named("iv") = total_iv,
- //   // Named("pos") = pos,
- //   // Named("neg") = neg
- //   );
- //   return output_list;
- // }
+//' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using Monotonic Optimal Binning (MOB)
+//'
+//' This function processes a categorical variable by grouping rare categories, ordering them by event rate, and generating bins to maximize WoE monotonicity. It also applies constraints to ensure that bins have a minimum number of bad events (min_bads) and calculates WoE and IV for the generated bins.
+//'
+//' @param target Integer vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
+//' @param feature Character vector representing the categorical variable to be binned.
+//' @param min_bins (Optional) Minimum number of bins to generate. Default is 2.
+//' @param max_bins (Optional) Maximum number of bins to generate. Default is 7.
+//' @param cat_cutoff (Optional) Frequency cutoff value, below which categories are grouped into "Other". Default is 0.05.
+//' @param min_bads (Optional) Minimum proportion of bad events that a bin must contain. Default is 0.05.
+//' @param max_n_prebins (Optional) Maximum number of pre-bins to consider before final binning. Default is 20.
+//'
+//' @return A list with the following elements:
+//' \itemize{
+//'   \item \code{feature_woe}: Numeric vector with the WoE assigned to each instance of the processed categorical variable.
+//'   \item \code{bin}: DataFrame with the generated bins, containing the following fields:
+//'     \itemize{
+//'       \item \code{bin}: Names of the categories grouped into each bin.
+//'       \item \code{woe}: Weight of Evidence (WoE) for each bin.
+//'       \item \code{iv}: Information Value (IV) for each bin.
+//'       \item \code{count}: Total number of observations in each bin.
+//'       \item \code{count_pos}: Count of positive events in each bin.
+//'       \item \code{count_neg}: Count of negative events in each bin.
+//'     }
+//'   \item \code{woe}: Numeric vector with the WoE for each bin.
+//'   \item \code{iv}: Total Information Value (IV) calculated for the variable.
+//'   \item \code{pos}: Vector with the count of positive events in each bin.
+//'   \item \code{neg}: Vector with the count of negative events in each bin.
+//' }
+//'
+//'
+// [[Rcpp::export]]
+Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins = 2, int max_bins = 7, double cat_cutoff = 0.05, double min_bads = 0.05, int max_n_prebins = 20) {
+ int N = target.size();
+ if (feature.size() != N) {
+   Rcpp::stop("Length of target and feature must be the same.");
+ }
+
+ // Parameters
+
+ // Compute frequencies of each category
+ std::map<std::string, int> category_counts;
+ for (int i = 0; i < N; ++i) {
+   std::string cat = Rcpp::as<std::string>(feature[i]);
+   category_counts[cat]++;
+ }
+
+ // Handle rare categories
+ std::map<std::string, double> category_freq;
+ for (auto& it : category_counts) {
+   category_freq[it.first] = (double)it.second / N;
+ }
+ std::set<std::string> rare_categories;
+ for (auto& it : category_freq) {
+   if (it.second < cat_cutoff) {
+     rare_categories.insert(it.first);
+   }
+ }
+
+ // Map categories, combining rare categories into 'Other'
+ std::vector<std::string> feature_processed(N);
+ for (int i = 0; i < N; ++i) {
+   std::string cat = Rcpp::as<std::string>(feature[i]);
+   if (rare_categories.find(cat) != rare_categories.end()) {
+     feature_processed[i] = "Other";
+   } else {
+     feature_processed[i] = cat;
+   }
+ }
+
+ // Recompute category counts and frequencies
+ category_counts.clear();
+ for (int i = 0; i < N; ++i) {
+   category_counts[feature_processed[i]]++;
+ }
+
+ // Compute event rates per category
+ std::map<std::string, int> category_positive_count;
+ std::map<std::string, int> category_negative_count;
+ for (auto& it : category_counts) {
+   category_positive_count[it.first] = 0;
+   category_negative_count[it.first] = 0;
+ }
+ for (int i = 0; i < N; ++i) {
+   std::string cat = feature_processed[i];
+   int tgt = target[i];
+   if (tgt == 1) {
+     category_positive_count[cat]++;
+   } else {
+     category_negative_count[cat]++;
+   }
+ }
+
+ // Compute event rates
+ std::vector<std::pair<std::string, double>> categories_event_rates;
+ for (auto& it : category_counts) {
+   int pos = category_positive_count[it.first];
+   int neg = category_negative_count[it.first];
+   double event_rate = (double)pos / (pos + neg);
+   categories_event_rates.push_back(std::make_pair(it.first, event_rate));
+ }
+
+ // Sort categories by event rate
+ std::sort(categories_event_rates.begin(), categories_event_rates.end(),
+           [](const std::pair<std::string, double>& a, const std::pair<std::string, double>& b) {
+             return a.second < b.second;
+           });
+
+ // Initialize bins with each category as a bin
+ struct Bin {
+   std::vector<std::string> categories;
+   int pos_count;
+   int neg_count;
+   double event_rate;
+ };
+ std::vector<Bin> bins;
+ for (size_t i = 0; i < categories_event_rates.size(); ++i) {
+   Bin bin;
+   bin.categories.push_back(categories_event_rates[i].first);
+   bin.pos_count = category_positive_count[categories_event_rates[i].first];
+   bin.neg_count = category_negative_count[categories_event_rates[i].first];
+   bin.event_rate = categories_event_rates[i].second;
+   bins.push_back(bin);
+ }
+
+ // Function to check if bins satisfy monotonicity
+ auto is_monotonic = [](const std::vector<Bin>& bins) {
+   bool increasing = true, decreasing = true;
+   for (size_t i = 1; i < bins.size(); ++i) {
+     if (bins[i].event_rate < bins[i - 1].event_rate) {
+       increasing = false;
+     }
+     if (bins[i].event_rate > bins[i - 1].event_rate) {
+       decreasing = false;
+     }
+   }
+   return increasing || decreasing;
+ };
+
+ // Merge bins to satisfy min_bads constraint
+ bool merged = true;
+ while (merged) {
+   merged = false;
+   for (size_t i = 0; i < bins.size(); ++i) {
+     double bad_rate = (double)bins[i].pos_count / N;
+     if (bad_rate < min_bads && bins.size() > (size_t)min_bins) {
+       // Merge with neighbor bin with closest event rate
+       size_t merge_idx = (i == 0) ? i + 1 : i - 1;
+       bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
+                                         bins[i].categories.begin(),
+                                         bins[i].categories.end());
+       bins[merge_idx].pos_count += bins[i].pos_count;
+       bins[merge_idx].neg_count += bins[i].neg_count;
+       bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
+         (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
+       bins.erase(bins.begin() + i);
+       merged = true;
+       break;
+     }
+   }
+ }
+
+ // Merge bins to reduce to max_bins
+ while (bins.size() > (size_t)max_bins) {
+   double min_diff = std::numeric_limits<double>::max();
+   size_t merge_idx = 0;
+   for (size_t i = 0; i < bins.size() - 1; ++i) {
+     double diff = bins[i + 1].event_rate - bins[i].event_rate;
+     if (diff < min_diff) {
+       min_diff = diff;
+       merge_idx = i;
+     }
+   }
+   // Merge bins
+   bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
+                                     bins[merge_idx + 1].categories.begin(),
+                                     bins[merge_idx + 1].categories.end());
+   bins[merge_idx].pos_count += bins[merge_idx + 1].pos_count;
+   bins[merge_idx].neg_count += bins[merge_idx + 1].neg_count;
+   bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
+     (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
+   bins.erase(bins.begin() + merge_idx + 1);
+ }
+
+ // Ensure monotonicity
+ while (!is_monotonic(bins) && bins.size() > (size_t)min_bins) {
+   // Find the bin to merge based on event rate deviation
+   double min_deviation = std::numeric_limits<double>::max();
+   size_t merge_idx = 0;
+   for (size_t i = 0; i < bins.size() - 1; ++i) {
+     if (bins[i].event_rate > bins[i + 1].event_rate) {
+       double deviation = bins[i].event_rate - bins[i + 1].event_rate;
+       if (deviation < min_deviation) {
+         min_deviation = deviation;
+         merge_idx = i;
+       }
+     }
+   }
+   // Merge bins
+   bins[merge_idx].categories.insert(bins[merge_idx].categories.end(),
+                                     bins[merge_idx + 1].categories.begin(),
+                                     bins[merge_idx + 1].categories.end());
+   bins[merge_idx].pos_count += bins[merge_idx + 1].pos_count;
+   bins[merge_idx].neg_count += bins[merge_idx + 1].neg_count;
+   bins[merge_idx].event_rate = (double)bins[merge_idx].pos_count /
+     (bins[merge_idx].pos_count + bins[merge_idx].neg_count);
+   bins.erase(bins.begin() + merge_idx + 1);
+ }
+
+ // Compute WoE and IV
+ int total_pos = 0;
+ int total_neg = 0;
+ for (auto& bin : bins) {
+   total_pos += bin.pos_count;
+   total_neg += bin.neg_count;
+ }
+ std::vector<double> woe(bins.size());
+ std::vector<double> iv_bin(bins.size());
+ double total_iv = 0.0;
+ for (size_t i = 0; i < bins.size(); ++i) {
+   double dist_pos = (double)bins[i].pos_count / total_pos;
+   double dist_neg = (double)bins[i].neg_count / total_neg;
+   if (dist_pos == 0) dist_pos = 1e-10;
+   if (dist_neg == 0) dist_neg = 1e-10;
+   woe[i] = log(dist_pos / dist_neg);
+   iv_bin[i] = (dist_pos - dist_neg) * woe[i];
+   total_iv += iv_bin[i];
+ }
+
+ // Map categories to WoE
+ std::map<std::string, double> category_woe_map;
+ for (size_t i = 0; i < bins.size(); ++i) {
+   for (auto& cat : bins[i].categories) {
+     category_woe_map[cat] = woe[i];
+   }
+ }
+ NumericVector feature_woe(N);
+ for (int i = 0; i < N; ++i) {
+   feature_woe[i] = category_woe_map[feature_processed[i]];
+ }
+
+ // Prepare bin output
+ std::vector<std::string> bin_names(bins.size());
+ std::vector<int> count(bins.size());
+ std::vector<int> pos(bins.size());
+ std::vector<int> neg(bins.size());
+ for (size_t i = 0; i < bins.size(); ++i) {
+   bin_names[i] = bins[i].categories[0];
+   for (size_t j = 1; j < bins[i].categories.size(); ++j) {
+     bin_names[i] += "+" + bins[i].categories[j];
+   }
+   count[i] = bins[i].pos_count + bins[i].neg_count;
+   pos[i] = bins[i].pos_count;
+   neg[i] = bins[i].neg_count;
+ }
+
+ // Create List for bins
+ List bin_lst = List::create(
+   Named("bin") = bin_names,
+   Named("woe") = woe,
+   Named("iv") = iv_bin,
+   Named("count") = count,
+   Named("count_pos") = pos,
+   Named("count_neg") = neg);
+
+ // Create List for woe vector feature
+ List woe_lst = List::create(
+   Named("woefeature") = feature_woe
+ );
+
+ // Attrib class for compatibility with data.table in memory superfast tables
+ bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+ woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+
+ // Return output
+ List output_list = List::create(
+   Named("woefeature") = woe_lst,
+   Named("woebin") = bin_lst
+ // Named("woe") = woe,
+ // Named("iv") = total_iv,
+ // Named("pos") = pos,
+ // Named("neg") = neg
+ );
+ return output_list;
+}
  
  //' Performs optimal binning of a categorical variable for Weight of Evidence (WoE) and Information Value (IV) using the ChiMerge algorithm
  //'

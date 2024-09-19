@@ -25,6 +25,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// OptimalBinningCategoricalMOB
+Rcpp::List OptimalBinningCategoricalMOB(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double cat_cutoff, double min_bads, int max_n_prebins);
+RcppExport SEXP _OptimalBinningWoE_OptimalBinningCategoricalMOB(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP cat_cutoffSEXP, SEXP min_badsSEXP, SEXP max_n_prebinsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
+    Rcpp::traits::input_parameter< double >::type cat_cutoff(cat_cutoffSEXP);
+    Rcpp::traits::input_parameter< double >::type min_bads(min_badsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
+    rcpp_result_gen = Rcpp::wrap(OptimalBinningCategoricalMOB(target, feature, min_bins, max_bins, cat_cutoff, min_bads, max_n_prebins));
+    return rcpp_result_gen;
+END_RCPP
+}
 // OptimalBinningCategoricalChiMerge
 Rcpp::List OptimalBinningCategoricalChiMerge(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double pvalue_threshold, double cat_cutoff, double min_bads, int max_n_prebins);
 RcppExport SEXP _OptimalBinningWoE_OptimalBinningCategoricalChiMerge(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP pvalue_thresholdSEXP, SEXP cat_cutoffSEXP, SEXP min_badsSEXP, SEXP max_n_prebinsSEXP) {
@@ -283,6 +300,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_OptimalBinningCategoricalMIP", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalMIP, 5},
+    {"_OptimalBinningWoE_OptimalBinningCategoricalMOB", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalMOB, 7},
     {"_OptimalBinningWoE_OptimalBinningCategoricalChiMerge", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalChiMerge, 8},
     {"_OptimalBinningWoE_OptimalBinningCategoricalMDLP", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalMDLP, 6},
     {"_OptimalBinningWoE_OptimalBinningCategoricalCAIM", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalCAIM, 6},
