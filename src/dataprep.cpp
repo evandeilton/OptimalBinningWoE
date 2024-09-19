@@ -178,11 +178,11 @@ List OptimalBinningDataPreprocessor(
   NumericVector feature_numeric;
   CharacterVector feature_character;
 
-  if(TYPEOF(feature) == REALSXP) {
+  if(TYPEOF(feature) == REALSXP || Rf_isInteger(feature) || Rf_isReal(feature)) {
     is_numeric = true;
     feature_numeric = as<NumericVector>(feature);
     variable_type = "numeric";
-  } else if(TYPEOF(feature) == STRSXP || Rf_isFactor(feature)) {
+  } else if(TYPEOF(feature) == STRSXP || Rf_isFactor(feature) || Rf_isString(feature)) {
     is_character = true;
     feature_character = as<CharacterVector>(feature);
     variable_type = "categorical";
