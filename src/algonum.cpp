@@ -53,56 +53,271 @@ using namespace Rcpp;
 //   \item \code{neg}: Vector with the count of negative events in each bin.
 // }
 //
-//
-//
-//
-// Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, 
-//                                     int min_bins = 2, int max_bins = 7, 
-//                                     double bin_cutoff = 0.05, int max_n_prebins = 20) {
+// [[Rcpp::export]]
+Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, 
+                                    int min_bins = 2, int max_bins = 7, 
+                                    double bin_cutoff = 0.05, int max_n_prebins = 20) {
+  int N = target.size();
+  if (feature.size() != N) {
+    Rcpp::stop("Length of target and feature must be the same.");
+  }
+  if (min_bins > max_bins) {
+    Rcpp::stop("min_bins must be less than or equal to max_bins.");
+  }
+  if (bin_cutoff < 0 || bin_cutoff > 1) {
+    Rcpp::stop("bin_cutoff must be between 0 and 1.");
+  }
+  if (max_n_prebins <= 0) {
+    Rcpp::stop("max_n_prebins must be greater than 0.");
+  }
+  
+  // Remove missing values and create index mapping
+  std::vector<double> feature_clean;
+  std::vector<int> target_clean;
+  std::vector<int> original_indices;
+  for (int i = 0; i < N; ++i) {
+    if (!Rcpp::NumericVector::is_na(feature[i]) && !Rcpp::IntegerVector::is_na(target[i])) {
+      feature_clean.push_back(feature[i]);
+      target_clean.push_back(target[i]);
+      original_indices.push_back(i);
+    }
+  }
+  
+  int N_clean = feature_clean.size();
+  if (N_clean == 0) {
+    Rcpp::stop("No valid data after removing missing values.");
+  }
+  
+  // Create pre-bins
+  std::vector<double> sorted_values = feature_clean;
+  std::sort(sorted_values.begin(), sorted_values.end());
+  auto last = std::unique(sorted_values.begin(), sorted_values.end());
+  sorted_values.erase(last, sorted_values.end());
+  
+  if (sorted_values.size() == 1) {
+    Rcpp::stop("All feature values are the same. Cannot create bins.");
+  }
+  
+  int n_prebins = std::min((int)sorted_values.size() - 1, max_n_prebins);
+  std::vector<double> candidate_cutpoints;
+  
+  if (n_prebins > 0) {
+    int step = std::max(1, (int)sorted_values.size() / (n_prebins + 1));
+    for (int i = step; i < (int)sorted_values.size() - 1; i += step) {
+      candidate_cutpoints.push_back(sorted_values[i]);
+    }
+  } else {
+    candidate_cutpoints = std::vector<double>(sorted_values.begin() + 1, sorted_values.end() - 1);
+  }
+  
+  int n_cutpoints = candidate_cutpoints.size();
+  
+  // Prepare data for binning
+  std::vector<int> bin_indices(N_clean);
+  std::vector<int> pos_counts(n_cutpoints + 1, 0);
+  std::vector<int> neg_counts(n_cutpoints + 1, 0);
+  
+  for (int i = 0; i < N_clean; ++i) {
+    double value = feature_clean[i];
+    int tgt = target_clean[i];
+    
+    // Determine bin index
+    int bin_idx = std::lower_bound(candidate_cutpoints.begin(), candidate_cutpoints.end(), value) - candidate_cutpoints.begin();
+    bin_indices[i] = bin_idx;
+    
+    if (tgt == 1) {
+      pos_counts[bin_idx]++;
+    } else {
+      neg_counts[bin_idx]++;
+    }
+  }
+  
+  int total_pos = std::accumulate(pos_counts.begin(), pos_counts.end(), 0);
+  int total_neg = std::accumulate(neg_counts.begin(), neg_counts.end(), 0);
+  
+  // Define a structure for bins
+  struct Bin {
+    double lower_bound;
+    double upper_bound;
+    int pos_count;
+    int neg_count;
+    double event_rate;
+  };
+  
+  // Initialize bins
+  std::vector<Bin> bins(n_cutpoints + 1);
+  bins[0].lower_bound = -std::numeric_limits<double>::infinity();
+  for (int i = 0; i < n_cutpoints; ++i) {
+    bins[i].upper_bound = candidate_cutpoints[i];
+    bins[i+1].lower_bound = candidate_cutpoints[i];
+  }
+  bins.back().upper_bound = std::numeric_limits<double>::infinity();
+  
+  for (size_t i = 0; i < bins.size(); ++i) {
+    bins[i].pos_count = pos_counts[i];
+    bins[i].neg_count = neg_counts[i];
+    bins[i].event_rate = bins[i].pos_count + bins[i].neg_count > 0 ? 
+    (double)bins[i].pos_count / (bins[i].pos_count + bins[i].neg_count) : 0;
+  }
+  
+  // Function to compute IV
+  auto compute_iv = [](const std::vector<Bin>& bins, int total_pos, int total_neg) {
+    double iv = 0.0;
+    for (const auto& bin : bins) {
+      if (bin.pos_count + bin.neg_count == 0) continue;
+      double dist_pos = (double)bin.pos_count / total_pos;
+      double dist_neg = (double)bin.neg_count / total_neg;
+      if (dist_pos > 0 && dist_neg > 0) {
+        double woe = std::log(dist_pos / dist_neg);
+        iv += (dist_pos - dist_neg) * woe;
+      }
+    }
+    return iv;
+  };
+  
+  // Merge bins
+  while (bins.size() > (size_t)min_bins) {
+    double best_iv_decrease = std::numeric_limits<double>::max();
+    size_t best_merge_idx = 0;
+    
+    double current_iv = compute_iv(bins, total_pos, total_neg);
+    
+    for (size_t i = 0; i < bins.size() - 1; ++i) {
+      Bin merged_bin = bins[i];
+      merged_bin.upper_bound = bins[i+1].upper_bound;
+      merged_bin.pos_count += bins[i+1].pos_count;
+      merged_bin.neg_count += bins[i+1].neg_count;
+      merged_bin.event_rate = (double)merged_bin.pos_count / (merged_bin.pos_count + merged_bin.neg_count);
+      
+      std::vector<Bin> temp_bins = bins;
+      temp_bins[i] = merged_bin;
+      temp_bins.erase(temp_bins.begin() + i + 1);
+      
+      double new_iv = compute_iv(temp_bins, total_pos, total_neg);
+      double iv_decrease = current_iv - new_iv;
+      
+      if (iv_decrease < best_iv_decrease) {
+        best_iv_decrease = iv_decrease;
+        best_merge_idx = i;
+      }
+    }
+    
+    // Merge the best pair of bins
+    bins[best_merge_idx].upper_bound = bins[best_merge_idx + 1].upper_bound;
+    bins[best_merge_idx].pos_count += bins[best_merge_idx + 1].pos_count;
+    bins[best_merge_idx].neg_count += bins[best_merge_idx + 1].neg_count;
+    bins[best_merge_idx].event_rate = (double)bins[best_merge_idx].pos_count / 
+      (bins[best_merge_idx].pos_count + bins[best_merge_idx].neg_count);
+    bins.erase(bins.begin() + best_merge_idx + 1);
+    
+    // Stop if merging would violate the bin_cutoff
+    if ((double)(bins[best_merge_idx].pos_count + bins[best_merge_idx].neg_count) / N_clean < bin_cutoff) {
+      break;
+    }
+  }
+  
+  // Compute WoE and IV for final bins
+  std::vector<double> woe(bins.size());
+  std::vector<double> iv_bin(bins.size());
+  double total_iv = 0.0;
+  for (size_t i = 0; i < bins.size(); ++i) {
+    double dist_pos = (double)bins[i].pos_count / total_pos;
+    double dist_neg = (double)bins[i].neg_count / total_neg;
+    if (dist_pos > 0 && dist_neg > 0) {
+      woe[i] = std::log(dist_pos / dist_neg);
+      iv_bin[i] = (dist_pos - dist_neg) * woe[i];
+      total_iv += iv_bin[i];
+    } else {
+      woe[i] = 0;
+      iv_bin[i] = 0;
+    }
+  }
+  
+  // Map feature values to WoE
+  Rcpp::NumericVector feature_woe(N, NA_REAL);
+  for (int i = 0; i < N_clean; ++i) {
+    int original_idx = original_indices[i];
+    int bin_idx = bin_indices[i];
+    while (bin_idx > 0 && bins[bin_idx].lower_bound > feature_clean[i]) {
+      bin_idx--;
+    }
+    feature_woe[original_idx] = woe[bin_idx];
+  }
+  
+  // Prepare bin output
+  Rcpp::StringVector bin_names(bins.size());
+  Rcpp::IntegerVector count(bins.size());
+  Rcpp::IntegerVector pos(bins.size());
+  Rcpp::IntegerVector neg(bins.size());
+  
+  for (size_t i = 0; i < bins.size(); ++i) {
+    std::string lower = (bins[i].lower_bound == -std::numeric_limits<double>::infinity()) ? "[-Inf" : "[" + std::to_string(bins[i].lower_bound);
+    std::string upper = (bins[i].upper_bound == std::numeric_limits<double>::infinity()) ? "+Inf]" : std::to_string(bins[i].upper_bound) + ")";
+    bin_names[i] = lower + ";" + upper;
+    count[i] = bins[i].pos_count + bins[i].neg_count;
+    pos[i] = bins[i].pos_count;
+    neg[i] = bins[i].neg_count;
+  }
+  
+  // Create List for bins
+  Rcpp::List bin_lst = Rcpp::List::create(
+    Rcpp::Named("bin") = bin_names,
+    Rcpp::Named("woe") = woe,
+    Rcpp::Named("iv") = iv_bin,
+    Rcpp::Named("count") = count,
+    Rcpp::Named("count_pos") = pos,
+    Rcpp::Named("count_neg") = neg
+  );
+  
+  // Create List for woe vector feature
+  Rcpp::List woe_lst = Rcpp::List::create(
+    Rcpp::Named("woefeature") = feature_woe
+  );
+  
+  // Attrib class for compatibility with data.table in memory superfast tables
+  bin_lst.attr("class") = Rcpp::CharacterVector::create("data.table", "data.frame");
+  woe_lst.attr("class") = Rcpp::CharacterVector::create("data.table", "data.frame");
+  
+  // Return output
+  Rcpp::List output_list = Rcpp::List::create(
+    Rcpp::Named("woefeature") = woe_lst,
+    Rcpp::Named("woebin") = bin_lst
+  );
+  return output_list;
+}
+
+
+// Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, int max_n_prebins = 20) {
 //   int N = target.size();
 //   if (feature.size() != N) {
 //     Rcpp::stop("Length of target and feature must be the same.");
 //   }
-//   
-//   // Validate input parameters
-//   if (min_bins <= 0 || max_bins <= 0 || min_bins > max_bins) {
-//     Rcpp::stop("Invalid min_bins or max_bins. Ensure 0 < min_bins <= max_bins.");
-//   }
-//   
-//   if (bin_cutoff <= 0 || bin_cutoff >= 1) {
-//     Rcpp::stop("bin_cutoff must be between 0 and 1.");
-//   }
-//   
-//   // Validate target values
-//   for (int i = 0; i < N; ++i) {
-//     if (target[i] != 0 && target[i] != 1) {
-//       Rcpp::stop("Target must contain only 0s and 1s.");
-//     }
-//   }
-//   
+// 
+//   // Parameters
+// 
 //   // Remove missing values
-//   Rcpp::NumericVector feature_clean;
-//   Rcpp::IntegerVector target_clean;
+//   std::vector<double> feature_clean;
+//   std::vector<int> target_clean;
 //   for (int i = 0; i < N; ++i) {
-//     if (!Rcpp::NumericVector::is_na(feature[i]) && !Rcpp::IntegerVector::is_na(target[i])) {
+//     if (!NumericVector::is_na(feature[i]) && !NumericVector::is_na(target[i])) {
 //       feature_clean.push_back(feature[i]);
 //       target_clean.push_back(target[i]);
 //     }
 //   }
-//   
+// 
 //   int N_clean = feature_clean.size();
 //   if (N_clean == 0) {
 //     Rcpp::stop("No valid data after removing missing values.");
 //   }
-//   
+// 
 //   // Create pre-bins
 //   std::set<double> unique_values(feature_clean.begin(), feature_clean.end());
 //   std::vector<double> sorted_values(unique_values.begin(), unique_values.end());
 //   std::sort(sorted_values.begin(), sorted_values.end());
-//   
+// 
 //   int n_prebins = std::min((int)sorted_values.size() - 1, max_n_prebins);
 //   std::vector<double> candidate_cutpoints;
-//   
+// 
 //   if (n_prebins > 0) {
 //     int step = std::max(1, (int)sorted_values.size() / n_prebins);
 //     for (int i = step; i < (int)sorted_values.size(); i += step) {
@@ -115,33 +330,34 @@ using namespace Rcpp;
 //   } else {
 //     candidate_cutpoints = sorted_values;
 //   }
-//   
+// 
 //   int n_cutpoints = candidate_cutpoints.size();
-//   
+// 
 //   // Prepare data for binning
+//   // For each cutpoint, calculate the bin counts
 //   std::vector<int> pos_counts(n_cutpoints + 1, 0);
 //   std::vector<int> neg_counts(n_cutpoints + 1, 0);
-//   
+// 
 //   for (int i = 0; i < N_clean; ++i) {
 //     double value = feature_clean[i];
 //     int tgt = target_clean[i];
-//     
+// 
 //     // Determine bin index
 //     int bin_idx = 0;
 //     while (bin_idx < n_cutpoints && value > candidate_cutpoints[bin_idx]) {
 //       bin_idx++;
 //     }
-//     
+// 
 //     if (tgt == 1) {
 //       pos_counts[bin_idx]++;
 //     } else {
 //       neg_counts[bin_idx]++;
 //     }
 //   }
-//   
+// 
 //   int total_pos = std::accumulate(pos_counts.begin(), pos_counts.end(), 0);
 //   int total_neg = std::accumulate(neg_counts.begin(), neg_counts.end(), 0);
-//   
+// 
 //   // Define a structure for bins
 //   struct Bin {
 //     double lower_bound;
@@ -150,7 +366,7 @@ using namespace Rcpp;
 //     int neg_count;
 //     double event_rate;
 //   };
-//   
+// 
 //   // Initialize the entire range as the initial bin
 //   std::vector<Bin> bins;
 //   Bin initial_bin;
@@ -160,38 +376,38 @@ using namespace Rcpp;
 //   initial_bin.neg_count = total_neg;
 //   initial_bin.event_rate = (double)total_pos / (total_pos + total_neg);
 //   bins.push_back(initial_bin);
-//   
+// 
 //   // Function to compute IV
 //   auto compute_iv = [](const std::vector<Bin>& bins, int total_pos, int total_neg) {
 //     double iv = 0.0;
 //     for (const auto& bin : bins) {
 //       double dist_pos = (double)bin.pos_count / total_pos;
 //       double dist_neg = (double)bin.neg_count / total_neg;
-//       if (dist_pos > 0 && dist_neg > 0) {
-//         double woe = log(dist_pos / dist_neg);
-//         iv += (dist_pos - dist_neg) * woe;
-//       }
+//       if (dist_pos == 0) dist_pos = 1e-10;
+//       if (dist_neg == 0) dist_neg = 1e-10;
+//       double woe = log(dist_pos / dist_neg);
+//       iv += (dist_pos - dist_neg) * woe;
 //     }
 //     return iv;
 //   };
-//   
+// 
 //   // Recursive function to split bins
 //   std::function<void(std::vector<Bin>&, int, int)> split_bins;
 //   split_bins = [&](std::vector<Bin>& bins, int total_pos, int total_neg) {
 //     if (bins.size() >= (size_t)max_bins) return;
-//     
+// 
 //     // Find the bin with the largest IV improvement upon splitting
 //     double best_iv_increase = 0.0;
 //     size_t best_bin_idx = 0;
 //     double best_split_point = 0.0;
 //     Bin best_left_bin, best_right_bin;
-//     
+// 
 //     for (size_t i = 0; i < bins.size(); ++i) {
 //       const Bin& bin = bins[i];
 //       // Try splitting at each candidate cutpoint within the bin
 //       for (double split_point : candidate_cutpoints) {
 //         if (split_point <= bin.lower_bound || split_point >= bin.upper_bound) continue;
-//         
+// 
 //         // Split the bin at split_point
 //         Bin left_bin, right_bin;
 //         left_bin.lower_bound = bin.lower_bound;
@@ -202,7 +418,7 @@ using namespace Rcpp;
 //         left_bin.neg_count = 0;
 //         right_bin.pos_count = 0;
 //         right_bin.neg_count = 0;
-//         
+// 
 //         // Assign data points to left or right bin
 //         for (int j = 0; j < N_clean; ++j) {
 //           double value = feature_clean[j];
@@ -221,27 +437,23 @@ using namespace Rcpp;
 //             }
 //           }
 //         }
-//         
-//         // Check if the split violates the bin_cutoff
-//         int total_count = total_pos + total_neg;
-//         if ((left_bin.pos_count + left_bin.neg_count) < bin_cutoff * total_count ||
-//             (right_bin.pos_count + right_bin.neg_count) < bin_cutoff * total_count) {
+// 
+//         if (left_bin.pos_count + left_bin.neg_count == 0 || right_bin.pos_count + right_bin.neg_count == 0)
 //           continue;
-//         }
-//         
+// 
 //         left_bin.event_rate = (double)left_bin.pos_count / (left_bin.pos_count + left_bin.neg_count);
 //         right_bin.event_rate = (double)right_bin.pos_count / (right_bin.pos_count + right_bin.neg_count);
-//         
+// 
 //         // Compute IV for the bins
 //         std::vector<Bin> temp_bins = bins;
 //         temp_bins.erase(temp_bins.begin() + i);
 //         temp_bins.push_back(left_bin);
 //         temp_bins.push_back(right_bin);
-//         
+// 
 //         double iv_before = compute_iv(bins, total_pos, total_neg);
 //         double iv_after = compute_iv(temp_bins, total_pos, total_neg);
 //         double iv_increase = iv_after - iv_before;
-//         
+// 
 //         if (iv_increase > best_iv_increase) {
 //           best_iv_increase = iv_increase;
 //           best_bin_idx = i;
@@ -251,28 +463,26 @@ using namespace Rcpp;
 //         }
 //       }
 //     }
-//     
-//     // Replace the bin with the two new bins if a valid split was found
+// 
 //     if (best_iv_increase > 0) {
+//       // Replace the bin with the two new bins
 //       bins.erase(bins.begin() + best_bin_idx);
 //       bins.push_back(best_left_bin);
 //       bins.push_back(best_right_bin);
-//       
+// 
 //       // Recursively split bins
 //       split_bins(bins, total_pos, total_neg);
 //     }
 //   };
-//   
+// 
 //   // Start splitting bins
-//   while (bins.size() < (size_t)min_bins) {
-//     split_bins(bins, total_pos, total_neg);
-//   }
-//   
+//   split_bins(bins, total_pos, total_neg);
+// 
 //   // Ensure bins are sorted by lower bound
 //   std::sort(bins.begin(), bins.end(), [](const Bin& a, const Bin& b) {
 //     return a.lower_bound < b.lower_bound;
 //   });
-//   
+// 
 //   // Compute WoE and IV for final bins
 //   std::vector<double> woe(bins.size());
 //   std::vector<double> iv_bin(bins.size());
@@ -280,21 +490,18 @@ using namespace Rcpp;
 //   for (size_t i = 0; i < bins.size(); ++i) {
 //     double dist_pos = (double)bins[i].pos_count / total_pos;
 //     double dist_neg = (double)bins[i].neg_count / total_neg;
-//     if (dist_pos > 0 && dist_neg > 0) {
-//       woe[i] = log(dist_pos / dist_neg);
-//       iv_bin[i] = (dist_pos - dist_neg) * woe[i];
-//       total_iv += iv_bin[i];
-//     } else {
-//       woe[i] = 0;
-//       iv_bin[i] = 0;
-//     }
+//     if (dist_pos == 0) dist_pos = 1e-10;
+//     if (dist_neg == 0) dist_neg = 1e-10;
+//     woe[i] = log(dist_pos / dist_neg);
+//     iv_bin[i] = (dist_pos - dist_neg) * woe[i];
+//     total_iv += iv_bin[i];
 //   }
-//   
+// 
 //   // Map feature values to WoE
-//   Rcpp::NumericVector feature_woe(N);
+//   NumericVector feature_woe(N);
 //   for (int i = 0; i < N; ++i) {
 //     double value = feature[i];
-//     if (Rcpp::NumericVector::is_na(value)) {
+//     if (NumericVector::is_na(value)) {
 //       feature_woe[i] = NA_REAL;
 //       continue;
 //     }
@@ -306,13 +513,13 @@ using namespace Rcpp;
 //     if (bin_idx >= (int)bins.size()) bin_idx = bins.size() - 1;
 //     feature_woe[i] = woe[bin_idx];
 //   }
-//   
+// 
 //   // Prepare bin output
 //   std::vector<std::string> bin_names(bins.size());
 //   std::vector<int> count(bins.size());
 //   std::vector<int> pos(bins.size());
 //   std::vector<int> neg(bins.size());
-//   
+// 
 //   for (size_t i = 0; i < bins.size(); ++i) {
 //     std::string lower = (bins[i].lower_bound == -std::numeric_limits<double>::infinity()) ? "[-Inf" : "[" + std::to_string(bins[i].lower_bound);
 //     std::string upper = (bins[i].upper_bound == std::numeric_limits<double>::infinity()) ? "+Inf]" : std::to_string(bins[i].upper_bound) + ")";
@@ -321,305 +528,36 @@ using namespace Rcpp;
 //     pos[i] = bins[i].pos_count;
 //     neg[i] = bins[i].neg_count;
 //   }
-//   
+// 
 //   // Create List for bins
-//   Rcpp::List bin_lst = Rcpp::List::create(
-//     Rcpp::Named("bin") = bin_names,
-//     Rcpp::Named("woe") = woe,
-//     Rcpp::Named("iv") = iv_bin,
-//     Rcpp::Named("count") = count,
-//     Rcpp::Named("count_pos") = pos,
-//     Rcpp::Named("count_neg") = neg);
-//   
+//   List bin_lst = List::create(
+//     Named("bin") = bin_names,
+//     Named("woe") = woe,
+//     Named("iv") = iv_bin,
+//     Named("count") = count,
+//     Named("count_pos") = pos,
+//     Named("count_neg") = neg);
+// 
 //   // Create List for woe vector feature
-//   Rcpp::List woe_lst = Rcpp::List::create(
-//     Rcpp::Named("woefeature") = feature_woe
+//   List woe_lst = List::create(
+//     Named("woefeature") = feature_woe
 //   );
-//   
+// 
 //   // Attrib class for compatibility with data.table in memory superfast tables
-//   bin_lst.attr("class") = Rcpp::CharacterVector::create("data.table", "data.frame");
-//   woe_lst.attr("class") = Rcpp::CharacterVector::create("data.table", "data.frame");
-//   
+//   bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+//   woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
+// 
 //   // Return output
-//   Rcpp::List output_list = Rcpp::List::create(
-//     Rcpp::Named("woefeature") = woe_lst,
-//     Rcpp::Named("woebin") = bin_lst
+//   List output_list = List::create(
+//     Named("woefeature") = woe_lst,
+//     Named("woebin") = bin_lst
+//   // Named("woe") = woe,
+//   // Named("iv") = total_iv,
+//   // Named("pos") = pos,
+//   // Named("neg") = neg
 //   );
 //   return output_list;
 // }
-
-// [[Rcpp::export]]
-Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins = 2, int max_bins = 7, double bin_cutoff = 0.05, int max_n_prebins = 20) {
-  int N = target.size();
-  if (feature.size() != N) {
-    Rcpp::stop("Length of target and feature must be the same.");
-  }
-
-  // Parameters
-
-  // Remove missing values
-  std::vector<double> feature_clean;
-  std::vector<int> target_clean;
-  for (int i = 0; i < N; ++i) {
-    if (!NumericVector::is_na(feature[i]) && !NumericVector::is_na(target[i])) {
-      feature_clean.push_back(feature[i]);
-      target_clean.push_back(target[i]);
-    }
-  }
-
-  int N_clean = feature_clean.size();
-  if (N_clean == 0) {
-    Rcpp::stop("No valid data after removing missing values.");
-  }
-
-  // Create pre-bins
-  std::set<double> unique_values(feature_clean.begin(), feature_clean.end());
-  std::vector<double> sorted_values(unique_values.begin(), unique_values.end());
-  std::sort(sorted_values.begin(), sorted_values.end());
-
-  int n_prebins = std::min((int)sorted_values.size() - 1, max_n_prebins);
-  std::vector<double> candidate_cutpoints;
-
-  if (n_prebins > 0) {
-    int step = std::max(1, (int)sorted_values.size() / n_prebins);
-    for (int i = step; i < (int)sorted_values.size(); i += step) {
-      candidate_cutpoints.push_back(sorted_values[i]);
-    }
-    // Ensure last cutpoint is included
-    if (candidate_cutpoints.back() != sorted_values.back()) {
-      candidate_cutpoints.push_back(sorted_values.back());
-    }
-  } else {
-    candidate_cutpoints = sorted_values;
-  }
-
-  int n_cutpoints = candidate_cutpoints.size();
-
-  // Prepare data for binning
-  // For each cutpoint, calculate the bin counts
-  std::vector<int> pos_counts(n_cutpoints + 1, 0);
-  std::vector<int> neg_counts(n_cutpoints + 1, 0);
-
-  for (int i = 0; i < N_clean; ++i) {
-    double value = feature_clean[i];
-    int tgt = target_clean[i];
-
-    // Determine bin index
-    int bin_idx = 0;
-    while (bin_idx < n_cutpoints && value > candidate_cutpoints[bin_idx]) {
-      bin_idx++;
-    }
-
-    if (tgt == 1) {
-      pos_counts[bin_idx]++;
-    } else {
-      neg_counts[bin_idx]++;
-    }
-  }
-
-  int total_pos = std::accumulate(pos_counts.begin(), pos_counts.end(), 0);
-  int total_neg = std::accumulate(neg_counts.begin(), neg_counts.end(), 0);
-
-  // Define a structure for bins
-  struct Bin {
-    double lower_bound;
-    double upper_bound;
-    int pos_count;
-    int neg_count;
-    double event_rate;
-  };
-
-  // Initialize the entire range as the initial bin
-  std::vector<Bin> bins;
-  Bin initial_bin;
-  initial_bin.lower_bound = -std::numeric_limits<double>::infinity();
-  initial_bin.upper_bound = std::numeric_limits<double>::infinity();
-  initial_bin.pos_count = total_pos;
-  initial_bin.neg_count = total_neg;
-  initial_bin.event_rate = (double)total_pos / (total_pos + total_neg);
-  bins.push_back(initial_bin);
-
-  // Function to compute IV
-  auto compute_iv = [](const std::vector<Bin>& bins, int total_pos, int total_neg) {
-    double iv = 0.0;
-    for (const auto& bin : bins) {
-      double dist_pos = (double)bin.pos_count / total_pos;
-      double dist_neg = (double)bin.neg_count / total_neg;
-      if (dist_pos == 0) dist_pos = 1e-10;
-      if (dist_neg == 0) dist_neg = 1e-10;
-      double woe = log(dist_pos / dist_neg);
-      iv += (dist_pos - dist_neg) * woe;
-    }
-    return iv;
-  };
-
-  // Recursive function to split bins
-  std::function<void(std::vector<Bin>&, int, int)> split_bins;
-  split_bins = [&](std::vector<Bin>& bins, int total_pos, int total_neg) {
-    if (bins.size() >= (size_t)max_bins) return;
-
-    // Find the bin with the largest IV improvement upon splitting
-    double best_iv_increase = 0.0;
-    size_t best_bin_idx = 0;
-    double best_split_point = 0.0;
-    Bin best_left_bin, best_right_bin;
-
-    for (size_t i = 0; i < bins.size(); ++i) {
-      const Bin& bin = bins[i];
-      // Try splitting at each candidate cutpoint within the bin
-      for (double split_point : candidate_cutpoints) {
-        if (split_point <= bin.lower_bound || split_point >= bin.upper_bound) continue;
-
-        // Split the bin at split_point
-        Bin left_bin, right_bin;
-        left_bin.lower_bound = bin.lower_bound;
-        left_bin.upper_bound = split_point;
-        right_bin.lower_bound = split_point;
-        right_bin.upper_bound = bin.upper_bound;
-        left_bin.pos_count = 0;
-        left_bin.neg_count = 0;
-        right_bin.pos_count = 0;
-        right_bin.neg_count = 0;
-
-        // Assign data points to left or right bin
-        for (int j = 0; j < N_clean; ++j) {
-          double value = feature_clean[j];
-          int tgt = target_clean[j];
-          if (value > left_bin.lower_bound && value <= left_bin.upper_bound) {
-            if (tgt == 1) {
-              left_bin.pos_count++;
-            } else {
-              left_bin.neg_count++;
-            }
-          } else if (value > right_bin.lower_bound && value <= right_bin.upper_bound) {
-            if (tgt == 1) {
-              right_bin.pos_count++;
-            } else {
-              right_bin.neg_count++;
-            }
-          }
-        }
-
-        if (left_bin.pos_count + left_bin.neg_count == 0 || right_bin.pos_count + right_bin.neg_count == 0)
-          continue;
-
-        left_bin.event_rate = (double)left_bin.pos_count / (left_bin.pos_count + left_bin.neg_count);
-        right_bin.event_rate = (double)right_bin.pos_count / (right_bin.pos_count + right_bin.neg_count);
-
-        // Compute IV for the bins
-        std::vector<Bin> temp_bins = bins;
-        temp_bins.erase(temp_bins.begin() + i);
-        temp_bins.push_back(left_bin);
-        temp_bins.push_back(right_bin);
-
-        double iv_before = compute_iv(bins, total_pos, total_neg);
-        double iv_after = compute_iv(temp_bins, total_pos, total_neg);
-        double iv_increase = iv_after - iv_before;
-
-        if (iv_increase > best_iv_increase) {
-          best_iv_increase = iv_increase;
-          best_bin_idx = i;
-          best_split_point = split_point;
-          best_left_bin = left_bin;
-          best_right_bin = right_bin;
-        }
-      }
-    }
-
-    if (best_iv_increase > 0) {
-      // Replace the bin with the two new bins
-      bins.erase(bins.begin() + best_bin_idx);
-      bins.push_back(best_left_bin);
-      bins.push_back(best_right_bin);
-
-      // Recursively split bins
-      split_bins(bins, total_pos, total_neg);
-    }
-  };
-
-  // Start splitting bins
-  split_bins(bins, total_pos, total_neg);
-
-  // Ensure bins are sorted by lower bound
-  std::sort(bins.begin(), bins.end(), [](const Bin& a, const Bin& b) {
-    return a.lower_bound < b.lower_bound;
-  });
-
-  // Compute WoE and IV for final bins
-  std::vector<double> woe(bins.size());
-  std::vector<double> iv_bin(bins.size());
-  double total_iv = 0.0;
-  for (size_t i = 0; i < bins.size(); ++i) {
-    double dist_pos = (double)bins[i].pos_count / total_pos;
-    double dist_neg = (double)bins[i].neg_count / total_neg;
-    if (dist_pos == 0) dist_pos = 1e-10;
-    if (dist_neg == 0) dist_neg = 1e-10;
-    woe[i] = log(dist_pos / dist_neg);
-    iv_bin[i] = (dist_pos - dist_neg) * woe[i];
-    total_iv += iv_bin[i];
-  }
-
-  // Map feature values to WoE
-  NumericVector feature_woe(N);
-  for (int i = 0; i < N; ++i) {
-    double value = feature[i];
-    if (NumericVector::is_na(value)) {
-      feature_woe[i] = NA_REAL;
-      continue;
-    }
-    // Find the bin
-    int bin_idx = 0;
-    while (bin_idx < (int)bins.size() && value > bins[bin_idx].upper_bound) {
-      bin_idx++;
-    }
-    if (bin_idx >= (int)bins.size()) bin_idx = bins.size() - 1;
-    feature_woe[i] = woe[bin_idx];
-  }
-
-  // Prepare bin output
-  std::vector<std::string> bin_names(bins.size());
-  std::vector<int> count(bins.size());
-  std::vector<int> pos(bins.size());
-  std::vector<int> neg(bins.size());
-
-  for (size_t i = 0; i < bins.size(); ++i) {
-    std::string lower = (bins[i].lower_bound == -std::numeric_limits<double>::infinity()) ? "[-Inf" : "[" + std::to_string(bins[i].lower_bound);
-    std::string upper = (bins[i].upper_bound == std::numeric_limits<double>::infinity()) ? "+Inf]" : std::to_string(bins[i].upper_bound) + ")";
-    bin_names[i] = lower + ";" + upper;
-    count[i] = bins[i].pos_count + bins[i].neg_count;
-    pos[i] = bins[i].pos_count;
-    neg[i] = bins[i].neg_count;
-  }
-
-  // Create List for bins
-  List bin_lst = List::create(
-    Named("bin") = bin_names,
-    Named("woe") = woe,
-    Named("iv") = iv_bin,
-    Named("count") = count,
-    Named("count_pos") = pos,
-    Named("count_neg") = neg);
-
-  // Create List for woe vector feature
-  List woe_lst = List::create(
-    Named("woefeature") = feature_woe
-  );
-
-  // Attrib class for compatibility with data.table in memory superfast tables
-  bin_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
-  woe_lst.attr("class") = CharacterVector::create("data.table", "data.frame");
-
-  // Return output
-  List output_list = List::create(
-    Named("woefeature") = woe_lst,
-    Named("woebin") = bin_lst
-  // Named("woe") = woe,
-  // Named("iv") = total_iv,
-  // Named("pos") = pos,
-  // Named("neg") = neg
-  );
-  return output_list;
-}
 
 // Helper function to calculate quantiles
 std::vector<double> calculate_quantiles(const std::vector<double>& data, const std::vector<double>& probs) {

@@ -108,6 +108,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// OptimalBinningNumericMIP2Prep
+Rcpp::List OptimalBinningNumericMIP2Prep(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int max_n_prebins);
+RcppExport SEXP _OptimalBinningWoE_OptimalBinningNumericMIP2Prep(SEXP targetSEXP, SEXP featureSEXP, SEXP max_n_prebinsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
+    rcpp_result_gen = Rcpp::wrap(OptimalBinningNumericMIP2Prep(target, feature, max_n_prebins));
+    return rcpp_result_gen;
+END_RCPP
+}
 // OptimalBinningNumericMIP
 Rcpp::List OptimalBinningNumericMIP(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins);
 RcppExport SEXP _OptimalBinningWoE_OptimalBinningNumericMIP(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP) {
@@ -305,6 +318,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_OptimalBinningCategoricalMDLP", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalMDLP, 6},
     {"_OptimalBinningWoE_OptimalBinningCategoricalCAIM", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalCAIM, 6},
     {"_OptimalBinningWoE_OptimalBinningCategoricalIV", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningCategoricalIV, 6},
+    {"_OptimalBinningWoE_OptimalBinningNumericMIP2Prep", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningNumericMIP2Prep, 3},
     {"_OptimalBinningWoE_OptimalBinningNumericMIP", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningNumericMIP, 6},
     {"_OptimalBinningWoE_OptimalBinningNumericMOB", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningNumericMOB, 7},
     {"_OptimalBinningWoE_OptimalBinningNumericChiMerge", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningNumericChiMerge, 8},
