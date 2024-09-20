@@ -426,7 +426,7 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, control) {
                            OptimalBinningNumericCAIM = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
                            OptimalBinningNumericChiMerge = list(min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
                            OptimalBinningNumericMDLP = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericMIP = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L),
+                           OptimalBinningNumericMIP2 = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L),
                            OptimalBinningNumericMOB = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
                            OptimalBinningNumericPAVA = list(max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L, monotonicity_direction = "increase"),
                            OptimalBinningNumericTree = list(max_bins = 7L, lambda = 0.1, min_bin_size = 0.05,  min_iv_gain = 0.01, max_depth = 10L, monotonicity_direction = "increase"),
