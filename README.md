@@ -21,7 +21,7 @@ You can install the development version of OptimalBinningWoE from
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("your_username/OptimalBinningWoE")
+devtools::install_github("evandeilton/OptimalBinningWoE")
 ```
 
 ## Overview
