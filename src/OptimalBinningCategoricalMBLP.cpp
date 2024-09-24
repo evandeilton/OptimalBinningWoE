@@ -4,7 +4,11 @@
 #include <map>
 #include <algorithm>
 #include <cmath>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 #include <stdexcept>
 
 class OptimalBinningCategoricalMBLP {

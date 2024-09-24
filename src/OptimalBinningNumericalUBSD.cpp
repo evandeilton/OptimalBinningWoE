@@ -1,6 +1,5 @@
 // [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
-#include <omp.h>
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -8,6 +7,10 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // Structure to hold bin information
 struct Bin {

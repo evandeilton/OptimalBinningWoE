@@ -1,9 +1,11 @@
 #include <Rcpp.h>
-#include <omp.h>
 #include <algorithm>
 #include <vector>
 #include <cmath>
 #include <limits>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace Rcpp;
 

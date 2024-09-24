@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <limits>
 #include <cmath>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 class OptimalBinningNumericalJNBO {
 private:

@@ -1,7 +1,6 @@
 #include <Rcpp.h>
 // [[Rcpp::plugins(cpp11)]]
 // [[Rcpp::plugins(openmp)]]
-#include <omp.h>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -11,6 +10,10 @@
 #include <unordered_set>
 #include <limits>
 #include <chrono>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // Added for better floating-point comparisons
 const double EPSILON = 1e-9;

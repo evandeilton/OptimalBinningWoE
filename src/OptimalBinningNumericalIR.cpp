@@ -1,5 +1,9 @@
 #include <Rcpp.h>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 #include <algorithm>
 #include <vector>
 #include <string>

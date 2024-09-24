@@ -5,7 +5,10 @@
 #include <algorithm>
 #include <random>
 #include <cmath>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 class OptimalBinningCategoricalSAB {
 private:

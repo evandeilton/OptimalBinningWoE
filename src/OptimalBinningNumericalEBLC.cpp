@@ -3,7 +3,11 @@
 #include <cmath>
 #include <vector>
 #include <string>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 using namespace Rcpp;
 
 // Structure to hold bin information

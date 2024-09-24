@@ -5,7 +5,9 @@
 #include <limits>
 #include <string>
 #include <sstream>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 class OptimalBinningNumericalKMB {
 private:

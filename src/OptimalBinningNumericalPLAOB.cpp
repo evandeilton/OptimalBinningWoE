@@ -4,7 +4,10 @@
 #include <cmath>
 #include <limits>
 #include <sstream>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 
 // [[Rcpp::plugins(openmp)]]
 

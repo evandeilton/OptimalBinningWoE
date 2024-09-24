@@ -6,9 +6,12 @@
 #include <algorithm>
 #include <numeric>
 #include <string>
-#include <omp.h>
 #include <cmath>
 #include <limits>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace Rcpp;
 

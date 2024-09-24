@@ -2,7 +2,11 @@
 // [[Rcpp::plugins(openmp)]]
 
 #include <Rcpp.h>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 #include <vector>
 #include <string>
 #include <sstream>

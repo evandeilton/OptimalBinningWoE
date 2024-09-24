@@ -6,7 +6,11 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 
 // [[Rcpp::plugins(openmp)]]
 

@@ -3,7 +3,10 @@
 #include <vector>
 #include <cmath>
 #include <limits>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 class OptimalBinningNumericalEFB {
 private:
