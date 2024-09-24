@@ -49,42 +49,14 @@ It supports automatic method selection and data preprocessing.
 }
 \details{
 Supported Algorithms:
-The function supports the following binning algorithms:
-\itemize{
-\item CAIM (Class-Attribute Interdependence Maximization)
-\item ChiMerge
-\item MDLP (Minimum Description Length Principle)
-\item MIP (Minimum Information Pure)
-\item MOB (Monotone Optimal Binning)
-\item IV (Information Value)
-\item PAVA (Pool Adjacent Violators Algorithm)
-\item Tree-based binning
-}
-
+The function supports various binning algorithms including CAIM, ChiMerge, MDLP, MIP, MOB, IV, PAVA, and Tree-based binning.
 Each algorithm has its own strengths and may perform differently depending on the nature of the data.
 The automatic method selection option tests applicable algorithms and chooses the one that produces the highest Information Value.
 
 When specifying a method, use the short name (e.g., "caim", "chimerge") rather than the full algorithm name.
 
 Control Parameters:
-The control list can include the following parameters:
-\itemize{
-\item min_bads: Minimum proportion of "bad" cases in each bin (default: 0.05)
-\item pvalue_threshold: P-value threshold for statistical tests (default: 0.05)
-\item max_n_prebins: Maximum number of pre-bins before optimization (default: 20)
-\item monotonicity_direction: Direction of monotonicity ("increase" or "decrease") (default: "increase")
-\item lambda: Regularization parameter for tree-based methods (default: 0.1)
-\item min_bin_size: Minimum proportion of cases in each bin (default: 0.05)
-\item min_iv_gain: Minimum IV gain for creating a new split (default: 0.01)
-\item max_depth: Maximum depth for tree-based methods (default: 10)
-\item num_miss_value: Value to represent missing numeric values (default: -999.0)
-\item char_miss_value: Value to represent missing categorical values (default: "N/A")
-\item outlier_method: Method for outlier detection ("iqr", "zscore", or "grubbs") (default: "iqr")
-\item outlier_process: Whether to process outliers (default: FALSE)
-\item iqr_k: Factor for IQR method (default: 1.5)
-\item zscore_threshold: Threshold for Z-score method (default: 3)
-\item grubbs_alpha: Significance level for Grubbs' test (default: 0.05)
-}
+The control list can include parameters such as min_bads, pvalue_threshold, max_n_prebins, monotonicity_direction, lambda, min_bin_size, min_iv_gain, max_depth, num_miss_value, char_miss_value, outlier_method, outlier_process, iqr_k, zscore_threshold, and grubbs_alpha.
 }
 \examples{
 \dontrun{

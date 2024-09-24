@@ -1,5 +1,5 @@
-utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_index","bin",
-                         "min_bins","max_bins","total_iv","..va"))
+utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_index","bin","..va",
+                         "min_bins","max_bins","total_iv","..", "%||%", "va", "::", ":::","%||%"))
 
 #' Pipe operator
 #'
@@ -15,6 +15,7 @@ utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_
 #' @param rhs A function call using the magrittr semantics.
 #' @return The result of calling `rhs(lhs)`.
 NULL
+
 
 ## usethis namespace: start
 #' @importFrom Rcpp sourceCpp

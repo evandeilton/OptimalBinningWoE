@@ -13,6 +13,10 @@ OptimalBinningSelectAlgorithm(feature, method, dt, min_bin, max_bin, control)
 
 \item{dt}{A data.table containing the dataset.}
 
+\item{min_bin}{Minimum number of bins.}
+
+\item{max_bin}{Maximum number of bins.}
+
 \item{control}{A list of additional control parameters.}
 }
 \value{
