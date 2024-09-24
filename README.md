@@ -28,11 +28,11 @@ devtools::install_github("your_username/OptimalBinningWoE")
 
 OptimalBinningWoE offers the following main functionalities:
 
-1.  Optimal binning for categorical and numerical variables
-2.  Weight of Evidence (WoE) calculation
-3.  Automatic selection of the best binning method
+1.  Optimal binning for categorical and numerical variables;
+2.  Weight of Evidence (WoE) calculation;
+3.  Automatic selection of the best binning method;
 4.  Data preprocessing, including handling of missing values and
-    outliers
+    outliers;
 
 ## Supported Algorithms
 
