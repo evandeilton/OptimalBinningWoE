@@ -50,17 +50,3 @@ jobs:
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
-
-      - name: Install system dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install libomp
-          brew install llvm
-
-      - name: Set up gfortran symlinks (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          set -x
-          sudo mkdir -p /usr/local/gfortran
-          sudo ln -s /usr/local/Cellar/gcc@12/12.3.0/lib/gcc/12 /usr/local/gfortran/lib
-          gfortran --version
