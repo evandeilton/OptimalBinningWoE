@@ -6,7 +6,11 @@
 #include <string>
 #include <algorithm>
 #include <numeric>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
+
 using namespace Rcpp;
 
 class OptimalBinningCategoricalIVB {
