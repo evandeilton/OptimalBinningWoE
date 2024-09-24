@@ -15,8 +15,6 @@
 #' @param preprocess Logical. Whether to preprocess the data before binning.
 #' @param min_bins Minimum number of bins.
 #' @param max_bins Maximum number of bins.
-#' @param cat_cutoff Cutoff for categorical variables.
-#' @param bin_cutoff Cutoff for numeric variables.
 #' @param control A list of additional control parameters. See Details for more information.
 #' @param positive Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".
 #'
@@ -93,21 +91,34 @@
 #'
 #' @export
 OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
-                              min_bins = 2, max_bins = 4, cat_cutoff = 0.05, bin_cutoff = 0.05,
-                              control = list(), positive = "bad|1") {
-  
-  # Validate inputs
-  OptimalBinningValidateInputs(dt, target, feature, method, preprocess, min_bins, max_bins, cat_cutoff, bin_cutoff, control, positive)
+                              min_bins = 3, max_bins = 4, control = list(), positive = "bad|1") {
   
   # Default pars
-  default_control <- list(min_bads = 0.05, pvalue_threshold = 0.05, max_n_prebins = 20,
-                          monotonicity_direction = "increase", lambda = 0.1, min_bin_size = 0.05,
-                          min_iv_gain = 0.01, max_depth = 10, num_miss_value = -999.0,
-                          char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE,
-                          iqr_k = 1.5, zscore_threshold = 3, grubbs_alpha = 0.05)
+  default_control <- list(
+    cat_cutoff = 0.05,
+    bin_cutoff = 0.05,
+    min_bads = 0.05,
+    pvalue_threshold = 0.05,
+    max_n_prebins = 20,
+    monotonicity_direction = "increase",
+    lambda = 0.1,
+    min_bin_size = 0.05,
+    min_iv_gain = 0.01,
+    max_depth = 10,
+    num_miss_value = -999.0,
+    char_miss_value = "N/A",
+    outlier_method = "iqr",
+    outlier_process = FALSE,
+    iqr_k = 1.5,
+    zscore_threshold = 3,
+    grubbs_alpha = 0.05
+  )
   
   # Update control, if needed
   control <- utils::modifyList(default_control, control)
+  
+  # Validate inputs
+  OptimalBinningValidateInputs(dt, target, feature, method, preprocess, min_bins, max_bins, control, positive)
   
   # Determine the features to process
   features_to_process <- if(is.null(feature)) setdiff(names(dt), target) else feature
@@ -135,31 +146,24 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
     tryCatch({
       # Skip date variables
       if (is_date_time_dt(dt[[feat]])) {
-        # dt[, c(paste0(feat, "_year"), paste0(feat, "_month"), paste0(feat, "_day")) := 
-        #      list(data.table::year(data.table::as.IDate(get(feat))),
-        #           data.table::month(data.table::as.IDate(get(feat))),
-        #           data.table::day(data.table::as.IDate(get(feat))))]
-        
-        # Pula o processamento normal de binning para esta feature
         next
       }
+      
       # Create a copy of the feature and target for processing
-      dt_proc <- data.table::data.table(
-        feature = dt[[feat]],
-        target = dt[[target]],
-        original_index = seq_len(nrow(dt))
-      )
+      va <- c(target, feat)
+      dt_proc <- dt[, ..va][, ("original_index") := seq_len(nrow(dt))]
       
       # Preprocess data if required
       if (preprocess) {
         preprocessed_data <- OptimalBinningDataPreprocessor(
-          target = dt_proc$target,
-          feature = dt_proc$feature,
+          target = dt_proc[[target]],
+          feature = dt_proc[[feat]],
+          #control = control
           num_miss_value = control$num_miss_value,
-          char_miss_value = control$char_miss_value,
+          char_miss_value = control$char_miss_value, 
           outlier_method = control$outlier_method,
           outlier_process = control$outlier_process,
-          preprocess = "both",
+          preprocess = as.character(c("both")), 
           iqr_k = control$iqr_k,
           zscore_threshold = control$zscore_threshold,
           grubbs_alpha = control$grubbs_alpha
@@ -184,29 +188,23 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
       
       # Select the best method if method is "auto"
       if (method == "auto") {
-        binning_result <- OptimalBinningselectBestModel(dt_binning, "target", "feature_preprocessed", control, min_bins, max_bins)
+        binning_result <- OptimalBinningSelectBestModel(dt_binning, target, "feature_preprocessed", min_bin, max_bin, control)
       } else {
         # Select the appropriate algorithm and get its parameters
-        algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", method, dt_binning, control)
+        algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", method, dt_binning, min_bin, max_bin, control)
         
-        if(algo_info$method %in% c("pava","tree")){
-          algo_params <- utils::modifyList(
-            list(max_bins = max_bins),
-            algo_info$params
-          )
-        } else {
-          algo_params <- utils::modifyList(
-            list(min_bins = min_bins, max_bins = max_bins),
-            algo_info$params
-          )
-        }
+        algo_params <- utils::modifyList(
+          list(min_bins = min_bins, max_bins = max_bins),
+          algo_info$params
+        )
+        
         # Apply binning
         binning_result <- do.call(algo_info$algorithm,
                                   c(list(target = dt_binning$target, feature = dt_binning$feature_preprocessed), algo_params))
       }
       
       # Add WoE values to non-special cases
-      dt_proc[!is_special, woe := binning_result$woefeature$woefeature]
+      dt_proc[!is_special, woe := binning_result$woefeature]
       
       # Handle special cases
       if (any(is_special)) {
@@ -215,10 +213,10 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
         
         # Add special bin to woebin
         special_bin <- CreateSpecialBin(dt_proc[is_special], binning_result$woebin, special_woe)
-        special_bin[,bin := (
-          paste0(special_bin$bin, "(", 
-                 ifelse(is.character(dt_proc[[feat]]) || is.factor(is.character(dt_proc[[feat]])), 
-                        control$char_miss_value, control$num_miss_value),")")
+        special_bin[, bin := (
+          paste0(special_bin$bin, "(",
+                 ifelse(is.character(dt_proc[[feat]]) || is.factor(dt_proc[[feat]]),
+                        control$char_miss_value, control$num_miss_value), ")")
         )]
         
         binning_result$woebin <- rbind(binning_result$woebin, special_bin, fill = TRUE)
@@ -229,6 +227,7 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
       
       # Create new column name with "_woe" suffix
       woe_col_name <- paste0(feat, "_woe")
+      
       # Update dt efficiently using data.table syntax
       dt[, (woe_col_name) := dt_proc$woe]
       
@@ -275,34 +274,7 @@ CreateSpecialBin <- function(dt_special, woebin, special_woe) {
 }
 
 
-
-
-
-
-## --------------------------------------------------------------------------------------------- ##
-## Validate inputs
-## --------------------------------------------------------------------------------------------- ##
-
-#' Validate Inputs for Optimal Binning
-#'
-#' @description
-#' This function validates all inputs for the OptimalBinningWoE function.
-#'
-#' @param dt A data.table containing the dataset.
-#' @param target The name of the target variable.
-#' @param feature Optional. Name of a specific feature to process.
-#' @param method The binning method to use.
-#' @param preprocess Logical. Whether to preprocess the data before binning.
-#' @param min_bins Minimum number of bins.
-#' @param max_bins Maximum number of bins.
-#' @param cat_cutoff Cutoff for categorical variables.
-#' @param bin_cutoff Cutoff for numeric variables.
-#' @param control A list of additional control parameters.
-#' @param positive Character string specifying which category should be considered as positive.
-#' @return No return value, called for side effects
-#'
-#' @keywords internal
-OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess, min_bins, max_bins, cat_cutoff, bin_cutoff, control, positive) {
+OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess, min_bins, max_bins, control, positive) {
   
   # Check if dt is a data.table
   if (!data.table::is.data.table(dt)) {
@@ -329,13 +301,17 @@ OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess
   
   # Check feature (if provided)
   if (!is.null(feature)) {
-    if (!feature %in% names(dt)) {
-      stop("The specified 'feature' variable does not exist in the provided data.table.")
+    if (!all(feature %in% names(dt))) {
+      stop("One or more specified 'feature' variables do not exist in the provided data.table.")
     }
   }
   
   # Check binning method
-  valid_methods <- c("auto", "caim", "chimerge", "mdlp", "mip", "mob", "iv", "pava", "tree")
+  valid_methods <- c("auto", "cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "lpdb", "mba", 
+                     "mblp", "milp", "mob", "obnp", "oslp", "sab", "swb", "udt", "bb", 
+                     "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", 
+                     "mrblp", "plaob", "qb", "sbb", "ubsd")
+  
   if (!method %in% valid_methods) {
     stop(paste("Invalid binning method. Choose one of the following:", paste(valid_methods, collapse = ", ")))
   }
@@ -353,17 +329,17 @@ OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess
     stop("max_bins must be an integer greater than min_bins.")
   }
   
-  # Check cat_cutoff and bin_cutoff
-  if (!is.numeric(cat_cutoff) || cat_cutoff <= 0 || cat_cutoff >= 1) {
-    stop("cat_cutoff must be a number between 0 and 1.")
-  }
-  if (!is.numeric(bin_cutoff) || bin_cutoff <= 0 || bin_cutoff >= 1) {
-    stop("bin_cutoff must be a number between 0 and 1.")
-  }
-  
   # Check control
   if (!is.list(control)) {
     stop("'control' must be a list.")
+  }
+  
+  # Check specific control parameters
+  if (!is.numeric(control$cat_cutoff) || control$cat_cutoff <= 0 || control$cat_cutoff >= 1) {
+    stop("control$cat_cutoff must be a number between 0 and 1.")
+  }
+  if (!is.numeric(control$bin_cutoff) || control$bin_cutoff <= 0 || control$bin_cutoff >= 1) {
+    stop("control$bin_cutoff must be a number between 0 and 1.")
   }
   
   # Check positive argument
@@ -373,6 +349,7 @@ OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess
   
   # If all checks pass, the function will return silently
 }
+
 
 ## --------------------------------------------------------------------------------------------- ##
 ## Select algorithms
@@ -390,24 +367,57 @@ OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess
 #' @return A list containing the selected algorithm, its parameters, and the method name.
 #'
 #' @keywords internal
-OptimalBinningSelectAlgorithm <- function(feature, method, dt, control) {
+OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin, control) {
   # Determine if the feature is categorical or numeric
   is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
   
   # Define the mapping of method names to algorithm names
   method_mapping <- list(
-    caim = list(categorical = "OptimalBinningCategoricalCAIM", numeric = "OptimalBinningNumericCAIM"),
-    chimerge = list(categorical = "OptimalBinningCategoricalChiMerge", numeric = "OptimalBinningNumericChiMerge"),
-    mdlp = list(categorical = "OptimalBinningCategoricalMDLP", numeric = "OptimalBinningNumericMDLP"),
-    mip = list(categorical = "OptimalBinningCategoricalMIP", numeric = "OptimalBinningNumericMIP2"), #"OptimalBinningNumericMIP" loop infinito
-    mob = list(categorical = "OptimalBinningCategoricalMOB", numeric = "OptimalBinningNumericMOB"),
-    iv = list(categorical = "OptimalBinningCategoricalIV", numeric = NULL),
-    pava = list(categorical = NULL, numeric = "OptimalBinningNumericPAVA"),
-    tree = list(categorical = NULL, numeric = "OptimalBinningNumericTree")
+    cart = list(categorical = "optimal_binning_categorical_cart", numeric = "optimal_binning_numerical_cart"),
+    cm = list(categorical = "optimal_binning_categorical_cm", numeric = "optimal_binning_numerical_cm"),
+    dplc = list(categorical = "optimal_binning_categorical_dplc", numeric = "optimal_binning_numerical_dplc"),
+    fetb = list(categorical = "optimal_binning_categorical_fetb", numeric = "optimal_binning_numerical_fetb"),
+    gab = list(categorical = "optimal_binning_categorical_gab", numeric = "optimal_binning_numerical_gab"),
+    gmb = list(categorical = "optimal_binning_categorical_gmb", numeric = "optimal_binning_numerical_gmb"),
+    ivb = list(categorical = "optimal_binning_categorical_ivb", numeric = "optimal_binning_numerical_ivb"),
+    ldb = list(categorical = "optimal_binning_categorical_ldb", numeric = "optimal_binning_numerical_ldb"),
+    lpdb = list(categorical = "optimal_binning_categorical_lpdb", numeric = "optimal_binning_numerical_lpdb"),
+    mba = list(categorical = "optimal_binning_categorical_mba", numeric = "optimal_binning_numerical_mba"),
+    mblp = list(categorical = "optimal_binning_categorical_mblp", numeric = "optimal_binning_numerical_mblp"),
+    milp = list(categorical = "optimal_binning_categorical_milp", numeric = "optimal_binning_numerical_milp"),
+    mob = list(categorical = "optimal_binning_categorical_mob", numeric = "optimal_binning_numerical_mob"),
+    obnp = list(categorical = "optimal_binning_categorical_obnp", numeric = "optimal_binning_numerical_obnp"),
+    oslp = list(categorical = NULL, numeric = "optimal_binning_numerical_oslp"),
+    sab = list(categorical = "optimal_binning_categorical_sab", numeric = "optimal_binning_numerical_sab"),
+    sblp = list(categorical = "optimal_binning_categorical_sblp", numeric = "optimal_binning_numerical_sblp"),
+    swb = list(categorical = "optimal_binning_categorical_swb", numeric = "optimal_binning_numerical_swb"),
+    udt = list(categorical = "optimal_binning_categorical_udt", numeric = "optimal_binning_numerical_udt"),
+    bb = list(categorical = NULL, numeric = "optimal_binning_numerical_bb"),
+    bs = list(categorical = NULL, numeric = "optimal_binning_numerical_bs"),
+    dpb = list(categorical = NULL, numeric = "optimal_binning_numerical_dpb"),
+    eb = list(categorical = NULL, numeric = "optimal_binning_numerical_eb"),
+    eblc = list(categorical = NULL, numeric = "optimal_binning_numerical_eblc"),
+    efb = list(categorical = NULL, numeric = "optimal_binning_numerical_efb"),
+    ewb = list(categorical = NULL, numeric = "optimal_binning_numerical_ewb"),
+    ir = list(categorical = NULL, numeric = "optimal_binning_numerical_ir"),
+    jnbo = list(categorical = NULL, numeric = "optimal_binning_numerical_jnbo"),
+    kmb = list(categorical = NULL, numeric = "optimal_binning_numerical_kmb"),
+    mdlp = list(categorical = NULL, numeric = "optimal_binning_numerical_mdlp"),
+    mrblp = list(categorical = NULL, numeric = "optimal_binning_numerical_mrblp"),
+    plaob = list(categorical = NULL, numeric = "optimal_binning_numerical_plaob"),
+    qb = list(categorical = NULL, numeric = "optimal_binning_numerical_qb"),
+    sbb = list(categorical = NULL, numeric = "optimal_binning_numerical_sbb"),
+    ubsd = list(categorical = NULL, numeric = "optimal_binning_numerical_ubsd")
   )
   
   # Select the appropriate algorithm based on the method and variable type
   data_type <- if(is_categorical) "categorical" else "numeric"
+  
+  # Check if the method exists in the mapping
+  if (is.null(method_mapping[[method]])) {
+    stop(paste("Unknown method:", method))
+  }
+  
   selected_algorithm <- method_mapping[[method]][[data_type]]
   
   # Check if the selected algorithm is valid for the variable type
@@ -415,26 +425,48 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, control) {
     stop(paste("The", method, "method is not applicable for", data_type, "variables."))
   }
   
-  # Get the default parameters for the selected algorithm
-  default_params <- switch(selected_algorithm,
-                           OptimalBinningCategoricalCAIM = list(min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05),
-                           OptimalBinningCategoricalChiMerge = list(min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningCategoricalIV = list(min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05),
-                           OptimalBinningCategoricalMDLP = list(min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05),
-                           OptimalBinningCategoricalMIP = list(cat_cutoff = 0.05, min_bins = 2L, max_bins = 5L),
-                           OptimalBinningCategoricalMOB = list(min_bins = 2L, max_bins = 7L, cat_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericCAIM = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericChiMerge = list(min_bins = 2L, max_bins = 7L, pvalue_threshold = 0.05, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericMDLP = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericMIP2 = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericMOB = list(min_bins = 2L, max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L),
-                           OptimalBinningNumericPAVA = list(max_bins = 7L, bin_cutoff = 0.05, min_bads = 0.05, max_n_prebins = 20L, monotonicity_direction = "increase"),
-                           OptimalBinningNumericTree = list(max_bins = 7L, lambda = 0.1, min_bin_size = 0.05,  min_iv_gain = 0.01, max_depth = 10L, monotonicity_direction = "increase"),
-                           stop(paste("Unknown algorithm:", selected_algorithm)) 
+  # Define default parameters for all algorithms
+  default_params <- list(
+    min_bins = min_bins,
+    max_bins = max_bins,
+    bin_cutoff = control$bin_cutoff,
+    max_n_prebins = control$max_n_prebins
   )
   
-  # Merge default parameters with user-provided control parameters
-  algorithm_params <- utils::modifyList(default_params, control[[selected_algorithm]] %||% list())
+  # Add specific parameters for certain algorithms
+  specific_params <- list(
+    optimal_binning_categorical_gab = list(
+      population_size = control$population_size,
+      num_generations = control$num_generations,
+      mutation_rate = control$mutation_rate,
+      crossover_rate = control$crossover_rate,
+      time_limit_seconds = control$time_limit_seconds
+    ),
+    optimal_binning_categorical_oslp = list(monotonic = control$monotonic),
+    optimal_binning_categorical_sab = list(
+      initial_temperature = control$initial_temperature,
+      cooling_rate = control$cooling_rate,
+      max_iterations = control$max_iterations
+    ),
+    optimal_binning_numerical_bb = list(is_monotonic = control$is_monotonic),
+    optimal_binning_numerical_cart = list(is_monotonic = control$is_monotonic),
+    optimal_binning_numerical_dpb = list(n_threads = control$n_threads),
+    optimal_binning_numerical_eb = list(n_threads = control$n_threads),
+    optimal_binning_numerical_mba = list(n_threads = control$n_threads),
+    optimal_binning_numerical_milp = list(n_threads = control$n_threads),
+    optimal_binning_numerical_mrblp = list(n_threads = control$n_threads)
+  )
+  
+  # Merge default parameters with specific parameters for the selected algorithm
+  algorithm_params <- c(
+    default_params,
+    specific_params[[selected_algorithm]] %||% list()
+  )
+  
+  # Merge with user-provided control parameters for the specific algorithm
+  if (!is.null(control[[selected_algorithm]])) {
+    algorithm_params <- utils::modifyList(algorithm_params, control[[selected_algorithm]])
+  }
   
   # Return the selected algorithm and its parameters
   list(
@@ -444,76 +476,88 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, control) {
   )
 }
 
-## --------------------------------------------------------------------------------------------- ##
-## OptimalBinningselectBestModel
-## --------------------------------------------------------------------------------------------- ##
-#' Select Best Binning Model
-#'
-#' @description
-#' This function tests multiple binning methods and selects the best one based on Information Value (IV).
-#'
-#' @param dt A data.table containing the dataset.
-#' @param target The name of the target variable.
-#' @param feature The name of the feature to bin.
-#' @param control A list of additional control parameters.
-#' @param min_bins Minimum number of bins.
-#' @param max_bins Maximum number of bins.
-#'
-#' @return The binning result of the best method.
-#'
-#' @keywords internal
-OptimalBinningselectBestModel <- function(dt, target, feature, control, min_bins, max_bins) {
-  methods <- c("caim", "chimerge", "mdlp", "mob", "mip")
-  is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
+OptimalBinningSelectBestModel <- function(dt, target, feature, min_bin, max_bin, control) {
+  # Definir métodos para dados categóricos e numéricos
+  categorical_methods <- c("cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "mba", 
+                           "mblp", "milp", "mob", "obnp", "oslp", "sab", "sblp", "swb", "udt")
+  numerical_methods <- c("cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "lpdb", "mba", 
+                         "mblp", "milp", "mob", "obnp", "oslp", "sab", "swb", "udt", "bb", 
+                         "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", 
+                         "mrblp", "plaob", "qb", "sbb", "ubsd")
   
-  if (is_categorical) {
-    methods <- c(methods, "iv")
-  } else {
-    methods <- c(methods, "pava", "tree")
-  }
+  is_categorical <- base::is.factor(dt[[feature]]) || base::is.character(dt[[feature]])
+  
+  # Selecionar os métodos apropriados com base no tipo de dados
+  methods <- if(is_categorical) categorical_methods else numerical_methods
   
   best_method <- NULL
   best_iv <- -Inf
   best_result <- NULL
+  best_monotonic <- FALSE
+  best_bins <- Inf
+  
+  # Criar data.table para armazenar os relatórios
+  best_model_report <- data.table::data.table(
+    model_name = character(),
+    model_method = character(),
+    total_iv = numeric(),
+    bin_counts = integer()
+  )
   
   for (method in methods) {
-    tryCatch({
-      algo_info <- OptimalBinningSelectAlgorithm(feature = feature, method, dt, control)
+    base::tryCatch({
+      algo_info <- OptimalBinningSelectAlgorithm(feature = feature, method, dt, min_bin, max_bin, control)
+      binning_result <- base::do.call(algo_info$algorithm, c(base::list(target = dt[[target]], feature = dt[[feature]]), algo_info$params))
       
-      if(algo_info$method %in% c("pava","tree")){
-        algo_params <- utils::modifyList(
-          list(max_bins = max_bins),
-          algo_info$params
-        )
-      } else {
-        algo_params <- utils::modifyList(
-          list(min_bins = min_bins, max_bins = max_bins),
-          algo_info$params
-        )
-      }
-      
-      binning_result <- do.call(algo_info$algorithm, c(list(target = dt[[target]], feature = dt[[feature]]), algo_params))
-      
-      if (length(binning_result$woebin$bin) >= 2) {
-        iv <- sum(binning_result$woebin$iv)
-        if (iv > best_iv) {
-          best_iv <- iv
+      if (base::length(binning_result$woebin$bin) >= 2) {
+        model_name <- algo_info$algorithm
+        current_iv <- base::sum(binning_result$woebin$iv)
+        is_monotonic <- is_woe_monotonic(binning_result$woebin$woe)
+        current_bins <- base::length(binning_result$woebin$bin)
+        
+        # Adicionar resultado ao relatório
+        best_model_report <- data.table::rbindlist(base::list(best_model_report, data.table::data.table(
+          model_name = model_name,
+          model_method = method,
+          total_iv = current_iv,
+          bin_counts = current_bins
+        )))
+        
+        # Verifica se o resultado atual é melhor com base nos critérios
+        if (current_iv > best_iv ||
+            (current_iv == best_iv && is_monotonic && !best_monotonic) ||
+            (current_iv == best_iv && is_monotonic == best_monotonic && current_bins < best_bins)) {
+          best_iv <- current_iv
           best_method <- method
           best_result <- binning_result
+          best_monotonic <- is_monotonic
+          best_bins <- current_bins
         }
       }
     }, error = function(e) {
-      warning(paste("Error processing method:", method, "for feature:", feature, "-", e$message))
+      base::warning(base::paste("Erro ao processar o método:", method, "para a feature:", feature, "-", e$message))
     })
   }
   
-  if (is.null(best_method)) {
-    stop(paste("No suitable method found for feature:", feature))
-  } else {
-    best_result$best_method <- best_method
-    best_result$is_categorical <- is_categorical
-    return(best_result)
+  if (base::is.null(best_method)) {
+    base::stop(base::paste("Nenhum método adequado encontrado para a feature:", feature))
   }
+  
+  data.table::setorder(best_model_report, -total_iv)
+  best_result$best_method <- best_method
+  best_result$is_categorical <- is_categorical
+  best_result$is_monotonic <- best_monotonic
+  best_result$num_bins <- best_bins
+  best_result$iv <- best_iv
+  best_result$best_model_report <- best_model_report
+  return(best_result)
+}
+
+
+# Função auxiliar para verificar a monotonicidade dos WOEs
+is_woe_monotonic <- function(woes) {
+  diffs <- diff(woes)
+  all(diffs >= 0) || all(diffs <= 0)
 }
 
 # Função para verificar date e datetime

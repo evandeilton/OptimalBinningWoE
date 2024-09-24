@@ -4,7 +4,7 @@
 \alias{OptimalBinningSelectAlgorithm}
 \title{Select Optimal Binning Algorithm}
 \usage{
-OptimalBinningSelectAlgorithm(feature, method, dt, control)
+OptimalBinningSelectAlgorithm(feature, method, dt, min_bin, max_bin, control)
 }
 \arguments{
 \item{feature}{The name of the feature to bin.}

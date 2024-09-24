@@ -1,368 +1,353 @@
 // [[Rcpp::plugins(cpp11)]]
 // [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
-#include <unordered_map>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <string>
-#include <cmath>
-#include <limits>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-using namespace Rcpp;
+#include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <string>
+#include <numeric>
 
-class OptimalBinningCategoricalCART {
+using namespace Rcpp;
+using namespace std;
+
+// Helper function to calculate WOE and IV
+void calculate_woe_iv(const std::vector<double>& count_pos, const std::vector<double>& count_neg,
+                      std::vector<double>& woe, std::vector<double>& iv) {
+  double total_pos = std::accumulate(count_pos.begin(), count_pos.end(), 0.0);
+  double total_neg = std::accumulate(count_neg.begin(), count_neg.end(), 0.0);
+  
+  for (size_t i = 0; i < count_pos.size(); ++i) {
+    double dist_pos = count_pos[i] / total_pos;
+    double dist_neg = count_neg[i] / total_neg;
+    if (dist_pos == 0) dist_pos = 1e-10;
+    if (dist_neg == 0) dist_neg = 1e-10;
+    woe[i] = std::log(dist_pos / dist_neg);
+    iv[i] = (dist_pos - dist_neg) * woe[i];
+  }
+}
+
+// Main class for Optimal Binning
+class OptimalBinningCategoricalOSLP {
 private:
-  std::vector<std::string> feature;
   std::vector<int> target;
+  std::vector<std::string> feature;
   int min_bins;
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-
-  std::unordered_map<std::string, double> category_counts;
-  std::unordered_map<std::string, double> category_pos_counts;
-  std::unordered_map<std::string, double> category_neg_counts;
-
+  bool monotonic;
+  
+  std::map<std::string, int> category_counts;
+  std::map<std::string, double> category_pos_counts;
+  std::map<std::string, double> category_neg_counts;
+  
   std::vector<std::vector<std::string>> bins;
   std::vector<double> woe_values;
   std::vector<double> iv_values;
-
+  
 public:
-  OptimalBinningCategoricalCART(const std::vector<std::string>& feature,
-                                const std::vector<int>& target,
+  OptimalBinningCategoricalOSLP(const Rcpp::IntegerVector& target,
+                                const Rcpp::CharacterVector& feature,
                                 int min_bins = 3,
                                 int max_bins = 5,
                                 double bin_cutoff = 0.05,
-                                int max_n_prebins = 20)
-    : feature(feature),
-      target(target),
-      min_bins(min_bins),
-      max_bins(max_bins),
-      bin_cutoff(bin_cutoff),
-      max_n_prebins(max_n_prebins) {}
-
-  void validate_inputs() {
-    // Validate feature and target lengths
-    if (feature.size() != target.size()) {
-      stop("Feature and target vectors must have the same length.");
-    }
-    // Validate binary target
-    for (int t : target) {
+                                int max_n_prebins = 20,
+                                bool monotonic = true)
+    : target(Rcpp::as<std::vector<int>>(target)), 
+      feature(Rcpp::as<std::vector<std::string>>(feature)), 
+      min_bins(min_bins), max_bins(max_bins), bin_cutoff(bin_cutoff),
+      max_n_prebins(max_n_prebins), monotonic(monotonic) {
+    // Validate target
+    for (int t : this->target) {
       if (t != 0 && t != 1) {
-        stop("Target must be binary (0 or 1).");
+        Rcpp::stop("Target must contain only 0 and 1");
       }
     }
-    // Validate min_bins and max_bins
-    if (min_bins < 2) {
-      stop("min_bins must be at least 2.");
-    }
-    if (max_bins < min_bins) {
-      stop("max_bins must be greater than or equal to min_bins.");
-    }
   }
-
-  void calculate_category_counts() {
-    // Initialize counts
+  
+  void fit() {
+    // Input validation
+    int unique_categories = std::set<std::string>(feature.begin(), feature.end()).size();
+    min_bins = std::min(min_bins, unique_categories);
+    if (min_bins < 2) min_bins = 2;
+    max_bins = std::max(max_bins, min_bins);
+    
+    // Step 1: Calculate category counts and target distribution
+    calculate_category_stats();
+    
+    // Step 2: Create initial bins
+    create_initial_bins();
+    
+    // Step 3: Optimize bins
+    optimize_bins();
+    
+    // Step 4: Calculate WOE and IV for the bins
+    calculate_bin_woe_iv();
+  }
+  
+  Rcpp::List transform() {
+    // Map each category to its WOE value
+    std::unordered_map<std::string, double> category_to_woe;
+    for (size_t i = 0; i < bins.size(); ++i) {
+      for (const auto& cat : bins[i]) {
+        category_to_woe[cat] = woe_values[i];
+      }
+    }
+    
+    // Apply WOE values to the feature
+    Rcpp::NumericVector woefeature(feature.size());
+#pragma omp parallel for
+    for (int i = 0; i < feature.size(); ++i) {
+      std::string cat = feature[i];
+      if (category_to_woe.find(cat) != category_to_woe.end()) {
+        woefeature[i] = category_to_woe[cat];
+      } else {
+        woefeature[i] = 0.0; // Handle unseen categories
+      }
+    }
+    
+    // Prepare the output DataFrame
+    Rcpp::CharacterVector bin_names(bins.size());
+    Rcpp::NumericVector woe_output(bins.size());
+    Rcpp::NumericVector iv_output(bins.size());
+    Rcpp::NumericVector count_output(bins.size());
+    Rcpp::NumericVector count_pos_output(bins.size());
+    Rcpp::NumericVector count_neg_output(bins.size());
+    
+    for (size_t i = 0; i < bins.size(); ++i) {
+      bin_names[i] = join_bins(bins[i]);
+      woe_output[i] = woe_values[i];
+      iv_output[i] = iv_values[i];
+      double count = 0.0, count_pos = 0.0, count_neg = 0.0;
+      for (const auto& cat : bins[i]) {
+        count += category_counts[cat];
+        count_pos += category_pos_counts[cat];
+        count_neg += category_neg_counts[cat];
+      }
+      count_output[i] = count;
+      count_pos_output[i] = count_pos;
+      count_neg_output[i] = count_neg;
+    }
+    
+    Rcpp::DataFrame woebin = Rcpp::DataFrame::create(
+      Rcpp::Named("bin") = bin_names,
+      Rcpp::Named("woe") = woe_output,
+      Rcpp::Named("iv") = iv_output,
+      Rcpp::Named("count") = count_output,
+      Rcpp::Named("count_pos") = count_pos_output,
+      Rcpp::Named("count_neg") = count_neg_output
+    );
+    
+    return Rcpp::List::create(Rcpp::Named("woefeature") = woefeature,
+                              Rcpp::Named("woebin") = woebin);
+  }
+  
+private:
+  void calculate_category_stats() {
     for (size_t i = 0; i < feature.size(); ++i) {
       std::string cat = feature[i];
-      int tar = target[i];
+      int tgt = target[i];
       category_counts[cat]++;
-      if (tar == 1) {
+      if (tgt == 1) {
         category_pos_counts[cat]++;
       } else {
         category_neg_counts[cat]++;
       }
     }
   }
-
-  void handle_rare_categories() {
-    // Merge rare categories based on bin_cutoff
-    double total_count = feature.size();
-    std::unordered_map<std::string, std::string> category_mapping;
-    std::string rare_label = "Other";
-    for (auto& kv : category_counts) {
-      double freq = kv.second / total_count;
-      if (freq < bin_cutoff) {
-        category_mapping[kv.first] = rare_label;
-      } else {
-        category_mapping[kv.first] = kv.first;
-      }
+  
+  void create_initial_bins() {
+    // Sort categories based on WOE
+    std::vector<std::pair<std::string, double>> cat_woe_list;
+    for (const auto& pair : category_counts) {
+      double pos_count = category_pos_counts[pair.first];
+      double neg_count = category_neg_counts[pair.first];
+      if (pos_count == 0) pos_count = 1e-10;
+      if (neg_count == 0) neg_count = 1e-10;
+      double total_pos = std::accumulate(target.begin(), target.end(), 0.0);
+      double woe = std::log((pos_count / total_pos) / (neg_count / (target.size() - total_pos)));
+      cat_woe_list.push_back(std::make_pair(pair.first, woe));
     }
-
-    // Update feature vector
-    for (size_t i = 0; i < feature.size(); ++i) {
-      feature[i] = category_mapping[feature[i]];
-    }
-
-    // Recalculate counts
-    category_counts.clear();
-    category_pos_counts.clear();
-    category_neg_counts.clear();
-    calculate_category_counts();
-
-    // Check if number of unique categories is less than min_bins
-    if (category_counts.size() < static_cast<size_t>(min_bins)) {
-      stop("Number of categories after merging rare categories is less than min_bins. Consider reducing bin_cutoff.");
-    }
-
-    // If pre-bins exceed max_n_prebins, further merge least frequent categories
-    if (category_counts.size() > static_cast<size_t>(max_n_prebins)) {
-      // Sort categories by frequency
-      std::vector<std::pair<std::string, double>> sorted_categories(category_counts.begin(), category_counts.end());
-      std::sort(sorted_categories.begin(), sorted_categories.end(),
-                [](const std::pair<std::string, double>& a, const std::pair<std::string, double>& b) {
-                  return a.second < b.second;
-                });
-
-      // Merge least frequent categories into "Other" until size <= max_n_prebins
-      size_t current_size = sorted_categories.size();
-      size_t target_size = max_n_prebins;
-      for (size_t i = 0; i < current_size - target_size; ++i) {
-        std::string cat_to_merge = sorted_categories[i].first;
-        category_mapping[cat_to_merge] = "Other";
+    std::sort(cat_woe_list.begin(), cat_woe_list.end(),
+              [](const std::pair<std::string, double>& a, const std::pair<std::string, double>& b) {
+                return a.second < b.second;
+              });
+    
+    // Create initial bins
+    int n_categories = cat_woe_list.size();
+    int n_bins = std::min(std::max(min_bins, std::min(max_bins, n_categories)), max_n_prebins);
+    int cats_per_bin = std::max(1, n_categories / n_bins);
+    
+    for (int i = 0; i < n_categories; i += cats_per_bin) {
+      std::vector<std::string> bin;
+      for (int j = i; j < std::min(i + cats_per_bin, n_categories); ++j) {
+        bin.push_back(cat_woe_list[j].first);
       }
-
-      // Update feature vector again
-      for (size_t i = 0; i < feature.size(); ++i) {
-        feature[i] = category_mapping[feature[i]];
-      }
-
-      // Recalculate counts
-      category_counts.clear();
-      category_pos_counts.clear();
-      category_neg_counts.clear();
-      calculate_category_counts();
+      bins.push_back(bin);
+    }
+    
+    // Merge small bins if necessary
+    while (bins.size() > max_bins) {
+      merge_bins();
     }
   }
-
-  void initial_binning() {
-    // Create initial bins (each category is its own bin)
-    bins.clear();
-    for (auto& kv : category_counts) {
-      bins.push_back({kv.first});
-    }
-  }
-
-  double calculate_bin_woe(const std::vector<std::string>& bin_categories) {
-    double total_pos = 0.0, total_neg = 0.0;
-    double bin_pos = 0.0, bin_neg = 0.0;
-    for (auto& kv : category_pos_counts) {
-      total_pos += kv.second;
-    }
-    for (auto& kv : category_neg_counts) {
-      total_neg += kv.second;
-    }
-    for (const std::string& cat : bin_categories) {
-      bin_pos += category_pos_counts[cat];
-      bin_neg += category_neg_counts[cat];
-    }
-    double dist_pos = bin_pos / total_pos;
-    double dist_neg = bin_neg / total_neg;
-    if (dist_pos == 0) dist_pos = 1e-6; // Prevent division by zero
-    if (dist_neg == 0) dist_neg = 1e-6;
-    return std::log(dist_pos / dist_neg);
-  }
-
-  double calculate_bin_iv(const std::vector<std::string>& bin_categories) {
-    double total_pos = 0.0, total_neg = 0.0;
-    double bin_pos = 0.0, bin_neg = 0.0;
-    for (auto& kv : category_pos_counts) {
-      total_pos += kv.second;
-    }
-    for (auto& kv : category_neg_counts) {
-      total_neg += kv.second;
-    }
-    for (const std::string& cat : bin_categories) {
-      bin_pos += category_pos_counts[cat];
-      bin_neg += category_neg_counts[cat];
-    }
-    double dist_pos = bin_pos / total_pos;
-    double dist_neg = bin_neg / total_neg;
-    double woe = std::log(dist_pos / dist_neg);
-    return (dist_pos - dist_neg) * woe;
-  }
-
-  void merge_bins(int max_allowed_bins) {
-    // Merge bins until the number of bins is <= max_allowed_bins
-    while (bins.size() > static_cast<size_t>(max_allowed_bins)) {
-      // Find the pair of adjacent bins with the least difference in WoE
-      double min_diff = std::numeric_limits<double>::max();
-      size_t merge_idx = 0;
-
-      // Calculate WoE for each bin
-      std::vector<double> current_woe(bins.size(), 0.0);
-      for (size_t i = 0; i < bins.size(); ++i) {
-        current_woe[i] = calculate_bin_woe(bins[i]);
-      }
-
+  
+  void optimize_bins() {
+    bool changed;
+    do {
+      changed = false;
       for (size_t i = 0; i < bins.size() - 1; ++i) {
-        double diff = std::abs(current_woe[i] - current_woe[i + 1]);
-        if (diff < min_diff) {
-          min_diff = diff;
-          merge_idx = i;
+        double woe1 = calculate_bin_woe(bins[i]);
+        double woe2 = calculate_bin_woe(bins[i + 1]);
+        if (std::abs(woe1 - woe2) < bin_cutoff) {
+          bins[i].insert(bins[i].end(), bins[i + 1].begin(), bins[i + 1].end());
+          bins.erase(bins.begin() + i + 1);
+          changed = true;
+          break;
         }
       }
-
-      // Merge bins at merge_idx and merge_idx + 1
-      bins[merge_idx].insert(bins[merge_idx].end(),
-                             bins[merge_idx + 1].begin(),
-                             bins[merge_idx + 1].end());
-      bins.erase(bins.begin() + merge_idx + 1);
+    } while (changed && bins.size() > min_bins);
+    
+    // Ensure min_bins constraint is met
+    while (bins.size() < min_bins && bins.size() > 1) {
+      split_largest_bin();
+    }
+    
+    // Enforce monotonicity if required
+    if (monotonic) {
+      enforce_monotonicity();
     }
   }
-
-  void calculate_woe_iv() {
-    woe_values.clear();
-    iv_values.clear();
-    for (const auto& bin : bins) {
-      double woe = calculate_bin_woe(bin);
-      double iv = calculate_bin_iv(bin);
-      woe_values.push_back(woe);
-      iv_values.push_back(iv);
+  
+  void merge_bins() {
+    // Merge bins with the smallest difference in WOE
+    double min_diff = std::numeric_limits<double>::max();
+    size_t idx_to_merge = 0;
+    for (size_t i = 0; i < bins.size() - 1; ++i) {
+      double woe1 = calculate_bin_woe(bins[i]);
+      double woe2 = calculate_bin_woe(bins[i + 1]);
+      double diff = std::abs(woe1 - woe2);
+      if (diff < min_diff) {
+        min_diff = diff;
+        idx_to_merge = i;
+      }
+    }
+    // Merge bins[idx_to_merge] and bins[idx_to_merge + 1]
+    bins[idx_to_merge].insert(bins[idx_to_merge].end(),
+                              bins[idx_to_merge + 1].begin(),
+                              bins[idx_to_merge + 1].end());
+    bins.erase(bins.begin() + idx_to_merge + 1);
+  }
+  
+  void split_largest_bin() {
+    // Find the largest bin
+    size_t largest_bin_idx = 0;
+    size_t largest_bin_size = 0;
+    for (size_t i = 0; i < bins.size(); ++i) {
+      if (bins[i].size() > largest_bin_size) {
+        largest_bin_size = bins[i].size();
+        largest_bin_idx = i;
+      }
+    }
+    
+    // Split the largest bin
+    if (largest_bin_size > 1) {
+      size_t split_point = largest_bin_size / 2;
+      std::vector<std::string> new_bin(bins[largest_bin_idx].begin() + split_point, bins[largest_bin_idx].end());
+      bins[largest_bin_idx].erase(bins[largest_bin_idx].begin() + split_point, bins[largest_bin_idx].end());
+      bins.insert(bins.begin() + largest_bin_idx + 1, new_bin);
     }
   }
-
+  
   void enforce_monotonicity() {
-    bool is_monotonic = false;
-    while (!is_monotonic) {
-      is_monotonic = true;
-      calculate_woe_iv();
-
-      // Check for monotonicity (either non-decreasing or non-increasing)
-      bool increasing = true, decreasing = true;
-      for (size_t i = 1; i < woe_values.size(); ++i) {
-        if (woe_values[i] < woe_values[i - 1]) {
-          increasing = false;
-        }
-        if (woe_values[i] > woe_values[i - 1]) {
-          decreasing = false;
-        }
-      }
-
-      if (increasing || decreasing) {
-        break; // Monotonicity satisfied
-      }
-
-      // If not monotonic, merge the pair with the smallest IV contribution
-      double min_iv = std::numeric_limits<double>::max();
-      size_t merge_idx = 0;
-
-      for (size_t i = 0; i < bins.size() - 1; ++i) {
-        double combined_iv = calculate_bin_iv(bins[i]) + calculate_bin_iv(bins[i + 1]);
-        if (combined_iv < min_iv) {
-          min_iv = combined_iv;
-          merge_idx = i;
-        }
-      }
-
-      // Merge bins at merge_idx and merge_idx + 1
-      bins[merge_idx].insert(bins[merge_idx].end(),
-                             bins[merge_idx + 1].begin(),
-                             bins[merge_idx + 1].end());
-      bins.erase(bins.begin() + merge_idx + 1);
-
-      // Ensure that we do not go below min_bins
-      if (bins.size() < static_cast<size_t>(min_bins)) {
-        // Cannot enforce monotonicity without violating min_bins
-        stop("Cannot enforce monotonicity without violating min_bins constraint.");
-      }
-      is_monotonic = false; // Continue checking
+    // Sort bins based on their WOE values
+    std::vector<std::pair<size_t, double>> bin_woes;
+    for (size_t i = 0; i < bins.size(); ++i) {
+      bin_woes.push_back(std::make_pair(i, calculate_bin_woe(bins[i])));
     }
+    std::sort(bin_woes.begin(), bin_woes.end(),
+              [](const std::pair<size_t, double>& a, const std::pair<size_t, double>& b) {
+                return a.second < b.second;
+              });
+    
+    // Reorder bins to ensure monotonicity
+    std::vector<std::vector<std::string>> new_bins;
+    for (const auto& pair : bin_woes) {
+      new_bins.push_back(bins[pair.first]);
+    }
+    bins = new_bins;
   }
-
-  List get_result() {
-    // Create woefeature vector
-    std::vector<double> woefeature(feature.size());
-    // Precompute a map from category to WoE
-    std::unordered_map<std::string, double> category_to_woe;
-    for (size_t j = 0; j < bins.size(); ++j) {
-      for (const std::string& cat : bins[j]) {
-        category_to_woe[cat] = woe_values[j];
-      }
+  
+  double calculate_bin_woe(const std::vector<std::string>& bin) {
+    double total_pos = 0.0, total_neg = 0.0;
+    for (const auto& cat : bin) {
+      total_pos += category_pos_counts[cat];
+      total_neg += category_neg_counts[cat];
     }
-    for (size_t i = 0; i < feature.size(); ++i) {
-      woefeature[i] = category_to_woe[feature[i]];
-    }
-
-    // Create woebin DataFrame
-    std::vector<std::string> bin_names;
-    std::vector<double> bin_counts;
-    std::vector<double> bin_pos_counts;
-    std::vector<double> bin_neg_counts;
-    for (size_t j = 0; j < bins.size(); ++j) {
-      std::string bin_name = "";
-      for (size_t k = 0; k < bins[j].size(); ++k) {
-        bin_name += bins[j][k];
-        if (k != bins[j].size() - 1) {
-          bin_name += "+";
-        }
-      }
-      bin_names.push_back(bin_name);
-
-      double count = 0.0, pos = 0.0, neg = 0.0;
-      for (const auto& cat : bins[j]) {
-        count += category_counts[cat];
-        pos += category_pos_counts[cat];
-        neg += category_neg_counts[cat];
-      }
-      bin_counts.push_back(count);
-      bin_pos_counts.push_back(pos);
-      bin_neg_counts.push_back(neg);
-    }
-
-    // Recalculate WoE and IV after final binning
-    calculate_woe_iv();
-
-    DataFrame woebin = DataFrame::create(
-      Named("bin") = bin_names,
-      Named("woe") = woe_values,
-      Named("iv") = iv_values,
-      Named("count") = bin_counts,
-      Named("count_pos") = bin_pos_counts,
-      Named("count_neg") = bin_neg_counts
-    );
-
-    // Calculate total IV
-    double total_iv = std::accumulate(iv_values.begin(), iv_values.end(), 0.0);
-
-    return List::create(
-      Named("woefeature") = woefeature,
-      Named("woebin") = woebin,
-      Named("total_iv") = total_iv
-    );
+    if (total_pos == 0) total_pos = 1e-10;
+    if (total_neg == 0) total_neg = 1e-10;
+    double sum_target = std::accumulate(target.begin(), target.end(), 0.0);
+    return std::log((total_pos / sum_target) / (total_neg / (target.size() - sum_target)));
   }
-
-  List fit() {
-    validate_inputs();
-    calculate_category_counts();
-    handle_rare_categories();
-    initial_binning();
-
-    // Merge bins to satisfy max_bins constraint, ensuring at least min_bins
-    merge_bins(max_bins);
-
-    calculate_woe_iv();
-    enforce_monotonicity();
-
-    return get_result();
+  
+  void calculate_bin_woe_iv() {
+    size_t n_bins = bins.size();
+    woe_values.resize(n_bins);
+    iv_values.resize(n_bins);
+    std::vector<double> count_pos(n_bins, 0.0);
+    std::vector<double> count_neg(n_bins, 0.0);
+    
+    double total_pos = std::accumulate(target.begin(), target.end(), 0.0);
+    double total_neg = target.size() - total_pos;
+    
+    for (size_t i = 0; i < n_bins; ++i) {
+      double bin_pos = 0.0, bin_neg = 0.0;
+      for (const auto& cat : bins[i]) {
+        bin_pos += category_pos_counts[cat];
+        bin_neg += category_neg_counts[cat];
+      }
+      count_pos[i] = bin_pos;
+      count_neg[i] = bin_neg;
+    }
+    
+    calculate_woe_iv(count_pos, count_neg, woe_values, iv_values);
+  }
+  
+  std::string join_bins(const std::vector<std::string>& bin) {
+    std::string bin_name = "";
+    for (size_t i = 0; i < bin.size(); ++i) {
+      bin_name += bin[i];
+      if (i != bin.size() - 1) bin_name += "+";
+    }
+    return bin_name;
   }
 };
 
 // [[Rcpp::export]]
-List optimal_binning_categorical_cart(IntegerVector target,
-                                      CharacterVector feature,
-                                      int min_bins = 3,
-                                      int max_bins = 5,
-                                      double bin_cutoff = 0.05,
-                                      int max_n_prebins = 20) {
-  std::vector<std::string> feature_std = as<std::vector<std::string>>(feature);
-  std::vector<int> target_std = as<std::vector<int>>(target);
-  OptimalBinningCategoricalCART obc(feature_std, target_std, min_bins, max_bins, bin_cutoff, max_n_prebins);
-  return obc.fit();
+Rcpp::List optimal_binning_categorical_oslp(Rcpp::IntegerVector target,
+                                            Rcpp::CharacterVector feature,
+                                            int min_bins = 3,
+                                            int max_bins = 5,
+                                            double bin_cutoff = 0.05,
+                                            int max_n_prebins = 20,
+                                            bool monotonic = true) {
+  // Validate target
+  for (int i = 0; i < target.size(); ++i) {
+    if (target[i] != 0 && target[i] != 1) {
+      Rcpp::stop("Target must contain only 0 and 1");
+    }
+  }
+  
+  OptimalBinningCategoricalOSLP obc(target, feature, min_bins, max_bins,
+                                    bin_cutoff, max_n_prebins, monotonic);
+  obc.fit();
+  return obc.transform();
 }
-

@@ -10,10 +10,8 @@ OptimalBinningWoE(
   feature = NULL,
   method = "auto",
   preprocess = TRUE,
-  min_bins = 2,
+  min_bins = 3,
   max_bins = 4,
-  cat_cutoff = 0.05,
-  bin_cutoff = 0.05,
   control = list(),
   positive = "bad|1"
 )
@@ -32,10 +30,6 @@ OptimalBinningWoE(
 \item{min_bins}{Minimum number of bins.}
 
 \item{max_bins}{Maximum number of bins.}
-
-\item{cat_cutoff}{Cutoff for categorical variables.}
-
-\item{bin_cutoff}{Cutoff for numeric variables.}
 
 \item{control}{A list of additional control parameters. See Details for more information.}
 

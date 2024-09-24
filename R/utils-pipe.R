@@ -1,4 +1,5 @@
-utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_index","bin"))
+utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_index","bin",
+                         "min_bins","max_bins","total_iv","..va"))
 
 #' Pipe operator
 #'
@@ -25,3 +26,8 @@ NULL
 ## usethis namespace: end
 NULL
 
+
+## usethis namespace: start
+#' @import RcppParallel
+## usethis namespace: end
+NULL
