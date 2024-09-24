@@ -64,11 +64,3 @@ jobs:
           sudo mkdir -p /usr/local/gfortran
           sudo ln -s /usr/local/Cellar/gcc@12/12.3.0/lib/gcc/12 /usr/local/gfortran/lib
           gfortran --version
-
-      - name: Install dependencies
-        run: |
-          remotes::install_cran('rcmdcheck', Ncpu = 2L)
-          remotes::install_cran('Rcpp', Ncpu = 2L)
-          remotes::install_cran('Rcpp11', Ncpu = 2L)
-          remotes::install_cran('RcppParallel', Ncpu = 2L)
-        shell: Rscript {0}
