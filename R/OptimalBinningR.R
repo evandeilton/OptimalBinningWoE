@@ -546,378 +546,376 @@ is_date_time_dt <- function(x) {
 }
 
 
-#' Optimal Binning for Numeric Variables using Mixed-Integer Programming
-#'
-#' This function performs optimal binning of a numeric variable for Weight of Evidence (WoE)
-#' and Information Value (IV) calculation using a Mixed-Integer Programming (MIP) approach.
-#' It ensures monotonicity of WoE across bins and optimizes the number of bins.
-#'
-#' @param target A numeric vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins to create (default is 2).
-#' @param max_bins Maximum number of bins to create (default is 7).
-#' @param bin_cutoff Minimum proportion of observations in each bin (default is 0.05).
-#' @param max_n_prebins Maximum number of pre-bins to use (default is 20).
-#'
-#' @return A list containing two elements:
-#'   \item{woefeature}{A data.table with WoE values mapped to original feature values.}
-#'   \item{woebin}{A data.table with bin information, including bin boundaries, WoE, IV, and counts.}
-#'
-#' @import Rcpp
-#' @import lpSolve
-#' @import data.table
-#'
-#' @examples
-#' \dontrun{
-#' # Generate sample data
-#' set.seed(42)
-#' n <- 1000
-#' feature <- rnorm(n)
-#' target <- rbinom(n, 1, 1 / (1 + exp(-0.5 - 0.5 * feature)))
-#'
-#' # Perform optimal binning
-#' result <- OptimalBinningNumericMIP2(target, feature, min_bins = 3, max_bins = 5)
-#'
-#' # View results
-#' print(result$woebin)
-#' summary(result$woefeature$woefeature)
+#' #' Optimal Binning for Numeric Variables using Mixed-Integer Programming
+#' #'
+#' #' This function performs optimal binning of a numeric variable for Weight of Evidence (WoE)
+#' #' and Information Value (IV) calculation using a Mixed-Integer Programming (MIP) approach.
+#' #' It ensures monotonicity of WoE across bins and optimizes the number of bins.
+#' #'
+#' #' @param target A numeric vector of binary target values (0 or 1).
+#' #' @param feature A numeric vector of feature values to be binned.
+#' #' @param min_bins Minimum number of bins to create (default is 2).
+#' #' @param max_bins Maximum number of bins to create (default is 7).
+#' #' @param bin_cutoff Minimum proportion of observations in each bin (default is 0.05).
+#' #' @param max_n_prebins Maximum number of pre-bins to use (default is 20).
+#' #'
+#' #' @return A list containing two elements:
+#' #'   \item{woefeature}{A data.table with WoE values mapped to original feature values.}
+#' #'   \item{woebin}{A data.table with bin information, including bin boundaries, WoE, IV, and counts.}
+#' #'
+#' #' @import Rcpp
+#' #' @import lpSolve
+#' #' @import data.table
+#' #'
+#' #' @examples
+#' #' \dontrun{
+#' #' # Generate sample data
+#' #' set.seed(42)
+#' #' n <- 1000
+#' #' feature <- rnorm(n)
+#' #' target <- rbinom(n, 1, 1 / (1 + exp(-0.5 - 0.5 * feature)))
+#' #'
+#' #' # Perform optimal binning
+#' #' result <- OptimalBinningNumericMIP2(target, feature, min_bins = 3, max_bins = 5)
+#' #'
+#' #' # View results
+#' #' print(result$woebin)
+#' #' summary(result$woefeature$woefeature)
+#' #' }
+#' #'
+#' #' @export
+#' OptimalBinningNumericMIP2 <- function(target, feature, min_bins = 2, max_bins = 7, 
+#'                                       bin_cutoff = 0.05, max_n_prebins = 20) {
+#'   # Preparar dados usando a função C++
+#'   prep_data <- OptimalBinningNumericMIP2Prep(target, feature, max_n_prebins)
+#'   
+#'   candidate_cutpoints <- prep_data$candidate_cutpoints
+#'   pos_counts <- prep_data$pos_counts
+#'   neg_counts <- prep_data$neg_counts
+#'   total_pos <- prep_data$total_pos
+#'   total_neg <- prep_data$total_neg
+#'   
+#'   n_cutpoints <- length(candidate_cutpoints)
+#'   
+#'   # Função para calcular IV
+#'   calculate_iv <- function(pos, neg, total_pos, total_neg) {
+#'     p <- pos / total_pos
+#'     n <- neg / total_neg
+#'     woe <- ifelse(p > 0 & n > 0, log(p / n), 0)
+#'     (p - n) * woe
+#'   }
+#'   
+#'   # Inicializar melhor solução
+#'   best_iv <- -Inf
+#'   best_cutpoints <- NULL
+#'   
+#'   # Testar todas as combinações de bins entre min_bins e max_bins
+#'   for (n_bins in min_bins:max_bins) {
+#'     # Configurar o problema MIP
+#'     n_vars <- n_cutpoints
+#'     
+#'     # Criar a matriz de restrições
+#'     constraint_matrix <- matrix(0, nrow = 2, ncol = n_vars)
+#'     constraint_matrix[1,] <- 1
+#'     constraint_matrix[2,] <- 1
+#'     
+#'     # Vetor de direções das restrições
+#'     constraint_dir <- c("==", ">=")
+#'     
+#'     # Vetor do lado direito das restrições
+#'     constraint_rhs <- c(n_bins - 1, 1)
+#'     
+#'     # Calcular o IV para cada possível ponto de corte
+#'     iv_cutpoints <- numeric(n_cutpoints)
+#'     for (i in 1:n_cutpoints) {
+#'       left_pos <- sum(pos_counts[1:i])
+#'       left_neg <- sum(neg_counts[1:i])
+#'       right_pos <- total_pos - left_pos
+#'       right_neg <- total_neg - left_neg
+#'       
+#'       iv_cutpoints[i] <- calculate_iv(left_pos, left_neg, total_pos, total_neg) +
+#'         calculate_iv(right_pos, right_neg, total_pos, total_neg)
+#'     }
+#'     
+#'     # Resolver o problema
+#'     solution <- lpSolve::lp("max", iv_cutpoints, constraint_matrix, constraint_dir, constraint_rhs, 
+#'                             all.bin = TRUE)
+#'     
+#'     # Extrair resultados
+#'     is_cutpoint <- solution$solution > 0.5
+#'     current_cutpoints <- candidate_cutpoints[is_cutpoint]
+#'     
+#'     # Calcular IV total para esta solução
+#'     bin_pos <- c(pos_counts[1], diff(cumsum(pos_counts))[is_cutpoint])
+#'     bin_neg <- c(neg_counts[1], diff(cumsum(neg_counts))[is_cutpoint])
+#'     current_iv <- sum(calculate_iv(bin_pos, bin_neg, total_pos, total_neg))
+#'     
+#'     # Atualizar melhor solução se necessário
+#'     if (current_iv > best_iv) {
+#'       best_iv <- current_iv
+#'       best_cutpoints <- current_cutpoints
+#'     }
+#'   }
+#'   
+#'   # Usar a melhor solução encontrada
+#'   bin_cutpoints <- best_cutpoints
+#'   
+#'   # Calcular WoE e IV para os bins finais
+#'   woe <- numeric()
+#'   iv_bin <- numeric()
+#'   bin_pos_counts <- integer()
+#'   bin_neg_counts <- integer()
+#'   
+#'   start <- 1
+#'   for (i in 1:(length(bin_cutpoints) + 1)) {
+#'     end <- if (i > length(bin_cutpoints)) n_cutpoints + 1 else which(candidate_cutpoints >= bin_cutpoints[i])[1]
+#'     
+#'     bin_pos <- sum(pos_counts[start:end])
+#'     bin_neg <- sum(neg_counts[start:end])
+#'     
+#'     p <- bin_pos / total_pos
+#'     n <- bin_neg / total_neg
+#'     
+#'     bin_woe <- if (p > 0 && n > 0) log(p / n) else 0
+#'     bin_iv <- (p - n) * bin_woe
+#'     
+#'     woe <- c(woe, bin_woe)
+#'     iv_bin <- c(iv_bin, bin_iv)
+#'     bin_pos_counts <- c(bin_pos_counts, bin_pos)
+#'     bin_neg_counts <- c(bin_neg_counts, bin_neg)
+#'     
+#'     start <- end + 1
+#'   }
+#'   
+#'   # Determinar a direção da monotonicidade
+#'   monotonic_increasing <- woe[1] < woe[length(woe)]
+#'   
+#'   # Aplicar monotonicidade
+#'   if (monotonic_increasing) {
+#'     woe <- cummax(woe)
+#'   } else {
+#'     woe <- cummin(woe)
+#'   }
+#'   
+#'   # Recalcular IV baseado nos WoE ajustados
+#'   iv_bin <- (bin_pos_counts / total_pos - bin_neg_counts / total_neg) * woe
+#'   
+#'   # Mapear valores da feature para WoE
+#'   feature_woe <- rep(NA_real_, length(feature))
+#'   for (i in seq_along(feature)) {
+#'     if (!is.na(feature[i])) {
+#'       bin_idx <- findInterval(feature[i], bin_cutpoints, all.inside = TRUE) + 1
+#'       feature_woe[i] <- woe[bin_idx]
+#'     }
+#'   }
+#'   
+#'   # Preparar saída dos bins
+#'   n_bins <- length(bin_cutpoints) + 1
+#'   bin_names <- character(n_bins)
+#'   count <- integer(n_bins)
+#'   pos <- integer(n_bins)
+#'   neg <- integer(n_bins)
+#'   
+#'   for (i in 1:n_bins) {
+#'     lower <- if (i == 1) "[-Inf" else paste0("[", bin_cutpoints[i-1])
+#'     upper <- if (i == n_bins) "+Inf]" else paste0(bin_cutpoints[i], ")")
+#'     bin_names[i] <- paste0(lower, ";", upper)
+#'     count[i] <- bin_pos_counts[i] + bin_neg_counts[i]
+#'     pos[i] <- bin_pos_counts[i]
+#'     neg[i] <- bin_neg_counts[i]
+#'   }
+#'   
+#'   # Criar List para bins
+#'   bin_lst <- list(
+#'     bin = bin_names,
+#'     woe = woe,
+#'     iv = iv_bin,
+#'     count = count,
+#'     count_pos = pos,
+#'     count_neg = neg
+#'   )
+#'   
+#'   # Criar List para o vetor woe da feature
+#'   woe_lst <- list(
+#'     woefeature = feature_woe
+#'   )
+#'   
+#'   # Atribuir classe para compatibilidade com data.table em tabelas superrápidas em memória
+#'   data.table::setDT(bin_lst)
+#'   data.table::setDT(woe_lst)
+#'   
+#'   # Retornar saída
+#'   return(list(
+#'     woefeature = woe_lst,
+#'     woebin = bin_lst
+#'   ))
 #' }
-#'
-#' @export
-OptimalBinningNumericMIP2 <- function(target, feature, min_bins = 2, max_bins = 7, 
-                                      bin_cutoff = 0.05, max_n_prebins = 20) {
-  # Preparar dados usando a função C++
-  prep_data <- OptimalBinningNumericMIP2Prep(target, feature, max_n_prebins)
-  
-  candidate_cutpoints <- prep_data$candidate_cutpoints
-  pos_counts <- prep_data$pos_counts
-  neg_counts <- prep_data$neg_counts
-  total_pos <- prep_data$total_pos
-  total_neg <- prep_data$total_neg
-  
-  n_cutpoints <- length(candidate_cutpoints)
-  
-  # Função para calcular IV
-  calculate_iv <- function(pos, neg, total_pos, total_neg) {
-    p <- pos / total_pos
-    n <- neg / total_neg
-    woe <- ifelse(p > 0 & n > 0, log(p / n), 0)
-    (p - n) * woe
-  }
-  
-  # Inicializar melhor solução
-  best_iv <- -Inf
-  best_cutpoints <- NULL
-  
-  # Testar todas as combinações de bins entre min_bins e max_bins
-  for (n_bins in min_bins:max_bins) {
-    # Configurar o problema MIP
-    n_vars <- n_cutpoints
-    
-    # Criar a matriz de restrições
-    constraint_matrix <- matrix(0, nrow = 2, ncol = n_vars)
-    constraint_matrix[1,] <- 1
-    constraint_matrix[2,] <- 1
-    
-    # Vetor de direções das restrições
-    constraint_dir <- c("==", ">=")
-    
-    # Vetor do lado direito das restrições
-    constraint_rhs <- c(n_bins - 1, 1)
-    
-    # Calcular o IV para cada possível ponto de corte
-    iv_cutpoints <- numeric(n_cutpoints)
-    for (i in 1:n_cutpoints) {
-      left_pos <- sum(pos_counts[1:i])
-      left_neg <- sum(neg_counts[1:i])
-      right_pos <- total_pos - left_pos
-      right_neg <- total_neg - left_neg
-      
-      iv_cutpoints[i] <- calculate_iv(left_pos, left_neg, total_pos, total_neg) +
-        calculate_iv(right_pos, right_neg, total_pos, total_neg)
-    }
-    
-    # Resolver o problema
-    solution <- lpSolve::lp("max", iv_cutpoints, constraint_matrix, constraint_dir, constraint_rhs, 
-                            all.bin = TRUE)
-    
-    # Extrair resultados
-    is_cutpoint <- solution$solution > 0.5
-    current_cutpoints <- candidate_cutpoints[is_cutpoint]
-    
-    # Calcular IV total para esta solução
-    bin_pos <- c(pos_counts[1], diff(cumsum(pos_counts))[is_cutpoint])
-    bin_neg <- c(neg_counts[1], diff(cumsum(neg_counts))[is_cutpoint])
-    current_iv <- sum(calculate_iv(bin_pos, bin_neg, total_pos, total_neg))
-    
-    # Atualizar melhor solução se necessário
-    if (current_iv > best_iv) {
-      best_iv <- current_iv
-      best_cutpoints <- current_cutpoints
-    }
-  }
-  
-  # Usar a melhor solução encontrada
-  bin_cutpoints <- best_cutpoints
-  
-  # Calcular WoE e IV para os bins finais
-  woe <- numeric()
-  iv_bin <- numeric()
-  bin_pos_counts <- integer()
-  bin_neg_counts <- integer()
-  
-  start <- 1
-  for (i in 1:(length(bin_cutpoints) + 1)) {
-    end <- if (i > length(bin_cutpoints)) n_cutpoints + 1 else which(candidate_cutpoints >= bin_cutpoints[i])[1]
-    
-    bin_pos <- sum(pos_counts[start:end])
-    bin_neg <- sum(neg_counts[start:end])
-    
-    p <- bin_pos / total_pos
-    n <- bin_neg / total_neg
-    
-    bin_woe <- if (p > 0 && n > 0) log(p / n) else 0
-    bin_iv <- (p - n) * bin_woe
-    
-    woe <- c(woe, bin_woe)
-    iv_bin <- c(iv_bin, bin_iv)
-    bin_pos_counts <- c(bin_pos_counts, bin_pos)
-    bin_neg_counts <- c(bin_neg_counts, bin_neg)
-    
-    start <- end + 1
-  }
-  
-  # Determinar a direção da monotonicidade
-  monotonic_increasing <- woe[1] < woe[length(woe)]
-  
-  # Aplicar monotonicidade
-  if (monotonic_increasing) {
-    woe <- cummax(woe)
-  } else {
-    woe <- cummin(woe)
-  }
-  
-  # Recalcular IV baseado nos WoE ajustados
-  iv_bin <- (bin_pos_counts / total_pos - bin_neg_counts / total_neg) * woe
-  
-  # Mapear valores da feature para WoE
-  feature_woe <- rep(NA_real_, length(feature))
-  for (i in seq_along(feature)) {
-    if (!is.na(feature[i])) {
-      bin_idx <- findInterval(feature[i], bin_cutpoints, all.inside = TRUE) + 1
-      feature_woe[i] <- woe[bin_idx]
-    }
-  }
-  
-  # Preparar saída dos bins
-  n_bins <- length(bin_cutpoints) + 1
-  bin_names <- character(n_bins)
-  count <- integer(n_bins)
-  pos <- integer(n_bins)
-  neg <- integer(n_bins)
-  
-  for (i in 1:n_bins) {
-    lower <- if (i == 1) "[-Inf" else paste0("[", bin_cutpoints[i-1])
-    upper <- if (i == n_bins) "+Inf]" else paste0(bin_cutpoints[i], ")")
-    bin_names[i] <- paste0(lower, ";", upper)
-    count[i] <- bin_pos_counts[i] + bin_neg_counts[i]
-    pos[i] <- bin_pos_counts[i]
-    neg[i] <- bin_neg_counts[i]
-  }
-  
-  # Criar List para bins
-  bin_lst <- list(
-    bin = bin_names,
-    woe = woe,
-    iv = iv_bin,
-    count = count,
-    count_pos = pos,
-    count_neg = neg
-  )
-  
-  # Criar List para o vetor woe da feature
-  woe_lst <- list(
-    woefeature = feature_woe
-  )
-  
-  # Atribuir classe para compatibilidade com data.table em tabelas superrápidas em memória
-  data.table::setDT(bin_lst)
-  data.table::setDT(woe_lst)
-  
-  # Retornar saída
-  return(list(
-    woefeature = woe_lst,
-    woebin = bin_lst
-  ))
-}
-
-
-
-#' Optimal Binning for Categorical Variables using Mixed-Integer Programming
-#'
-#' This function performs optimal binning of a categorical variable for Weight of Evidence (WoE)
-#' and Information Value (IV) calculation using a Mixed-Integer Programming (MIP) approach.
-#' It groups categories to maximize the total IV while respecting the minimum and maximum
-#' number of groups. This version is optimized for use with data.table for improved performance.
-#'
-#' @param target A numeric vector of binary target values (0 or 1).
-#' @param feature A factor or character vector of categorical feature values to be binned.
-#' @param min_bins Minimum number of bins to create (default is 2).
-#' @param max_bins Maximum number of bins to create (default is 10).
-#' @param bin_cutoff Minimum proportion of observations in each bin (default is 0.05).
-#'
-#' @return A list containing two elements:
-#'   \item{woefeature}{A data.table with WoE values mapped to original feature values.}
-#'   \item{woebin}{A data.table with bin information, including grouped categories, WoE, IV, and counts.}
-#'
-#' @import data.table
-#' @import lpSolve
-#'
-#' @examples
-#' \dontrun{
-#' library(data.table)
 #' 
-#' # Generate sample data
-#' set.seed(42)
-#' n <- 1000
-#' categories <- c("A", "B", "C", "D", "E")
-#' dt <- data.table(
-#'   feature = sample(categories, n, replace = TRUE),
-#'   target = rbinom(n, 1, 0.3 + 0.1 * (as.integer(factor(sample(categories, n, replace = TRUE))) - 1))
-#' )
-#'
-#' # Perform optimal binning
-#' result <- OptimalBinningCategoricalMIP2(dt$target, dt$feature, min_bins = 2, max_bins = 4)
-#'
-#' # View results
-#' print(result$woebin)
-#' summary(result$woefeature$woefeature)
+#' 
+#' #' Optimal Binning for Categorical Variables using Mixed-Integer Programming
+#' #'
+#' #' This function performs optimal binning of a categorical variable for Weight of Evidence (WoE)
+#' #' and Information Value (IV) calculation using a Mixed-Integer Programming (MIP) approach.
+#' #' It groups categories to maximize the total IV while respecting the minimum and maximum
+#' #' number of groups. This version is optimized for use with data.table for improved performance.
+#' #'
+#' #' @param target A numeric vector of binary target values (0 or 1).
+#' #' @param feature A factor or character vector of categorical feature values to be binned.
+#' #' @param min_bins Minimum number of bins to create (default is 2).
+#' #' @param max_bins Maximum number of bins to create (default is 10).
+#' #' @param bin_cutoff Minimum proportion of observations in each bin (default is 0.05).
+#' #'
+#' #' @return A list containing two elements:
+#' #'   \item{woefeature}{A data.table with WoE values mapped to original feature values.}
+#' #'   \item{woebin}{A data.table with bin information, including grouped categories, WoE, IV, and counts.}
+#' #'
+#' #' @import data.table
+#' #' @import lpSolve
+#' #'
+#' #' @examples
+#' #' \dontrun{
+#' #' library(data.table)
+#' #'
+#' #' # Generate sample data
+#' #' set.seed(42)
+#' #' n <- 1000
+#' #' categories <- c("A", "B", "C", "D", "E")
+#' #' dt <- data.table(
+#' #'   feature = sample(categories, n, replace = TRUE),
+#' #'   target = rbinom(n, 1, 0.3 + 0.1 * (as.integer(factor(sample(categories, n, replace = TRUE))) - 1))
+#' #' )
+#' #'
+#' #' # Perform optimal binning
+#' #' result <- OptimalBinningCategoricalMIP2(dt$target, dt$feature, min_bins = 2, max_bins = 4)
+#' #'
+#' #' # View results
+#' #' print(result$woebin)
+#' #' summary(result$woefeature$woefeature)
+#' #' }
+#' #'
+#' OptimalBinningCategoricalMIP2 <- function(target, feature, min_bins = 2, max_bins = 10, bin_cutoff = 0.05) {
+#'   # Ensure we're using data.table
+#'   data.table::setDTthreads(0)  # Use all available threads
+#' 
+#'   # Create a data.table with the input data
+#'   dt <- data.table::data.table(target = target, feature = as.factor(feature))
+#' 
+#'   # Calculate counts for each category
+#'   category_counts <- dt[, .(pos = sum(target == 1), neg = sum(target == 0)), by = feature]
+#'   data.table::setorderv(category_counts, "feature")
+#' 
+#'   total_pos <- sum(category_counts$pos)
+#'   total_neg <- sum(category_counts$neg)
+#' 
+#'   n_categories <- nrow(category_counts)
+#' 
+#'   # Function to calculate IV
+#'   calculate_iv <- function(pos, neg, total_pos, total_neg) {
+#'     p <- pos / total_pos
+#'     n <- neg / total_neg
+#'     woe <- data.table::fifelse(p > 0 & n > 0, log(p / n), 0)
+#'     (p - n) * woe
+#'   }
+#' 
+#'   # Initialize best solution
+#'   best_iv <- -Inf
+#'   best_grouping <- NULL
+#' 
+#'   # Test all combinations of bins between min_bins and max_bins
+#'   for (n_bins in min_bins:min(max_bins, n_categories)) {
+#'     # Set up MIP problem
+#'     n_vars <- n_categories * (n_bins - 1)
+#' 
+#'     # Create constraint matrix
+#'     constraint_matrix <- matrix(0, nrow = n_categories + 1, ncol = n_vars)
+#' 
+#'     # Each category must be assigned to exactly one bin
+#'     for (i in 1:n_categories) {
+#'       constraint_matrix[i, ((i-1)*(n_bins-1)+1):(i*(n_bins-1))] <- 1
+#'     }
+#' 
+#'     # At least one category per bin
+#'     constraint_matrix[n_categories + 1,] <- rep(c(1, rep(0, n_categories - 1)), n_bins - 1)
+#' 
+#'     # Set up objective function (to be maximized)
+#'     obj <- rep(0, n_vars)
+#'     category_counts[, cum_pos := cumsum(pos)]
+#'     category_counts[, cum_neg := cumsum(neg)]
+#'     for (i in 1:n_categories) {
+#'       for (j in 1:(n_bins-1)) {
+#'         pos <- category_counts$cum_pos[i]
+#'         neg <- category_counts$cum_neg[i]
+#'         obj[(i-1)*(n_bins-1)+j] <- calculate_iv(pos, neg, total_pos, total_neg)
+#'       }
+#'     }
+#' 
+#'     # Solve MIP problem
+#'     solution <- lpSolve::lp("max", obj, constraint_matrix,
+#'                             c(rep("==", n_categories), ">="),
+#'                             c(rep(1, n_categories), 1),
+#'                             all.bin = TRUE)
+#' 
+#'     # Extract results
+#'     grouping <- rep(n_bins, n_categories)
+#'     for (i in 1:n_categories) {
+#'       assigned_bin <- which(solution$solution[((i-1)*(n_bins-1)+1):(i*(n_bins-1))] == 1)
+#'       if (length(assigned_bin) > 0) {
+#'         grouping[i] <- assigned_bin
+#'       }
+#'     }
+#' 
+#'     # Calculate total IV for this solution
+#'     category_counts[, group := grouping]
+#'     current_iv <- category_counts[, .(
+#'       iv = sum(calculate_iv(sum(pos), sum(neg), total_pos, total_neg))
+#'     ), by = group][, sum(iv)]
+#' 
+#'     # Update best solution if necessary
+#'     if (current_iv > best_iv) {
+#'       best_iv <- current_iv
+#'       best_grouping <- grouping
+#'     }
+#'   }
+#' 
+#'   # Use the best solution found
+#'   category_counts[, group := best_grouping]
+#' 
+#'   # Calculate WoE and IV for the final groups
+#'   bin_stats <- category_counts[, .(
+#'     pos = sum(pos),
+#'     neg = sum(neg),
+#'     count = sum(pos) + sum(neg),
+#'     categories = paste(feature, collapse = ", ")
+#'   ), by = group]
+#' 
+#'   bin_stats[, `:=`(
+#'     p = pos / total_pos,
+#'     n = neg / total_neg
+#'   )]
+#' 
+#'   bin_stats[, woe := data.table::fifelse(p > 0 & n > 0, log(p / n), 0)]
+#'   bin_stats[, iv := (p - n) * woe]
+#' 
+#'   # Map feature values to WoE
+#'   dt[category_counts, on = "feature", woe := i.woe]
+#' 
+#'   # Prepare output
+#'   woebin <- data.table::data.table(
+#'     bin = bin_stats$categories,
+#'     woe = bin_stats$woe,
+#'     iv = bin_stats$iv,
+#'     count = bin_stats$count,
+#'     count_pos = bin_stats$pos,
+#'     count_neg = bin_stats$neg
+#'   )
+#' 
+#'   woefeature <- data.table::data.table(
+#'     woefeature = dt$woe
+#'   )
+#' 
+#'   # Return output
+#'   return(list(
+#'     woefeature = woefeature,
+#'     woebin = woebin
+#'   ))
 #' }
-#'
-#' @export
-OptimalBinningCategoricalMIP2 <- function(target, feature, min_bins = 2, max_bins = 10, bin_cutoff = 0.05) {
-  # Ensure we're using data.table
-  data.table::setDTthreads(0)  # Use all available threads
-  
-  # Create a data.table with the input data
-  dt <- data.table::data.table(target = target, feature = as.factor(feature))
-  
-  # Calculate counts for each category
-  category_counts <- dt[, .(pos = sum(target == 1), neg = sum(target == 0)), by = feature]
-  data.table::setorderv(category_counts, "feature")
-  
-  total_pos <- sum(category_counts$pos)
-  total_neg <- sum(category_counts$neg)
-  
-  n_categories <- nrow(category_counts)
-  
-  # Function to calculate IV
-  calculate_iv <- function(pos, neg, total_pos, total_neg) {
-    p <- pos / total_pos
-    n <- neg / total_neg
-    woe <- data.table::fifelse(p > 0 & n > 0, log(p / n), 0)
-    (p - n) * woe
-  }
-  
-  # Initialize best solution
-  best_iv <- -Inf
-  best_grouping <- NULL
-  
-  # Test all combinations of bins between min_bins and max_bins
-  for (n_bins in min_bins:min(max_bins, n_categories)) {
-    # Set up MIP problem
-    n_vars <- n_categories * (n_bins - 1)
-    
-    # Create constraint matrix
-    constraint_matrix <- matrix(0, nrow = n_categories + 1, ncol = n_vars)
-    
-    # Each category must be assigned to exactly one bin
-    for (i in 1:n_categories) {
-      constraint_matrix[i, ((i-1)*(n_bins-1)+1):(i*(n_bins-1))] <- 1
-    }
-    
-    # At least one category per bin
-    constraint_matrix[n_categories + 1,] <- rep(c(1, rep(0, n_categories - 1)), n_bins - 1)
-    
-    # Set up objective function (to be maximized)
-    obj <- rep(0, n_vars)
-    category_counts[, cum_pos := cumsum(pos)]
-    category_counts[, cum_neg := cumsum(neg)]
-    for (i in 1:n_categories) {
-      for (j in 1:(n_bins-1)) {
-        pos <- category_counts$cum_pos[i]
-        neg <- category_counts$cum_neg[i]
-        obj[(i-1)*(n_bins-1)+j] <- calculate_iv(pos, neg, total_pos, total_neg)
-      }
-    }
-    
-    # Solve MIP problem
-    solution <- lpSolve::lp("max", obj, constraint_matrix, 
-                            c(rep("==", n_categories), ">="),
-                            c(rep(1, n_categories), 1),
-                            all.bin = TRUE)
-    
-    # Extract results
-    grouping <- rep(n_bins, n_categories)
-    for (i in 1:n_categories) {
-      assigned_bin <- which(solution$solution[((i-1)*(n_bins-1)+1):(i*(n_bins-1))] == 1)
-      if (length(assigned_bin) > 0) {
-        grouping[i] <- assigned_bin
-      }
-    }
-    
-    # Calculate total IV for this solution
-    category_counts[, group := grouping]
-    current_iv <- category_counts[, .(
-      iv = sum(calculate_iv(sum(pos), sum(neg), total_pos, total_neg))
-    ), by = group][, sum(iv)]
-    
-    # Update best solution if necessary
-    if (current_iv > best_iv) {
-      best_iv <- current_iv
-      best_grouping <- grouping
-    }
-  }
-  
-  # Use the best solution found
-  category_counts[, group := best_grouping]
-  
-  # Calculate WoE and IV for the final groups
-  bin_stats <- category_counts[, .(
-    pos = sum(pos),
-    neg = sum(neg),
-    count = sum(pos) + sum(neg),
-    categories = paste(feature, collapse = ", ")
-  ), by = group]
-  
-  bin_stats[, `:=`(
-    p = pos / total_pos,
-    n = neg / total_neg
-  )]
-  
-  bin_stats[, woe := data.table::fifelse(p > 0 & n > 0, log(p / n), 0)]
-  bin_stats[, iv := (p - n) * woe]
-  
-  # Map feature values to WoE
-  dt[category_counts, on = "feature", woe := i.woe]
-  
-  # Prepare output
-  woebin <- data.table::data.table(
-    bin = bin_stats$categories,
-    woe = bin_stats$woe,
-    iv = bin_stats$iv,
-    count = bin_stats$count,
-    count_pos = bin_stats$pos,
-    count_neg = bin_stats$neg
-  )
-  
-  woefeature <- data.table::data.table(
-    woefeature = dt$woe
-  )
-  
-  # Return output
-  return(list(
-    woefeature = woefeature,
-    woebin = woebin
-  ))
-}
