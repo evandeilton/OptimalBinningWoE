@@ -1,6 +1,6 @@
 Package: OptimalBinningWoE
 Title: What the Package Does (One Line, Title Case)
-Version: 0.1.3.9001
+Version: 0.1.4
 Authors@R: 
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
