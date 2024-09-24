@@ -34,7 +34,7 @@ A list containing two elements:
 \description{
 This function performs optimal binning of a numeric variable for Weight of Evidence (WoE)
 and Information Value (IV) calculation using a Mixed-Integer Programming (MIP) approach.
-It ensures monotonicity of WoE across bins.
+It ensures monotonicity of WoE across bins and optimizes the number of bins.
 }
 \examples{
 \dontrun{
