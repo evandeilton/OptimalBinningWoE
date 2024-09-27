@@ -1,5 +1,6 @@
 utils::globalVariables(c(":=", "target","count_pos","count_neg","woe","original_index","bin","..va",
-                         "min_bins","max_bins","total_iv","..", "%||%", "va", "::", ":::","%||%"))
+                         "min_bins","max_bins","total_iv","..", "%||%", "va", "::", ":::","%||%",
+                         "..features"))
 
 #' Pipe operator
 #'

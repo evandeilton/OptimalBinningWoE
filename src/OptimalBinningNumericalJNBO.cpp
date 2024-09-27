@@ -125,14 +125,20 @@ private:
     }
 
     // Dynamic programming to find optimal binning
-#pragma omp parallel for collapse(2) schedule(dynamic)
-    for (int j = 2; j <= max_bins; ++j) {
-      for (int i = j; i <= n; ++i) {
-        for (int k = j - 1; k < i; ++k) {
-          double current_iv = dp[k][j-1] + calculate_iv(std::vector<Bin>(bins.begin() + k, bins.begin() + i), total_pos, total_neg);
-          if (current_iv > dp[i][j]) {
-            dp[i][j] = current_iv;
-            split[i][j] = k;
+    #pragma omp parallel
+    {
+      #pragma omp for schedule(dynamic)
+      for (int j = 2; j <= max_bins; ++j) {
+        for (int i = j; i <= n; ++i) {
+          for (int k = j - 1; k < i; ++k) {
+            double current_iv = dp[k][j-1] + calculate_iv(std::vector<Bin>(bins.begin() + k, bins.begin() + i), total_pos, total_neg);
+            #pragma omp critical
+            {
+              if (current_iv > dp[i][j]) {
+                dp[i][j] = current_iv;
+                split[i][j] = k;
+              }
+            }
           }
         }
       }
@@ -208,7 +214,7 @@ public:
       total_iv += bin.iv;
     }
 
-    // Aplicar WoE à feature
+    // Apply WoE to feature
     for (size_t i = 0; i < feature.size(); ++i) {
       bool assigned = false;
       for (const auto& bin : bins) {
@@ -219,7 +225,7 @@ public:
         }
       }
       if (!assigned) {
-        // Se o valor não se encaixar em nenhum bin, atribuímos o WoE do primeiro ou último bin
+        // If the value doesn't fit in any bin, assign the WoE of the first or last bin
         if (feature[i] <= bins.front().upper_bound) {
           woefeature[i] = bins.front().woe;
         } else {
@@ -243,9 +249,7 @@ public:
       Rcpp::Named("total_iv") = total_iv
     );
   }
-
 };
-
 
 //' @title Optimal Binning for Numerical Variables using Dynamic Programming
 //' 
@@ -314,7 +318,7 @@ Rcpp::List optimal_binning_numerical_jnbo(Rcpp::IntegerVector target,
                                           int max_n_prebins = 20) {
   std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
   std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-
+  
   OptimalBinningNumericalJNBO binning(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
   binning.fit();
   return binning.get_result();
