@@ -2,12 +2,13 @@
 % Please edit documentation in R/RcppExports.R
 \name{OptimalBinningGainsTable}
 \alias{OptimalBinningGainsTable}
-\title{Generates a Gains Table from the results of optimal binning}
+\title{Generates a Comprehensive Gains Table from Optimal Binning Results}
 \usage{
 OptimalBinningGainsTable(binning_result)
 }
 \arguments{
-\item{binning_result}{A list containing the binning results, which must include a data frame with the following columns: "bin", "count", "count_pos", "count_neg", and "woe".}
+\item{binning_result}{A list containing the binning results, which must include a data frame with
+the following columns: "bin", "count", "count_pos", "count_neg", and "woe".}
 }
 \value{
 A data frame containing the following columns for each bin:
@@ -36,15 +37,55 @@ A data frame containing the following columns for each bin:
 \item \code{lift}: Lift of the bin, calculated as the ratio of the positive rate in the bin to the overall positive rate.
 \item \code{ks}: Kolmogorov-Smirnov statistic, measuring the difference between cumulative positive and negative percentages.
 \item \code{gini_contribution}: Contribution to the Gini coefficient for each bin.
+\item \code{precision}: Precision of the bin.
+\item \code{recall}: Recall up to the current bin.
+\item \code{f1_score}: F1 score for the bin.
+\item \code{log_likelihood}: Log-likelihood of the bin.
+\item \code{kl_divergence}: Kullback-Leibler divergence for the bin.
+\item \code{js_divergence}: Jensen-Shannon divergence for the bin.
 }
 }
 \description{
-This function takes the result of the optimal binning process and generates a detailed gains table. The gains table includes metrics such as the Weight of Evidence (WoE), Information Value (IV), cumulative positive and negative percentages, Kolmogorov-Smirnov (KS) statistic, odds ratio, lift, and Gini contribution for each bin.
+This function takes the result of the optimal binning process and generates a detailed gains table.
+The table includes various metrics to assess the performance and characteristics of each bin.
+}
+\details{
+The function calculates various metrics for each bin:
+
+\itemize{
+\item Weight of Evidence (WoE): \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+\item Information Value (IV): \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+\item Kolmogorov-Smirnov (KS) statistic: \deqn{KS_i = |F_1(i) - F_0(i)|}
+where \eqn{F_1(i)} and \eqn{F_0(i)} are the cumulative distribution functions for positive and negative classes.
+\item Odds Ratio: \deqn{OR_i = \frac{P(Y=1|X_i) / P(Y=0|X_i)}{P(Y=1) / P(Y=0)}}
+\item Lift: \deqn{Lift_i = \frac{P(Y=1|X_i)}{P(Y=1)}}
+\item Gini Contribution: \deqn{Gini_i = P(X_i|Y=1) \times F_0(i) - P(X_i|Y=0) \times F_1(i)}
+\item Precision: \deqn{Precision_i = \frac{TP_i}{TP_i + FP_i}}
+\item Recall: \deqn{Recall_i = \frac{\sum_{j=1}^i TP_j}{\sum_{j=1}^n TP_j}}
+\item F1 Score: \deqn{F1_i = 2 \times \frac{Precision_i \times Recall_i}{Precision_i + Recall_i}}
+\item Log-likelihood: \deqn{LL_i = n_{1i} \ln(p_i) + n_{0i} \ln(1-p_i)}
+where \eqn{n_{1i}} and \eqn{n_{0i}} are the counts of positive and negative cases in bin i,
+and \eqn{p_i} is the proportion of positive cases in bin i.
+\item Kullback-Leibler (KL) Divergence: \deqn{KL_i = p_i \ln\left(\frac{p_i}{p}\right) + (1-p_i) \ln\left(\frac{1-p_i}{1-p}\right)}
+where \eqn{p_i} is the proportion of positive cases in bin i and \eqn{p} is the overall proportion of positive cases.
+\item Jensen-Shannon (JS) Divergence: \deqn{JS_i = \frac{1}{2}KL(p_i || m) + \frac{1}{2}KL(q_i || m)}
+where \eqn{m = \frac{1}{2}(p_i + p)}, \eqn{p_i} is the proportion of positive cases in bin i,
+and \eqn{p} is the overall proportion of positive cases.
+}
 }
 \examples{
 \dontrun{
 binning_result <- OptimalBinning(target, feature)
 gains_table <- OptimalBinningGainsTable(binning_result)
+print(gains_table)
 }
 
+}
+\references{
+\itemize{
+\item Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. John Wiley & Sons.
+\item Hand, D. J., & Till, R. J. (2001). A Simple Generalisation of the Area Under the ROC Curve for Multiple Class Classification Problems. Machine Learning, 45(2), 171-186.
+\item Kullback, S., & Leibler, R. A. (1951). On Information and Sufficiency. The Annals of Mathematical Statistics, 22(1), 79-86.
+\item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+}
 }

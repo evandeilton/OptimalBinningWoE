@@ -68,10 +68,15 @@ private:
       total_pos += bin.count_pos;
       total_neg += bin.count_neg;
     }
-
+    
     for (auto& bin : bins) {
       double pos_rate = (double)bin.count_pos / total_pos;
       double neg_rate = (double)bin.count_neg / total_neg;
+      
+      // Avoid division by zero
+      if (pos_rate == 0) pos_rate = 1e-10;
+      if (neg_rate == 0) neg_rate = 1e-10;
+      
       bin.woe = std::log(pos_rate / neg_rate);
       bin.iv = (pos_rate - neg_rate) * bin.woe;
     }
