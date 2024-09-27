@@ -308,6 +308,63 @@ public:
 
 };
 
+//' @title Optimal Binning for Numerical Variables using Equal-Frequency Binning
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using an Equal-Frequency Binning approach with subsequent optimization. It aims to find a good binning strategy that balances interpretability and predictive power.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' 
+//' @details
+//' The optimal binning algorithm using Equal-Frequency Binning consists of several steps:
+//' 
+//' 1. Initial binning: The feature is divided into \code{max_n_prebins} bins, each containing approximately the same number of observations.
+//' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+//' 3. Optimizing bins: If the number of bins exceeds \code{max_bins}, adjacent bins are merged iteratively to minimize the loss of Information Value (IV).
+//' 4. WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//' 
+//' The total IV is the sum of IVs for all bins:
+//' 
+//' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
+//' 
+//' This approach provides a balance between simplicity and effectiveness, creating bins with equal frequency initially and then adjusting them based on the data distribution and target variable relationship. The optimization step ensures that the final binning maximizes the predictive power while respecting the specified constraints.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_efb(target, feature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. In Machine Learning Proceedings 1995 (pp. 194-202). Morgan Kaufmann.
+//'   \item Liu, H., Hussain, F., Tan, C. L., & Dash, M. (2002). Discretization: An enabling technique. Data mining and knowledge discovery, 6(4), 393-423.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_efb(Rcpp::IntegerVector target, Rcpp::NumericVector feature,
                                          int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05,

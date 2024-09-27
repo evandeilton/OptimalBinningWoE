@@ -257,6 +257,81 @@ List OptimalBinningNumericalFETB::performBinning() {
   );
 }
 
+//' @title Optimal Binning for Numerical Variables using Fisher's Exact Test
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It aims to find the best binning strategy that maximizes the predictive power while ensuring statistical significance between adjacent bins.
+//' 
+//' @param target A numeric vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff P-value threshold for merging bins (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' \item{totalIV}{The total Information Value for the binning}
+//' 
+//' @details
+//' The optimal binning algorithm using Fisher's Exact Test consists of several steps:
+//' 
+//' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+//' 2. Bin merging: Adjacent bins are iteratively merged based on the p-value of Fisher's Exact Test.
+//' 3. Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.
+//' 4. WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.
+//' 
+//' Fisher's Exact Test is used to determine if there is a significant difference in the proportion of positive cases between adjacent bins. The test is performed on a 2x2 contingency table:
+//' 
+//' \deqn{
+//' \begin{array}{|c|c|c|}
+//' \hline
+//'  & \text{Positive} & \text{Negative} \\
+//' \hline
+//' \text{Bin 1} & a & b \\
+//' \hline
+//' \text{Bin 2} & c & d \\
+//' \hline
+//' \end{array}
+//' }
+//' 
+//' The p-value from this test is used to decide whether to merge adjacent bins.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//' 
+//' The total IV is the sum of IVs for all bins:
+//' 
+//' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
+//' 
+//' This approach ensures that the resulting bins are statistically different from each other, potentially leading to more robust and meaningful binning.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_fetb(target, feature)
+//' print(result$woebin)
+//' print(result$totalIV)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Fisher, R. A. (1922). On the interpretation of χ2 from contingency tables, and the calculation of P. Journal of the Royal Statistical Society, 85(1), 87-94.
+//'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_fetb(NumericVector target, NumericVector feature,
                                     int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05, int max_n_prebins = 20) {

@@ -274,6 +274,32 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// binning_numerical_cutpoints
+List binning_numerical_cutpoints(NumericVector feature, IntegerVector target, NumericVector cutpoints);
+RcppExport SEXP _OptimalBinningWoE_binning_numerical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type cutpoints(cutpointsSEXP);
+    rcpp_result_gen = Rcpp::wrap(binning_numerical_cutpoints(feature, target, cutpoints));
+    return rcpp_result_gen;
+END_RCPP
+}
+// binning_categorical_cutpoints
+List binning_categorical_cutpoints(CharacterVector feature, IntegerVector target, CharacterVector cutpoints);
+RcppExport SEXP _OptimalBinningWoE_binning_categorical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< CharacterVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type cutpoints(cutpointsSEXP);
+    rcpp_result_gen = Rcpp::wrap(binning_categorical_cutpoints(feature, target, cutpoints));
+    return rcpp_result_gen;
+END_RCPP
+}
 // optimal_binning_numerical_bb
 List optimal_binning_numerical_bb(IntegerVector target, NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, bool is_monotonic);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_bb(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP is_monotonicSEXP) {
@@ -870,6 +896,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_sblp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sblp, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_swb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_swb, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_udt, 6},
+    {"_OptimalBinningWoE_binning_numerical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_numerical_cutpoints, 3},
+    {"_OptimalBinningWoE_binning_categorical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_categorical_cutpoints, 3},
     {"_OptimalBinningWoE_optimal_binning_numerical_bb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_bb, 7},
     {"_OptimalBinningWoE_optimal_binning_numerical_bs", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_bs, 6},
     {"_OptimalBinningWoE_optimal_binning_numerical_cart", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_cart, 7},

@@ -211,6 +211,82 @@ public:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using ChiMerge
+//'
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins for initial discretization (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of WoE-transformed feature values.}
+//' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+//'
+//' @examples
+//' \dontrun{
+//' # Generate sample data
+//' set.seed(123)
+//' n <- 10000
+//' feature <- rnorm(n)
+//' target <- rbinom(n, 1, plogis(0.5 * feature))
+//'
+//' # Apply optimal binning
+//' result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
+//'
+//' # View binning results
+//' print(result$woebin)
+//'
+//' # Plot WoE transformation
+//' plot(feature, result$woefeature, main = "WoE Transformation", 
+//' xlab = "Original Feature", ylab = "WoE")
+//' }
+//'
+//' @details
+//' The optimal binning algorithm for numerical variables uses the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
+//'
+//' The algorithm follows these steps:
+//' 1. Initial discretization into max_n_prebins
+//' 2. Iterative merging of adjacent bins based on chi-square statistic
+//' 3. Merging of rare bins based on the bin_cutoff parameter
+//' 4. Calculation of WoE and IV for each final bin
+//'
+//' The chi-square statistic for two adjacent bins is calculated as:
+//'
+//' \deqn{\chi^2 = \sum_{i=1}^{2} \sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+//'
+//' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency for bin i and class j.
+//'
+//' Weight of Evidence (WoE) is calculated for each bin as:
+//'
+//' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+//'
+//' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+//'
+//' The total IV for the feature is the sum of IVs across all bins:
+//'
+//' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+//'
+//' The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
+//'
+//' @references
+//' \itemize{
+//'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
+//'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_cm(
     Rcpp::IntegerVector target,
@@ -227,84 +303,3 @@ Rcpp::List optimal_binning_numerical_cm(
   binner.fit();
   return binner.get_results();
 }
-
-
-// library(testthat)
-// library(Rcpp)
-//
-// # Assuming the C++ code is compiled and the optimal_binning_numerical_cm function is available
-//
-// # Helper function to generate test data
-//   generate_test_data <- function(n = 1000, seed = 42) {
-//     set.seed(seed)
-//     feature <- runif(n, 0, 100)
-//     target <- rbinom(n, 1, plogis(feature / 50 - 1))
-//     list(feature = feature, target = target)
-//   }
-//
-//   test_that("optimal_binning_numerical_cm handles basic case correctly", {
-//     data <- generate_test_data()
-//     result <- optimal_binning_numerical_cm(data$feature, data$target)
-//
-//     expect_is(result, "list")
-//     expect_true(all(c("woefeature", "woebin") %in% names(result)))
-//     expect_equal(length(result$woefeature), length(data$feature))
-//     expect_true(all(c("bin", "woe", "iv", "count", "count_pos", "count_neg") %in% names(result$woebin)))
-//   })
-//
-//     test_that("optimal_binning_numerical_cm respects min_bins and max_bins", {
-//       data <- generate_test_data()
-//
-//       result_min <- optimal_binning_numerical_cm(data$feature, data$target, min_bins = 3, max_bins = 2)
-//       expect_equal(length(result_min$woebin$bin), 2)
-//
-//       result_max <- optimal_binning_numerical_cm(data$feature, data$target, min_bins = 3, max_bins = 5)
-//       expect_true(length(result_max$woebin$bin) >= 2 && length(result_max$woebin$bin) <= 5)
-//     })
-//
-//     test_that("optimal_binning_numerical_cm handles edge cases", {
-// # Test with all same values
-//       feature_same <- rep(1, 100)
-//       target_same <- rbinom(100, 1, 0.5)
-//       result_same <- optimal_binning_numerical_cm(feature_same, target_same)
-//       expect_equal(length(result_same$woebin$bin), 1)
-//
-// # Test with extreme outliers
-//       data <- generate_test_data(1000)
-//         data$feature[1] <- 1e6  # Add an extreme outlier
-//       result_outlier <- optimal_binning_numerical_cm(data$feature, data$target)
-//         expect_true(any(grepl("\\+Inf", result_outlier$woebin$bin)))
-//     })
-//
-//     test_that("optimal_binning_numerical_cm handles rare bin merging", {
-//       data <- generate_test_data(10000)
-//       result <- optimal_binning_numerical_cm(data$feature, data$target, bin_cutoff = 0.1)
-//       bin_proportions <- result$woebin$count / sum(result$woebin$count)
-//       expect_true(all(bin_proportions >= 0.1))
-//     })
-//
-//     test_that("optimal_binning_numerical_cm produces monotonic WoE", {
-//       data <- generate_test_data()
-//       result <- optimal_binning_numerical_cm(data$feature, data$target)
-//       expect_true(is.unsorted(result$woebin$woe) || is.unsorted(rev(result$woebin$woe)))
-//     })
-//
-//     test_that("optimal_binning_numerical_cm handles imbalanced target", {
-//       data <- generate_test_data(1000)
-//       data$target <- rbinom(1000, 1, 0.01)  # Highly imbalanced target
-//       result <- optimal_binning_numerical_cm(data$feature, data$target)
-//       expect_true(all(is.finite(result$woebin$woe)))
-//     })
-//
-//     test_that("optimal_binning_numerical_cm is deterministic", {
-//       data <- generate_test_data()
-//       result1 <- optimal_binning_numerical_cm(data$feature, data$target)
-//       result2 <- optimal_binning_numerical_cm(data$feature, data$target)
-//       expect_equal(result1, result2)
-//     })
-//
-//     test_that("optimal_binning_numerical_cm handles large datasets", {
-//       data <- generate_test_data(1e5)  # 100,000 samples
-//       expect_error(optimal_binning_numerical_cm(data$feature, data$target), NA)
-//     })
-//

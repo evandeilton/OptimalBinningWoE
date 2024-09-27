@@ -286,6 +286,66 @@ List OptimalBinningNumericalGMB::fit() {
   );
 }
 
+
+//' @title Optimal Binning for Numerical Variables using Greedy Monotonic Binning
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using a greedy monotonic binning approach. It aims to find the best binning strategy that maximizes the predictive power while ensuring monotonicity in the Weight of Evidence (WoE) values.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' 
+//' @details
+//' The optimal binning algorithm using greedy monotonic binning consists of several steps:
+//' 
+//' 1. Initial binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+//' 2. Merging low-frequency bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+//' 3. Calculating WoE and IV: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
+//' 4. Enforcing monotonicity: The algorithm ensures that the WoE values are either monotonically increasing or decreasing across the bins.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//' 
+//' The algorithm uses a greedy approach to enforce monotonicity:
+//' 
+//' 1. Check if the initial WoE values are monotonic (increasing or decreasing).
+//' 2. If not monotonic, iteratively merge adjacent bins with the smallest WoE difference until monotonicity is achieved or the minimum number of bins is reached.
+//' 3. After each merge, recalculate WoE and IV values and check for monotonicity.
+//' 
+//' This approach ensures that the final binning solution has monotonic WoE values, which is often desirable for interpretability and stability of the binning.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_gmb(target, feature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.06692.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_gmb(IntegerVector target, NumericVector feature,
                                    int min_bins = 3, int max_bins = 5,

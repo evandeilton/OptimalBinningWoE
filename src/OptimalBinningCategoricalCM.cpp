@@ -487,6 +487,68 @@ private:
   }
 };
 
+//' @title Categorical Optimal Binning with Chi-Merge
+//'
+//' @description 
+//' Implements optimal binning for categorical variables using the Chi-Merge algorithm,
+//' calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
+//'
+//' @param target Integer vector of binary target values (0 or 1).
+//' @param feature Character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list with two elements:
+//' \itemize{
+//'   \item woefeature: Numeric vector of WoE values for each input feature value.
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+//' }
+//'
+//' @details
+//' The Chi-Merge algorithm uses chi-square statistics to merge adjacent bins:
+//'
+//' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+//'
+//' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+//' for bin i and class j.
+//'
+//' Weight of Evidence (WoE) for each bin:
+//'
+//' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
+//'
+//' Information Value (IV) for each bin:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//'
+//' The algorithm initializes bins for each category, merges rare categories based on
+//' bin_cutoff, and then iteratively merges bins with the lowest chi-square statistic
+//' until reaching max_bins. It enforces WoE monotonicity and handles edge cases like
+//' zero frequencies using small constant values.
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' Kerber, R. (1992). ChiMerge: Discretization of numeric attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
+//'
+//' Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_categorical_cm(IntegerVector target,
                                     CharacterVector feature,

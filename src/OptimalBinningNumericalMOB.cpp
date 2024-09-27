@@ -340,6 +340,80 @@ private:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using Monotonic Optimal Binning (MOB)
+//'
+//' @description
+//' This function performs optimal binning for numerical variables using a Monotonic Optimal Binning (MOB) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
+//' \item{woebin}{A data frame with the following columns:
+//'   \itemize{
+//'     \item bin: Character vector of bin ranges.
+//'     \item woe: Numeric vector of WoE values for each bin.
+//'     \item iv: Numeric vector of Information Value (IV) for each bin.
+//'     \item count: Integer vector of total observations in each bin.
+//'     \item count_pos: Integer vector of positive target observations in each bin.
+//'     \item count_neg: Integer vector of negative target observations in each bin.
+//'   }
+//' }
+//'
+//' @details
+//' The Monotonic Optimal Binning (MOB) algorithm for numerical variables works as follows:
+//' 1. Create initial pre-bins using equal-frequency binning.
+//' 2. Calculate initial Weight of Evidence (WoE) and Information Value (IV) for each bin.
+//' 3. Merge bins to enforce monotonicity and respect the bin_cutoff constraint.
+//' 4. Further merge bins if necessary to meet the max_bins constraint.
+//' 5. Split bins if necessary to meet the min_bins constraint.
+//' 6. Recalculate WoE and IV for the final bins.
+//'
+//' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+//'
+//' Weight of Evidence (WoE) is calculated as:
+//' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+//'
+//' Information Value (IV) is calculated as:
+//' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+//'
+//' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
+//'
+//' @references
+//' \itemize{
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
+//'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' n <- 1000
+//' target <- sample(0:1, n, replace = TRUE)
+//' feature <- rnorm(n)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_mob(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # Print results
+//' print(result$woebin)
+//'
+//' # Plot WoE values
+//' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
+//'      main = "Weight of Evidence by Bin")
+//' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_mob(IntegerVector target, NumericVector feature,
                                    int min_bins = 3, int max_bins = 5,

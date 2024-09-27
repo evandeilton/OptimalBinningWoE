@@ -246,6 +246,82 @@ public:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using CART-based approach
+//'
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using a CART-based (Classification and Regression Trees) approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins for initial quantile-based discretization (default: 20).
+//' @param is_monotonic Boolean indicating whether to enforce monotonicity of WoE across bins (default: TRUE).
+//'
+//' @return A list containing three elements:
+//' \item{woefeature}{A numeric vector of WoE-transformed feature values.}
+//' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+//' \item{total_iv}{The total Information Value of the binned feature.}
+//'
+//' @examples
+//' \dontrun{
+//' # Generate sample data
+//' set.seed(123)
+//' n <- 10000
+//' feature <- rnorm(n)
+//' target <- rbinom(n, 1, plogis(0.5 * feature))
+//'
+//' # Apply optimal binning
+//' result <- optimal_binning_numerical_cart(target, feature, min_bins = 3, max_bins = 5)
+//'
+//' # View binning results
+//' print(result$woebin)
+//'
+//' # Plot WoE transformation
+//' plot(feature, result$woefeature, main = "WoE Transformation",
+//'  xlab = "Original Feature", ylab = "WoE")
+//'
+//' # Print total Information Value
+//' cat("Total IV:", result$total_iv, "\n")
+//' }
+//'
+//' @details
+//' The optimal binning algorithm for numerical variables uses a CART-based approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
+//'
+//' The algorithm follows these steps:
+//' 1. Initial discretization using quantile-based binning
+//' 2. Calculation of WoE and IV for each bin
+//' 3. Merging of bins based on minimizing IV differences
+//' 4. Enforcing minimum bin frequency (bin_cutoff)
+//' 5. Enforcing monotonicity of WoE across bins (if is_monotonic is TRUE)
+//'
+//' Weight of Evidence (WoE) is calculated for each bin as:
+//'
+//' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+//'
+//' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+//'
+//' The total IV for the feature is the sum of IVs across all bins:
+//'
+//' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+//'
+//' The CART-based approach iteratively merges bins with the smallest IV difference, ensuring that the resulting binning maximizes the total IV while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
+//'
+//' @references
+//' \itemize{
+//'   \item Breiman, L., Friedman, J., Stone, C. J., & Olshen, R. A. (1984). Classification and regression trees. CRC press.
+//'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_cart(IntegerVector target, NumericVector feature,
                                     int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05,
@@ -257,77 +333,3 @@ List optimal_binning_numerical_cart(IntegerVector target, NumericVector feature,
   cart.fit();
   return cart.get_result();
 }
-
-
-//
-// # Rcpp::sourceCpp("src/utils_cpp.cpp")
-// Rcpp::sourceCpp("src/OptimalBinningNumericalCART.cpp")
-//
-// # Função para imprimir resultados de forma legível
-//   print_results <- function(result) {
-//     cat("WOE Bins:\n")
-//     print(result$woebin)
-//     cat("\nTotal IV:", result$total_iv, "\n\n")
-//   }
-//
-// # Teste 1: Caso básico
-//   set.seed(123)
-//     feature1 <- rnorm(1000)
-//     target1 <- rbinom(1000, 1, 0.5)
-//     result1 <- optimal_binning_numerical_cart(feature1, target1)
-//     cat("Teste 1: Caso básico\n")
-//     print_results(result1)
-//
-// # Teste 2: Muitos bins (max_bins alto)
-//     result2 <- optimal_binning_numerical_cart(feature1, target1, min_bins = 5, max_bins = 10)
-//       cat("Teste 2: Muitos bins\n")
-//       print_results(result2)
-//
-// # Teste 3: Poucos bins (max_bins baixo)
-//       result3 <- optimal_binning_numerical_cart(feature1, target1, min_bins = 3, max_bins = 3)
-//         cat("Teste 3: Poucos bins\n")
-//         print_results(result3)
-//
-// # Teste 4: Distribuição não normal
-//         feature4 <- rexp(1000)
-//           target4 <- rbinom(1000, 1, 0.3)
-//           result4 <- optimal_binning_numerical_cart(feature4, target4)
-//           cat("Teste 4: Distribuição não normal\n")
-//           print_results(result4)
-//
-// # Teste 5: Monotonicidade desativada
-//           result5 <- optimal_binning_numerical_cart(feature1, target1, is_monotonic = FALSE)
-//             cat("Teste 5: Monotonicidade desativada\n")
-//             print_results(result5)
-//
-// # Teste 6: Bin cutoff alto
-//             result6 <- optimal_binning_numerical_cart(feature1, target1, bin_cutoff = 0.2)
-//               cat("Teste 6: Bin cutoff alto\n")
-//               print_results(result6)
-//
-// # Teste 7: Dados extremos
-//               feature7 <- c(rep(1, 500), rep(1000, 500))
-//                 target7 <- c(rep(0, 500), rep(1, 500))
-//                 result7 <- optimal_binning_numerical_cart(feature7, target7)
-//                 cat("Teste 7: Dados extremos\n")
-//                 print_results(result7)
-//
-// # Teste 8: Poucos dados
-//                 feature8 <- rnorm(50)
-//                   target8 <- rbinom(50, 1, 0.5)
-//                   result8 <- optimal_binning_numerical_cart(feature8, target8)
-//                   cat("Teste 8: Poucos dados\n")
-//                   print_results(result8)
-//
-// # Teste 9: Muitos pré-bins
-//                   result9 <- optimal_binning_numerical_cart(feature1, target1, max_n_prebins = 100)
-//                     cat("Teste 9: Muitos pré-bins\n")
-//                     print_results(result9)
-//
-// # Teste 10: Verificação de consistência
-//                     woe_feature1 <- result1$woefeature
-//                     woe_feature2 <- result2$woefeature
-//                     cat("Teste 10: Verificação de consistência\n")
-//                       cat("Correlação entre WOE de diferentes configurações:", cor(woe_feature1, woe_feature2), "\n")
-//
-//

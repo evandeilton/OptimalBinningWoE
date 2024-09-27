@@ -392,6 +392,93 @@ List OptimalBinningCategoricalMOB::fit() {
   );
 }
 
+//' @title
+//' Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of observations in a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//'
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
+//'   \item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_mob(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' }
+//'
+//' @details
+//' This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach. 
+//' The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.
+//'
+//' The algorithm works as follows:
+//'
+//' \enumerate{
+//'   \item Category Statistics Calculation:
+//'         For each category i, we calculate:
+//'         \itemize{
+//'           \item ni: total count
+//'           \item ni+: count of positive instances (target = 1)
+//'           \item ni-: count of negative instances (target = 0)
+//'         }
+//'   
+//'   \item Rare Categories Merging:
+//'         Categories with frequency below the bin_cutoff threshold are merged into an "Other" category.
+//'         Let tau be the bin_cutoff, and N be the total number of observations.
+//'         A category i is merged if: ni < tau * N
+//'   
+//'   \item Initial Binning:
+//'         Categories are sorted based on their initial Weight of Evidence (WoE):
+//'         WoE_i = ln((ni+ / N+) / (ni- / N-))
+//'         Where N+ and N- are the total counts of positive and negative instances respectively.
+//'   
+//'   \item Monotonicity Enforcement:
+//'         The algorithm enforces decreasing monotonicity of WoE across bins.
+//'         For any two adjacent bins i and j, where i < j:
+//'         WoE_i >= WoE_j
+//'         If this condition is violated, bins i and j are merged.
+//'   
+//'   \item Bin Limiting:
+//'         The number of bins is limited to the specified max_bins.
+//'         When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
+//'   
+//'   \item Information Value (IV) Computation:
+//'         For each bin i, the IV is calculated as:
+//'         IV_i = (P(X=i|Y=1) - P(X=i|Y=0)) * WoE_i
+//'         The total IV is the sum of IVs across all bins:
+//'         IV_total = sum(IV_i)
+//' }
+//'
+//' The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications. This monotonicity property ensures that the relationship between the binned variable and the target variable (e.g., default probability) is consistent and interpretable.
+//'
+//' @references
+//' \itemize{
+//'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis. 
+//'          Journal of the Operational Research Society, 60(12), 1699-1707.
+//'    \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. 
+//'          arXiv preprint arXiv:1711.05095.
+//' }
+//'
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_mob(Rcpp::IntegerVector target,
                                            Rcpp::StringVector feature,
@@ -426,58 +513,3 @@ Rcpp::List optimal_binning_categorical_mob(Rcpp::IntegerVector target,
   // Ajustar o modelo e retornar os resultados
   return mob.fit();
 }
-
-// List optimal_binning_categorical_mob(std::vector<int> target,
-//                                      RObject feature_obj,
-//                                      int min_bins = 3,
-//                                      int max_bins = 5,
-//                                      double bin_cutoff = 0.05,
-//                                      int max_n_prebins = 20) {
-//   // Initialize a vector of strings to hold the feature
-//   std::vector<std::string> feature;
-//
-//   // Check if feature_obj is a factor
-//   if (Rf_isFactor(feature_obj)) {
-//     // It's a factor; extract levels
-//     IntegerVector factor_feature(feature_obj);
-//     CharacterVector levels = factor_feature.attr("levels");
-//     int n = factor_feature.size();
-//
-//     feature.reserve(n);
-//     for (int i = 0; i < n; ++i) {
-//       int code = factor_feature[i] - 1; // R factors are 1-based
-//       if (code >= 0 && code < levels.size()) {
-//         feature.push_back(as<std::string>(levels[code]));
-//       } else {
-//         feature.push_back("NA"); // Handle NA or invalid codes
-//       }
-//     }
-//   } else if (TYPEOF(feature_obj) == STRSXP) {
-//     // It's a character vector
-//     CharacterVector char_feature(feature_obj);
-//     feature.reserve(char_feature.size());
-//     for (size_t i = 0; i < char_feature.size(); ++i) {
-//       if (String(char_feature[i]) == NA_STRING) {
-//         feature.emplace_back("NA"); // Handle NA values
-//       } else {
-//         feature.emplace_back(as<std::string>(char_feature[i]));
-//       }
-//     }
-//   } else {
-//     Rcpp::stop("Feature must be a character vector or a factor.");
-//   }
-//
-//   // Check if target is binary
-//   int count_1 = std::count(target.begin(), target.end(), 1);
-//   int count_0 = std::count(target.begin(), target.end(), 0);
-//   if (count_1 + count_0 != target.size()) {
-//     Rcpp::stop("Target vector must be binary (0 and 1).");
-//   }
-//
-//   // Create an instance of the OptimalBinningCategoricalMOB class
-//   OptimalBinningCategoricalMOB mob(feature, target, min_bins, max_bins, bin_cutoff, max_n_prebins);
-//
-//   // Fit the model and return the results
-//   return mob.fit();
-// }
-//

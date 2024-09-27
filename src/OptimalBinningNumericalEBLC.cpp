@@ -468,7 +468,63 @@ private:
   }
 };
 
-// Rcpp export function
+
+//' @title Optimal Binning for Numerical Variables using Equal-Frequency Binning with Local Convergence
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using an Equal-Frequency Binning approach with Local Convergence. It aims to find a good binning strategy that balances interpretability, predictive power, and monotonicity of Weight of Evidence (WoE).
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' 
+//' @details
+//' The optimal binning algorithm using Equal-Frequency Binning with Local Convergence consists of several steps:
+//' 
+//' 1. Initial binning: The feature is divided into \code{max_n_prebins} bins, each containing approximately the same number of observations.
+//' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+//' 3. Ensuring minimum bins: If the number of bins is less than \code{min_bins}, the largest bin is split at its median.
+//' 4. Enforcing maximum bins: If the number of bins exceeds \code{max_bins}, adjacent bins with the lowest combined Information Value (IV) are merged.
+//' 5. WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
+//' 6. Enforcing monotonicity: Adjacent bins are merged to ensure monotonicity of WoE values while maintaining the minimum number of bins.
+//' 7. Assigning WoE to feature: Each feature value is assigned the WoE of its corresponding bin.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//' 
+//' This approach provides a balance between simplicity, effectiveness, and interpretability. It creates bins with equal frequency initially and then adjusts them based on the data distribution, target variable relationship, and monotonicity constraints. The local convergence ensures that the final binning maximizes the predictive power while respecting the specified constraints and maintaining monotonicity of WoE values.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_eblc(target, feature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.06692.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_eblc(IntegerVector target,
                                     NumericVector feature,

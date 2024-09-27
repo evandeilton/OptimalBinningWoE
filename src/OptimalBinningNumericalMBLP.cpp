@@ -447,6 +447,65 @@ private:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using Monotonic Binning via Linear Programming (MBLP)
+//' 
+//' @description This function implements an optimal binning algorithm for numerical variables using Monotonic Binning via Linear Programming (MBLP).
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
+//' \item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
+//' 
+//' @details
+//' The Monotonic Binning via Linear Programming (MBLP) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values.
+//' 
+//' The algorithm works through several steps:
+//' 1. Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins).
+//' 2. Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold.
+//' 3. Enforcing monotonicity: Merges adjacent bins to ensure monotonic WoE values.
+//' 4. Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
+//' 
+//' The algorithm uses Information Value (IV) as a criterion for merging bins, aiming to minimize IV loss at each step. This approach helps preserve the predictive power of the feature while creating optimal bins.
+//' 
+//' Weight of Evidence (WoE) is calculated as:
+//' \deqn{WoE = \ln\left(\frac{\text{% of positive cases}}{\text{% of negative cases}}\right)}
+//' 
+//' Information Value (IV) is calculated as:
+//' \deqn{IV = (\text{% of positive cases} - \text{% of negative cases}) \times WoE}
+//' 
+//' The MBLP method ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
+//' 
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' 
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_mblp(target, feature)
+//' 
+//' # View results
+//' head(result$woefeature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//' \item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gomez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
+//' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit scoring modeling. arXiv preprint arXiv:1711.07139.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' 
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_mblp(IntegerVector target, NumericVector feature,
                                     int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05, int max_n_prebins = 20) {

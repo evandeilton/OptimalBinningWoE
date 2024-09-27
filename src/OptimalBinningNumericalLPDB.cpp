@@ -411,6 +411,75 @@ std::string OptimalBinningNumericalLPDB::format_bin_interval(double lower, doubl
   return oss.str();
 }
 
+
+//' @title Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)
+//' 
+//' @description This function implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
+//' \item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
+//' 
+//' @details
+//' The Local Polynomial Density Binning (LPDB) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values and respecting user-defined constraints.
+//' 
+//' The algorithm works through several steps:
+//' 1. Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins) using quantiles.
+//' 2. Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold to ensure statistical significance.
+//' 3. Enforcing monotonicity: Merges adjacent bins to ensure monotonic WoE values. The direction of monotonicity is determined by the correlation between bin means and WoE values.
+//' 4. Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
+//' 
+//' The algorithm uses the Weight of Evidence (WoE) and Information Value (IV) as key metrics:
+//' 
+//' WoE is calculated as:
+//' \deqn{WoE = \ln\left(\frac{\text{% of positive cases}}{\text{% of negative cases}}\right)}
+//' 
+//' IV is calculated as:
+//' \deqn{IV = (\text{% of positive cases} - \text{% of negative cases}) \times WoE}
+//' 
+//' The LPDB method incorporates local polynomial density estimation to better capture the underlying distribution of the data. This approach can be particularly effective when dealing with complex, non-linear relationships between the feature and the target variable.
+//' 
+//' The algorithm uses a correlation-based approach to determine the direction of monotonicity:
+//' 
+//' \deqn{\rho = \frac{\sum_{i=1}^{n} (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n} (x_i - \bar{x})^2 \sum_{i=1}^{n} (y_i - \bar{y})^2}}}
+//' 
+//' where \eqn{x_i} are the bin means and \eqn{y_i} are the corresponding WoE values.
+//' 
+//' The binning process iteratively merges adjacent bins with the smallest WoE difference until monotonicity is achieved or the minimum number of bins is reached. This approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
+//' 
+//' The LPDB method provides a balance between predictive power and model interpretability, allowing users to control the trade-off through parameters such as min_bins, max_bins, and bin_cutoff.
+//' 
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' 
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_lpdb(target, feature)
+//' 
+//' # View results
+//' head(result$woefeature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//' \item Belotti, P., & Bonami, P. (2013). A Two-Phase Local Search Method for Nonconvex Mixed-Integer Quadratic Programming. Journal of Global Optimization, 57(1), 121-141.
+//' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' 
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_lpdb(Rcpp::IntegerVector target,
                                           Rcpp::NumericVector feature,

@@ -335,6 +335,60 @@ public:
   }
 };
 
+//' @title Optimal Binning for Numerical Variables using Entropy-Based Approach
+//' 
+//' @description This function implements an optimal binning algorithm for numerical variables using an entropy-based approach. It creates bins that maximize the predictive power of the feature with respect to a binary target variable, while ensuring monotonicity of the Weight of Evidence (WoE) values.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency of observations in each bin as a proportion of total observations (default: 0.05).
+//' @param max_n_prebins Maximum number of initial bins before merging (default: 20).
+//' @param n_threads Number of threads for parallel processing (default: 1).
+//' 
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of WoE values assigned to each observation in the input feature.}
+//' \item{woebin}{A data frame containing binning details, including bin boundaries, WoE values, Information Value (IV), and counts.}
+//' 
+//' @details
+//' The optimal binning algorithm for numerical variables using an entropy-based approach works as follows:
+//' 1. Initial Binning: The algorithm starts by creating \code{max_n_prebins} equally spaced quantiles of the input feature.
+//' 2. Merging Small Bins: Bins with a frequency below \code{bin_cutoff} are merged with adjacent bins to ensure statistical significance.
+//' 3. Calculating WoE and IV: For each bin, the Weight of Evidence (WoE) and Information Value (IV) are calculated using the following formulas:
+//' 
+//' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+//' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+//' 
+//' where \eqn{X_i} represents the i-th bin and \eqn{Y} is the binary target variable.
+//' 4. Enforcing Monotonicity: The algorithm ensures that WoE values are monotonic across bins by merging adjacent bins that violate this condition.
+//' 5. Adjusting Bin Count: If the number of bins exceeds \code{max_bins}, the algorithm merges bins with the smallest total count until the desired number of bins is achieved.
+//' 6. Final Output: The algorithm assigns WoE values to each observation in the input feature and provides detailed binning information.
+//' 
+//' This approach aims to maximize the predictive power of the feature while maintaining interpretability and robustness of the binning process.
+//' 
+//' @examples
+//' \dontrun{
+//' # Generate sample data
+//' set.seed(42)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_eb(target, feature)
+//' # View WoE-transformed feature
+//' head(result$woefeature)
+//' # View binning details
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural networks for economic and financial modelling. International Thomson Computer Press.
+//'   \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_eb(IntegerVector target, NumericVector feature,
                                   int min_bins = 3, int max_bins = 5,

@@ -360,6 +360,63 @@ List OptimalBinningCategoricalSBLP::get_results() {
   );
 }
 
+//' Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach,
+//' which combines Weight of Evidence (WOE) and Information Value (IV) methods with a similarity-based merging strategy.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of WOE values for each input feature value
+//'   \item woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts
+//' }
+//'
+//' @details
+//' The algorithm performs the following steps:
+//' \enumerate{
+//'   \item Compute initial counts and target rates for each category
+//'   \item Handle rare categories by merging them based on similarity in target rates
+//'   \item Compute initial Weight of Evidence (WOE) and Information Value (IV)
+//'   \item Perform iterative binning by merging similar categories
+//'   \item Apply final binning and calculate WOE and IV for each bin
+//' }
+//'
+//' The Weight of Evidence (WOE) is calculated as:
+//' \deqn{WOE = \ln(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}})}
+//'
+//' The Information Value (IV) for each bin is calculated as:
+//' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+//'
+//' @references
+//' \itemize{
+//'   \item Blanco-Justicia, A., & Domingo-Ferrer, J. (2019). Machine learning explainability through microaggregation and shallow decision trees. Knowledge-Based Systems, 174, 200-212.
+//'   \item Zhu, L., Qiu, D., Ergu, D., Ying, C., & Liu, K. (2019). A study on predicting loan default based on the random forest algorithm. Procedia Computer Science, 162, 503-513.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_sblp(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' hist(result$woefeature)
+//' }
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_categorical_sblp(IntegerVector target,
                                       CharacterVector feature,

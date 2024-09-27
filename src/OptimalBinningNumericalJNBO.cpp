@@ -246,6 +246,65 @@ public:
 
 };
 
+
+//' @title Optimal Binning for Numerical Variables using Dynamic Programming
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using dynamic programming. It aims to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' \item{total_iv}{The total Information Value for the binning}
+//' 
+//' @details
+//' The optimal binning algorithm uses dynamic programming to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints. The algorithm consists of several steps:
+//' 
+//' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+//' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+//' 3. Dynamic programming optimization: The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//' 
+//' The total IV is the sum of IVs for all bins:
+//' 
+//' \deqn{\text{Total IV} = \sum_{i=1}^{n} IV_i}
+//' 
+//' The dynamic programming approach ensures that the global optimum is found within the constraints of the minimum and maximum number of bins.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_jnbo(target, feature)
+//' print(result$woebin)
+//' print(result$total_iv)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Belotti, P., & Carrasco, M. (2016). Optimal Binning: Mathematical Programming Formulation and Solution Approach. \emph{arXiv preprint arXiv:1605.05710}.
+//'   \item Gutiérrez, P. A., Pérez-Ortiz, M., Sánchez-Monedero, J., Fernández-Navarro, F., & Hervás-Martínez, C. (2016). Ordinal regression methods: survey and experimental study. \emph{IEEE Transactions on Knowledge and Data Engineering}, 28(1), 127-146.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_jnbo(Rcpp::IntegerVector target,
                                           Rcpp::NumericVector feature,

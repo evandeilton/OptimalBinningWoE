@@ -591,28 +591,103 @@ if (gen > 10 && std::abs(population[0].fitness - population[population_size - 1]
   );
 }
 
-// Rcpp wrapper function
+
+//' @title Categorical Optimal Binning with Genetic Algorithm
+//'
+//' @description
+//' Implements optimal binning for categorical variables using a Genetic Algorithm approach,
+//' calculating Weight of Evidence (WoE) and Information Value (IV).
+//'
+//' @param target Integer vector of binary target values (0 or 1).
+//' @param feature Character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//' @param population_size Size of the genetic algorithm population (default: 100).
+//' @param num_generations Number of generations for the genetic algorithm (default: 100).
+//' @param mutation_rate Probability of mutation for each bin (default: 0.1).
+//' @param crossover_rate Probability of crossover between parents (default: 0.8).
+//' @param time_limit_seconds Maximum execution time in seconds (default: 300).
+//'
+//' @return A list with two elements:
+//' \itemize{
+//'   \item woefeature: Numeric vector of WoE values for each input feature value.
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+//' }
+//'
+//' @details
+//' The algorithm uses a genetic algorithm approach to find an optimal binning solution.
+//' It evolves a population of binning solutions over multiple generations, using
+//' selection, crossover, and mutation operations.
+//'
+//' Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//'
+//' The fitness of each individual (binning solution) is the sum of IVs across all bins.
+//' The algorithm aims to maximize this fitness while respecting constraints on the
+//' number of bins and ensuring monotonicity of WoE values across bins.
+//'
+//' The genetic algorithm includes the following key steps:
+//' \enumerate{
+//'   \item Initialize population with random binning solutions.
+//'   \item Evaluate fitness of each individual.
+//'   \item Select parents based on fitness (using roulette wheel selection).
+//'   \item Create offspring through crossover and mutation.
+//'   \item Ensure offspring respect constraints (number of bins, monotonicity).
+//'   \item Replace population with offspring.
+//'   \item Repeat steps 2-6 for the specified number of generations or until time limit is reached.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_gab(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' \itemize{
+//'   \item Holland, J. H. (1992). Adaptation in natural and artificial systems: an introductory analysis with applications to biology, control, and artificial intelligence. MIT press.
+//'   \item Whitley, D. (1994). A genetic algorithm tutorial. Statistics and computing, 4(2), 65-85.
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_gab(
-    Rcpp::IntegerVector target,
-    Rcpp::CharacterVector feature,
-    int min_bins = 3,
-    int max_bins = 5,
-    double bin_cutoff = 0.05,
-    size_t max_n_prebins = 20,
-    size_t population_size = 100,
-    size_t num_generations = 100,
-    double mutation_rate = 0.1,
-    double crossover_rate = 0.8,
-    int time_limit_seconds = 300
+  Rcpp::IntegerVector target,
+  Rcpp::CharacterVector feature,
+  int min_bins = 3,
+  int max_bins = 5,
+  double bin_cutoff = 0.05,
+  size_t max_n_prebins = 20,
+  size_t population_size = 100,
+  size_t num_generations = 100,
+  double mutation_rate = 0.1,
+  double crossover_rate = 0.8,
+  int time_limit_seconds = 300
 ) {
-  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
-  OptimalBinningCategoricalGAB binner(
-      feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
-      population_size, num_generations, mutation_rate, crossover_rate, time_limit_seconds
-  );
+OptimalBinningCategoricalGAB binner(
+    feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
+    population_size, num_generations, mutation_rate, crossover_rate, time_limit_seconds
+);
 
-  return binner.fit();
+return binner.fit();
 }

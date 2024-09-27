@@ -517,6 +517,69 @@ Rcpp::DataFrame OptimalBinningNumericalGAB::get_woebin() {
   return woebin_;
 }
 
+//' @title Optimal Binning for Numerical Variables using Genetic Algorithm
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using a genetic algorithm approach. It aims to find the best binning strategy that maximizes the Information Value (IV) while ensuring monotonicity in the Weight of Evidence (WoE) values.
+//' 
+//' @param target A numeric vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' 
+//' @return A list containing:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
+//' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+//' 
+//' @details
+//' The optimal binning algorithm using a genetic algorithm approach consists of several steps:
+//' 
+//' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+//' 2. Genetic Algorithm:
+//'    a. Initialization: Create a population of potential binning solutions.
+//'    b. Evaluation: Calculate the fitness (Information Value) of each solution.
+//'    c. Selection: Choose the best solutions for reproduction.
+//'    d. Crossover: Create new solutions by combining existing ones.
+//'    e. Mutation: Introduce small random changes to maintain diversity.
+//'    f. Repeat b-e for a specified number of generations.
+//' 3. Monotonicity check: Ensure that the WoE values are either monotonically increasing or decreasing across the bins.
+//' 4. Bin adjustment: Merge bins that have fewer observations than specified by \code{bin_cutoff}.
+//' 
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//' 
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' 
+//' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
+//' 
+//' The Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+//' 
+//' The total IV, which is used as the fitness function in the genetic algorithm, is the sum of IVs for all bins:
+//' 
+//' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
+//' 
+//' The genetic algorithm approach allows for a global optimization of the binning strategy, potentially finding better solutions than greedy or local search methods.
+//' 
+//' @examples
+//' \dontrun{
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- rnorm(1000)
+//' result <- optimal_binning_numerical_gab(target, feature)
+//' print(result$woebin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//'   \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+//'   \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. In Machine Learning Proceedings 1995 (pp. 194-202). Morgan Kaufmann.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_gab(const Rcpp::NumericVector& target,
                                          const Rcpp::NumericVector& feature,

@@ -220,6 +220,64 @@ public:
   }
 };
 
+//' @title Optimal Binning for Categorical Variables using OBNP
+//'
+//' @description This function performs optimal binning for categorical variables using the Optimal Binning Numerical Procedures (OBNP) approach.
+//' The process aims to maximize the Information Value (IV) while maintaining a specified number of bins.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of observations in a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//'
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
+//'   \item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+//' }
+//'
+//' @details
+//' The algorithm works as follows:
+//' 1. Merge rare categories: Categories with fewer observations than the specified bin_cutoff are merged into an "Other" category.
+//' 2. Create initial bins: Each unique category is assigned to its own bin, up to max_n_prebins.
+//' 3. Optimize bins:
+//'    a. While the number of bins exceeds max_bins, merge the two bins with the lowest IV.
+//'    b. Calculate WoE and IV for each bin.
+//' 4. Transform the feature: Assign WoE values to each observation based on its category.
+//'
+//' The Weight of Evidence (WoE) is calculated as:
+//' \deqn{WoE = \ln\left(\frac{\text{% of events}}{\text{% of non-events}}\right)}
+//'
+//' The Information Value (IV) is calculated as:
+//' \deqn{IV = (\text{% of events} - \text{% of non-events}) \times WoE}
+//'
+//' The algorithm uses OpenMP for parallel processing to improve performance.
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_obnp(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' }
+//'
+//' @references
+//' \itemize{
+//'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis. 
+//'          Journal of the Operational Research Society, 60(12), 1699-1707.
+//'    \item Thomas, L. C. (2000). A survey of credit and behavioural scoring: forecasting financial risk of lending to consumers. 
+//'          International Journal of Forecasting, 16(2), 149-172.
+//' }
+//'
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_obnp(Rcpp::IntegerVector target,
                                             Rcpp::CharacterVector feature,

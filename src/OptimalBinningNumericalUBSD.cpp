@@ -377,6 +377,89 @@ public:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation
+//' 
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using an 
+//' Unsupervised Binning approach based on Standard Deviation (UBSD) with Weight of Evidence (WoE) 
+//' and Information Value (IV) criteria.
+//' 
+//' @param target A numeric vector of binary target values (should contain exactly two unique values).
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).
+//' 
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of WoE-transformed feature values.}
+//' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+//' 
+//' @details
+//' The optimal binning algorithm for numerical variables uses an Unsupervised Binning approach 
+//' based on Standard Deviation (UBSD) with Weight of Evidence (WoE) and Information Value (IV) 
+//' to create bins that maximize the predictive power of the feature while maintaining interpretability.
+//' 
+//' The algorithm follows these steps:
+//' 1. Initial binning based on standard deviations around the mean
+//' 2. Assignment of data points to bins
+//' 3. Merging of rare bins based on the bin_cutoff parameter
+//' 4. Calculation of WoE and IV for each bin
+//' 5. Enforcement of monotonicity in WoE across bins
+//' 6. Further merging of bins to ensure the number of bins is within the specified range
+//' 7. Application of WoE transformation to the original feature
+//' 
+//' Weight of Evidence (WoE) is calculated for each bin as:
+//' 
+//' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+//' 
+//' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and 
+//' \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
+//' 
+//' Information Value (IV) for each bin is calculated as:
+//' 
+//' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
+//' 
+//' The total IV for the feature is the sum of IVs across all bins:
+//' 
+//' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+//' 
+//' The UBSD approach ensures that the resulting binning maximizes the separation between 
+//' classes while maintaining the desired number of bins and respecting the minimum bin 
+//' frequency constraint.
+//' 
+//' @examples
+//' \dontrun{
+//' # Generate sample data
+//' set.seed(123)
+//' n <- 10000
+//' feature <- rnorm(n)
+//' target <- rbinom(n, 1, plogis(0.5 * feature))
+//' 
+//' # Apply optimal binning
+//' result <- optimal_binning_numerical_ubsd(target, feature, min_bins = 3, max_bins = 5)
+//' 
+//' # View binning results
+//' print(result$woebin)
+//' 
+//' # Plot WoE transformation
+//' plot(feature, result$woefeature, main = "WoE Transformation", 
+//'      xlab = "Original Feature", ylab = "WoE")
+//' }
+//' 
+//' @references
+//' \itemize{
+//' \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. 
+//'       GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+//' \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised 
+//'       discretization of continuous features. In Machine Learning Proceedings 1995 
+//'       (pp. 194-202). Morgan Kaufmann.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' 
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
                                           Rcpp::NumericVector feature,

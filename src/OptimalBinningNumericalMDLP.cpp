@@ -234,6 +234,82 @@ public:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using MDLP
+//' 
+//' @description
+//' This function performs optimal binning for numerical variables using the Minimum Description Length Principle (MDLP). It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+//' 
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+//' 
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
+//' \item{woebin}{A data frame with the following columns:
+//'   \itemize{
+//'     \item bin: Character vector of bin ranges.
+//'     \item woe: Numeric vector of WoE values for each bin.
+//'     \item iv: Numeric vector of Information Value (IV) for each bin.
+//'     \item count: Integer vector of total observations in each bin.
+//'     \item count_pos: Integer vector of positive target observations in each bin.
+//'     \item count_neg: Integer vector of negative target observations in each bin.
+//'   }
+//' }
+//' 
+//' @details
+//' The Optimal Binning algorithm for numerical variables using MDLP works as follows:
+//' 1. Create initial bins using equal-frequency binning.
+//' 2. Apply the MDLP algorithm to merge bins:
+//'    - Calculate the current MDL cost.
+//'    - For each pair of adjacent bins, calculate the MDL cost if merged.
+//'    - Merge the pair with the lowest MDL cost.
+//'    - Repeat until no further merging reduces the MDL cost or the minimum number of bins is reached.
+//' 3. Merge rare bins (those with a proportion less than bin_cutoff).
+//' 4. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin:
+//'    \deqn{WoE = \ln\left(\frac{\text{Positive Rate}}{\text{Negative Rate}}\right)}
+//'    \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+//' 
+//' The MDLP algorithm aims to find the optimal trade-off between model complexity (number of bins) and goodness of fit. It uses the principle of minimum description length, which states that the best model is the one that provides the shortest description of the data.
+//' 
+//' The MDL cost is calculated as:
+//' \deqn{MDL = \log_2(k - 1) + n \times H(S) - \sum_{i=1}^k n_i \times H(S_i)}
+//' where k is the number of bins, n is the total number of instances, H(S) is the entropy of the entire dataset, and H(S_i) is the entropy of the i-th bin.
+//' 
+//' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
+//' 
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' n <- 1000
+//' target <- sample(0:1, n, replace = TRUE)
+//' feature <- rnorm(n)
+//' 
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_mdlp(target, feature, min_bins = 2, max_bins = 4)
+//' 
+//' # Print results
+//' print(result$woebin)
+//' 
+//' # Plot WoE values
+//' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
+//'      main = "Weight of Evidence by Bin")
+//' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin)
+//' }
+//' 
+//' @references
+//' \itemize{
+//' \item Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. In Proceedings of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
+//' \item Rissanen, J. (1978). Modeling by shortest data description. Automatica, 14(5), 465-471.
+//' }
+//' 
+//' @author Lopes, J. E.
+//' 
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_mdlp(
     Rcpp::IntegerVector target,
@@ -251,101 +327,3 @@ Rcpp::List optimal_binning_numerical_mdlp(
   return binner.get_results();
 }
 
-
-// library(testthat)
-//   library(Rcpp)
-//
-// # Assuming the C++ code is compiled and the optimal_binning_numerical_mdlp function is available
-//
-// # Helper function to generate test data
-//   generate_test_data <- function(n = 1000, seed = 42) {
-//     set.seed(seed)
-//     feature <- runif(n, 0, 100)
-//     target <- rbinom(n, 1, plogis(feature / 50 - 1))
-//     list(feature = feature, target = target)
-//   }
-//
-//   test_that("optimal_binning_numerical_mdlp handles basic case correctly", {
-//     data <- generate_test_data()
-//     result <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//
-//     expect_is(result, "list")
-//     expect_true(all(c("woefeature", "woebin") %in% names(result)))
-//     expect_equal(length(result$woefeature), length(data$feature))
-//     expect_true(all(c("bin", "woe", "iv", "count", "count_pos", "count_neg") %in% names(result$woebin)))
-//   })
-//
-//     test_that("optimal_binning_numerical_mdlp respects min_bins and max_bins", {
-//       data <- generate_test_data()
-//
-//       result_min <- optimal_binning_numerical_mdlp(data$feature, data$target, min_bins = 3, max_bins = 2)
-//       expect_equal(length(result_min$woebin$bin), 2)
-//
-//       result_max <- optimal_binning_numerical_mdlp(data$feature, data$target, min_bins = 3, max_bins = 5)
-//       expect_true(length(result_max$woebin$bin) >= 2 && length(result_max$woebin$bin) <= 5)
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp handles edge cases", {
-// # Test with all same values
-//       feature_same <- rep(1, 100)
-//       target_same <- rbinom(100, 1, 0.5)
-//       result_same <- optimal_binning_numerical_mdlp(feature_same, target_same)
-//       expect_equal(length(result_same$woebin$bin), 1)
-//
-// # Test with extreme outliers
-//       data <- generate_test_data(1000)
-//         data$feature[1] <- 1e6  # Add an extreme outlier
-//       result_outlier <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//         expect_true(any(grepl("\\+Inf", result_outlier$woebin$bin)))
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp handles rare bin merging", {
-//       data <- generate_test_data(10000)
-//       result <- optimal_binning_numerical_mdlp(data$feature, data$target, bin_cutoff = 0.1)
-//       bin_proportions <- result$woebin$count / sum(result$woebin$count)
-//       expect_true(all(bin_proportions >= 0.1))
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp produces monotonic WoE", {
-//       data <- generate_test_data()
-//       result <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//       expect_true(is.unsorted(result$woebin$woe) || is.unsorted(rev(result$woebin$woe)))
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp handles imbalanced target", {
-//       data <- generate_test_data(1000)
-//       data$target <- rbinom(1000, 1, 0.01)  # Highly imbalanced target
-//       result <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//       expect_true(all(is.finite(result$woebin$woe)))
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp is deterministic", {
-//       data <- generate_test_data()
-//       result1 <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//       result2 <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//       expect_equal(result1, result2)
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp handles large datasets", {
-//       data <- generate_test_data(1e5)  # 100,000 samples
-//       expect_error(optimal_binning_numerical_mdlp(data$feature, data$target), NA)
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp produces expected Information Value", {
-//       data <- generate_test_data()
-//       result <- optimal_binning_numerical_mdlp(data$feature, data$target)
-//       total_iv <- sum(result$woebin$iv)
-//       expect_true(total_iv > 0 && total_iv < 2)  # Typical range for a predictive feature
-//     })
-//
-//     test_that("optimal_binning_numerical_mdlp handles constant features", {
-//       feature_constant <- rep(5, 1000)
-//       target_random <- rbinom(1000, 1, 0.5)
-//       expect_warning(
-//         result <- optimal_binning_numerical_mdlp(feature_constant, target_random),
-//                 "Constant feature detected"
-//       )
-//       expect_equal(length(result$woebin$bin), 1)
-//     })
-//
-//

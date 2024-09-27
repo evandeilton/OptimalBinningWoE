@@ -96,9 +96,7 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
   features_to_process <- if(is.null(feature)) setdiff(names(dt), target) else feature
   
   # Initialize results list
-  results <- list()
-  reports <- list()
-  woebins <- list()
+  results <- reports <- woebins <- bestmod <- list()
   failed_features <- character()
   
   # Map target based on 'positive' argument
@@ -106,9 +104,9 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
     if (length(unique(dt[[target]])) > 2) {
       stop("Target variable must have exactly two categories")
     }
-    
     positive_value <- strsplit(positive, "\\|")[[1]][1]
-    dt[, (target) := ifelse(get(target) == positive_value, 1, 0)]
+    target_col <- dt[[target]]
+    dt[, (target) := ifelse(target_col == positive_value, 1, 0)]
   } else if (!all(dt[[target]] %in% c(0, 1))) {
     stop("Target variable must be binary (0 or 1) or a string with two categories")
   }
@@ -139,7 +137,6 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
           zscore_threshold = control$zscore_threshold,
           grubbs_alpha = control$grubbs_alpha
         )
-        
         dt_proc$feature_preprocessed <- preprocessed_data$preprocess$feature_preprocessed
         preprocess_report <- preprocessed_data$report
       } else {
@@ -171,7 +168,9 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
         
         # Apply binning
         binning_result <- do.call(algo_info$algorithm,
-                                  c(list(target = dt_binning$target, feature = dt_binning$feature_preprocessed), algo_params))
+                                  c(list(target = dt_binning[[target]], feature = dt_binning$feature_preprocessed), algo_params))
+        binning_result$best_model_report <- NULL
+        binning_result$best_method <- method
       }
       
       # Add WoE values to non-special cases
@@ -205,18 +204,22 @@ OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", prepr
       # Update report list
       reports[[woe_col_name]] <- preprocess_report
       woebins[[woe_col_name]] <- OptimalBinningGainsTable(binning_result)
+      bestmod[[woe_col_name]] <- binning_result$best_model_report
     }, error = function(e) {
       warning(paste("Error processing feature:", feat, "-", e$message))
       failed_features <- c(failed_features, feat)
     })
   }
   
-  results$woe_feature <- data.table::copy(dt)
-  results$woe_woebins <- data.table::rbindlist(woebins, fill = TRUE, idcol = "feature")
-  results$prep_report <- data.table::rbindlist(reports, fill = TRUE, idcol = "feature")
-  results$failed_features <- failed_features
-  
-  return(results)
+  return(
+    list(woedt = data.table::copy(dt),
+         woebins = data.table::rbindlist(woebins, fill = TRUE, idcol = "feature"),
+         prepreport = data.table::rbindlist(reports, fill = TRUE, idcol = "feature"),
+         bestsreport = data.table::rbindlist(bestmod, fill = TRUE, idcol = "feature"),
+         failedfeatures = failed_features,
+         bestmethod = binning_result$best_method)
+    
+  )
 }
 
 # Helper function to calculate WoE for special cases
@@ -291,12 +294,19 @@ OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess
     }
   }
   
-  # Check binning method
-  valid_methods <- c("auto", "cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "lpdb", "mba", 
-                     "mblp", "milp", "mob", "obnp", "oslp", "sab", "swb", "udt", "bb", 
-                     "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", 
-                     "mrblp", "plaob", "qb", "sbb", "ubsd")
+  # Define methods for categorical and numerical data
+  all_method <- "auto" 
+  categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", 
+                           "milp", "mob", "obnp", "swb", "udt")
   
+  numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba", 
+                         "mblp", "milp", "mob", "obnp", "swb", "udt", "bb",
+                         "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", 
+                         "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd")
+  
+  # Check binning method
+  valid_methods <- sort(unique(c(all_method, categorical_methods, numerical_methods)))
+
   if (!method %in% valid_methods) {
     stop(paste("Invalid binning method. Choose one of the following:", paste(valid_methods, collapse = ", ")))
   }
@@ -370,11 +380,11 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
     milp = list(categorical = "optimal_binning_categorical_milp", numeric = "optimal_binning_numerical_milp"),
     mob = list(categorical = "optimal_binning_categorical_mob", numeric = "optimal_binning_numerical_mob"),
     obnp = list(categorical = "optimal_binning_categorical_obnp", numeric = "optimal_binning_numerical_obnp"),
-    oslp = list(categorical = NULL, numeric = "optimal_binning_numerical_oslp"),
     sab = list(categorical = "optimal_binning_categorical_sab", numeric = "optimal_binning_numerical_sab"),
     sblp = list(categorical = "optimal_binning_categorical_sblp", numeric = "optimal_binning_numerical_sblp"),
     swb = list(categorical = "optimal_binning_categorical_swb", numeric = "optimal_binning_numerical_swb"),
     udt = list(categorical = "optimal_binning_categorical_udt", numeric = "optimal_binning_numerical_udt"),
+    oslp = list(categorical = NULL, numeric = "optimal_binning_numerical_oslp"),
     bb = list(categorical = NULL, numeric = "optimal_binning_numerical_bb"),
     bs = list(categorical = NULL, numeric = "optimal_binning_numerical_bs"),
     dpb = list(categorical = NULL, numeric = "optimal_binning_numerical_dpb"),
@@ -476,14 +486,15 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
 #' @keywords internal
 OptimalBinningSelectBestModel <- function(dt, target, feature, min_bin, max_bin, control) {
   # Define methods for categorical and numerical data
-  categorical_methods <- c("cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "mba", 
-                           "mblp", "milp", "mob", "obnp", "oslp", "sab", "sblp", "swb", "udt")
-  numerical_methods <- c("cart", "cm", "dplc", "fetb", "gmb", "ivb", "ldb", "lpdb", "mba", 
-                         "mblp", "milp", "mob", "obnp", "oslp", "sab", "swb", "udt", "bb", 
-                         "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", 
-                         "mrblp", "plaob", "qb", "sbb", "ubsd")
+  categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", 
+                           "milp", "mob", "obnp", "swb", "udt")
   
-  is_categorical <- base::is.factor(dt[[feature]]) || base::is.character(dt[[feature]])
+  numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba", 
+                         "mblp", "milp", "mob", "obnp", "swb", "udt", "bb",
+                         "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", 
+                         "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd")
+  
+  is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
   
   # Select appropriate methods based on data type
   methods <- if(is_categorical) categorical_methods else numerical_methods
@@ -503,23 +514,24 @@ OptimalBinningSelectBestModel <- function(dt, target, feature, min_bin, max_bin,
   )
   
   for (method in methods) {
-    base::tryCatch({
+    tryCatch({
       algo_info <- OptimalBinningSelectAlgorithm(feature = feature, method, dt, min_bin, max_bin, control)
-      binning_result <- base::do.call(algo_info$algorithm, c(base::list(target = dt[[target]], feature = dt[[feature]]), algo_info$params))
+      binning_result <- do.call(algo_info$algorithm, c(list(target = dt[[target]], feature = dt[[feature]]), algo_info$params))
       
-      if (base::length(binning_result$woebin$bin) >= 2) {
+      if (length(binning_result$woebin$bin) >= 2) {
         model_name <- algo_info$algorithm
-        current_iv <- base::sum(binning_result$woebin$iv)
+        current_iv <- sum(binning_result$woebin$iv, na.rm = TRUE)
         is_monotonic <- is_woe_monotonic(binning_result$woebin$woe)
-        current_bins <- base::length(binning_result$woebin$bin)
+        current_bins <- length(binning_result$woebin$bin)
         
         # Add result to report
-        best_model_report <- data.table::rbindlist(base::list(best_model_report, data.table::data.table(
-          model_name = model_name,
-          model_method = method,
-          total_iv = current_iv,
-          bin_counts = current_bins
-        )))
+        best_model_report <- data.table::rbindlist(
+          list(best_model_report,
+                     data.table::data.table(model_name = model_name,
+                                            model_method = method,
+                                            total_iv = current_iv,
+                                            bin_counts = current_bins
+                                            )))
         
         # Check if current result is better based on criteria
         if (current_iv > best_iv ||
@@ -533,12 +545,12 @@ OptimalBinningSelectBestModel <- function(dt, target, feature, min_bin, max_bin,
         }
       }
     }, error = function(e) {
-      base::warning(base::paste("Error processing method:", method, "for feature:", feature, "-", e$message))
+      warning(paste("Error processing method:", method, "for feature:", feature, "-", e$message))
     })
   }
   
-  if (base::is.null(best_method)) {
-    base::stop(base::paste("No suitable method found for feature:", feature))
+  if (is.null(best_method)) {
+    stop(paste("No suitable method found for feature:", feature))
   }
   
   data.table::setorder(best_model_report, -total_iv)

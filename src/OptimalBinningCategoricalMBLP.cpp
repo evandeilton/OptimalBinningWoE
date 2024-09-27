@@ -265,15 +265,85 @@ private:
   }
 };
 
+
+//' @title
+//' Optimal Binning for Categorical Variables using Minimum Binning Loss Principle (MBLP)
+//' 
+//' @description
+//' This function performs optimal binning for categorical variables using the Minimum Binning Loss Principle (MBLP). It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of total observations for a category to avoid being grouped into the "Rare" category (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation.
+//'   \item woebin: A data frame with the following columns:
+//'   \itemize{
+//'     \item bin: Character vector of bin names (categories or groups of categories).
+//'     \item woe: Numeric vector of WoE values for each bin.
+//'     \item iv: Numeric vector of Information Value (IV) for each bin.
+//'     \item count: Integer vector of total observations in each bin.
+//'     \item count_pos: Integer vector of positive target observations in each bin.
+//'     \item count_neg: Integer vector of negative target observations in each bin.
+//'   }
+//' }
+//' @details
+//' The Optimal Binning algorithm using the Minimum Binning Loss Principle (MBLP) is designed to create optimal bins for categorical variables in relation to a binary target variable. The algorithm works as follows:
+//' \enumerate{
+//'   \item Preprocess the data:
+//'   \itemize{
+//'     \item Calculate the frequency and positive/negative counts for each category.
+//'     \item Merge rare categories (those with a proportion less than bin_cutoff) into a single "Rare" category.
+//'   }
+//'   \item Calculate the Weight of Evidence (WoE) for each category:
+//'   \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}}) = \ln(\frac{\frac{n_{i}^{+}}{N^{+}}}{\frac{n_{i}^{-}}{N^{-}}})}
+//'   Where \eqn{n_{i}^{+}} and \eqn{n_{i}^{-}} are the number of positive and negative samples in category \eqn{i}, and \eqn{N^{+}} and \eqn{N^{-}} are the total number of positive and negative samples.
+//'   \item Sort categories by their WoE values.
+//'   \item Initialize bins with individual categories.
+//'   \item Merge adjacent bins while respecting the following constraints:
+//'   \itemize{
+//'     \item The number of bins is between min_bins and max_bins.
+//'     \item Bins are merged to minimize the loss of Information Value (IV).
+//'   }
+//'   \item Calculate the Information Value (IV) for each bin:
+//'   \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+//' }
+//' The algorithm aims to create bins that maximize the predictive power of the categorical variable while adhering to the specified constraints. It uses the Minimum Binning Loss Principle to determine the optimal merging of adjacent bins, ensuring that the loss of information is minimized during the binning process.
+//' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
+//' @references
+//' \itemize{
+//'   \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
+//'   \item Zhu, H., Liu, Y., Zhu, X., Lu, J. (2019). Minimum loss principle and its application in credit scoring. Journal of Risk Model Validation, 13(1), 57-85.
+//' }
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' n <- 1000
+//' target <- sample(0:1, n, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], n, replace = TRUE)
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_mblp(target, feature, min_bins = 2, max_bins = 4)
+//' # Print results
+//' print(result$woebin)
+//' # Plot WoE values
+//' barplot(result$woebin$woe, names.arg = result$woebin$bin,
+//'         main = "Weight of Evidence by Bin", xlab = "Bins", ylab = "WoE")
+//' }
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_mblp(Rcpp::IntegerVector target,
-                                            Rcpp::StringVector feature,
-                                            int min_bins = 3, int max_bins = 5,
-                                            double bin_cutoff = 0.05, int max_n_prebins = 20) {
-  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+                                          Rcpp::StringVector feature,
+                                          int min_bins = 3, int max_bins = 5,
+                                          double bin_cutoff = 0.05, int max_n_prebins = 20) {
+std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
-  OptimalBinningCategoricalMBLP binner(min_bins, max_bins, bin_cutoff, max_n_prebins);
-  binner.fit(feature_vec, target_vec);
-  return binner.get_result();
+OptimalBinningCategoricalMBLP binner(min_bins, max_bins, bin_cutoff, max_n_prebins);
+binner.fit(feature_vec, target_vec);
+return binner.get_result();
 }

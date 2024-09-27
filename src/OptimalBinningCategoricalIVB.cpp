@@ -232,30 +232,96 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() {
   );
 }
 
+
+//' @title Categorical Optimal Binning with Information Value Binning
+//'
+//' @description
+//' Implements optimal binning for categorical variables using Information Value (IV)
+//' as the primary criterion, calculating Weight of Evidence (WoE) and IV for resulting bins.
+//'
+//' @param target Integer vector of binary target values (0 or 1).
+//' @param feature Character vector or factor of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list with two elements:
+//' \itemize{
+//'   \item woefeature: Numeric vector of WoE values for each input feature value.
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV).
+//' }
+//'
+//' @details
+//' The algorithm uses Information Value (IV) to create optimal bins for categorical variables.
+//' It starts by computing statistics for each category, then sorts categories by event rate
+//' to ensure monotonicity. The algorithm then creates initial bins based on the specified
+//' constraints and computes WoE and IV for each bin.
+//'
+//' Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//'
+//' The algorithm includes the following key steps:
+//' \enumerate{
+//'   \item Compute category statistics (counts, positive counts, negative counts).
+//'   \item Sort categories by event rate to ensure monotonicity.
+//'   \item Create initial bins based on sorted categories and specified constraints.
+//'   \item Compute WoE and IV for each bin.
+//'   \item Assign WoE values to the original feature, handling unseen categories.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' \itemize{
+//'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley & Sons.
+//'   \item Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. OUP Oxford.
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_ivb(Rcpp::IntegerVector target,
-                                           Rcpp::CharacterVector feature,
-                                           int min_bins = 3,
-                                           int max_bins = 5,
-                                           double bin_cutoff = 0.05,
-                                           int max_n_prebins = 20) {
-  std::vector<std::string> feature_str;
-  if (Rf_isFactor(feature)) {
-    Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
-    Rcpp::CharacterVector level_names = levels.attr("levels");
-    feature_str.reserve(levels.size());
-    for (int i = 0; i < levels.size(); ++i) {
-      feature_str.push_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
-    }
-  } else if (TYPEOF(feature) == STRSXP) {
-    feature_str = Rcpp::as<std::vector<std::string>>(feature);
-  } else {
-    Rcpp::stop("feature must be a factor or character vector");
+                                         Rcpp::CharacterVector feature,
+                                         int min_bins = 3,
+                                         int max_bins = 5,
+                                         double bin_cutoff = 0.05,
+                                         int max_n_prebins = 20) {
+std::vector<std::string> feature_str;
+if (Rf_isFactor(feature)) {
+  Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
+  Rcpp::CharacterVector level_names = levels.attr("levels");
+  feature_str.reserve(levels.size());
+  for (int i = 0; i < levels.size(); ++i) {
+    feature_str.push_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
   }
+} else if (TYPEOF(feature) == STRSXP) {
+  feature_str = Rcpp::as<std::vector<std::string>>(feature);
+} else {
+  Rcpp::stop("feature must be a factor or character vector");
+}
 
-  // Convertendo Rcpp::IntegerVector para std::vector<int>
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+// Convertendo Rcpp::IntegerVector para std::vector<int>
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
-  OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
-  return obcivb.fit();
+OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
+return obcivb.fit();
 }

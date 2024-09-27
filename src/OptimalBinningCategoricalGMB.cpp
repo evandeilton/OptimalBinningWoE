@@ -239,16 +239,85 @@ public:
   }
 };
 
+
+//' @title Categorical Optimal Binning with Greedy Merge Binning
+//'
+//' @description
+//' Implements optimal binning for categorical variables using a Greedy Merge approach,
+//' calculating Weight of Evidence (WoE) and Information Value (IV).
+//'
+//' @param target Integer vector of binary target values (0 or 1).
+//' @param feature Character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list with two elements:
+//' \itemize{
+//'   \item woefeature: Numeric vector of WoE values for each input feature value.
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+//' }
+//'
+//' @details
+//' The algorithm uses a greedy merge approach to find an optimal binning solution.
+//' It starts with each unique category as a separate bin and iteratively merges
+//' bins to maximize the overall Information Value (IV) while respecting the
+//' constraints on the number of bins.
+//'
+//' Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//'
+//' The algorithm includes the following key steps:
+//' \enumerate{
+//'   \item Initialize bins with each unique category.
+//'   \item Merge rare categories based on bin_cutoff.
+//'   \item Iteratively merge adjacent bins that result in the highest IV.
+//'   \item Stop merging when the number of bins reaches min_bins or max_bins.
+//'   \item Calculate final WoE and IV for each bin.
+//' }
+//'
+//' The algorithm handles zero counts by using a small constant (epsilon) to avoid
+//' undefined logarithms and division by zero.
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' \itemize{
+//'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+//'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_gmb(Rcpp::IntegerVector target,
-                                           Rcpp::StringVector feature,
-                                           int min_bins = 3,
-                                           int max_bins = 5,
-                                           double bin_cutoff = 0.05,
-                                           int max_n_prebins = 20) {
-  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+                                         Rcpp::StringVector feature,
+                                         int min_bins = 3,
+                                         int max_bins = 5,
+                                         double bin_cutoff = 0.05,
+                                         int max_n_prebins = 20) {
+std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
-  OptimalBinningCategoricalGMB binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
-  return binner.fit();
+OptimalBinningCategoricalGMB binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
+return binner.fit();
 }

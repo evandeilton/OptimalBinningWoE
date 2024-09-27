@@ -240,6 +240,64 @@ public:
   }
 };
 
+
+//' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach,
+//' which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of WOE values for each input feature value}
+//' \item{woebin}{A data frame containing bin information, including bin labels, WOE, IV, and counts}
+//'
+//' @details
+//' The algorithm performs the following steps:
+//' \enumerate{
+//'   \item Initialize bins for each unique category
+//'   \item Sort bins by their WOE values
+//'   \item Merge adjacent bins iteratively, minimizing information loss
+//'   \item Optimize the number of bins while maintaining monotonicity
+//'   \item Calculate final WOE and IV values for each bin
+//' }
+//'
+//' The Weight of Evidence (WOE) is calculated as:
+//' \deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
+//'
+//' The Information Value (IV) for each bin is calculated as:
+//' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+//'
+//' @references
+//' \itemize{
+//'   \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
+//'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_swb(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' hist(result$woefeature)
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_swb(Rcpp::IntegerVector target,
                                            Rcpp::StringVector feature,

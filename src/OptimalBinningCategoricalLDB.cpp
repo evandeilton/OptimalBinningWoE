@@ -360,10 +360,73 @@ private:
     return tokens;
   }
 };
+
+
+
+//' @title Categorical Optimal Binning with Local Distance-Based Algorithm
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using a Local Distance-Based (LDB) algorithm,
+//' which merges categories based on their Weight of Evidence (WoE) similarity and Information Value (IV) loss.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins to create (default: 3).
+//' @param max_bins Maximum number of bins to create (default: 5).
+//' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of WoE values for each input feature value.
+//'   \item woebin: A data frame with binning results, including bin names, WoE, IV, and counts.
+//' }
+//'
+//' @details
+//' The LDB algorithm works as follows:
+//' \enumerate{
+//'   \item Compute initial statistics for each category.
+//'   \item Handle rare categories by merging them with the most similar (in terms of WoE) non-rare category.
+//'   \item Limit the number of pre-bins to max_n_prebins.
+//'   \item Iteratively merge bins with the lowest IV loss until the desired number of bins is reached or monotonicity is achieved.
+//'   \item Ensure monotonicity of WoE across bins.
+//' }
+//'
+//' Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_ldb(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' \itemize{
+//'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+//'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_categorical_ldb(IntegerVector target, CharacterVector feature,
-                                     int min_bins = 3, int max_bins = 5,
-                                     double bin_cutoff = 0.05, int max_n_prebins = 20) {
-  OptimalBinningCategoricalLDB obc(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins);
-  return obc.fit();
+                                   int min_bins = 3, int max_bins = 5,
+                                   double bin_cutoff = 0.05, int max_n_prebins = 20) {
+OptimalBinningCategoricalLDB obc(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins);
+return obc.fit();
 }

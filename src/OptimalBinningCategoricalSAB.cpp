@@ -287,6 +287,78 @@ best_iv = calculate_iv(best_solution);  // Recalculate best_iv to ensure consist
   }
 };
 
+//' @title
+//' Optimal Binning for Categorical Variables using Simulated Annealing
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using a Simulated Annealing approach.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of observations in a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins (default: 20).
+//' @param initial_temperature Initial temperature for Simulated Annealing (default: 1.0).
+//' @param cooling_rate Cooling rate for Simulated Annealing (default: 0.995).
+//' @param max_iterations Maximum number of iterations for Simulated Annealing (default: 1000).
+//'
+//' @return A list containing two elements:
+//' \itemize{
+//'   \item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
+//'   \item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_sab(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' }
+//'
+//' @details
+//' This algorithm performs optimal binning for categorical variables using Simulated Annealing (SA). 
+//' The process aims to maximize the Information Value (IV) while maintaining monotonicity in the bins.
+//'
+//' The algorithm works as follows:
+//' \enumerate{
+//'   \item Initialize by assigning each unique category to a random bin.
+//'   \item Calculate the initial IV.
+//'   \item In each iteration of SA:
+//'     \enumerate{
+//'       \item Generate a neighbor solution by randomly reassigning a category to a different bin.
+//'       \item Calculate the IV of the new solution.
+//'       \item Accept the new solution if it improves IV and maintains monotonicity.
+//'       \item If the new solution is worse, accept it with a probability based on the current temperature.
+//'     }
+//'   \item Repeat step 3 for a specified number of iterations, reducing the temperature each time.
+//'   \item Ensure the final solution is monotonic.
+//' }
+//'
+//' The Information Value (IV) is calculated as:
+//' \deqn{IV = \sum(\text{% of non-events} - \text{% of events}) \times WoE}
+//'
+//' Where Weight of Evidence (WoE) is:
+//' \deqn{WoE = \ln(\frac{\text{% of events}}{\text{% of non-events}})}
+//'
+//' The algorithm uses OpenMP for parallel processing to improve performance.
+//'
+//' @references
+//' \itemize{
+//'   \item Bertsimas, D., & Dunn, J. (2017). Optimal classification trees. Machine Learning, 106(7), 1039-1082.
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. 
+//'         In Workshop on Data Science and Advanced Analytics (DSAA). 
+//' }
+//'
+//' @author Lopes, J. E.
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
                                            Rcpp::StringVector feature,

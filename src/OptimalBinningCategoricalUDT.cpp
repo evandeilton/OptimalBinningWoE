@@ -285,6 +285,63 @@ public:
   }
 };
 
+//' @title 
+//' Optimal Binning for Categorical Variables using Unsupervised Decision Tree (UDT)
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using an Unsupervised Decision Tree (UDT) approach,
+//' which combines Weight of Evidence (WOE) and Information Value (IV) methods.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of WOE values for each input feature value}
+//' \item{woebin}{A data frame containing bin information, including bin labels, WOE, IV, and counts}
+//'
+//' @details
+//' The algorithm performs the following steps:
+//' 1. Rare category handling: Categories with frequency below bin_cutoff are merged into a "Rare" bin.
+//' 2. Pre-binning: If the number of bins exceeds max_n_prebins, the least frequent categories are merged into an "Other" bin.
+//' 3. Calculate initial WOE and IV for each bin.
+//' 4. Iterative merging: Bins are merged based on minimum combined IV until the number of bins reaches max_bins.
+//'
+//' The Weight of Evidence (WOE) is calculated as:
+//'
+//' WOE = ln((Distribution of Good) / (Distribution of Bad))
+//'
+//' The Information Value (IV) for each bin is calculated as:
+//'
+//' IV = (Distribution of Good - Distribution of Bad) * WOE
+//'
+//' @references
+//' \itemize{
+//'   \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
+//'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' target <- sample(0:1, 1000, replace = TRUE)
+//' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_udt(target, feature)
+//'
+//' # View results
+//' print(result$woebin)
+//' hist(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_categorical_udt(IntegerVector target,
                                      CharacterVector feature,

@@ -295,23 +295,91 @@ public:
   }
 };
 
+
+//' @title Categorical Optimal Binning with Fisher's Exact Test
+//'
+//' @description
+//' Implements optimal binning for categorical variables using Fisher's Exact Test,
+//' calculating Weight of Evidence (WoE) and Information Value (IV).
+//'
+//' @param target Integer vector of binary target values (0 or 1).
+//' @param feature Character vector of categorical feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//'
+//' @return A list with two elements:
+//' \itemize{
+//'   \item woefeature: Numeric vector of WoE values for each input feature value.
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+//' }
+//'
+//' @details
+//' The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
+//' the statistical significance of the difference between adjacent bins.
+//'
+//' Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//'
+//' Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+//'
+//' Fisher's Exact Test p-value is calculated using the hypergeometric distribution:
+//'
+//' \deqn{p = \frac{{a+b \choose a}{c+d \choose c}}{{n \choose a+c}}}
+//'
+//' where a, b, c, d are the elements of the 2x2 contingency table, and n is the total sample size.
+//'
+//' The algorithm first merges rare categories based on the bin_cutoff, then
+//' iteratively merges bins with the lowest p-value from Fisher's Exact Test
+//' until the desired number of bins is reached or further merging is not statistically significant.
+//'
+//' @examples
+//' \dontrun{
+//' # Sample data
+//' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+//' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # View results
+//' print(result$woebin)
+//' print(result$woefeature)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @references
+//' \itemize{
+//'   \item Agresti, A. (1992). A Survey of Exact Inference for Contingency Tables. 
+//'         Statistical Science, 7(1), 131-153.
+//'   \item Savage, L. J. (1956). On the Choice of a Classification Statistic. 
+//'         In Contributions to Probability and Statistics: Essays in Honor of Harold Hotelling, 
+//'         Stanford University Press, 139-161.
+//' }
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_fetb(Rcpp::IntegerVector target,
-                                            Rcpp::CharacterVector feature,
-                                            int min_bins = 3,
-                                            int max_bins = 5,
-                                            double bin_cutoff = 0.05,
-                                            int max_n_prebins = 20) {
-  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+                                          Rcpp::CharacterVector feature,
+                                          int min_bins = 3,
+                                          int max_bins = 5,
+                                          double bin_cutoff = 0.05,
+                                          int max_n_prebins = 20) {
+std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
-  OptimalBinningCategoricalFETB binner(feature_vec, target_vec,
-                                       static_cast<size_t>(min_bins),
-                                       static_cast<size_t>(max_bins),
-                                       bin_cutoff,
-                                       static_cast<size_t>(max_n_prebins));
+OptimalBinningCategoricalFETB binner(feature_vec, target_vec,
+                                     static_cast<size_t>(min_bins),
+                                     static_cast<size_t>(max_bins),
+                                     bin_cutoff,
+                                     static_cast<size_t>(max_n_prebins));
 
-  binner.fit();
+binner.fit();
 
-  return binner.getResults();
+return binner.getResults();
 }

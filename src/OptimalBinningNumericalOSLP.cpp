@@ -280,6 +280,77 @@ private:
   }
 };
 
+
+//' @title Optimal Binning for Numerical Variables using OSLP
+//'
+//' @description
+//' This function performs optimal binning for numerical variables using the Optimal Supervised Learning Partitioning (OSLP) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+//'
+//' @param target A numeric vector of binary target values (0 or 1).
+//' @param feature A numeric vector of feature values.
+//' @param min_bins Minimum number of bins (default: 3, must be >= 2).
+//' @param max_bins Maximum number of bins (default: 5, must be > min_bins).
+//' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05, must be in (0, 1)).
+//' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
+//' \item{woebin}{A data frame with the following columns:
+//'   \itemize{
+//'     \item bin: Character vector of bin ranges.
+//'     \item woe: Numeric vector of WoE values for each bin.
+//'     \item iv: Numeric vector of Information Value (IV) for each bin.
+//'     \item count: Integer vector of total observations in each bin.
+//'     \item count_pos: Integer vector of positive target observations in each bin.
+//'     \item count_neg: Integer vector of negative target observations in each bin.
+//'   }
+//' }
+//'
+//' @details
+//' The Optimal Supervised Learning Partitioning (OSLP) algorithm for numerical variables works as follows:
+//' 1. Prebin the data into max_n_prebins using quantiles.
+//' 2. Merge adjacent bins to meet the max_bins constraint and bin_cutoff requirement.
+//' 3. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
+//' 4. Enforce monotonicity of WoE values across bins.
+//' 5. Recalculate IV values based on the monotonic WoE.
+//'
+//' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+//'
+//' Weight of Evidence (WoE) is calculated as:
+//' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+//'
+//' Information Value (IV) is calculated as:
+//' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+//'
+//' @references
+//' \itemize{
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
+//'   \item Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. Oxford University Press.
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' n <- 1000
+//' target <- sample(0:1, n, replace = TRUE)
+//' feature <- rnorm(n)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_oslp(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # Print results
+//' print(result$woebin)
+//'
+//' # Plot WoE values
+//' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
+//'      main = "Weight of Evidence by Bin")
+//' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
                                           Rcpp::NumericVector feature,

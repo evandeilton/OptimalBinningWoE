@@ -209,28 +209,99 @@ Rcpp::List OptimalBinningCategoricalMILP::get_results() {
   );
 }
 
+
+//' @title Optimal Binning for Categorical Variables using MILP
+//'
+//' @description
+//' This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A character vector of feature values.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
+//' \item{woebin}{A data frame with the following columns:
+//'   \itemize{
+//'     \item bin: Character vector of bin categories.
+//'     \item woe: Numeric vector of WoE values for each bin.
+//'     \item iv: Numeric vector of Information Value (IV) for each bin.
+//'     \item count: Integer vector of total observations in each bin.
+//'     \item count_pos: Integer vector of positive target observations in each bin.
+//'     \item count_neg: Integer vector of negative target observations in each bin.
+//'   }
+//' }
+//'
+//' @details
+//' The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
+//' 1. Create initial bins for each unique category.
+//' 2. Merge bins with counts below the cutoff.
+//' 3. Calculate initial Weight of Evidence (WoE) and Information Value (IV) for each bin.
+//' 4. Optimize bins by merging categories to maximize total IV while respecting constraints.
+//' 5. Ensure the number of bins is between min_bins and max_bins.
+//' 6. Recalculate WoE and IV for the final bins.
+//'
+//' The algorithm aims to create bins that maximize the predictive power of the categorical variable while adhering to the specified constraints.
+//'
+//' Weight of Evidence (WoE) is calculated as:
+//' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+//'
+//' Information Value (IV) is calculated as:
+//' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+//'
+//' @references
+//' \itemize{
+//'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
+//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
+//' }
+//'
+//' @examples
+//' \dontrun{
+//' # Create sample data
+//' set.seed(123)
+//' n <- 1000
+//' target <- sample(0:1, n, replace = TRUE)
+//' feature <- sample(LETTERS[1:10], n, replace = TRUE)
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_categorical_milp(target, feature, min_bins = 2, max_bins = 4)
+//'
+//' # Print results
+//' print(result$woebin)
+//'
+//' # Plot WoE values
+//' barplot(result$woebin$woe, names.arg = result$woebin$bin,
+//'         xlab = "Bins", ylab = "WoE", main = "Weight of Evidence by Bin")
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_milp(
-    Rcpp::IntegerVector target,
-    Rcpp::CharacterVector feature,
-    int min_bins = 3,
-    int max_bins = 5,
-    double bin_cutoff = 0.05,
-    int max_n_prebins = 20
+  Rcpp::IntegerVector target,
+  Rcpp::CharacterVector feature,
+  int min_bins = 3,
+  int max_bins = 5,
+  double bin_cutoff = 0.05,
+  int max_n_prebins = 20
 ) {
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
 
-  OptimalBinningCategoricalMILP obcm(
-      target_vec,
-      feature_vec,
-      min_bins,
-      max_bins,
-      bin_cutoff,
-      max_n_prebins
-  );
+OptimalBinningCategoricalMILP obcm(
+    target_vec,
+    feature_vec,
+    min_bins,
+    max_bins,
+    bin_cutoff,
+    max_n_prebins
+);
 
-  obcm.fit();
+obcm.fit();
 
-  return obcm.get_results();
+return obcm.get_results();
 }

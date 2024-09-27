@@ -354,6 +354,88 @@ void OptimalBinningNumericalSBB::prepare_woebin_dataframe() {
   );
 }
 
+//' @title Optimal Binning for Numerical Variables using Supervised Boundary Binning (SBB)
+//'
+//' @description
+//' This function implements an optimal binning algorithm for numerical variables using 
+//' Supervised Boundary Binning (SBB). It transforms a continuous feature into discrete 
+//' bins while preserving the monotonic relationship with the target variable and 
+//' maximizing the predictive power.
+//'
+//' @param target An integer vector of binary target values (0 or 1).
+//' @param feature A numeric vector of the continuous feature to be binned.
+//' @param min_bins Integer. The minimum number of bins to create (default: 3).
+//' @param max_bins Integer. The maximum number of bins to create (default: 5).
+//' @param bin_cutoff Numeric. The minimum proportion of observations in each bin (default: 0.05).
+//' @param max_n_prebins Integer. The maximum number of pre-bins to create during the initial binning step (default: 20).
+//'
+//' @return A list containing two elements:
+//' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed values for the input feature.}
+//' \item{woebin}{A data frame containing the binning information, including bin boundaries, WoE values, Information Value (IV), and count statistics.}
+//'
+//' @details
+//' The SBB algorithm combines pre-binning, small bin merging, and monotonic binning to create 
+//' an optimal binning solution for numerical variables. The process involves the following steps:
+//'
+//' 1. Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning. 
+//'    The number of pre-bins is determined by the `max_n_prebins` parameter.
+//' 2. Small bin merging: Bins with a proportion of observations less than `bin_cutoff` are 
+//'    merged with adjacent bins to ensure statistical significance.
+//' 3. Monotonic binning: The algorithm enforces a monotonic relationship between the bin order 
+//'    and the Weight of Evidence (WoE) values. This step ensures that the binning preserves 
+//'    the original relationship between the feature and the target variable.
+//' 4. Bin count adjustment: If the number of bins exceeds `max_bins`, the algorithm merges 
+//'    bins with the smallest Information Value (IV). If the number of bins is less than 
+//'    `min_bins`, the smallest bins are merged.
+//'
+//' The Weight of Evidence (WoE) for each bin is calculated as:
+//'
+//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right) = \ln\left(\frac{\frac{n_{1i}}{n_1}}{\frac{n_{0i}}{n_0}}\right)}
+//'
+//' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i, respectively, 
+//' and \eqn{n_1} and \eqn{n_0} are the total number of events and non-events.
+//'
+//' The Information Value (IV) for each bin is calculated as:
+//'
+//' \deqn{IV_i = \left(\frac{n_{1i}}{n_1} - \frac{n_{0i}}{n_0}\right) \times WoE_i}
+//'
+//' The total Information Value for the binning solution is the sum of IVs across all bins:
+//'
+//' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+//'
+//' where k is the number of bins.
+//'
+//' This implementation uses OpenMP for parallel processing to improve performance on multi-core systems.
+//'
+//' @examples
+//' \dontrun{
+//' # Generate sample data
+//' set.seed(42)
+//' n <- 10000
+//' feature <- rnorm(n)
+//' target <- rbinom(n, 1, plogis(0.5 + 0.5 * feature))
+//'
+//' # Run optimal binning
+//' result <- optimal_binning_numerical_sbb(target, feature)
+//'
+//' # View binning results
+//' print(result$woebin)
+//'
+//' # Use WoE-transformed feature
+//' woe_feature <- result$woefeature
+//' }
+//'
+//' @references
+//' \itemize{
+//' \item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone optimal binning algorithm for credit risk modeling." 
+//'       arXiv preprint arXiv:1711.05095.
+//' \item Thomas, L. C. (2000). "A survey of credit and behavioural scoring: forecasting financial risk of 
+//'       lending to consumers." International journal of forecasting, 16(2), 149-172.
+//' }
+//'
+//' @author Lopes, J. E.
+//'
+//' @export
 // [[Rcpp::export]]
 List optimal_binning_numerical_sbb(IntegerVector target, NumericVector feature,
                                    int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05, int max_n_prebins = 20) {
