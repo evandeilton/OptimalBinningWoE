@@ -17,6 +17,9 @@ Imports:
     Rcpp,
     RcppParallel
 Suggests: 
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 URL: https://evandeilton.github.io/OptimalBinningWoE/
+VignetteBuilder: knitr
