@@ -154,42 +154,49 @@
 #' @examples
 #' \dontrun{
 #' # Example 1: Using the German Credit Data
+#' library(OptimalBinningWoE)
 #' library(data.table)
-#' data(GermanCredit, package = "caret")
-#' dt <- as.data.table(GermanCredit)
-#' dt[, Class := as.integer(Class) - 1] # Convert to 0/1
+#' library(scorecard)
+#' data(germancredit, package = "scorecard")
+#' dt <- as.data.table(germancredit)
 #'
 #' result <- obwoe(dt,
-#'   target = "Class", method = "auto",
+#'   target = "creditability", method = "mblp",
 #'   min_bins = 3, max_bins = 5, positive = "bad|1"
 #' )
 #'
 #' # View WoE-transformed data
 #' head(result$woedt)
-#'
 #' # View binning information
 #' print(result$woebins)
 #'
-#' # Example 2: Using the Credit Approval Data
-#' data(CreditApproval, package = "mlbench")
-#' dt <- as.data.table(CreditApproval)
-#' dt[, Class := as.integer(Class) - 1] # Convert to 0/1
-#'
 #' # Process only numeric features
 #' numeric_features <- names(dt)[sapply(dt, is.numeric)]
-#' numeric_features <- setdiff(numeric_features, "Class")
+#' numeric_features <- setdiff(numeric_features, "creditability")
 #'
 #' result <- obwoe(dt,
-#'   target = "Class", features = numeric_features,
-#'   method = "mob", preprocess = TRUE,
-#'   min_bins = 2, max_bins = 4, positive = "bad|1"
+#'   target = "creditability", features = numeric_features,
+#'   method = "mblp", preprocess = TRUE,
+#'   min_bins = 3, max_bins = 5, positive = "bad|1"
 #' )
 #'
 #' # View preprocessing report
-#' print(result$prepreport)
+#' print(result$woebins)
 #'
 #' # View best model report
-#' print(result$bestsreport)
+#' print(result$prepreport)
+#'
+#' # Process only categoric features
+#' categoric_features <- names(dt)[sapply(dt, function(i) !is.numeric(i))]
+#' categoric_features <- setdiff(categoric_features, "creditability")
+#' result <- obwoe(dt,
+#'   target = "creditability", features = categoric_features,
+#'   method = "udt", preprocess = TRUE,
+#'   min_bins = 3, max_bins = 4, positive = "bad|1"
+#' )
+#'
+#' # View preprocessing report
+#' print(result$woebins)
 #' }
 #'
 #' @export
