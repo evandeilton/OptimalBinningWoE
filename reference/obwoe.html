@@ -238,42 +238,49 @@ that produces the highest total Information Value while respecting the specified
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="co"># Example 1: Using the German Credit Data</span></span></span>
+<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://evandeilton.github.io/OptimalBinningWoE/">OptimalBinningWoE</a></span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">GermanCredit</span>, package <span class="op">=</span> <span class="st">"caret"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">GermanCredit</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dt</span><span class="op">[</span>, <span class="va">Class</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">Class</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">]</span> <span class="co"># Convert to 0/1</span></span></span>
+<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">germancredit</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">obwoe</span><span class="op">(</span><span class="va">dt</span>,</span></span>
-<span class="r-in"><span>  target <span class="op">=</span> <span class="st">"Class"</span>, method <span class="op">=</span> <span class="st">"auto"</span>,</span></span>
+<span class="r-in"><span>  target <span class="op">=</span> <span class="st">"creditability"</span>, method <span class="op">=</span> <span class="st">"mblp"</span>,</span></span>
 <span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">5</span>, positive <span class="op">=</span> <span class="st">"bad|1"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View WoE-transformed data</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woedt</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View binning information</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebins</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Using the Credit Approval Data</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">CreditApproval</span>, package <span class="op">=</span> <span class="st">"mlbench"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">CreditApproval</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dt</span><span class="op">[</span>, <span class="va">Class</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">Class</span><span class="op">)</span> <span class="op">-</span> <span class="fl">1</span><span class="op">]</span> <span class="co"># Convert to 0/1</span></span></span>
-<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Process only numeric features</span></span></span>
 <span class="r-in"><span><span class="va">numeric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dt</span>, <span class="va">is.numeric</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-in"><span><span class="va">numeric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">numeric_features</span>, <span class="st">"Class"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">numeric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">numeric_features</span>, <span class="st">"creditability"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">obwoe</span><span class="op">(</span><span class="va">dt</span>,</span></span>
-<span class="r-in"><span>  target <span class="op">=</span> <span class="st">"Class"</span>, features <span class="op">=</span> <span class="va">numeric_features</span>,</span></span>
-<span class="r-in"><span>  method <span class="op">=</span> <span class="st">"mob"</span>, preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
-<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span>, positive <span class="op">=</span> <span class="st">"bad|1"</span></span></span>
+<span class="r-in"><span>  target <span class="op">=</span> <span class="st">"creditability"</span>, features <span class="op">=</span> <span class="va">numeric_features</span>,</span></span>
+<span class="r-in"><span>  method <span class="op">=</span> <span class="st">"mblp"</span>, preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
+<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">5</span>, positive <span class="op">=</span> <span class="st">"bad|1"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View preprocessing report</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prepreport</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebins</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View best model report</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bestsreport</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prepreport</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Process only categoric features</span></span></span>
+<span class="r-in"><span><span class="va">categoric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dt</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">is.numeric</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span></span>
+<span class="r-in"><span><span class="va">categoric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">categoric_features</span>, <span class="st">"creditability"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">obwoe</span><span class="op">(</span><span class="va">dt</span>,</span></span>
+<span class="r-in"><span>  target <span class="op">=</span> <span class="st">"creditability"</span>, features <span class="op">=</span> <span class="va">categoric_features</span>,</span></span>
+<span class="r-in"><span>  method <span class="op">=</span> <span class="st">"udt"</span>, preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
+<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">4</span>, positive <span class="op">=</span> <span class="st">"bad|1"</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># View preprocessing report</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebins</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
