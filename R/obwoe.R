@@ -2,29 +2,195 @@
 #'
 #' @description
 #' This function performs optimal binning and calculates Weight of Evidence (WoE)
-#' for both numerical and categorical features.
+#' for both numerical and categorical features. It implements a wide variety of
+#' advanced binning algorithms to discretize continuous variables and optimize
+#' categorical variables for predictive modeling, particularly in credit scoring
+#' and risk assessment applications.
+#'
+#' The function supports automatic method selection, data preprocessing, and handles
+#' both numerical and categorical features. It aims to maximize the predictive power
+#' of features while maintaining interpretability through monotonic binning and
+#' information value optimization.
+#'
+#' @details
+#' Supported Algorithms:
+#' The function implements the following binning algorithms:
+#'
+#' For Numerical Variables:
+#' \itemize{
+#'   \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
+#'   \item BS (Binary Search): Employs binary search to find optimal bin boundaries
+#'   \item CM (ChiMerge): Merges adjacent bins based on chi-square statistic
+#'   \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
+#'   \item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
+#'   \item EB (Entropy-Based): Uses entropy-based criteria for binning
+#'   \item EBLC (Equal-Frequency Binning with Local Convergence): Combines equal-frequency binning with local convergence
+#'   \item EFB (Equal Frequency Binning): Creates bins with approximately equal number of observations
+#'   \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
+#'   \item GMB (Greedy Monotonic Binning): Applies a greedy approach to create monotonic bins
+#'   \item IR (Isotonic Regression): Uses isotonic regression for binning
+#'   \item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
+#'   \item KMB (K-means Binning): Applies k-means clustering for binning
+#'   \item LDB (Local Density Binning): Uses local density estimation for binning
+#'   \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
+#'   \item MBA (Modified Binning Algorithm): A modified approach to optimal binning
+#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
+#'   \item MDLP (Minimum Description Length Principle): Minimizes information loss during binning
+#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
+#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
+#'   \item MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning): Combines monotonic risk binning with likelihood ratio pre-binning
+#'   \item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for non-parametric transformations
+#'   \item PLAOB (Piecewise Linear Approximation Optimal Binning): Uses piecewise linear approximation for optimal binning
+#'   \item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
+#'   \item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
+#'   \item SWB (Sliding Window Binning): Applies a sliding window approach to create optimal bins
+#'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
+#'   \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
+#' }
+#'
+#' For Categorical Variables:
+#' \itemize{
+#'   \item CM (ChiMerge): Merges categories based on chi-square statistic
+#'   \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints to categorical variables
+#'   \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
+#'   \item LDB (Local Density Binning): Applies local density estimation to categorical variables
+#'   \item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
+#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning of categories
+#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
+#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
+#'   \item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for categorical variables
+#'   \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
+#'   \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
+#' }
+#'
+#' Key Concepts:
+#' \itemize{
+#'   \item Weight of Evidence (WoE): \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+#'     where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and
+#'     \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
+#'
+#'   \item Information Value (IV): \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+#'     The total IV is the sum of IVs across all bins: \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+#' }
+#'
+#' Method Selection:
+#' When method = "auto", the function tests multiple algorithms and selects the one
+#' that produces the highest total Information Value while respecting the specified constraints.
 #'
 #' @param dt A data.table containing the dataset.
 #' @param target The name of the target variable (must be binary).
 #' @param features Vector of feature names to process. If NULL, all features except the target will be processed.
-#' @param method The binning method to use. Can be "auto" or a specific method name.
+#' @param method The binning method to use. Can be "auto" or one of the methods listed in the details section.
 #' @param preprocess Logical. Whether to preprocess the data before binning.
-#' @param min_bins Minimum number of bins.
-#' @param max_bins Maximum number of bins.
-#' @param control A list of additional control parameters.
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 4).
+#' @param control A list of additional control parameters:
+#'   \itemize{
+#'     \item cat_cutoff: Minimum frequency for a category (default: 0.05)
+#'     \item bin_cutoff: Minimum frequency for a bin (default: 0.05)
+#'     \item min_bads: Minimum proportion of bad cases in a bin (default: 0.05)
+#'     \item pvalue_threshold: P-value threshold for statistical tests (default: 0.05)
+#'     \item max_n_prebins: Maximum number of pre-bins (default: 20)
+#'     \item monotonicity_direction: Direction of monotonicity ("increase" or "decrease")
+#'     \item lambda: Regularization parameter for some algorithms (default: 0.1)
+#'     \item min_bin_size: Minimum bin size as a proportion of total observations (default: 0.05)
+#'     \item min_iv_gain: Minimum IV gain for bin splitting (default: 0.01)
+#'     \item max_depth: Maximum depth for tree-based algorithms (default: 10)
+#'     \item num_miss_value: Value to replace missing numeric values (default: -999.0)
+#'     \item char_miss_value: Value to replace missing categorical values (default: "N/A")
+#'     \item outlier_method: Method for outlier detection ("iqr", "zscore", or "grubbs")
+#'     \item outlier_process: Whether to process outliers (default: FALSE)
+#'     \item iqr_k: IQR multiplier for outlier detection (default: 1.5)
+#'     \item zscore_threshold: Z-score threshold for outlier detection (default: 3)
+#'     \item grubbs_alpha: Significance level for Grubbs' test (default: 0.05)
+#'   }
 #' @param positive Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".
 #'
 #' @return A list containing:
 #'   \item{woedt}{The original dataset with added WoE columns}
-#'   \item{woebins}{Information about the bins created}
-#'   \item{prepreport}{Preprocessing report for each feature}
-#'   \item{bestsreport}{Report on the best models used}
+#'   \item{woebins}{Information about the bins created, including:
+#'     \itemize{
+#'       \item feature: Name of the feature
+#'       \item bin: Bin label or range
+#'       \item count: Number of observations in the bin
+#'       \item count_distr: Proportion of observations in the bin
+#'       \item good: Number of good cases (target = 0) in the bin
+#'       \item bad: Number of bad cases (target = 1) in the bin
+#'       \item good_rate: Proportion of good cases in the bin
+#'       \item bad_rate: Proportion of bad cases in the bin
+#'       \item woe: Weight of Evidence for the bin
+#'       \item iv: Information Value contribution of the bin
+#'     }
+#'   }
+#'   \item{prepreport}{Preprocessing report for each feature, including:
+#'     \itemize{
+#'       \item feature: Name of the feature
+#'       \item type: Data type of the feature
+#'       \item missing_count: Number of missing values
+#'       \item outlier_count: Number of outliers detected
+#'       \item unique_count: Number of unique values
+#'       \item mean_before: Mean value before preprocessing
+#'       \item mean_after: Mean value after preprocessing
+#'       \item sd_before: Standard deviation before preprocessing
+#'       \item sd_after: Standard deviation after preprocessing
+#'     }
+#'   }
+#'   \item{bestsreport}{Report on the best models used, including:
+#'     \itemize{
+#'       \item feature: Name of the feature
+#'       \item method: Best method selected for the feature
+#'       \item iv_total: Total Information Value achieved
+#'       \item n_bins: Number of bins created
+#'       \item runtime: Execution time for binning the feature
+#'     }
+#'   }
 #'   \item{failedfeatures}{List of features that failed processing}
-#'   \item{bestmethod}{Best method used for binning}
+#'   \item{bestmethod}{Best method used for binning across all features}
 #'
 #' @import data.table
-#' @importFrom stats rnorm
-#' @importFrom utils modifyList
+#' @importFrom stats rnorm pchisq median sd quantile
+#' @importFrom utils modifyList setTxtProgressBar txtProgressBar
+#'
+#' @examples
+#' \dontrun{
+#' # Example 1: Using the German Credit Data
+#' library(data.table)
+#' data(GermanCredit, package = "caret")
+#' dt <- as.data.table(GermanCredit)
+#' dt[, Class := as.integer(Class) - 1] # Convert to 0/1
+#'
+#' result <- obwoe(dt,
+#'   target = "Class", method = "auto",
+#'   min_bins = 3, max_bins = 5, positive = "bad|1"
+#' )
+#'
+#' # View WoE-transformed data
+#' head(result$woedt)
+#'
+#' # View binning information
+#' print(result$woebins)
+#'
+#' # Example 2: Using the Credit Approval Data
+#' data(CreditApproval, package = "mlbench")
+#' dt <- as.data.table(CreditApproval)
+#' dt[, Class := as.integer(Class) - 1] # Convert to 0/1
+#'
+#' # Process only numeric features
+#' numeric_features <- names(dt)[sapply(dt, is.numeric)]
+#' numeric_features <- setdiff(numeric_features, "Class")
+#'
+#' result <- obwoe(dt,
+#'   target = "Class", features = numeric_features,
+#'   method = "mob", preprocess = TRUE,
+#'   min_bins = 2, max_bins = 4, positive = "bad|1"
+#' )
+#'
+#' # View preprocessing report
+#' print(result$prepreport)
+#'
+#' # View best model report
+#' print(result$bestsreport)
+#' }
 #'
 #' @export
 obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRUE,
