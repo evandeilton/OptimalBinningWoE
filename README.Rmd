@@ -10,8 +10,8 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.path = "man/figures/README-",
   out.width = "100%",
-  echo=TRUE,
-  eval=FALSE, 
+  echo = TRUE,
+  eval = FALSE,
   warning = FALSE, error = FALSE, message = FALSE
 )
 ```
@@ -35,4 +35,6 @@ devtools::install_github("evandeilton/OptimalBinningWoE")
 
 ## Overview
 
-Work in progress!
+Work in progress.
+
+

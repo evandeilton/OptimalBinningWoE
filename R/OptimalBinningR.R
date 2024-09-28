@@ -28,7 +28,7 @@
 #' #' @details
 #' #' Supported Algorithms:
 #' #' The function supports various binning algorithms including CAIM, ChiMerge, MDLP, MIP, MOB, IV, PAVA, and Tree-based binning.
-#' #' Each algorithm has its own strengths and may perform differently depending on the nature of the data. 
+#' #' Each algorithm has its own strengths and may perform differently depending on the nature of the data.
 #' #' The automatic method selection option tests applicable algorithms and chooses the one that produces the highest Information Value.
 #' #'
 #' #' When specifying a method, use the short name (e.g., "caim", "chimerge") rather than the full algorithm name.
@@ -64,7 +64,7 @@
 #' #' @export
 #' OptimalBinningWoE <- function(dt, target, feature = NULL, method = "auto", preprocess = TRUE,
 #'                               min_bins = 3, max_bins = 4, control = list(), positive = "bad|1") {
-#'   
+#'
 #'   # Default parameters
 #'   default_control <- list(
 #'     cat_cutoff = 0.05,
@@ -85,20 +85,20 @@
 #'     zscore_threshold = 3,
 #'     grubbs_alpha = 0.05
 #'   )
-#'   
+#'
 #'   # Update control, if needed
 #'   control <- utils::modifyList(default_control, control)
-#'   
+#'
 #'   # Validate inputs
 #'   OptimalBinningValidateInputs(dt, target, feature, method, preprocess, min_bins, max_bins, control, positive)
-#'   
+#'
 #'   # Determine the features to process
 #'   features_to_process <- if(is.null(feature)) setdiff(names(dt), target) else feature
-#'   
+#'
 #'   # Initialize results list
 #'   results <- reports <- woebins <- bestmod <- list()
 #'   failed_features <- character()
-#'   
+#'
 #'   # Map target based on 'positive' argument
 #'   if (is.character(dt[[target]]) || is.factor(dt[[target]])) {
 #'     if (length(unique(dt[[target]])) > 2) {
@@ -110,7 +110,7 @@
 #'   } else if (!all(dt[[target]] %in% c(0, 1))) {
 #'     stop("Target variable must be binary (0 or 1) or a string with two categories")
 #'   }
-#'   
+#'
 #'   # Process each feature
 #'   for (feat in features_to_process) {
 #'     tryCatch({
@@ -118,21 +118,21 @@
 #'       if (is_date_time_dt(dt[[feat]])) {
 #'         next
 #'       }
-#'       
+#'
 #'       # Create a copy of the feature and target for processing
 #'       va <- c(target, feat)
 #'       dt_proc <- dt[, ..va][, ("original_index") := seq_len(nrow(dt))]
-#'       
+#'
 #'       # Preprocess data if required
 #'       if (preprocess) {
 #'         preprocessed_data <- OptimalBinningDataPreprocessor(
 #'           target = dt_proc[[target]],
 #'           feature = dt_proc[[feat]],
 #'           num_miss_value = control$num_miss_value,
-#'           char_miss_value = control$char_miss_value, 
+#'           char_miss_value = control$char_miss_value,
 #'           outlier_method = control$outlier_method,
 #'           outlier_process = control$outlier_process,
-#'           preprocess = as.character(c("both")), 
+#'           preprocess = as.character(c("both")),
 #'           iqr_k = control$iqr_k,
 #'           zscore_threshold = control$zscore_threshold,
 #'           grubbs_alpha = control$grubbs_alpha
@@ -143,44 +143,44 @@
 #'         dt_proc$feature_preprocessed <- dt_proc$feature
 #'         preprocess_report <- data.table::data.table()
 #'       }
-#'       
+#'
 #'       # Identify special cases
 #'       is_special <- if (is.numeric(dt_proc$feature_preprocessed)) {
 #'         dt_proc$feature_preprocessed == control$num_miss_value
 #'       } else {
 #'         dt_proc$feature_preprocessed == control$char_miss_value
 #'       }
-#'       
+#'
 #'       # Perform binning on non-special cases
 #'       dt_binning <- dt_proc[!is_special]
-#'       
+#'
 #'       # Select the best method if method is "auto"
 #'       if (method == "auto") {
 #'         binning_result <- OptimalBinningSelectBestModel(dt_binning, target, "feature_preprocessed", min_bins, max_bins, control)
 #'       } else {
 #'         # Select the appropriate algorithm and get its parameters
 #'         algo_info <- OptimalBinningSelectAlgorithm(feature = "feature_preprocessed", method, dt_binning, min_bins, max_bins, control)
-#'         
+#'
 #'         algo_params <- utils::modifyList(
 #'           list(min_bins = min_bins, max_bins = max_bins),
 #'           algo_info$params
 #'         )
-#'         
+#'
 #'         # Apply binning
 #'         binning_result <- do.call(algo_info$algorithm,
 #'                                   c(list(target = dt_binning[[target]], feature = dt_binning$feature_preprocessed), algo_params))
 #'         binning_result$best_model_report <- NULL
 #'         binning_result$best_method <- method
 #'       }
-#'       
+#'
 #'       # Add WoE values to non-special cases
 #'       dt_proc[!is_special, woe := binning_result$woefeature]
-#'       
+#'
 #'       # Handle special cases
 #'       if (any(is_special)) {
 #'         special_woe <- CalculateSpecialWoE(dt_proc[is_special, target])
 #'         dt_proc[is_special, woe := special_woe]
-#'         
+#'
 #'         # Add special bin to woebin
 #'         special_bin <- CreateSpecialBin(dt_proc[is_special], binning_result$woebin, special_woe)
 #'         special_bin[, bin := (
@@ -188,19 +188,19 @@
 #'                  ifelse(is.character(dt_proc[[feat]]) || is.factor(dt_proc[[feat]]),
 #'                         control$char_miss_value, control$num_miss_value), ")")
 #'         )]
-#'         
+#'
 #'         binning_result$woebin <- rbind(binning_result$woebin, special_bin, fill = TRUE)
 #'       }
-#'       
+#'
 #'       # Sort by original index
 #'       dt_proc <- dt_proc[order(original_index)]
-#'       
+#'
 #'       # Create new column name with "_woe" suffix
 #'       woe_col_name <- paste0(feat, "_woe")
-#'       
+#'
 #'       # Update dt efficiently using data.table syntax
 #'       dt[, (woe_col_name) := dt_proc$woe]
-#'       
+#'
 #'       # Update report list
 #'       reports[[woe_col_name]] <- preprocess_report
 #'       woebins[[woe_col_name]] <- OptimalBinningGainsTable(binning_result)
@@ -210,7 +210,7 @@
 #'       failed_features <- c(failed_features, feat)
 #'     })
 #'   }
-#'   
+#'
 #'   return(
 #'     list(woedt = data.table::copy(dt),
 #'          woebins = data.table::rbindlist(woebins, fill = TRUE, idcol = "feature"),
@@ -218,7 +218,7 @@
 #'          bestsreport = data.table::rbindlist(bestmod, fill = TRUE, idcol = "feature"),
 #'          failedfeatures = failed_features,
 #'          bestmethod = binning_result$best_method)
-#'     
+#'
 #'   )
 #' }
 
@@ -243,7 +243,7 @@
 #             sum(dt_special$target == 0) / (sum(woebin$count_neg) + sum(dt_special$target == 0))) * special_woe
 #   )
 # }
-#' 
+#'
 #' #' Validate Inputs for Optimal Binning
 #' #'
 #' #' @description
@@ -263,17 +263,17 @@
 #' #'
 #' #' @keywords internal
 #' OptimalBinningValidateInputs <- function(dt, target, feature, method, preprocess, min_bins, max_bins, control, positive) {
-#'   
+#'
 #'   # Check if dt is a data.table
 #'   if (!data.table::is.data.table(dt)) {
 #'     stop("The 'dt' argument must be a data.table.")
 #'   }
-#'   
+#'
 #'   # Check if target exists in dt
 #'   if (!target %in% names(dt)) {
 #'     stop("The 'target' variable does not exist in the provided data.table.")
 #'   }
-#'   
+#'
 #'   # Check if target is binary or has two categories
 #'   if (is.numeric(dt[[target]])) {
 #'     if (!all(dt[[target]] %in% c(0, 1))) {
@@ -286,36 +286,36 @@
 #'   } else {
 #'     stop("The 'target' variable must be either numeric (0/1) or categorical (two categories).")
 #'   }
-#'   
+#'
 #'   # Check feature (if provided)
 #'   if (!is.null(feature)) {
 #'     if (!all(feature %in% names(dt))) {
 #'       stop("One or more specified 'feature' variables do not exist in the provided data.table.")
 #'     }
 #'   }
-#'   
+#'
 #'   # Define methods for categorical and numerical data
-#'   all_method <- "auto" 
-#'   categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", 
+#'   all_method <- "auto"
+#'   categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp",
 #'                            "milp", "mob", "obnp", "swb", "udt")
-#'   
-#'   numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba", 
+#'
+#'   numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba",
 #'                          "mblp", "milp", "mob", "obnp", "swb", "udt", "bb",
-#'                          "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", 
+#'                          "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir",
 #'                          "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd")
-#'   
+#'
 #'   # Check binning method
 #'   valid_methods <- sort(unique(c(all_method, categorical_methods, numerical_methods)))
-#' 
+#'
 #'   if (!method %in% valid_methods) {
 #'     stop(paste("Invalid binning method. Choose one of the following:", paste(valid_methods, collapse = ", ")))
 #'   }
-#'   
+#'
 #'   # Check preprocess
 #'   if (!is.logical(preprocess)) {
 #'     stop("'preprocess' must be a logical value (TRUE or FALSE).")
 #'   }
-#'   
+#'
 #'   # Check min_bins and max_bins
 #'   if (!is.numeric(min_bins) || min_bins < 2) {
 #'     stop("min_bins must be an integer greater than or equal to 2.")
@@ -323,12 +323,12 @@
 #'   if (!is.numeric(max_bins) || max_bins <= min_bins) {
 #'     stop("max_bins must be an integer greater than min_bins.")
 #'   }
-#'   
+#'
 #'   # Check control
 #'   if (!is.list(control)) {
 #'     stop("'control' must be a list.")
 #'   }
-#'   
+#'
 #'   # Check specific control parameters
 #'   if (!is.numeric(control$cat_cutoff) || control$cat_cutoff <= 0 || control$cat_cutoff >= 1) {
 #'     stop("control$cat_cutoff must be a number between 0 and 1.")
@@ -336,12 +336,12 @@
 #'   if (!is.numeric(control$bin_cutoff) || control$bin_cutoff <= 0 || control$bin_cutoff >= 1) {
 #'     stop("control$bin_cutoff must be a number between 0 and 1.")
 #'   }
-#'   
+#'
 #'   # Check positive argument
 #'   if (!is.character(positive) || !grepl("^(bad|good)\\|1$", positive)) {
 #'     stop("'positive' must be either 'bad|1' or 'good|1'")
 #'   }
-#'   
+#'
 #'   # If all checks pass, the function will return silently
 #' }
 
@@ -362,25 +362,25 @@
 #' #' @keywords internal
 #' OptimalBinningSelectBestModel <- function(dt, target, feature, min_bin, max_bin, control) {
 #'   # Define methods for categorical and numerical data
-#'   categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", 
+#'   categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp",
 #'                            "milp", "mob", "obnp", "swb", "udt")
-#'   
-#'   numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba", 
+#'
+#'   numerical_methods <- c("cm", "dplc", "gmb", "ldb", "lpdb", "mba",
 #'                          "mblp", "milp", "mob", "obnp", "swb", "udt", "bb",
-#'                          "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", 
+#'                          "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir",
 #'                          "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd")
-#'   
+#'
 #'   is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
-#'   
+#'
 #'   # Select appropriate methods based on data type
 #'   methods <- if(is_categorical) categorical_methods else numerical_methods
-#'   
+#'
 #'   best_method <- NULL
 #'   best_iv <- -Inf
 #'   best_result <- NULL
 #'   best_monotonic <- FALSE
 #'   best_bins <- Inf
-#'   
+#'
 #'   # Create data.table to store reports
 #'   best_model_report <- data.table::data.table(
 #'     model_name = character(),
@@ -388,18 +388,18 @@
 #'     total_iv = numeric(),
 #'     bin_counts = integer()
 #'   )
-#'   
+#'
 #'   for (method in methods) {
 #'     tryCatch({
 #'       algo_info <- OptimalBinningSelectAlgorithm(feature = feature, method, dt, min_bin, max_bin, control)
 #'       binning_result <- do.call(algo_info$algorithm, c(list(target = dt[[target]], feature = dt[[feature]]), algo_info$params))
-#'       
+#'
 #'       if (length(binning_result$woebin$bin) >= 2) {
 #'         model_name <- algo_info$algorithm
 #'         current_iv <- sum(binning_result$woebin$iv, na.rm = TRUE)
 #'         is_monotonic <- is_woe_monotonic(binning_result$woebin$woe)
 #'         current_bins <- length(binning_result$woebin$bin)
-#'         
+#'
 #'         # Add result to report
 #'         best_model_report <- data.table::rbindlist(
 #'           list(best_model_report,
@@ -408,7 +408,7 @@
 #'                                             total_iv = current_iv,
 #'                                             bin_counts = current_bins
 #'                                             )))
-#'         
+#'
 #'         # Check if current result is better based on criteria
 #'         if (current_iv > best_iv ||
 #'             (current_iv == best_iv && is_monotonic && !best_monotonic) ||
@@ -424,11 +424,11 @@
 #'       warning(paste("Error processing method:", method, "for feature:", feature, "-", e$message))
 #'     })
 #'   }
-#'   
+#'
 #'   if (is.null(best_method)) {
 #'     stop(paste("No suitable method found for feature:", feature))
 #'   }
-#'   
+#'
 #'   data.table::setorder(best_model_report, -total_iv)
 #'   best_result$best_method <- best_method
 #'   best_result$is_categorical <- is_categorical
@@ -444,15 +444,15 @@
 #   diffs <- diff(woes)
 #   all(diffs >= 0) || all(diffs <= 0)
 # }
-# 
+#
 # # Function to check date and datetime
 # Rcpp::cppFunction('
 #   bool is_date_format_cpp(const std::string& date_string) {
 #     if (date_string.length() < 8 || date_string.length() > 19) return false;
-#     
+#
 #     int separators = 0;
 #     bool has_time = false;
-#     
+#
 #     for (char c : date_string) {
 #       if (c == \'-\' || c == \'/\' || c == \':\') {
 #         separators++;
@@ -465,7 +465,7 @@
 #     return (separators == 2 || (separators >= 4 && has_time));
 #   }
 # ')
-# 
+#
 # # Wrapper function for use in data.table
 # is_date_time_dt <- function(x) {
 #   if (is.character(x) || is.factor(x)) {

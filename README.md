@@ -26,4 +26,4 @@ devtools::install_github("evandeilton/OptimalBinningWoE")
 
 ## Overview
 
-Work in progress!
+Work in progress.

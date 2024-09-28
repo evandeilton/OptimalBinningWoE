@@ -97,91 +97,96 @@ double kl_divergence(double p, double q) {
 //' @export
 // [[Rcpp::export]]
 DataFrame OptimalBinningGainsTable(List binning_result) {
- DataFrame bin = as<DataFrame>(binning_result["woebin"]);
- 
- CharacterVector bin_labels = bin["bin"];
- NumericVector counts = bin["count"];
- NumericVector count_pos = bin["count_pos"];
- NumericVector count_neg = bin["count_neg"];
- NumericVector woe = bin["woe"];
- 
- int total_count = sum(counts);
- int total_pos = sum(count_pos);
- int total_neg = sum(count_neg);
- double overall_pos_rate = (double)total_pos / total_count;
- 
- int n = bin_labels.size();
- NumericVector count_perc(n), cum_count_perc(n);
- NumericVector pos_rate(n), neg_rate(n);
- NumericVector pos_perc(n), neg_perc(n);
- NumericVector cum_pos(n), cum_neg(n);
- NumericVector cum_pos_perc(n), cum_neg_perc(n);
- NumericVector cum_pos_perc_total(n), cum_neg_perc_total(n);
- NumericVector ks(n), iv(n);
- NumericVector odds_pos(n), odds_ratio(n), lift(n), gini_contribution(n);
- NumericVector precision(n), recall(n), f1_score(n);
- NumericVector log_likelihood(n);
- NumericVector kl_divergence_metric(n), js_divergence_metric(n);
- 
- double total_iv = 0.0;
- double cum_pos_sum = 0.0, cum_neg_sum = 0.0;
- 
- for (int i = 0; i < n; i++) {
-   count_perc[i] = (double)counts[i] / total_count;
-   cum_count_perc[i] = (i == 0) ? count_perc[i] : cum_count_perc[i - 1] + count_perc[i];
+   DataFrame bin = as<DataFrame>(binning_result["woebin"]);
    
-   pos_rate[i] = (double)count_pos[i] / counts[i];
-   neg_rate[i] = (double)count_neg[i] / counts[i];
+   CharacterVector bin_labels = bin["bin"];
+   NumericVector counts = bin["count"];
+   NumericVector count_pos = bin["count_pos"];
+   NumericVector count_neg = bin["count_neg"];
    
-   pos_perc[i] = (double)count_pos[i] / total_pos;
-   neg_perc[i] = (double)count_neg[i] / total_neg;
+   int total_count = sum(counts);
+   int total_pos = sum(count_pos);
+   int total_neg = sum(count_neg);
+   double overall_pos_rate = (double)total_pos / total_count;
    
-   cum_pos_sum += count_pos[i];
-   cum_neg_sum += count_neg[i];
-   cum_pos[i] = cum_pos_sum;
-   cum_neg[i] = cum_neg_sum;
+   int n = bin_labels.size();
+   NumericVector count_perc(n), cum_count_perc(n);
+   NumericVector pos_rate(n), neg_rate(n);
+   NumericVector pos_perc(n), neg_perc(n);
+   NumericVector cum_pos(n), cum_neg(n);
+   NumericVector cum_pos_perc(n), cum_neg_perc(n);
+   NumericVector cum_pos_perc_total(n), cum_neg_perc_total(n);
+   NumericVector ks(n), woe(n), iv(n);
+   NumericVector odds_pos(n), odds_ratio(n), lift(n), gini_contribution(n);
+   NumericVector precision(n), recall(n), f1_score(n);
+   NumericVector log_likelihood(n);
+   NumericVector kl_divergence_metric(n), js_divergence_metric(n);
    
-   cum_pos_perc[i] = cum_pos[i] / total_pos;
-   cum_neg_perc[i] = cum_neg[i] / total_neg;
+   double total_iv = 0.0;
+   double cum_pos_sum = 0.0, cum_neg_sum = 0.0;
    
-   cum_pos_perc_total[i] = cum_pos[i] / total_count;
-   cum_neg_perc_total[i] = cum_neg[i] / total_count;
+   for (int i = 0; i < n; i++) {
+      count_perc[i] = (double)counts[i] / total_count;
+      cum_count_perc[i] = (i == 0) ? count_perc[i] : cum_count_perc[i - 1] + count_perc[i];
+      
+      pos_rate[i] = (double)count_pos[i] / counts[i];
+      neg_rate[i] = (double)count_neg[i] / counts[i];
+      
+      pos_perc[i] = (double)count_pos[i] / total_pos;
+      neg_perc[i] = (double)count_neg[i] / total_neg;
+      
+      cum_pos_sum += count_pos[i];
+      cum_neg_sum += count_neg[i];
+      cum_pos[i] = cum_pos_sum;
+      cum_neg[i] = cum_neg_sum;
+      
+      cum_pos_perc[i] = cum_pos[i] / total_pos;
+      cum_neg_perc[i] = cum_neg[i] / total_neg;
+      
+      cum_pos_perc_total[i] = cum_pos[i] / total_count;
+      cum_neg_perc_total[i] = cum_neg[i] / total_count;
+      
+      ks[i] = std::abs(cum_pos_perc[i] - cum_neg_perc[i]);
+      
+      // Recálculo do WoE
+      double pos_rate_total = (double)total_pos / total_count;
+      double neg_rate_total = (double)total_neg / total_count;
+      woe[i] = std::log((pos_perc[i] / pos_rate_total) / (neg_perc[i] / neg_rate_total));
+      
+      // Cálculo do IV usando o WoE recalculado
+      iv[i] = (pos_perc[i] - neg_perc[i]) * woe[i];
+      total_iv += iv[i];
+      
+      odds_pos[i] = (count_neg[i] == 0) ? R_PosInf : (double)count_pos[i] / count_neg[i];
+      
+      double total_odds = (double)total_pos / total_neg;
+      odds_ratio[i] = odds_pos[i] / total_odds;
+      
+      lift[i] = pos_rate[i] / overall_pos_rate;
+      
+      gini_contribution[i] = pos_perc[i] * cum_neg_perc[i] - neg_perc[i] * cum_pos_perc[i];
+      
+      precision[i] = (double)count_pos[i] / counts[i];
+      recall[i] = cum_pos_perc[i];
+      f1_score[i] = 2 * (precision[i] * recall[i]) / (precision[i] + recall[i]);
+      
+      log_likelihood[i] = count_pos[i] * std::log(pos_rate[i]) + count_neg[i] * std::log(neg_rate[i]);
+      
+      double kl_pos = kl_divergence(pos_rate[i], overall_pos_rate);
+      double kl_neg = kl_divergence(neg_rate[i], 1 - overall_pos_rate);
+      kl_divergence_metric[i] = kl_pos + kl_neg;
+      
+      double m_pos = (pos_rate[i] + overall_pos_rate) / 2;
+      double m_neg = (neg_rate[i] + (1 - overall_pos_rate)) / 2;
+      js_divergence_metric[i] = (kl_divergence(pos_rate[i], m_pos) + kl_divergence(neg_rate[i], m_neg)) / 2;
+   }
    
-   ks[i] = std::abs(cum_pos_perc[i] - cum_neg_perc[i]);
-   
-   iv[i] = (pos_rate[i] - neg_rate[i]) * woe[i];
-   total_iv += iv[i];
-   
-   odds_pos[i] = (count_neg[i] == 0) ? R_PosInf : (double)count_pos[i] / count_neg[i];
-   
-   double total_odds = (double)total_pos / total_neg;
-   odds_ratio[i] = odds_pos[i] / total_odds;
-   
-   lift[i] = pos_rate[i] / overall_pos_rate;
-   
-   gini_contribution[i] = pos_perc[i] * cum_neg_perc[i] - neg_perc[i] * cum_pos_perc[i];
-   
-   precision[i] = (double)count_pos[i] / counts[i];
-   recall[i] = cum_pos_perc[i];
-   f1_score[i] = 2 * (precision[i] * recall[i]) / (precision[i] + recall[i]);
-   
-   log_likelihood[i] = count_pos[i] * std::log(pos_rate[i]) + count_neg[i] * std::log(neg_rate[i]);
-   
-   double kl_pos = kl_divergence(pos_rate[i], overall_pos_rate);
-   double kl_neg = kl_divergence(neg_rate[i], 1 - overall_pos_rate);
-   kl_divergence_metric[i] = kl_pos + kl_neg;
-   
-   double m_pos = (pos_rate[i] + overall_pos_rate) / 2;
-   double m_neg = (neg_rate[i] + (1 - overall_pos_rate)) / 2;
-   js_divergence_metric[i] = (kl_divergence(pos_rate[i], m_pos) + kl_divergence(neg_rate[i], m_neg)) / 2;
- }
- 
  return DataFrame::create(
    Named("bin") = bin_labels,
    Named("count") = counts,
    Named("pos") = count_pos,
    Named("neg") = count_neg,
-   Named("woe") = woe,
+   Named("woe") = woe,  // WoE recalculado
    Named("iv") = iv,
    Named("total_iv") = rep(total_iv, n),
    Named("cum_pos") = cum_pos,

@@ -41,27 +41,29 @@ configure_parallel_setup <- function() {
   } else {
     os <- "Linux"
   }
-  
+
   # Determine number of cores to use
   total_cores <- parallel::detectCores()
   cores <- if (total_cores > 2) max(1, floor(total_cores * 0.5)) else 1
-  
+
   # Set OpenMP flags based on OS
   openmp_flags <- switch(os,
-                         "Windows" = c("-fopenmp", "-fopenmp"),
-                         "Linux" = c("-fopenmp", "-fopenmp"),
-                         "macOS" = {
-                           # Check if OpenMP is available on macOS
-                           if (system("command -v brew >/dev/null 2>&1 && brew --prefix libomp >/dev/null 2>&1", ignore.stdout = TRUE, ignore.stderr = TRUE) == 0) {
-                             libomp_path <- system("brew --prefix libomp", intern = TRUE)
-                             c(sprintf("-Xclang -fopenmp -I%s/include", libomp_path),
-                               sprintf("-lomp -L%s/lib", libomp_path))
-                           } else {
-                             c("", "")  # No OpenMP support
-                           }
-                         }
+    "Windows" = c("-fopenmp", "-fopenmp"),
+    "Linux" = c("-fopenmp", "-fopenmp"),
+    "macOS" = {
+      # Check if OpenMP is available on macOS
+      if (system("command -v brew >/dev/null 2>&1 && brew --prefix libomp >/dev/null 2>&1", ignore.stdout = TRUE, ignore.stderr = TRUE) == 0) {
+        libomp_path <- system("brew --prefix libomp", intern = TRUE)
+        c(
+          sprintf("-Xclang -fopenmp -I%s/include", libomp_path),
+          sprintf("-lomp -L%s/lib", libomp_path)
+        )
+      } else {
+        c("", "") # No OpenMP support
+      }
+    }
   )
-  
+
   # Return configuration silently
   list(
     os = os,
@@ -72,10 +74,10 @@ configure_parallel_setup <- function() {
 
 .onLoad <- function(libname, pkgname) {
   parallel_setup <- configure_parallel_setup()
-  
+
   # Set the number of threads for OpenMP
   Sys.setenv("OMP_NUM_THREADS" = parallel_setup$cores)
-  
+
   # Set compiler flags for OpenMP
   if (parallel_setup$os == "macOS" && all(parallel_setup$openmp_flags == "")) {
     warning("OpenMP is not available on this macOS system. Parallel processing may be limited.", call. = FALSE)
