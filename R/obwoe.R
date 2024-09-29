@@ -202,6 +202,9 @@
 #' @export
 obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRUE,
                   min_bins = 3, max_bins = 4, control = list(), positive = "bad|1") {
+  # Ensure dt is a data.table
+  data.table::setDT(dt)
+
   # Default parameters
   default_control <- list(
     cat_cutoff = 0.05,

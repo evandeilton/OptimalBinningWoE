@@ -69,7 +69,6 @@ feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, max_bins = 4)
 
 # View results
-print(result$woebin)
 print(result$woefeature)
 }
 

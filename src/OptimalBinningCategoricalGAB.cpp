@@ -669,25 +669,26 @@ if (gen > 10 && std::abs(population[0].fitness - population[population_size - 1]
 //' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_gab(
-  Rcpp::IntegerVector target,
-  Rcpp::CharacterVector feature,
-  int min_bins = 3,
-  int max_bins = 5,
-  double bin_cutoff = 0.05,
-  size_t max_n_prebins = 20,
-  size_t population_size = 100,
-  size_t num_generations = 100,
-  double mutation_rate = 0.1,
-  double crossover_rate = 0.8,
-  int time_limit_seconds = 300
+    Rcpp::IntegerVector target,
+    Rcpp::CharacterVector feature,
+    int min_bins = 3,
+    int max_bins = 5,
+    double bin_cutoff = 0.05,
+    size_t max_n_prebins = 20,
+    size_t population_size = 100,
+    size_t num_generations = 100,
+    double mutation_rate = 0.1,
+    double crossover_rate = 0.8,
+    int time_limit_seconds = 300
 ) {
-std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
-std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-
-OptimalBinningCategoricalGAB binner(
-    feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
-    population_size, num_generations, mutation_rate, crossover_rate, time_limit_seconds
-);
-
-return binner.fit();
+  std::vector<std::string> feature_vec = Rcpp::as<std::vector<std::string>>(feature);
+  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+  
+  OptimalBinningCategoricalGAB binner(
+      feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
+      population_size, num_generations, mutation_rate, crossover_rate, time_limit_seconds
+  );
+  
+  return binner.fit();
 }
+

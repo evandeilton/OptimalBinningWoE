@@ -189,7 +189,6 @@ optimal_binning_categorical_dplc <- function(target, feature, min_bins = 3L, max
 #' result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, max_bins = 4)
 #'
 #' # View results
-#' print(result$woebin)
 #' print(result$woefeature)
 #' }
 #'
@@ -1692,7 +1691,6 @@ optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bi
 #'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 #'   \item Bellman, R. (1952). On the theory of dynamic programming. Proceedings of the National Academy of Sciences, 38(8), 716-719.
 #' }
-#' 
 #' @author Lopes, J. E.
 #' 
 #' @export

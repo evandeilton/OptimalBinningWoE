@@ -21,20 +21,20 @@ private:
   int min_bins;
   int max_bins;
   int max_n_prebins;
-  
+
   std::map<std::string, int> category_counts;
   std::map<std::string, int> category_pos_counts;
   std::map<std::string, int> category_neg_counts;
-  
+
   std::vector<std::string> merged_bins;
   std::vector<double> woe_values;
   std::vector<double> iv_values;
-  
+
   void validate_inputs();
   void compute_category_stats();
   void optimize_binning();
   void compute_woe_iv();
-  
+
 public:
   OptimalBinningCategoricalIVB(std::vector<std::string> feature,
                                std::vector<int> target,
@@ -42,7 +42,7 @@ public:
                                int min_bins,
                                int max_bins,
                                int max_n_prebins);
-  
+
   Rcpp::List fit();
 };
 OptimalBinningCategoricalIVB::OptimalBinningCategoricalIVB(std::vector<std::string> feature,
@@ -300,28 +300,29 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() {
 //' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_ivb(Rcpp::IntegerVector target,
-                                         Rcpp::CharacterVector feature,
-                                         int min_bins = 3,
-                                         int max_bins = 5,
-                                         double bin_cutoff = 0.05,
-                                         int max_n_prebins = 20) {
-std::vector<std::string> feature_str;
-if (Rf_isFactor(feature)) {
-  Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
-  Rcpp::CharacterVector level_names = levels.attr("levels");
-  feature_str.reserve(levels.size());
-  for (int i = 0; i < levels.size(); ++i) {
-    feature_str.push_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
+                                           Rcpp::CharacterVector feature,
+                                           int min_bins = 3,
+                                           int max_bins = 5,
+                                           double bin_cutoff = 0.05,
+                                           int max_n_prebins = 20) {
+  std::vector<std::string> feature_str;
+  if (Rf_isFactor(feature)) {
+    Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
+    Rcpp::CharacterVector level_names = levels.attr("levels");
+    feature_str.reserve(levels.size());
+    for (int i = 0; i < levels.size(); ++i) {
+      feature_str.push_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
+    }
+  } else if (TYPEOF(feature) == STRSXP) {
+    feature_str = Rcpp::as<std::vector<std::string>>(feature);
+  } else {
+    Rcpp::stop("feature must be a factor or character vector");
   }
-} else if (TYPEOF(feature) == STRSXP) {
-  feature_str = Rcpp::as<std::vector<std::string>>(feature);
-} else {
-  Rcpp::stop("feature must be a factor or character vector");
+
+  // Convertendo Rcpp::IntegerVector para std::vector<int>
+  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+
+  OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
+  return obcivb.fit();
 }
 
-// Convertendo Rcpp::IntegerVector para std::vector<int>
-std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-
-OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
-return obcivb.fit();
-}
