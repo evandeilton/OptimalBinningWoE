@@ -14,7 +14,7 @@ optimal_binning_numerical_ubsd(
 )
 }
 \arguments{
-\item{target}{A numeric vector of binary target values (should contain exactly two unique values).}
+\item{target}{A numeric vector of binary target values (should contain exactly two unique values: 0 and 1).}
 
 \item{feature}{A numeric vector of feature values to be binned.}
 
@@ -99,7 +99,4 @@ GESTS International Transactions on Computer Science and Engineering, 32(1), 47-
 discretization of continuous features. In Machine Learning Proceedings 1995
 (pp. 194-202). Morgan Kaufmann.
 }
-}
-\author{
-Lopes, J. E.
 }

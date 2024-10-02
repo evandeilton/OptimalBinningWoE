@@ -10,7 +10,8 @@ optimal_binning_numerical_sab(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  monotonicity = "none"
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ optimal_binning_numerical_sab(
 \item{bin_cutoff}{Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
+
+\item{monotonicity}{Direction of monotonicity constraint: "none" (default), "increasing", or "decreasing".}
 }
 \value{
 A list containing two elements:
@@ -99,7 +102,4 @@ axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 \item Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). Optimization by simulated annealing. Science, 220(4598), 671-680.
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 }
-}
-\author{
-Lopes, J. E.
 }

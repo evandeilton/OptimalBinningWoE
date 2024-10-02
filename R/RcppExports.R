@@ -190,6 +190,7 @@ optimal_binning_categorical_dplc <- function(target, feature, min_bins = 3L, max
 #'
 #' # View results
 #' print(result$woefeature)
+#' print(result$woebin)
 #' }
 #'
 #' @author Lopes, J. E.
@@ -216,49 +217,58 @@ optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max
 #'
 #' @param target Integer vector of binary target values (0 or 1).
 #' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
+#' @param min_bins Minimum number of bins (default: 2).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
 #' @param population_size Size of the genetic algorithm population (default: 100).
 #' @param num_generations Number of generations for the genetic algorithm (default: 100).
-#' @param mutation_rate Probability of mutation for each bin (default: 0.1).
+#' @param mutation_rate Probability of mutation for each gene (default: 0.01).
 #' @param crossover_rate Probability of crossover between parents (default: 0.8).
-#' @param time_limit_seconds Maximum execution time in seconds (default: 300).
 #'
-#' @return A list with two elements:
+#' @return A list with three elements:
 #' \itemize{
 #'   \item woefeature: Numeric vector of WoE values for each input feature value.
 #'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+#'   \item total_iv: Total Information Value across all bins.
 #' }
 #'
 #' @details
-#' The algorithm uses a genetic algorithm approach to find an optimal binning solution.
-#' It evolves a population of binning solutions over multiple generations, using
-#' selection, crossover, and mutation operations.
+#' The algorithm employs a Genetic Algorithm (GA) to identify an optimal binning solution for categorical variables.
+#' It evolves a population of binning solutions over multiple generations, utilizing selection, crossover, and mutation operations
+#' to maximize the overall Information Value (IV) while adhering to constraints on the number of bins and ensuring monotonicity
+#' of WoE values across bins.
 #'
-#' Weight of Evidence (WoE) for each bin is calculated as:
-#'
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#'
-#' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#'
-#' The fitness of each individual (binning solution) is the sum of IVs across all bins.
-#' The algorithm aims to maximize this fitness while respecting constraints on the
-#' number of bins and ensuring monotonicity of WoE values across bins.
-#'
-#' The genetic algorithm includes the following key steps:
+#' **Key Steps of the Genetic Algorithm:**
 #' \enumerate{
-#'   \item Initialize population with random binning solutions.
-#'   \item Evaluate fitness of each individual.
-#'   \item Select parents based on fitness (using roulette wheel selection).
-#'   \item Create offspring through crossover and mutation.
-#'   \item Ensure offspring respect constraints (number of bins, monotonicity).
-#'   \item Replace population with offspring.
-#'   \item Repeat steps 2-6 for the specified number of generations or until time limit is reached.
+#'   \item **Initialization**: Generate an initial population of binning solutions with random assignments, ensuring that the minimum number of bins (`min_bins`) is met.
+#'   \item **Fitness Evaluation**: Calculate the fitness of each individual in the population based on the sum of IVs across all bins.
+#'   \item **Selection**: Select parent individuals for reproduction using tournament selection, favoring individuals with higher fitness.
+#'   \item **Crossover**: Perform single-point crossover between pairs of parents to produce offspring, exchanging segments of their chromosomes.
+#'   \item **Mutation**: Introduce random mutations in the offspring's chromosomes with a probability defined by `mutation_rate`, altering bin assignments to maintain genetic diversity.
+#'   \item **Replacement**: Form a new population from the offspring, maintaining the population size.
+#'   \item **Termination**: Repeat the evaluation, selection, crossover, and mutation steps for a specified number of generations (`num_generations`) or until convergence criteria are met.
 #' }
+#'
+#' **Weight of Evidence (WoE):**
+#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#' Where:
+#' \itemize{
+#'   \item \( P(X|Y=1) \) is the distribution of positives in bin \( X \).
+#'   \item \( P(X|Y=0) \) is the distribution of negatives in bin \( X \).
+#' }
+#'
+#' **Information Value (IV):**
+#' \deqn{IV = \sum_{i=1}^{N} (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+#' The IV measures the predictive power of the binned feature, with higher values indicating stronger predictive capability.
+#'
+#' **Numerical Stability and Edge Case Handling:**
+#' The algorithm incorporates smoothing techniques by adding a small constant (e.g., 10^-10) to distributions to prevent division by zero and taking the logarithm of zero.
+#' It also ensures that each bin has positive and negative counts, except in cases where the target variable lacks sufficient cases for a particular category.
+#' All final bins consist solely of original unique category values concatenated with a "+" delimiter, preserving category integrity without introducing "Others" or "Rare" bins.
+#'
+#' **Monotonicity Enforcement:**
+#' While the Genetic Algorithm inherently promotes higher IV through selection and reproduction, additional mechanisms can be integrated to enforce monotonicity of WoE values across bins when feasible. This ensures that the relationship between the feature and the target remains consistent and interpretable.
 #'
 #' @examples
 #' \dontrun{
@@ -267,24 +277,40 @@ optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 #'
 #' # Run optimal binning
-#' result <- optimal_binning_categorical_gab(target, feature, min_bins = 2, max_bins = 4)
+#' result <- optimal_binning_categorical_gab(
+#'   target, 
+#'   feature, 
+#'   min_bins = 2, 
+#'   max_bins = 4, 
+#'   bin_cutoff = 0.05, 
+#'   max_n_prebins = 20,
+#'   population_size = 100, 
+#'   num_generations = 100, 
+#'   mutation_rate = 0.01, 
+#'   crossover_rate = 0.8
+#' )
 #'
-#' # View results
+#' # View binning results
 #' print(result$woebin)
+#'
+#' # View WoE values assigned to each feature value
 #' print(result$woefeature)
+#'
+#' # View total Information Value
+#' print(result$total_iv)
 #' }
 #'
 #' @author Lopes, J. E.
 #'
 #' @references
 #' \itemize{
-#'   \item Holland, J. H. (1992). Adaptation in natural and artificial systems: an introductory analysis with applications to biology, control, and artificial intelligence. MIT press.
-#'   \item Whitley, D. (1994). A genetic algorithm tutorial. Statistics and computing, 4(2), 65-85.
+#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. \emph{Risks}, 9(3), 58.
+#'   \item Siddiqi, N. (2006). \emph{Credit risk scorecards: developing and implementing intelligent credit scoring} (Vol. 3). John Wiley & Sons.
 #' }
 #'
 #' @export
-optimal_binning_categorical_gab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, population_size = 100L, num_generations = 100L, mutation_rate = 0.1, crossover_rate = 0.8, time_limit_seconds = 300L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_gab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, population_size, num_generations, mutation_rate, crossover_rate, time_limit_seconds)
+optimal_binning_categorical_gab <- function(target, feature, min_bins = 2L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, population_size = 100L, num_generations = 100L, mutation_rate = 0.01, crossover_rate = 0.8) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_gab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, population_size, num_generations, mutation_rate, crossover_rate)
 }
 
 #' @title Categorical Optimal Binning with Greedy Merge Binning
@@ -505,11 +531,12 @@ optimal_binning_categorical_ldb <- function(target, feature, min_bins = 3L, max_
 #' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
 #'
-#' @return A list containing three elements:
+#' @return A list containing four elements:
 #' \itemize{
 #'   \item woefeature: A numeric vector of WOE values for each input feature value
 #'   \item woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts
 #'   \item total_iv: The total Information Value of the binning
+#'   \item is_monotonic: A logical value indicating whether the final binning achieves monotonicity
 #' }
 #'
 #' @details
@@ -553,6 +580,7 @@ optimal_binning_categorical_ldb <- function(target, feature, min_bins = 3L, max_
 #' # View results
 #' print(result$woebin)
 #' print(paste("Total IV:", result$total_iv))
+#' print(paste("Is monotonic:", result$is_monotonic))
 #' hist(result$woefeature)
 #' }
 #' @export
@@ -562,7 +590,7 @@ optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_
 
 #' @title
 #' Optimal Binning for Categorical Variables using Minimum Binning Loss Principle (MBLP)
-#' 
+#'
 #' @description
 #' This function performs optimal binning for categorical variables using the Minimum Binning Loss Principle (MBLP). It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
 #' @param target An integer vector of binary target values (0 or 1).
@@ -741,7 +769,7 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #' }
 #'
 #' @details
-#' This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach. 
+#' This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
 #' The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.
 #'
 #' The algorithm works as follows:
@@ -754,27 +782,27 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'           \item ni+: count of positive instances (target = 1)
 #'           \item ni-: count of negative instances (target = 0)
 #'         }
-#'   
+#'
 #'   \item Rare Categories Merging:
 #'         Categories with frequency below the bin_cutoff threshold are merged into an "Other" category.
 #'         Let tau be the bin_cutoff, and N be the total number of observations.
 #'         A category i is merged if: ni < tau * N
-#'   
+#'
 #'   \item Initial Binning:
 #'         Categories are sorted based on their initial Weight of Evidence (WoE):
 #'         WoE_i = ln((ni+ / N+) / (ni- / N-))
 #'         Where N+ and N- are the total counts of positive and negative instances respectively.
-#'   
+#'
 #'   \item Monotonicity Enforcement:
 #'         The algorithm enforces decreasing monotonicity of WoE across bins.
 #'         For any two adjacent bins i and j, where i < j:
 #'         WoE_i >= WoE_j
 #'         If this condition is violated, bins i and j are merged.
-#'   
+#'
 #'   \item Bin Limiting:
 #'         The number of bins is limited to the specified max_bins.
 #'         When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
-#'   
+#'
 #'   \item Information Value (IV) Computation:
 #'         For each bin i, the IV is calculated as:
 #'         IV_i = (P(X=i|Y=1) - P(X=i|Y=0)) * WoE_i
@@ -786,9 +814,9 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'
 #' @references
 #' \itemize{
-#'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis. 
+#'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
 #'          Journal of the Operational Research Society, 60(12), 1699-1707.
-#'    \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. 
+#'    \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
 #'          arXiv preprint arXiv:1711.05095.
 #' }
 #'
@@ -848,9 +876,9 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
 #'
 #' @references
 #' \itemize{
-#'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis. 
+#'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
 #'          Journal of the Operational Research Society, 60(12), 1699-1707.
-#'    \item Thomas, L. C. (2000). A survey of credit and behavioural scoring: forecasting financial risk of lending to consumers. 
+#'    \item Thomas, L. C. (2000). A survey of credit and behavioural scoring: forecasting financial risk of lending to consumers.
 #'          International Journal of Forecasting, 16(2), 149-172.
 #' }
 #'
@@ -897,7 +925,7 @@ optimal_binning_categorical_obnp <- function(target, feature, min_bins = 3L, max
 #' }
 #'
 #' @details
-#' This algorithm performs optimal binning for categorical variables using Simulated Annealing (SA). 
+#' This algorithm performs optimal binning for categorical variables using Simulated Annealing (SA).
 #' The process aims to maximize the Information Value (IV) while maintaining monotonicity in the bins.
 #'
 #' The algorithm works as follows:
@@ -926,8 +954,8 @@ optimal_binning_categorical_obnp <- function(target, feature, min_bins = 3L, max
 #' @references
 #' \itemize{
 #'   \item Bertsimas, D., & Dunn, J. (2017). Optimal classification trees. Machine Learning, 106(7), 1039-1082.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. 
-#'         In Workshop on Data Science and Advanced Analytics (DSAA). 
+#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
+#'         In Workshop on Data Science and Advanced Analytics (DSAA).
 #' }
 #'
 #' @author Lopes, J. E.
@@ -1058,7 +1086,7 @@ optimal_binning_categorical_swb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_swb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
-#' @title 
+#' @title
 #' Optimal Binning for Categorical Variables using Unsupervised Decision Tree (UDT)
 #'
 #' @description
@@ -1240,7 +1268,7 @@ binning_categorical_cutpoints <- function(feature, target, cutpoints) {
     .Call(`_OptimalBinningWoE_binning_categorical_cutpoints`, feature, target, cutpoints)
 }
 
-#' @title 
+#' @title
 #' Optimal Binning for Numerical Variables using Branch and Bound
 #'
 #' @description
@@ -1273,7 +1301,7 @@ binning_categorical_cutpoints <- function(feature, target, cutpoints) {
 #' print(result$woebin)
 #'
 #' # Plot WoE transformation
-#' plot(feature, result$woefeature, main = "WoE Transformation", 
+#' plot(feature, result$woefeature, main = "WoE Transformation",
 #' xlab = "Original Feature", ylab = "WoE")
 #' }
 #'
@@ -1316,7 +1344,7 @@ optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bin
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_bb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic)
 }
 
-#' @title 
+#' @title
 #' Optimal Binning for Numerical Variables using Binary Search
 #'
 #' @description
@@ -1348,7 +1376,7 @@ optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bin
 #' print(result$woebin)
 #'
 #' # Plot WoE transformation
-#' plot(feature, result$woefeature, main = "WoE Transformation", 
+#' plot(feature, result$woefeature, main = "WoE Transformation",
 #' xlab = "Original Feature", ylab = "WoE")
 #' }
 #'
@@ -1501,7 +1529,7 @@ optimal_binning_numerical_cart <- function(target, feature, min_bins = 3L, max_b
 #' print(result$woebin)
 #'
 #' # Plot WoE transformation
-#' plot(feature, result$woefeature, main = "WoE Transformation", 
+#' plot(feature, result$woefeature, main = "WoE Transformation",
 #' xlab = "Original Feature", ylab = "WoE")
 #' }
 #'
@@ -1550,9 +1578,9 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 }
 
 #' @title Optimal Binning for Numerical Variables using Dynamic Programming
-#' 
+#'
 #' @description This function implements an optimal binning algorithm for numerical variables using Dynamic Programming with Weight of Evidence (WoE) and Information Value (IV) criteria.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -1560,36 +1588,36 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 #' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins for initial quantile-based discretization (default: 20).
 #' @param n_threads Number of threads for parallel processing (default: 1).
-#' 
+#'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of WoE-transformed feature values.}
 #' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
-#' 
+#'
 #' @details The optimal binning algorithm for numerical variables uses Dynamic Programming to find the optimal binning solution that maximizes the total Information Value (IV) while respecting constraints on the number of bins and minimum bin frequency.
-#' 
+#'
 #' The algorithm follows these steps:
 #' 1. Initial discretization using quantile-based binning
 #' 2. Dynamic programming to find optimal bins
 #' 3. Enforcement of monotonicity in WoE across bins
 #' 4. Calculation of final WoE and IV for each bin
 #' 5. Application of WoE transformation to the original feature
-#' 
+#'
 #' Weight of Evidence (WoE) is calculated for each bin as:
-#' 
+#'
 #' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-#' 
+#'
 #' Information Value (IV) for each bin is calculated as:
-#' 
+#'
 #' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-#' 
+#'
 #' The total IV for the feature is the sum of IVs across all bins:
-#' 
+#'
 #' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-#' 
+#'
 #' The Dynamic Programming approach ensures that the resulting binning maximizes the total IV while respecting the constraints on the number of bins and minimum bin frequency.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Generate sample data
@@ -1597,24 +1625,24 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 #' n <- 10000
 #' feature <- rnorm(n)
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#' 
+#'
 #' # Apply optimal binning
 #' result <- optimal_binning_numerical_dpb(target, feature, min_bins = 3, max_bins = 5)
-#' 
+#'
 #' # View binning results
 #' print(result$woebin)
-#' 
+#'
 #' # Plot WoE transformation
 #' plot(feature, result$woefeature, main = "WoE Transformation",
 #'      xlab = "Original Feature", ylab = "WoE")
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Wilks, S. S. (1938). The Large-Sample Distribution of the Likelihood Ratio for Testing Composite Hypotheses. The Annals of Mathematical Statistics, 9(1), 60-62.
 #'   \item Bellman, R. (1954). The theory of dynamic programming. Bulletin of the American Mathematical Society, 60(6), 503-515.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, n_threads = 1L) {
@@ -1622,17 +1650,17 @@ optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bi
 }
 
 #' @title Optimal Binning for Numerical Variables using Dynamic Programming with Local Constraints (DPLC)
-#' 
+#'
 #' @description
 #' This function performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#' 
+#'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
 #' \item{woebin}{A data frame with the following columns:
@@ -1645,7 +1673,7 @@ optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bi
 #'     \item count_neg: Numeric vector of negative target observations in each bin.
 #'   }
 #' }
-#' 
+#'
 #' @details
 #' The Dynamic Programming with Local Constraints (DPLC) algorithm for numerical variables works as follows:
 #' 1. Perform initial pre-binning based on quantiles of the feature distribution.
@@ -1655,17 +1683,17 @@ optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bi
 #'   - Merge bins with the smallest IV difference if above \code{max_bins}.
 #'   - Handle rare bins by merging those below the \code{bin_cutoff} threshold.
 #' 5. Calculate final Information Value (IV) for each bin.
-#' 
+#'
 #' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
-#' 
+#'
 #' Weight of Evidence (WoE) is calculated as:
 #' \deqn{WoE = \ln\left(\frac{\text{Positive Rate}}{\text{Negative Rate}}\right)}
-#' 
+#'
 #' Information Value (IV) is calculated as:
 #' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#' 
+#'
 #' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Create sample data
@@ -1673,35 +1701,35 @@ optimal_binning_numerical_dpb <- function(target, feature, min_bins = 3L, max_bi
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- rnorm(n)
-#' 
+#'
 #' # Run optimal binning
 #' result <- optimal_binning_numerical_dplc(target, feature, min_bins = 2, max_bins = 4)
-#' 
+#'
 #' # Print results
 #' print(result$woebin)
-#' 
+#'
 #' # Plot WoE values
 #' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
 #'      main = "Weight of Evidence by Bin")
 #' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 #'   \item Bellman, R. (1952). On the theory of dynamic programming. Proceedings of the National Academy of Sciences, 38(8), 716-719.
 #' }
 #' @author Lopes, J. E.
-#' 
+#'
 #' @export
 optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_dplc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' @title Optimal Binning for Numerical Variables using Entropy-Based Approach
-#' 
+#'
 #' @description This function implements an optimal binning algorithm for numerical variables using an entropy-based approach. It creates bins that maximize the predictive power of the feature with respect to a binary target variable, while ensuring monotonicity of the Weight of Evidence (WoE) values.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -1709,27 +1737,27 @@ optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_b
 #' @param bin_cutoff Minimum frequency of observations in each bin as a proportion of total observations (default: 0.05).
 #' @param max_n_prebins Maximum number of initial bins before merging (default: 20).
 #' @param n_threads Number of threads for parallel processing (default: 1).
-#' 
+#'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of WoE values assigned to each observation in the input feature.}
 #' \item{woebin}{A data frame containing binning details, including bin boundaries, WoE values, Information Value (IV), and counts.}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm for numerical variables using an entropy-based approach works as follows:
 #' 1. Initial Binning: The algorithm starts by creating \code{max_n_prebins} equally spaced quantiles of the input feature.
 #' 2. Merging Small Bins: Bins with a frequency below \code{bin_cutoff} are merged with adjacent bins to ensure statistical significance.
 #' 3. Calculating WoE and IV: For each bin, the Weight of Evidence (WoE) and Information Value (IV) are calculated using the following formulas:
-#' 
+#'
 #' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
 #' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-#' 
+#'
 #' where \eqn{X_i} represents the i-th bin and \eqn{Y} is the binary target variable.
 #' 4. Enforcing Monotonicity: The algorithm ensures that WoE values are monotonic across bins by merging adjacent bins that violate this condition.
 #' 5. Adjusting Bin Count: If the number of bins exceeds \code{max_bins}, the algorithm merges bins with the smallest total count until the desired number of bins is achieved.
 #' 6. Final Output: The algorithm assigns WoE values to each observation in the input feature and provides detailed binning information.
-#' 
+#'
 #' This approach aims to maximize the predictive power of the feature while maintaining interpretability and robustness of the binning process.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Generate sample data
@@ -1743,119 +1771,63 @@ optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_b
 #' # View binning details
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural networks for economic and financial modelling. International Thomson Computer Press.
 #'   \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_eb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, n_threads = 1L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_eb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
 }
 
-#' @title Optimal Binning for Numerical Variables using Equal-Frequency Binning with Local Convergence
-#' 
-#' @description
-#' This function implements an optimal binning algorithm for numerical variables using an Equal-Frequency Binning approach with Local Convergence. It aims to find a good binning strategy that balances interpretability, predictive power, and monotonicity of Weight of Evidence (WoE).
-#' 
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
-#' @return A list containing:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
-#' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
-#' 
-#' @details
-#' The optimal binning algorithm using Equal-Frequency Binning with Local Convergence consists of several steps:
-#' 
-#' 1. Initial binning: The feature is divided into \code{max_n_prebins} bins, each containing approximately the same number of observations.
-#' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-#' 3. Ensuring minimum bins: If the number of bins is less than \code{min_bins}, the largest bin is split at its median.
-#' 4. Enforcing maximum bins: If the number of bins exceeds \code{max_bins}, adjacent bins with the lowest combined Information Value (IV) are merged.
-#' 5. WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
-#' 6. Enforcing monotonicity: Adjacent bins are merged to ensure monotonicity of WoE values while maintaining the minimum number of bins.
-#' 7. Assigning WoE to feature: Each feature value is assigned the WoE of its corresponding bin.
-#' 
-#' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
-#' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
-#' The Information Value (IV) for each bin is calculated as:
-#' 
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#' 
-#' This approach provides a balance between simplicity, effectiveness, and interpretability. It creates bins with equal frequency initially and then adjusts them based on the data distribution, target variable relationship, and monotonicity constraints. The local convergence ensures that the final binning maximizes the predictive power while respecting the specified constraints and maintaining monotonicity of WoE values.
-#' 
-#' @examples
-#' \dontrun{
-#' set.seed(123)
-#' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- rnorm(1000)
-#' result <- optimal_binning_numerical_eblc(target, feature)
-#' print(result$woebin)
-#' }
-#' 
-#' @references
-#' \itemize{
-#'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.06692.
-#' }
-#' 
-#' @author Lopes, J. E.
-#' @export
-optimal_binning_numerical_eblc <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_eblc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+optimal_binning_numerical_eblc <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, n_threads = 1L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_eblc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
 }
 
 #' @title Optimal Binning for Numerical Variables using Equal-Frequency Binning
-#' 
+#'
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using an Equal-Frequency Binning approach with subsequent optimization. It aims to find a good binning strategy that balances interpretability and predictive power.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
 #' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm using Equal-Frequency Binning consists of several steps:
-#' 
+#'
 #' 1. Initial binning: The feature is divided into \code{max_n_prebins} bins, each containing approximately the same number of observations.
 #' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
 #' 3. Optimizing bins: If the number of bins exceeds \code{max_bins}, adjacent bins are merged iteratively to minimize the loss of Information Value (IV).
 #' 4. WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
-#' 
+#'
 #' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
+#'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
+#'
 #' The Information Value (IV) for each bin is calculated as:
-#' 
+#'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#' 
+#'
 #' The total IV is the sum of IVs for all bins:
-#' 
+#'
 #' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
-#' 
+#'
 #' This approach provides a balance between simplicity and effectiveness, creating bins with equal frequency initially and then adjusting them based on the data distribution and target variable relationship. The optimization step ensures that the final binning maximizes the predictive power while respecting the specified constraints.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -1864,13 +1836,13 @@ optimal_binning_numerical_eblc <- function(target, feature, min_bins = 3L, max_b
 #' result <- optimal_binning_numerical_efb(target, feature)
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. In Machine Learning Proceedings 1995 (pp. 194-202). Morgan Kaufmann.
 #'   \item Liu, H., Hussain, F., Tan, C. L., & Dash, M. (2002). Discretization: An enabling technique. Data mining and knowledge discovery, 6(4), 393-423.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_efb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -1878,45 +1850,45 @@ optimal_binning_numerical_efb <- function(target, feature, min_bins = 3L, max_bi
 }
 
 #' @title Optimal Binning for Numerical Variables using Equal-Width Binning
-#' 
+#'
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
 #' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm using Equal-Width Binning consists of several steps:
-#' 
+#'
 #' 1. Initial binning: The feature range is divided into \code{max_n_prebins} bins of equal width.
 #' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
 #' 3. Adjusting number of bins: If the number of bins exceeds \code{max_bins}, adjacent bins with the most similar WoE values are merged until \code{max_bins} is reached.
 #' 4. WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
-#' 
+#'
 #' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
+#'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
+#'
 #' The Information Value (IV) for each bin is calculated as:
-#' 
+#'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#' 
+#'
 #' The total IV is the sum of IVs for all bins:
-#' 
+#'
 #' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
-#' 
+#'
 #' This approach provides a balance between simplicity and effectiveness, creating bins of equal width initially and then adjusting them based on the data distribution and target variable relationship.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -1925,13 +1897,13 @@ optimal_binning_numerical_efb <- function(target, feature, min_bins = 3L, max_bi
 #' result <- optimal_binning_numerical_ewb(target, feature)
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. In Machine Learning Proceedings 1995 (pp. 194-202). Morgan Kaufmann.
 #'   \item Liu, H., Hussain, F., Tan, C. L., & Dash, M. (2002). Discretization: An enabling technique. Data mining and knowledge discovery, 6(4), 393-423.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -1939,32 +1911,32 @@ optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bi
 }
 
 #' @title Optimal Binning for Numerical Variables using Fisher's Exact Test
-#' 
+#'
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It aims to find the best binning strategy that maximizes the predictive power while ensuring statistical significance between adjacent bins.
-#' 
+#'
 #' @param target A numeric vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff P-value threshold for merging bins (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
 #' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
 #' \item{totalIV}{The total Information Value for the binning}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm using Fisher's Exact Test consists of several steps:
-#' 
+#'
 #' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
 #' 2. Bin merging: Adjacent bins are iteratively merged based on the p-value of Fisher's Exact Test.
 #' 3. Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.
 #' 4. WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.
-#' 
+#'
 #' Fisher's Exact Test is used to determine if there is a significant difference in the proportion of positive cases between adjacent bins. The test is performed on a 2x2 contingency table:
-#' 
+#'
 #' \deqn{
 #' \begin{array}{|c|c|c|}
 #' \hline
@@ -1976,25 +1948,25 @@ optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bi
 #' \hline
 #' \end{array}
 #' }
-#' 
+#'
 #' The p-value from this test is used to decide whether to merge adjacent bins.
-#' 
+#'
 #' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
+#'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
+#'
 #' The Information Value (IV) for each bin is calculated as:
-#' 
+#'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#' 
+#'
 #' The total IV is the sum of IVs for all bins:
-#' 
+#'
 #' \deqn{Total IV = \sum_{i=1}^{n} IV_i}
-#' 
+#'
 #' This approach ensures that the resulting bins are statistically different from each other, potentially leading to more robust and meaningful binning.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -2004,13 +1976,13 @@ optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bi
 #' print(result$woebin)
 #' print(result$totalIV)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Fisher, R. A. (1922). On the interpretation of χ2 from contingency tables, and the calculation of P. Journal of the Royal Statistical Society, 85(1), 87-94.
 #'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -2028,6 +2000,9 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
+#' @param population_size Number of individuals in the GA population (default: 50).
+#' @param max_generations Maximum number of generations for the GA (default: 100).
+#' @param mutation_rate Probability of mutation in GA (default: 0.1).
 #' 
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
@@ -2036,16 +2011,16 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' @details
 #' The optimal binning algorithm using a genetic algorithm approach consists of several steps:
 #' 
-#' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-#' 2. Genetic Algorithm:
-#'    a. Initialization: Create a population of potential binning solutions.
-#'    b. Evaluation: Calculate the fitness (Information Value) of each solution.
-#'    c. Selection: Choose the best solutions for reproduction.
-#'    d. Crossover: Create new solutions by combining existing ones.
-#'    e. Mutation: Introduce small random changes to maintain diversity.
-#'    f. Repeat b-e for a specified number of generations.
-#' 3. Monotonicity check: Ensure that the WoE values are either monotonically increasing or decreasing across the bins.
-#' 4. Bin adjustment: Merge bins that have fewer observations than specified by \code{bin_cutoff}.
+#' 1. **Pre-binning:** The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins} based on quantiles.
+#' 2. **Genetic Algorithm:**
+#'    a. **Initialization:** Create a population of potential binning solutions with random cut points.
+#'    b. **Evaluation:** Calculate the fitness (Information Value) of each solution.
+#'    c. **Selection:** Choose the best solutions for reproduction based on fitness.
+#'    d. **Crossover:** Create new solutions by combining cut points from parent individuals.
+#'    e. **Mutation:** Introduce small random changes to maintain diversity in the population.
+#'    f. **Repeat:** Iterate through evaluation, selection, crossover, and mutation for a specified number of generations.
+#' 3. **Monotonicity Check:** Ensure that the WoE values are either monotonically increasing or decreasing across the bins.
+#' 4. **Bin Adjustment:** Merge bins that have fewer observations than specified by \code{bin_cutoff} to maintain bin integrity.
 #' 
 #' The Weight of Evidence (WoE) for each bin is calculated as:
 #' 
@@ -2055,7 +2030,7 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' 
 #' The Information Value (IV) for each bin is calculated as:
 #' 
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
 #' 
 #' The total IV, which is used as the fitness function in the genetic algorithm, is the sum of IVs for all bins:
 #' 
@@ -2080,52 +2055,52 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' 
 #' @author Lopes, J. E.
 #' @export
-optimal_binning_numerical_gab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_gab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+optimal_binning_numerical_gab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, population_size = 50L, max_generations = 100L, mutation_rate = 0.1) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_gab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, population_size, max_generations, mutation_rate)
 }
 
 #' @title Optimal Binning for Numerical Variables using Greedy Monotonic Binning
-#' 
+#'
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using a greedy monotonic binning approach. It aims to find the best binning strategy that maximizes the predictive power while ensuring monotonicity in the Weight of Evidence (WoE) values.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
 #' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm using greedy monotonic binning consists of several steps:
-#' 
+#'
 #' 1. Initial binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
 #' 2. Merging low-frequency bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
 #' 3. Calculating WoE and IV: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
 #' 4. Enforcing monotonicity: The algorithm ensures that the WoE values are either monotonically increasing or decreasing across the bins.
-#' 
+#'
 #' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
+#'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
+#'
 #' The Information Value (IV) for each bin is calculated as:
-#' 
+#'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#' 
+#'
 #' The algorithm uses a greedy approach to enforce monotonicity:
-#' 
+#'
 #' 1. Check if the initial WoE values are monotonic (increasing or decreasing).
 #' 2. If not monotonic, iteratively merge adjacent bins with the smallest WoE difference until monotonicity is achieved or the minimum number of bins is reached.
 #' 3. After each merge, recalculate WoE and IV values and check for monotonicity.
-#' 
+#'
 #' This approach ensures that the final binning solution has monotonic WoE values, which is often desirable for interpretability and stability of the binning.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -2134,13 +2109,13 @@ optimal_binning_numerical_gab <- function(target, feature, min_bins = 3L, max_bi
 #' result <- optimal_binning_numerical_gmb(target, feature)
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
 #'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.06692.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
 #' @export
 optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -2161,7 +2136,7 @@ optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bi
 #' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
 #' 
-#' @return A list containing two elements:
+#' @return A list containing three elements:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
 #' \item{woebin}{A data frame with the following columns:
 #'   \itemize{
@@ -2171,6 +2146,7 @@ optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bi
 #'     \item count: Integer vector of total observations in each bin.
 #'     \item count_pos: Integer vector of positive target observations in each bin.
 #'     \item count_neg: Integer vector of negative target observations in each bin.
+#'     \item iv_total: Total Information Value (IV) for the feature.
 #'   }
 #' }
 #' 
@@ -2234,45 +2210,45 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 }
 
 #' @title Optimal Binning for Numerical Variables using Dynamic Programming
-#' 
+#'
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using dynamic programming. It aims to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
 #' \item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
 #' \item{total_iv}{The total Information Value for the binning}
-#' 
+#'
 #' @details
 #' The optimal binning algorithm uses dynamic programming to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints. The algorithm consists of several steps:
-#' 
-#' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-#' 2. Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-#' 3. Dynamic programming optimization: The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.
-#' 
-#' The Weight of Evidence (WoE) for each bin is calculated as:
-#' 
+#'
+#' 1. **Pre-binning:** The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+#' 2. **Merging rare bins:** Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+#' 3. **Dynamic programming optimization:** The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.
+#'
+#' The **Weight of Evidence (WoE)** for each bin is calculated as:
+#'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' 
+#'
 #' where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-#' 
-#' The Information Value (IV) for each bin is calculated as:
-#' 
+#'
+#' The **Information Value (IV)** for each bin is calculated as:
+#'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#' 
-#' The total IV is the sum of IVs for all bins:
-#' 
+#'
+#' The **total IV** is the sum of IVs for all bins:
+#'
 #' \deqn{\text{Total IV} = \sum_{i=1}^{n} IV_i}
-#' 
+#'
 #' The dynamic programming approach ensures that the global optimum is found within the constraints of the minimum and maximum number of bins.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -2282,14 +2258,13 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' print(result$woebin)
 #' print(result$total_iv)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #'   \item Belotti, P., & Carrasco, M. (2016). Optimal Binning: Mathematical Programming Formulation and Solution Approach. \emph{arXiv preprint arXiv:1605.05710}.
 #'   \item Gutiérrez, P. A., Pérez-Ortiz, M., Sánchez-Monedero, J., Fernández-Navarro, F., & Hervás-Martínez, C. (2016). Ordinal regression methods: survey and experimental study. \emph{IEEE Transactions on Knowledge and Data Engineering}, 28(1), 127-146.
 #' }
-#' 
-#' @author Lopes, J. E.
+#'
 #' @export
 optimal_binning_numerical_jnbo <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_jnbo`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
@@ -2357,7 +2332,7 @@ optimal_binning_numerical_jnbo <- function(target, feature, min_bins = 3L, max_b
 #' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
 #' }
 #' 
-#' @author Lopes, J. E.
+#' @author Lopes,
 #' 
 #' @export
 optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -2423,7 +2398,7 @@ optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bi
 #' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
 #' }
 #' 
-#' @author Lopes, J. E.
+#' @author Lopes,
 #' 
 #' @export
 optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -2431,81 +2406,81 @@ optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bi
 }
 
 #' @title Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)
-#' 
+#'
 #' @description This function implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
+#'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
 #' \item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
-#' 
+#'
 #' @details
 #' The Local Polynomial Density Binning (LPDB) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values and respecting user-defined constraints.
-#' 
+#'
 #' The algorithm works through several steps:
 #' 1. Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins) using quantiles.
 #' 2. Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold to ensure statistical significance.
 #' 3. Enforcing monotonicity: Merges adjacent bins to ensure monotonic WoE values. The direction of monotonicity is determined by the correlation between bin means and WoE values.
 #' 4. Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
-#' 
+#'
 #' The algorithm uses the Weight of Evidence (WoE) and Information Value (IV) as key metrics:
-#' 
+#'
 #' WoE is calculated as:
 #' \deqn{WoE = \ln\left(\frac{\text{% of positive cases}}{\text{% of negative cases}}\right)}
-#' 
+#'
 #' IV is calculated as:
 #' \deqn{IV = (\text{% of positive cases} - \text{% of negative cases}) \times WoE}
-#' 
+#'
 #' The LPDB method incorporates local polynomial density estimation to better capture the underlying distribution of the data. This approach can be particularly effective when dealing with complex, non-linear relationships between the feature and the target variable.
-#' 
+#'
 #' The algorithm uses a correlation-based approach to determine the direction of monotonicity:
-#' 
+#'
 #' \deqn{\rho = \frac{\sum_{i=1}^{n} (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n} (x_i - \bar{x})^2 \sum_{i=1}^{n} (y_i - \bar{y})^2}}}
-#' 
+#'
 #' where \eqn{x_i} are the bin means and \eqn{y_i} are the corresponding WoE values.
-#' 
+#'
 #' The binning process iteratively merges adjacent bins with the smallest WoE difference until monotonicity is achieved or the minimum number of bins is reached. This approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
-#' 
+#'
 #' The LPDB method provides a balance between predictive power and model interpretability, allowing users to control the trade-off through parameters such as min_bins, max_bins, and bin_cutoff.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' 
+#'
 #' # Run optimal binning
 #' result <- optimal_binning_numerical_lpdb(target, feature)
-#' 
+#'
 #' # View results
 #' head(result$woefeature)
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #' \item Belotti, P., & Bonami, P. (2013). A Two-Phase Local Search Method for Nonconvex Mixed-Integer Quadratic Programming. Journal of Global Optimization, 57(1), 121-141.
 #' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
 #' }
-#' 
+#'
 #' @author Lopes, J. E.
-#' 
+#'
 #' @export
 optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_lpdb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' @title Optimal Binning for Numerical Variables using Modified Binning Algorithm (MBA)
-#' 
+#'
 #' @description This function implements an optimal binning algorithm for numerical variables using a Modified Binning Algorithm (MBA) approach.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -2513,195 +2488,62 @@ optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_b
 #' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
 #' @param n_threads Number of threads to use for parallel processing (default: 1).
-#' 
+#'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
 #' \item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
-#' 
+#'
 #' @details
 #' The Modified Binning Algorithm (MBA) is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values and respecting user-defined constraints.
-#' 
+#'
 #' The algorithm works through several steps:
 #' 1. Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins) using quantiles.
 #' 2. Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold.
 #' 3. Monotonic binning: Merges adjacent bins to ensure monotonic WoE values.
 #' 4. Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
-#' 
+#'
 #' The algorithm uses the difference in Weight of Evidence (WoE) values as a criterion for merging bins, aiming to maintain monotonicity while preserving the predictive power of the feature.
-#' 
+#'
 #' Weight of Evidence (WoE) is calculated as:
 #' \deqn{WoE = \ln\left(\frac{\text{% of positive cases}}{\text{% of negative cases}}\right)}
-#' 
+#'
 #' Information Value (IV) is calculated as:
 #' \deqn{IV = (\text{% of positive cases} - \text{% of negative cases}) \times WoE}
-#' 
+#'
 #' The MBA method ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications. It also provides flexibility in terms of the number of bins and the minimum bin frequency, allowing users to balance between predictive power and model interpretability.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' 
+#'
 #' # Run optimal binning
 #' result <- optimal_binning_numerical_mba(target, feature)
-#' 
+#'
 #' # View results
 #' head(result$woefeature)
 #' print(result$woebin)
 #' }
-#' 
+#'
 #' @references
 #' \itemize{
 #' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit scoring modeling. arXiv preprint arXiv:1711.07139.
 #' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
 #' }
-#' 
-#' @author Lopes, J. E.
-#' 
+#'
+#' @author Lopes, J.
+#'
 #' @export
 optimal_binning_numerical_mba <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, n_threads = 1L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mba`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
 }
 
-#' @title Optimal Binning for Numerical Variables using Monotonic Binning via Linear Programming (MBLP)
-#' 
-#' @description This function implements an optimal binning algorithm for numerical variables using Monotonic Binning via Linear Programming (MBLP).
-#' 
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' 
-#' @return A list containing two elements:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
-#' \item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
-#' 
-#' @details
-#' The Monotonic Binning via Linear Programming (MBLP) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values.
-#' 
-#' The algorithm works through several steps:
-#' 1. Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins).
-#' 2. Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold.
-#' 3. Enforcing monotonicity: Merges adjacent bins to ensure monotonic WoE values.
-#' 4. Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
-#' 
-#' The algorithm uses Information Value (IV) as a criterion for merging bins, aiming to minimize IV loss at each step. This approach helps preserve the predictive power of the feature while creating optimal bins.
-#' 
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln\left(\frac{\text{% of positive cases}}{\text{% of negative cases}}\right)}
-#' 
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{% of positive cases} - \text{% of negative cases}) \times WoE}
-#' 
-#' The MBLP method ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
-#' 
-#' @examples
-#' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- rnorm(1000)
-#' 
-#' # Run optimal binning
-#' result <- optimal_binning_numerical_mblp(target, feature)
-#' 
-#' # View results
-#' head(result$woefeature)
-#' print(result$woebin)
-#' }
-#' 
-#' @references
-#' \itemize{
-#' \item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gomez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
-#' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit scoring modeling. arXiv preprint arXiv:1711.07139.
-#' }
-#' 
-#' @author Lopes, J. E.
-#' 
-#' @export
 optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
-#' @title Optimal Binning for Numerical Variables using MDLP
-#' 
-#' @description
-#' This function performs optimal binning for numerical variables using the Minimum Description Length Principle (MDLP). It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
-#' 
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#' 
-#' @return A list containing two elements:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-#' \item{woebin}{A data frame with the following columns:
-#'   \itemize{
-#'     \item bin: Character vector of bin ranges.
-#'     \item woe: Numeric vector of WoE values for each bin.
-#'     \item iv: Numeric vector of Information Value (IV) for each bin.
-#'     \item count: Integer vector of total observations in each bin.
-#'     \item count_pos: Integer vector of positive target observations in each bin.
-#'     \item count_neg: Integer vector of negative target observations in each bin.
-#'   }
-#' }
-#' 
-#' @details
-#' The Optimal Binning algorithm for numerical variables using MDLP works as follows:
-#' 1. Create initial bins using equal-frequency binning.
-#' 2. Apply the MDLP algorithm to merge bins:
-#'    - Calculate the current MDL cost.
-#'    - For each pair of adjacent bins, calculate the MDL cost if merged.
-#'    - Merge the pair with the lowest MDL cost.
-#'    - Repeat until no further merging reduces the MDL cost or the minimum number of bins is reached.
-#' 3. Merge rare bins (those with a proportion less than bin_cutoff).
-#' 4. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin:
-#'    \deqn{WoE = \ln\left(\frac{\text{Positive Rate}}{\text{Negative Rate}}\right)}
-#'    \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#' 
-#' The MDLP algorithm aims to find the optimal trade-off between model complexity (number of bins) and goodness of fit. It uses the principle of minimum description length, which states that the best model is the one that provides the shortest description of the data.
-#' 
-#' The MDL cost is calculated as:
-#' \deqn{MDL = \log_2(k - 1) + n \times H(S) - \sum_{i=1}^k n_i \times H(S_i)}
-#' where k is the number of bins, n is the total number of instances, H(S) is the entropy of the entire dataset, and H(S_i) is the entropy of the i-th bin.
-#' 
-#' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
-#' 
-#' @examples
-#' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' n <- 1000
-#' target <- sample(0:1, n, replace = TRUE)
-#' feature <- rnorm(n)
-#' 
-#' # Run optimal binning
-#' result <- optimal_binning_numerical_mdlp(target, feature, min_bins = 2, max_bins = 4)
-#' 
-#' # Print results
-#' print(result$woebin)
-#' 
-#' # Plot WoE values
-#' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
-#'      main = "Weight of Evidence by Bin")
-#' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin)
-#' }
-#' 
-#' @references
-#' \itemize{
-#' \item Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. In Proceedings of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
-#' \item Rissanen, J. (1978). Modeling by shortest data description. Automatica, 14(5), 465-471.
-#' }
-#' 
-#' @author Lopes, J. E.
-#' 
-#' @export
 optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mdlp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
@@ -2789,79 +2631,6 @@ optimal_binning_numerical_milp <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_milp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
 }
 
-#' @title Optimal Binning for Numerical Variables using Monotonic Optimal Binning (MOB)
-#'
-#' @description
-#' This function performs optimal binning for numerical variables using a Monotonic Optimal Binning (MOB) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
-#'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#'
-#' @return A list containing two elements:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-#' \item{woebin}{A data frame with the following columns:
-#'   \itemize{
-#'     \item bin: Character vector of bin ranges.
-#'     \item woe: Numeric vector of WoE values for each bin.
-#'     \item iv: Numeric vector of Information Value (IV) for each bin.
-#'     \item count: Integer vector of total observations in each bin.
-#'     \item count_pos: Integer vector of positive target observations in each bin.
-#'     \item count_neg: Integer vector of negative target observations in each bin.
-#'   }
-#' }
-#'
-#' @details
-#' The Monotonic Optimal Binning (MOB) algorithm for numerical variables works as follows:
-#' 1. Create initial pre-bins using equal-frequency binning.
-#' 2. Calculate initial Weight of Evidence (WoE) and Information Value (IV) for each bin.
-#' 3. Merge bins to enforce monotonicity and respect the bin_cutoff constraint.
-#' 4. Further merge bins if necessary to meet the max_bins constraint.
-#' 5. Split bins if necessary to meet the min_bins constraint.
-#' 6. Recalculate WoE and IV for the final bins.
-#'
-#' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
-#'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
-#'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#'
-#' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
-#'
-#' @references
-#' \itemize{
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
-#'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' n <- 1000
-#' target <- sample(0:1, n, replace = TRUE)
-#' feature <- rnorm(n)
-#'
-#' # Run optimal binning
-#' result <- optimal_binning_numerical_mob(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # Print results
-#' print(result$woebin)
-#'
-#' # Plot WoE values
-#' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
-#'      main = "Weight of Evidence by Bin")
-#' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
-#' }
-#'
-#' @author Lopes, J. E.
-#'
-#' @export
 optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mob`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
@@ -2903,10 +2672,10 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
 #'
 #' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+#' \deqn{WoE = \ln(\frac{\text{Distribution of Positives}}{\text{Distribution of Negatives}})}
 #'
 #' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+#' \deqn{IV = (\text{Distribution of Positives} - \text{Distribution of Negatives}) \times WoE}
 #'
 #' This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
 #'
@@ -2936,8 +2705,6 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 #' }
 #'
-#' @author Lopes, J. E.
-#'
 #' @export
 optimal_binning_numerical_obnp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_obnp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
@@ -2946,72 +2713,37 @@ optimal_binning_numerical_obnp <- function(target, feature, min_bins = 3L, max_b
 #' @title Optimal Binning for Numerical Variables using OSLP
 #'
 #' @description
-#' This function performs optimal binning for numerical variables using the Optimal Supervised Learning Partitioning (OSLP) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+#' Performs optimal binning for numerical variables using the Optimal
+#' Supervised Learning Partitioning (OSLP) approach.
 #'
 #' @param target A numeric vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values.
 #' @param min_bins Minimum number of bins (default: 3, must be >= 2).
 #' @param max_bins Maximum number of bins (default: 5, must be > min_bins).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05, must be in (0, 1)).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+#' @param bin_cutoff Minimum proportion of total observations for a bin
+#'   to avoid being merged (default: 0.05, must be in (0, 1)).
+#' @param max_n_prebins Maximum number of pre-bins before optimization
+#'   (default: 20).
 #'
-#' @return A list containing two elements:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-#' \item{woebin}{A data frame with the following columns:
-#'   \itemize{
-#'     \item bin: Character vector of bin ranges.
-#'     \item woe: Numeric vector of WoE values for each bin.
-#'     \item iv: Numeric vector of Information Value (IV) for each bin.
-#'     \item count: Integer vector of total observations in each bin.
-#'     \item count_pos: Integer vector of positive target observations in each bin.
-#'     \item count_neg: Integer vector of negative target observations in each bin.
-#'   }
-#' }
-#'
-#' @details
-#' The Optimal Supervised Learning Partitioning (OSLP) algorithm for numerical variables works as follows:
-#' 1. Prebin the data into max_n_prebins using quantiles.
-#' 2. Merge adjacent bins to meet the max_bins constraint and bin_cutoff requirement.
-#' 3. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
-#' 4. Enforce monotonicity of WoE values across bins.
-#' 5. Recalculate IV values based on the monotonic WoE.
-#'
-#' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
-#'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
-#'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#'
-#' @references
-#' \itemize{
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
-#'   \item Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. Oxford University Press.
-#' }
+#' @return A list containing:
+#' \item{woefeature}{Numeric vector of WoE values for each observation.}
+#' \item{woebin}{Data frame with binning information.}
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
+#' # Sample data
 #' set.seed(123)
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- rnorm(n)
 #'
-#' # Run optimal binning
-#' result <- optimal_binning_numerical_oslp(target, feature, min_bins = 2, max_bins = 4)
+#' # Optimal binning
+#' result <- optimal_binning_numerical_oslp(target, feature,
+#'                                          min_bins = 2, max_bins = 4)
 #'
 #' # Print results
 #' print(result$woebin)
-#'
-#' # Plot WoE values
-#' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
-#'      main = "Weight of Evidence by Bin")
-#' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 #' }
-#'
-#' @author Lopes, J. E.
-#'
 #' @export
 optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_oslp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
@@ -3020,10 +2752,10 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' @title Optimal Binning for Numerical Variables using PLAOB
 #'
 #' @description
-#' This function performs optimal binning for numerical variables using the Piecewise 
-#' Linear Approximation Optimal Binning (PLAOB) approach. It creates optimal bins for 
-#' a numerical feature based on its relationship with a binary target variable, 
-#' maximizing the predictive power while respecting user-defined constraints and 
+#' This function performs optimal binning for numerical variables using the Piecewise
+#' Linear Approximation Optimal Binning (PLAOB) approach. It creates optimal bins for
+#' a numerical feature based on its relationship with a binary target variable,
+#' maximizing the predictive power while respecting user-defined constraints and
 #' enforcing monotonicity.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
@@ -3054,20 +2786,19 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #'    - Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
 #'    - Enforce monotonicity of WoE values across bins.
 #'    - Ensure the number of bins is between min_bins and max_bins.
-#'    - Adjust bin boundaries to maximize total IV.
 #' 4. Repeat the refinement process until convergence or a maximum number of iterations is reached.
 #'
-#' The algorithm aims to create bins that maximize the predictive power of the numerical 
-#' variable while adhering to the specified constraints. It enforces monotonicity of WoE 
+#' The algorithm aims to create bins that maximize the predictive power of the numerical
+#' variable while adhering to the specified constraints. It enforces monotonicity of WoE
 #' values, which is particularly useful for credit scoring and risk modeling applications.
 #'
 #' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+#' \deqn{WoE = \ln\left(\frac{\text{Distribution of positives}_i + \epsilon}{\text{Distribution of negatives}_i + \epsilon}\right)}
 #'
 #' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+#' \deqn{IV = (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
 #'
-#' This implementation uses OpenMP for parallel processing when available, which can 
+#' This implementation uses OpenMP for parallel processing when available, which can
 #' significantly speed up the computation for large datasets.
 #'
 #' @references
@@ -3095,8 +2826,6 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #'      main = "Weight of Evidence by Bin")
 #' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 #' }
-#'
-#' @author Lopes, J. E.
 #'
 #' @export
 optimal_binning_numerical_plaob <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -3178,8 +2907,6 @@ optimal_binning_numerical_plaob <- function(target, feature, min_bins = 3L, max_
 #' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 #' }
 #'
-#' @author Lopes, J. E.
-#'
 #' @export
 optimal_binning_numerical_qb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_qb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
@@ -3199,6 +2926,7 @@ optimal_binning_numerical_qb <- function(target, feature, min_bins = 3L, max_bin
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
+#' @param monotonicity Direction of monotonicity constraint: "none" (default), "increasing", or "decreasing".
 #'
 #' @return A list containing two elements:
 #' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
@@ -3262,19 +2990,17 @@ optimal_binning_numerical_qb <- function(target, feature, min_bins = 3L, max_bin
 #' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 #' }
 #'
-#' @author Lopes, J. E.
-#'
 #' @export
-optimal_binning_numerical_sab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+optimal_binning_numerical_sab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, monotonicity = "none") {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonicity)
 }
 
 #' @title Optimal Binning for Numerical Variables using Supervised Boundary Binning (SBB)
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using 
-#' Supervised Boundary Binning (SBB). It transforms a continuous feature into discrete 
-#' bins while preserving the monotonic relationship with the target variable and 
+#' This function implements an optimal binning algorithm for numerical variables using
+#' Supervised Boundary Binning (SBB). It transforms a continuous feature into discrete
+#' bins while preserving the monotonic relationship with the target variable and
 #' maximizing the predictive power.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
@@ -3289,25 +3015,25 @@ optimal_binning_numerical_sab <- function(target, feature, min_bins = 3L, max_bi
 #' \item{woebin}{A data frame containing the binning information, including bin boundaries, WoE values, Information Value (IV), and count statistics.}
 #'
 #' @details
-#' The SBB algorithm combines pre-binning, small bin merging, and monotonic binning to create 
+#' The SBB algorithm combines pre-binning, small bin merging, and monotonic binning to create
 #' an optimal binning solution for numerical variables. The process involves the following steps:
 #'
-#' 1. Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning. 
+#' 1. Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning.
 #'    The number of pre-bins is determined by the `max_n_prebins` parameter.
-#' 2. Small bin merging: Bins with a proportion of observations less than `bin_cutoff` are 
+#' 2. Small bin merging: Bins with a proportion of observations less than `bin_cutoff` are
 #'    merged with adjacent bins to ensure statistical significance.
-#' 3. Monotonic binning: The algorithm enforces a monotonic relationship between the bin order 
-#'    and the Weight of Evidence (WoE) values. This step ensures that the binning preserves 
+#' 3. Monotonic binning: The algorithm enforces a monotonic relationship between the bin order
+#'    and the Weight of Evidence (WoE) values. This step ensures that the binning preserves
 #'    the original relationship between the feature and the target variable.
-#' 4. Bin count adjustment: If the number of bins exceeds `max_bins`, the algorithm merges 
-#'    bins with the smallest Information Value (IV). If the number of bins is less than 
+#' 4. Bin count adjustment: If the number of bins exceeds `max_bins`, the algorithm merges
+#'    bins with the smallest Information Value (IV). If the number of bins is less than
 #'    `min_bins`, the smallest bins are merged.
 #'
 #' The Weight of Evidence (WoE) for each bin is calculated as:
 #'
 #' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right) = \ln\left(\frac{\frac{n_{1i}}{n_1}}{\frac{n_{0i}}{n_0}}\right)}
 #'
-#' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i, respectively, 
+#' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i, respectively,
 #' and \eqn{n_1} and \eqn{n_0} are the total number of events and non-events.
 #'
 #' The Information Value (IV) for each bin is calculated as:
@@ -3342,13 +3068,13 @@ optimal_binning_numerical_sab <- function(target, feature, min_bins = 3L, max_bi
 #'
 #' @references
 #' \itemize{
-#' \item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone optimal binning algorithm for credit risk modeling." 
+#' \item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone optimal binning algorithm for credit risk modeling."
 #'       arXiv preprint arXiv:1711.05095.
-#' \item Thomas, L. C. (2000). "A survey of credit and behavioural scoring: forecasting financial risk of 
+#' \item Thomas, L. C. (2000). "A survey of credit and behavioural scoring: forecasting financial risk of
 #'       lending to consumers." International journal of forecasting, 16(2), 149-172.
 #' }
 #'
-#' @author Lopes, J. E.
+#' @author Lopes, J.
 #'
 #' @export
 optimal_binning_numerical_sbb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -3358,9 +3084,9 @@ optimal_binning_numerical_sbb <- function(target, feature, min_bins = 3L, max_bi
 #' @title Optimal Binning for Numerical Variables using Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP)
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using 
-#' Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP). It transforms a 
-#' continuous feature into discrete bins while preserving the monotonic relationship 
+#' This function implements an optimal binning algorithm for numerical variables using
+#' Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP). It transforms a
+#' continuous feature into discrete bins while preserving the monotonic relationship
 #' with the target variable and maximizing the predictive power.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
@@ -3421,7 +3147,7 @@ optimal_binning_numerical_sbb <- function(target, feature, min_bins = 3L, max_bi
 #'
 #' @references
 #' \itemize{
-#' \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics on Clouds." 
+#' \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics on Clouds."
 #'       In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.
 #' \item Zeng, Y. (2014). "Optimal Binning for Scoring Modeling." Computational Economics, 44(1), 137-149.
 #' }
@@ -3429,15 +3155,15 @@ optimal_binning_numerical_sbb <- function(target, feature, min_bins = 3L, max_bi
 #' @author Lopes, J. E.
 #'
 #' @export
-optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, n_threads = 1L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mrblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
+optimal_binning_numerical_sblp <- function(target, feature, min_bins = 5L, max_bins = 10L, bin_cutoff = 0.05, max_n_prebins = 100L, n_threads = 1L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, n_threads)
 }
 
 #' @title Optimal Binning for Numerical Variables using Sliding Window Binning
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using 
-#' a Sliding Window Binning (SWB) approach with Weight of Evidence (WoE) and 
+#' This function implements an optimal binning algorithm for numerical variables using
+#' a Sliding Window Binning (SWB) approach with Weight of Evidence (WoE) and
 #' Information Value (IV) criteria.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
@@ -3452,8 +3178,8 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
 #'
 #' @details
-#' The optimal binning algorithm for numerical variables uses a Sliding Window Binning 
-#' approach with Weight of Evidence (WoE) and Information Value (IV) to create bins 
+#' The optimal binning algorithm for numerical variables uses a Sliding Window Binning
+#' approach with Weight of Evidence (WoE) and Information Value (IV) to create bins
 #' that maximize the predictive power of the feature while maintaining interpretability.
 #'
 #' The algorithm follows these steps:
@@ -3468,7 +3194,7 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #'
 #' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
 #'
-#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and 
+#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and
 #' \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
 #'
 #' Information Value (IV) for each bin is calculated as:
@@ -3479,8 +3205,8 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #'
 #' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
 #'
-#' The SWB approach ensures that the resulting binning maximizes the separation between 
-#' classes while maintaining the desired number of bins and respecting the minimum bin 
+#' The SWB approach ensures that the resulting binning maximizes the separation between
+#' classes while maintaining the desired number of bins and respecting the minimum bin
 #' frequency constraint.
 #'
 #' @examples
@@ -3498,15 +3224,15 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #' print(result$woebin)
 #'
 #' # Plot WoE transformation
-#' plot(feature, result$woefeature, main = "WoE Transformation", 
+#' plot(feature, result$woefeature, main = "WoE Transformation",
 #'      xlab = "Original Feature", ylab = "WoE")
 #' }
 #'
 #' @references
 #' \itemize{
-#' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm 
+#' \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
 #'       for credit risk modeling. arXiv preprint arXiv:1711.05095.
-#' \item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural networks for economic 
+#' \item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural networks for economic
 #'       and financial modelling. International Thomson Computer Press.
 #' }
 #'
@@ -3524,7 +3250,7 @@ optimal_binning_numerical_swb <- function(target, feature, min_bins = 3L, max_bi
 #' Unsupervised Binning approach based on Standard Deviation (UBSD) with Weight of Evidence (WoE) 
 #' and Information Value (IV) criteria.
 #' 
-#' @param target A numeric vector of binary target values (should contain exactly two unique values).
+#' @param target A numeric vector of binary target values (should contain exactly two unique values: 0 and 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
@@ -3595,8 +3321,6 @@ optimal_binning_numerical_swb <- function(target, feature, min_bins = 3L, max_bi
 #'       discretization of continuous features. In Machine Learning Proceedings 1995 
 #'       (pp. 194-202). Morgan Kaufmann.
 #' }
-#' 
-#' @author Lopes, J. E.
 #' 
 #' @export
 optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -3681,7 +3405,8 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #'       (pp. 194-202). Morgan Kaufmann.
 #' }
 #' 
-#' @author Lopes, J. E.
+#' @author
+#' Lopes, J. E.
 #' 
 #' @export
 optimal_binning_numerical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
@@ -3816,7 +3541,7 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' This function takes a numeric vector of Weight of Evidence (WoE) values and the corresponding binary target variable
 #' to generate a detailed gains table. The table includes various metrics to assess the performance and characteristics of each WoE bin.
 #'
-#' @param feature_woe Numeric vector representing the Weight of Evidence (WoE) values for each observation.
+#' @param binned_feature Numeric vector representing the Weight of Evidence (WoE) values for each observation or any categorical variable.
 #' @param target Numeric vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).
 #'
 #' @return A data frame containing the following columns for each unique WoE bin:
@@ -3900,7 +3625,7 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' }
 #'
 #' @export
-OptimalBinningGainsTableFeature <- function(feature_woe, target) {
-    .Call(`_OptimalBinningWoE_OptimalBinningGainsTableFeature`, feature_woe, target)
+OptimalBinningGainsTableFeature <- function(binned_feature, target) {
+    .Call(`_OptimalBinningWoE_OptimalBinningGainsTableFeature`, binned_feature, target)
 }
 

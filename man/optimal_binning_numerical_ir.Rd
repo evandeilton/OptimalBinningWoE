@@ -27,7 +27,7 @@ optimal_binning_numerical_ir(
 \item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
 }
 \value{
-A list containing two elements:
+A list containing three elements:
 \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
 \item{woebin}{A data frame with the following columns:
 \itemize{
@@ -37,6 +37,7 @@ A list containing two elements:
 \item count: Integer vector of total observations in each bin.
 \item count_pos: Integer vector of positive target observations in each bin.
 \item count_neg: Integer vector of negative target observations in each bin.
+\item iv_total: Total Information Value (IV) for the feature.
 }
 }
 }

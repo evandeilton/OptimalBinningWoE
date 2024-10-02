@@ -70,6 +70,7 @@ result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, max_bi
 
 # View results
 print(result$woefeature)
+print(result$woebin)
 }
 
 }

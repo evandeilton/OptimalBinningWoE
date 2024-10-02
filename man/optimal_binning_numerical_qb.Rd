@@ -96,6 +96,3 @@ axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 \item Liu, X., & Wu, Y. (2019). Supervised Discretization for Credit Scoring. Journal of Credit Risk, 15(2), 55-87.
 }
 }
-\author{
-Lopes, J. E.
-}

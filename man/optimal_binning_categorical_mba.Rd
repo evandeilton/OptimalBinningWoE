@@ -27,11 +27,12 @@ optimal_binning_categorical_mba(
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 }
 \value{
-A list containing three elements:
+A list containing four elements:
 \itemize{
 \item woefeature: A numeric vector of WOE values for each input feature value
 \item woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts
 \item total_iv: The total Information Value of the binning
+\item is_monotonic: A logical value indicating whether the final binning achieves monotonicity
 }
 }
 \description{
@@ -71,6 +72,7 @@ result <- optimal_binning_categorical_mba(target, feature)
 # View results
 print(result$woebin)
 print(paste("Total IV:", result$total_iv))
+print(paste("Is monotonic:", result$is_monotonic))
 hist(result$woefeature)
 }
 }

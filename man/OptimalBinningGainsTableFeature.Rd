@@ -4,10 +4,10 @@
 \alias{OptimalBinningGainsTableFeature}
 \title{Generates a Comprehensive Gains Table from Weight of Evidence (WoE) and Target Feature Data}
 \usage{
-OptimalBinningGainsTableFeature(feature_woe, target)
+OptimalBinningGainsTableFeature(binned_feature, target)
 }
 \arguments{
-\item{feature_woe}{Numeric vector representing the Weight of Evidence (WoE) values for each observation.}
+\item{binned_feature}{Numeric vector representing the Weight of Evidence (WoE) values for each observation or any categorical variable.}
 
 \item{target}{Numeric vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).}
 }

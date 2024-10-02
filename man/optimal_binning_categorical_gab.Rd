@@ -7,15 +7,14 @@
 optimal_binning_categorical_gab(
   target,
   feature,
-  min_bins = 3L,
+  min_bins = 2L,
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   population_size = 100L,
   num_generations = 100L,
-  mutation_rate = 0.1,
-  crossover_rate = 0.8,
-  time_limit_seconds = 300L
+  mutation_rate = 0.01,
+  crossover_rate = 0.8
 )
 }
 \arguments{
@@ -23,7 +22,7 @@ optimal_binning_categorical_gab(
 
 \item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 2).}
 
 \item{max_bins}{Maximum number of bins (default: 5).}
 
@@ -35,17 +34,16 @@ optimal_binning_categorical_gab(
 
 \item{num_generations}{Number of generations for the genetic algorithm (default: 100).}
 
-\item{mutation_rate}{Probability of mutation for each bin (default: 0.1).}
+\item{mutation_rate}{Probability of mutation for each gene (default: 0.01).}
 
 \item{crossover_rate}{Probability of crossover between parents (default: 0.8).}
-
-\item{time_limit_seconds}{Maximum execution time in seconds (default: 300).}
 }
 \value{
-A list with two elements:
+A list with three elements:
 \itemize{
 \item woefeature: Numeric vector of WoE values for each input feature value.
 \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+\item total_iv: Total Information Value across all bins.
 }
 }
 \description{
@@ -53,32 +51,41 @@ Implements optimal binning for categorical variables using a Genetic Algorithm a
 calculating Weight of Evidence (WoE) and Information Value (IV).
 }
 \details{
-The algorithm uses a genetic algorithm approach to find an optimal binning solution.
-It evolves a population of binning solutions over multiple generations, using
-selection, crossover, and mutation operations.
+The algorithm employs a Genetic Algorithm (GA) to identify an optimal binning solution for categorical variables.
+It evolves a population of binning solutions over multiple generations, utilizing selection, crossover, and mutation operations
+to maximize the overall Information Value (IV) while adhering to constraints on the number of bins and ensuring monotonicity
+of WoE values across bins.
 
-Weight of Evidence (WoE) for each bin is calculated as:
-
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-
-Information Value (IV) for each bin is calculated as:
-
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-
-The fitness of each individual (binning solution) is the sum of IVs across all bins.
-The algorithm aims to maximize this fitness while respecting constraints on the
-number of bins and ensuring monotonicity of WoE values across bins.
-
-The genetic algorithm includes the following key steps:
+\strong{Key Steps of the Genetic Algorithm:}
 \enumerate{
-\item Initialize population with random binning solutions.
-\item Evaluate fitness of each individual.
-\item Select parents based on fitness (using roulette wheel selection).
-\item Create offspring through crossover and mutation.
-\item Ensure offspring respect constraints (number of bins, monotonicity).
-\item Replace population with offspring.
-\item Repeat steps 2-6 for the specified number of generations or until time limit is reached.
+\item \strong{Initialization}: Generate an initial population of binning solutions with random assignments, ensuring that the minimum number of bins (\code{min_bins}) is met.
+\item \strong{Fitness Evaluation}: Calculate the fitness of each individual in the population based on the sum of IVs across all bins.
+\item \strong{Selection}: Select parent individuals for reproduction using tournament selection, favoring individuals with higher fitness.
+\item \strong{Crossover}: Perform single-point crossover between pairs of parents to produce offspring, exchanging segments of their chromosomes.
+\item \strong{Mutation}: Introduce random mutations in the offspring's chromosomes with a probability defined by \code{mutation_rate}, altering bin assignments to maintain genetic diversity.
+\item \strong{Replacement}: Form a new population from the offspring, maintaining the population size.
+\item \strong{Termination}: Repeat the evaluation, selection, crossover, and mutation steps for a specified number of generations (\code{num_generations}) or until convergence criteria are met.
 }
+
+\strong{Weight of Evidence (WoE):}
+\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+Where:
+\itemize{
+\item \( P(X|Y=1) \) is the distribution of positives in bin \( X \).
+\item \( P(X|Y=0) \) is the distribution of negatives in bin \( X \).
+}
+
+\strong{Information Value (IV):}
+\deqn{IV = \sum_{i=1}^{N} (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+The IV measures the predictive power of the binned feature, with higher values indicating stronger predictive capability.
+
+\strong{Numerical Stability and Edge Case Handling:}
+The algorithm incorporates smoothing techniques by adding a small constant (e.g., 10^-10) to distributions to prevent division by zero and taking the logarithm of zero.
+It also ensures that each bin has positive and negative counts, except in cases where the target variable lacks sufficient cases for a particular category.
+All final bins consist solely of original unique category values concatenated with a "+" delimiter, preserving category integrity without introducing "Others" or "Rare" bins.
+
+\strong{Monotonicity Enforcement:}
+While the Genetic Algorithm inherently promotes higher IV through selection and reproduction, additional mechanisms can be integrated to enforce monotonicity of WoE values across bins when feasible. This ensures that the relationship between the feature and the target remains consistent and interpretable.
 }
 \examples{
 \dontrun{
@@ -87,18 +94,34 @@ target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
 # Run optimal binning
-result <- optimal_binning_categorical_gab(target, feature, min_bins = 2, max_bins = 4)
+result <- optimal_binning_categorical_gab(
+  target, 
+  feature, 
+  min_bins = 2, 
+  max_bins = 4, 
+  bin_cutoff = 0.05, 
+  max_n_prebins = 20,
+  population_size = 100, 
+  num_generations = 100, 
+  mutation_rate = 0.01, 
+  crossover_rate = 0.8
+)
 
-# View results
+# View binning results
 print(result$woebin)
+
+# View WoE values assigned to each feature value
 print(result$woefeature)
+
+# View total Information Value
+print(result$total_iv)
 }
 
 }
 \references{
 \itemize{
-\item Holland, J. H. (1992). Adaptation in natural and artificial systems: an introductory analysis with applications to biology, control, and artificial intelligence. MIT press.
-\item Whitley, D. (1994). A genetic algorithm tutorial. Statistics and computing, 4(2), 65-85.
+\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. \emph{Risks}, 9(3), 58.
+\item Siddiqi, N. (2006). \emph{Credit risk scorecards: developing and implementing intelligent credit scoring} (Vol. 3). John Wiley & Sons.
 }
 }
 \author{

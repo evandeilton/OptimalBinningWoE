@@ -81,5 +81,5 @@ print(result$woebin)
 }
 }
 \author{
-Lopes, J. E.
+Lopes, J.
 }

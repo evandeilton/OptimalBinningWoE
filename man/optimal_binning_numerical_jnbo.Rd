@@ -38,22 +38,22 @@ This function implements an optimal binning algorithm for numerical variables us
 \details{
 The optimal binning algorithm uses dynamic programming to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints. The algorithm consists of several steps:
 \enumerate{
-\item Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-\item Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-\item Dynamic programming optimization: The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.
+\item \strong{Pre-binning:} The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
+\item \strong{Merging rare bins:} Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+\item \strong{Dynamic programming optimization:} The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.
 }
 
-The Weight of Evidence (WoE) for each bin is calculated as:
+The \strong{Weight of Evidence (WoE)} for each bin is calculated as:
 
 \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
 
 where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
 
-The Information Value (IV) for each bin is calculated as:
+The \strong{Information Value (IV)} for each bin is calculated as:
 
 \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
 
-The total IV is the sum of IVs for all bins:
+The \strong{total IV} is the sum of IVs for all bins:
 
 \deqn{\text{Total IV} = \sum_{i=1}^{n} IV_i}
 
@@ -75,7 +75,4 @@ print(result$total_iv)
 \item Belotti, P., & Carrasco, M. (2016). Optimal Binning: Mathematical Programming Formulation and Solution Approach. \emph{arXiv preprint arXiv:1605.05710}.
 \item Gutiérrez, P. A., Pérez-Ortiz, M., Sánchez-Monedero, J., Fernández-Navarro, F., & Hervás-Martínez, C. (2016). Ordinal regression methods: survey and experimental study. \emph{IEEE Transactions on Knowledge and Data Engineering}, 28(1), 127-146.
 }
-}
-\author{
-Lopes, J. E.
 }

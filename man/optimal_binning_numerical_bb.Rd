@@ -80,7 +80,7 @@ result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins =
 print(result$woebin)
 
 # Plot WoE transformation
-plot(feature, result$woefeature, main = "WoE Transformation", 
+plot(feature, result$woefeature, main = "WoE Transformation",
 xlab = "Original Feature", ylab = "WoE")
 }
 

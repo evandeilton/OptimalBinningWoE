@@ -82,5 +82,5 @@ print(result$iv_total)
 }
 }
 \author{
-Lopes, J. E.
+Lopes,
 }

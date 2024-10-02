@@ -10,7 +10,10 @@ optimal_binning_numerical_gab(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  population_size = 50L,
+  max_generations = 100L,
+  mutation_rate = 0.1
 )
 }
 \arguments{
@@ -25,6 +28,12 @@ optimal_binning_numerical_gab(
 \item{bin_cutoff}{Minimum fraction of total observations in each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{population_size}{Number of individuals in the GA population (default: 50).}
+
+\item{max_generations}{Maximum number of generations for the GA (default: 100).}
+
+\item{mutation_rate}{Probability of mutation in GA (default: 0.1).}
 }
 \value{
 A list containing:
@@ -37,16 +46,16 @@ This function implements an optimal binning algorithm for numerical variables us
 \details{
 The optimal binning algorithm using a genetic algorithm approach consists of several steps:
 \enumerate{
-\item Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-\item Genetic Algorithm:
-a. Initialization: Create a population of potential binning solutions.
-b. Evaluation: Calculate the fitness (Information Value) of each solution.
-c. Selection: Choose the best solutions for reproduction.
-d. Crossover: Create new solutions by combining existing ones.
-e. Mutation: Introduce small random changes to maintain diversity.
-f. Repeat b-e for a specified number of generations.
-\item Monotonicity check: Ensure that the WoE values are either monotonically increasing or decreasing across the bins.
-\item Bin adjustment: Merge bins that have fewer observations than specified by \code{bin_cutoff}.
+\item \strong{Pre-binning:} The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins} based on quantiles.
+\item \strong{Genetic Algorithm:}
+a. \strong{Initialization:} Create a population of potential binning solutions with random cut points.
+b. \strong{Evaluation:} Calculate the fitness (Information Value) of each solution.
+c. \strong{Selection:} Choose the best solutions for reproduction based on fitness.
+d. \strong{Crossover:} Create new solutions by combining cut points from parent individuals.
+e. \strong{Mutation:} Introduce small random changes to maintain diversity in the population.
+f. \strong{Repeat:} Iterate through evaluation, selection, crossover, and mutation for a specified number of generations.
+\item \strong{Monotonicity Check:} Ensure that the WoE values are either monotonically increasing or decreasing across the bins.
+\item \strong{Bin Adjustment:} Merge bins that have fewer observations than specified by \code{bin_cutoff} to maintain bin integrity.
 }
 
 The Weight of Evidence (WoE) for each bin is calculated as:
@@ -57,7 +66,7 @@ where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin
 
 The Information Value (IV) for each bin is calculated as:
 
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+\deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
 
 The total IV, which is used as the fitness function in the genetic algorithm, is the sum of IVs for all bins:
 

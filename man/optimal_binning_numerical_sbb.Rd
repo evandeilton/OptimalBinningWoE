@@ -100,5 +100,5 @@ lending to consumers." International journal of forecasting, 16(2), 149-172.
 }
 }
 \author{
-Lopes, J. E.
+Lopes, J.
 }

@@ -19,11 +19,11 @@ using namespace Rcpp;
 // Helper function to compute WOE and IV
 inline void compute_woe_iv(double count_pos, double count_neg, double total_pos, double total_neg,
                            double &woe, double &iv) {
-  constexpr double EPSILON = 1e-10;
   double dist_pos = count_pos / total_pos;
   double dist_neg = count_neg / total_neg;
-  dist_pos = std::max(dist_pos, EPSILON);
-  dist_neg = std::max(dist_neg, EPSILON);
+  // Avoid division by zero and log of zero
+  if (dist_pos < 1e-10) dist_pos = 1e-10;
+  if (dist_neg < 1e-10) dist_neg = 1e-10;
   woe = std::log(dist_pos / dist_neg);
   iv = (dist_pos - dist_neg) * woe;
 }
@@ -50,42 +50,37 @@ public:
     validate_input();
     
     // Step 2: Preprocess data - count occurrences
-    std::unordered_map<std::string, int> category_counts;
-    std::unordered_map<std::string, int> category_pos_counts;
-    preprocess_data(category_counts, category_pos_counts);
-    
-    // Total counts
-    double total_count = feature.size();
-    double total_pos = std::accumulate(target.begin(), target.end(), 0.0);
-    double total_neg = total_count - total_pos;
+    preprocess_data();
     
     // Step 3: Merge rare categories based on bin_cutoff
-    std::vector<std::string> merged_categories;
-    std::unordered_map<std::string, std::string> category_mapping;
-    merge_rare_categories(category_counts, total_count, merged_categories, category_mapping);
+    merge_rare_categories();
     
     // Step 4: Ensure max_n_prebins is not exceeded
-    ensure_max_prebins(merged_categories, category_counts, category_mapping);
+    ensure_max_prebins();
     
     // Step 5: Compute event rates and sort categories
-    std::vector<std::string> sorted_categories;
-    std::vector<double> sorted_event_rates;
-    sort_categories(merged_categories, category_counts, category_pos_counts, sorted_categories, sorted_event_rates);
+    compute_and_sort_event_rates();
     
-    // Step 6-7: Dynamic Programming to find optimal binning
-    size_t n = sorted_categories.size();
-    std::vector<std::vector<double>> dp(n + 1, std::vector<double>(max_bins + 1, -INFINITY));
-    std::vector<std::vector<int>> prev_bin(n + 1, std::vector<int>(max_bins + 1, -1));
-    std::vector<double> cum_count_pos(n + 1, 0.0);
-    std::vector<double> cum_count_neg(n + 1, 0.0);
+    // Step 6: Initialize dynamic programming structures
+    initialize_dp_structures();
     
-    perform_dynamic_programming(sorted_categories, category_counts, category_pos_counts, total_pos, total_neg, dp, prev_bin, cum_count_pos, cum_count_neg);
+    // Step 7: Dynamic Programming to find optimal binning
+    perform_dynamic_programming();
     
     // Step 8: Backtrack to find the optimal bins
-    std::vector<size_t> bin_edges = backtrack_optimal_bins(dp, prev_bin, n);
+    backtrack_optimal_bins();
     
-    // Step 9-10: Prepare output and apply WOE mapping
-    return prepare_output(sorted_categories, bin_edges, category_counts, category_pos_counts, total_pos, total_neg, category_mapping);
+    // Step 9: Prepare output
+    prepare_output();
+    
+    // Step 10: Apply WOE mapping to feature
+    apply_woe_mapping();
+    
+    // Return results
+    return List::create(
+      Named("woefeature") = woefeature,
+      Named("woebin") = woebin
+    );
   }
   
 private:
@@ -96,11 +91,34 @@ private:
   double bin_cutoff;
   int max_n_prebins;
   
+  // Additional member variables
+  std::unordered_map<std::string, int> category_counts;
+  std::unordered_map<std::string, int> category_pos_counts;
+  double total_count;
+  double total_pos;
+  double total_neg;
+  std::vector<std::string> merged_categories;
+  std::unordered_map<std::string, std::string> category_mapping;
+  std::vector<std::string> sorted_categories;
+  std::vector<double> sorted_event_rates;
+  std::vector<std::vector<double>> dp;
+  std::vector<std::vector<int>> prev_bin;
+  std::vector<double> cum_count_pos;
+  std::vector<double> cum_count_neg;
+  std::vector<std::string> bin_names;
+  std::vector<double> bin_woe;
+  std::vector<double> bin_iv;
+  std::vector<int> bin_count;
+  std::vector<int> bin_count_pos;
+  std::vector<int> bin_count_neg;
+  std::vector<double> woefeature;
+  DataFrame woebin;
+  
   // Helper function to split strings by a delimiter
   std::vector<std::string> split_string(const std::string &s, char delimiter) const {
     std::vector<std::string> tokens;
-    std::istringstream tokenStream(s);
     std::string token;
+    std::istringstream tokenStream(s);
     while (std::getline(tokenStream, token, delimiter)) {
       tokens.push_back(token);
     }
@@ -108,7 +126,7 @@ private:
   }
   
   // Helper function to get the total count for a bin
-  int get_bin_count(const std::string &bin, const std::unordered_map<std::string, int> &category_counts) const {
+  int get_bin_count(const std::string &bin) const {
     int count = 0;
     std::vector<std::string> categories = split_string(bin, '+');
     for (const auto &cat : categories) {
@@ -120,7 +138,7 @@ private:
     return count;
   }
   
-  void validate_input() const {
+  void validate_input() {
     if (min_bins < 2) {
       stop("min_bins must be at least 2.");
     }
@@ -131,26 +149,27 @@ private:
       stop("feature and target must have the same length.");
     }
     
+    // Ensure Target is Binary
     std::unordered_set<int> unique_targets(target.begin(), target.end());
     if (unique_targets.size() != 2 || unique_targets.find(0) == unique_targets.end() || unique_targets.find(1) == unique_targets.end()) {
       stop("Target must be binary, containing only 0s and 1s.");
     }
   }
   
-  void preprocess_data(std::unordered_map<std::string, int> &category_counts,
-                       std::unordered_map<std::string, int> &category_pos_counts) const {
+  void preprocess_data() {
     for (size_t i = 0; i < feature.size(); ++i) {
       category_counts[feature[i]] += 1;
       if (target[i] == 1) {
         category_pos_counts[feature[i]] += 1;
       }
     }
+    
+    total_count = feature.size();
+    total_pos = std::accumulate(target.begin(), target.end(), 0.0);
+    total_neg = total_count - total_pos;
   }
   
-  void merge_rare_categories(const std::unordered_map<std::string, int> &category_counts,
-                             double total_count,
-                             std::vector<std::string> &merged_categories,
-                             std::unordered_map<std::string, std::string> &category_mapping) {
+  void merge_rare_categories() {
     double cutoff_count = bin_cutoff * total_count;
     std::vector<std::pair<std::string, int>> sorted_categories_count(category_counts.begin(), category_counts.end());
     std::sort(sorted_categories_count.begin(), sorted_categories_count.end(),
@@ -193,21 +212,19 @@ private:
     }
   }
   
-  void ensure_max_prebins(std::vector<std::string> &merged_categories,
-                          const std::unordered_map<std::string, int> &category_counts,
-                          std::unordered_map<std::string, std::string> &category_mapping) {
+  void ensure_max_prebins() {
     while (merged_categories.size() > static_cast<size_t>(max_n_prebins)) {
       auto min_it1 = std::min_element(merged_categories.begin(), merged_categories.end(),
-                                      [&](const std::string &a, const std::string &b) {
-                                        return get_bin_count(a, category_counts) < get_bin_count(b, category_counts);
+                                      [this](const std::string &a, const std::string &b) {
+                                        return get_bin_count(a) < get_bin_count(b);
                                       });
       
       std::string smallest_bin = *min_it1;
       merged_categories.erase(min_it1);
       
       auto min_it2 = std::min_element(merged_categories.begin(), merged_categories.end(),
-                                      [&](const std::string &a, const std::string &b) {
-                                        return get_bin_count(a, category_counts) < get_bin_count(b, category_counts);
+                                      [this](const std::string &a, const std::string &b) {
+                                        return get_bin_count(a) < get_bin_count(b);
                                       });
       
       std::string merged_bin = smallest_bin + "+" + *min_it2;
@@ -220,23 +237,15 @@ private:
     }
   }
   
-  void sort_categories(const std::vector<std::string> &merged_categories,
-                       const std::unordered_map<std::string, int> &category_counts,
-                       const std::unordered_map<std::string, int> &category_pos_counts,
-                       std::vector<std::string> &sorted_categories,
-                       std::vector<double> &sorted_event_rates) {
+  void compute_and_sort_event_rates() {
     std::vector<double> event_rates;
     for (const auto &bin : merged_categories) {
       double pos = 0.0;
       double total = 0.0;
       std::vector<std::string> split_cats = split_string(bin, '+');
       for (const auto &cat : split_cats) {
-        auto pos_it = category_pos_counts.find(cat);
-        auto total_it = category_counts.find(cat);
-        if (pos_it != category_pos_counts.end() && total_it != category_counts.end()) {
-          pos += pos_it->second;
-          total += total_it->second;
-        }
+        pos += category_pos_counts[cat];
+        total += category_counts[cat];
       }
       event_rates.push_back(pos / total);
     }
@@ -252,33 +261,31 @@ private:
     }
   }
   
-  void perform_dynamic_programming(const std::vector<std::string> &sorted_categories,
-                                   const std::unordered_map<std::string, int> &category_counts,
-                                   const std::unordered_map<std::string, int> &category_pos_counts,
-                                   double total_pos, double total_neg,
-                                   std::vector<std::vector<double>> &dp,
-                                   std::vector<std::vector<int>> &prev_bin,
-                                   std::vector<double> &cum_count_pos,
-                                   std::vector<double> &cum_count_neg) {
+  void initialize_dp_structures() {
     size_t n = sorted_categories.size();
+    dp.resize(n + 1, std::vector<double>(max_bins + 1, -INFINITY));
+    prev_bin.resize(n + 1, std::vector<int>(max_bins + 1, -1));
+    
     dp[0][0] = 0.0; // Base case
+    
+    cum_count_pos.resize(n + 1, 0.0);
+    cum_count_neg.resize(n + 1, 0.0);
     
     for (size_t i = 0; i < n; ++i) {
       double pos = 0.0;
       double neg = 0.0;
       std::vector<std::string> split_cats = split_string(sorted_categories[i], '+');
       for (const auto &cat : split_cats) {
-        auto pos_it = category_pos_counts.find(cat);
-        auto total_it = category_counts.find(cat);
-        if (pos_it != category_pos_counts.end() && total_it != category_counts.end()) {
-          pos += pos_it->second;
-          neg += total_it->second - pos_it->second;
-        }
+        pos += category_pos_counts[cat];
+        neg += category_counts[cat] - category_pos_counts[cat];
       }
       cum_count_pos[i + 1] = cum_count_pos[i] + pos;
       cum_count_neg[i + 1] = cum_count_neg[i] + neg;
     }
-    
+  }
+  
+  void perform_dynamic_programming() {
+    size_t n = sorted_categories.size();
     for (size_t i = 1; i <= n; ++i) {
       for (int k = 1; k <= max_bins && k <= static_cast<int>(i); ++k) {
         for (size_t j = (k - 1 > 0 ? k - 1 : 0); j < i; ++j) {
@@ -298,9 +305,8 @@ private:
     }
   }
   
-  std::vector<size_t> backtrack_optimal_bins(const std::vector<std::vector<double>> &dp,
-                                             const std::vector<std::vector<int>> &prev_bin,
-                                             size_t n) {
+  void backtrack_optimal_bins() {
+    size_t n = sorted_categories.size();
     double max_total_iv = -INFINITY;
     int best_k = -1;
     
@@ -326,25 +332,9 @@ private:
     }
     std::reverse(bin_edges.begin(), bin_edges.end());
     
-    return bin_edges;
-  }
-  
-  List prepare_output(const std::vector<std::string> &sorted_categories,
-                      const std::vector<size_t> &bin_edges,
-                      const std::unordered_map<std::string, int> &category_counts,
-                      const std::unordered_map<std::string, int> &category_pos_counts,
-                      double total_pos, double total_neg,
-                      const std::unordered_map<std::string, std::string> &category_mapping) {
-    std::vector<std::string> bin_names;
-    std::vector<double> bin_woe;
-    std::vector<double> bin_iv;
-    std::vector<int> bin_count;
-    std::vector<int> bin_count_pos;
-    std::vector<int> bin_count_neg;
-    
     size_t start = 0;
     for (size_t edge_idx = 0; edge_idx <= bin_edges.size(); ++edge_idx) {
-      size_t end = (edge_idx < bin_edges.size()) ? bin_edges[edge_idx] : sorted_categories.size();
+      size_t end = (edge_idx < bin_edges.size()) ? bin_edges[edge_idx] : n;
       
       std::vector<std::string> bin_categories;
       double count_bin = 0.0;
@@ -358,12 +348,8 @@ private:
         std::vector<std::string> split_cats = split_string(sorted_categories[i], '+');
         for (const auto &cat : split_cats) {
           bin_categories.push_back(cat);
-          auto count_it = category_counts.find(cat);
-          auto pos_count_it = category_pos_counts.find(cat);
-          if (count_it != category_counts.end() && pos_count_it != category_pos_counts.end()) {
-            count_bin += count_it->second;
-            count_pos_bin += pos_count_it->second;
-          }
+          count_bin += category_counts[cat];
+          count_pos_bin += category_pos_counts[cat];
         }
       }
       
@@ -380,32 +366,20 @@ private:
         bin_count.push_back(static_cast<int>(count_bin));
         bin_count_pos.push_back(static_cast<int>(count_pos_bin));
         bin_count_neg.push_back(static_cast<int>(count_neg_bin));
+        
+        // Update category_mapping for all categories in this bin
+        for (const auto &cat : bin_categories) {
+          category_mapping[cat] = bin_name;
+        }
       }
       
       start = end;
     }
-    
-    // Apply WOE mapping to feature
-    std::vector<double> woefeature(feature.size());
-#pragma omp parallel for
-    for (size_t i = 0; i < feature.size(); ++i) {
-      auto mapped_cat_it = category_mapping.find(feature[i]);
-      if (mapped_cat_it != category_mapping.end()) {
-        std::string mapped_category = mapped_cat_it->second;
-        auto it = std::find(bin_names.begin(), bin_names.end(), mapped_category);
-        if (it != bin_names.end()) {
-          size_t bin_index = std::distance(bin_names.begin(), it);
-          woefeature[i] = bin_woe[bin_index];
-        } else {
-          woefeature[i] = 0.0; // Default value if category is not found
-        }
-      } else {
-        woefeature[i] = 0.0; // Default value if category is not found in mapping
-      }
-    }
-    
+  }
+  
+  void prepare_output() {
     // Prepare woebin DataFrame
-    DataFrame woebin = DataFrame::create(
+    woebin = DataFrame::create(
       Named("bin") = bin_names,
       Named("woe") = bin_woe,
       Named("iv") = bin_iv,
@@ -413,12 +387,21 @@ private:
       Named("count_pos") = bin_count_pos,
       Named("count_neg") = bin_count_neg
     );
-    
-    // Return results
-    return List::create(
-      Named("woefeature") = woefeature,
-      Named("woebin") = woebin
-    );
+  }
+  
+  void apply_woe_mapping() {
+    woefeature.resize(feature.size());
+#pragma omp parallel for
+    for (size_t i = 0; i < feature.size(); ++i) {
+      std::string mapped_category = category_mapping[feature[i]];
+      auto it = std::find(bin_names.begin(), bin_names.end(), mapped_category);
+      if (it != bin_names.end()) {
+        size_t bin_index = std::distance(bin_names.begin(), it);
+        woefeature[i] = bin_woe[bin_index];
+      } else {
+        woefeature[i] = 0.0; // Default value if category is not found
+      }
+    }
   }
 };
 
@@ -490,18 +473,24 @@ private:
 //'
 //' @export
 // [[Rcpp::export]]
-List optimal_binning_categorical_dplc(IntegerVector target,
-                                     CharacterVector feature,
-                                     int min_bins = 3,
-                                     int max_bins = 5,
-                                     double bin_cutoff = 0.05,
-                                     int max_n_prebins = 20) {
- std::vector<std::string> feature_vec = as<std::vector<std::string>>(feature);
+List optimal_binning_categorical_dplc(Rcpp::IntegerVector target,
+                                      Rcpp::CharacterVector feature,
+                                      int min_bins = 3,
+                                      int max_bins = 5,
+                                      double bin_cutoff = 0.05,
+                                      int max_n_prebins = 20) {
+  std::vector<std::string> feature_vec = as<std::vector<std::string>>(feature);
  std::vector<int> target_vec = as<std::vector<int>>(target);
  
  OptimalBinningCategoricalDPLC binning(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
  return binning.perform_binning();
 }
+
+
+
+
+
+
 
 
 // #include <Rcpp.h>
@@ -946,4 +935,4 @@ List optimal_binning_categorical_dplc(IntegerVector target,
 // 
 // OptimalBinningCategoricalDPLC binning(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
 // return binning.perform_binning();
-// }
+// };

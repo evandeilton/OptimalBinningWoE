@@ -57,7 +57,6 @@ The Piecewise Linear Approximation Optimal Binning (PLAOB) algorithm for numeric
 \item Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
 \item Enforce monotonicity of WoE values across bins.
 \item Ensure the number of bins is between min_bins and max_bins.
-\item Adjust bin boundaries to maximize total IV.
 }
 \item Repeat the refinement process until convergence or a maximum number of iterations is reached.
 }
@@ -67,10 +66,10 @@ variable while adhering to the specified constraints. It enforces monotonicity o
 values, which is particularly useful for credit scoring and risk modeling applications.
 
 Weight of Evidence (WoE) is calculated as:
-\deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+\deqn{WoE = \ln\left(\frac{\text{Distribution of positives}_i + \epsilon}{\text{Distribution of negatives}_i + \epsilon}\right)}
 
 Information Value (IV) is calculated as:
-\deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+\deqn{IV = (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
 
 This implementation uses OpenMP for parallel processing when available, which can
 significantly speed up the computation for large datasets.
@@ -101,7 +100,4 @@ axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
 }
-}
-\author{
-Lopes, J. E.
 }

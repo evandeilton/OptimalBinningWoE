@@ -57,10 +57,10 @@ The Optimal Binning for Non-Parametric Transformations (OBNP) algorithm for nume
 The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
 
 Weight of Evidence (WoE) is calculated as:
-\deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+\deqn{WoE = \ln(\frac{\text{Distribution of Positives}}{\text{Distribution of Negatives}})}
 
 Information Value (IV) is calculated as:
-\deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+\deqn{IV = (\text{Distribution of Positives} - \text{Distribution of Negatives}) \times WoE}
 
 This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
 }
@@ -90,7 +90,4 @@ axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
 \item Bellotti, T., & Crook, J. (2012). Loss given default models incorporating macroeconomic variables for credit cards. International Journal of Forecasting, 28(1), 171-182.
 }
-}
-\author{
-Lopes, J. E.
 }
