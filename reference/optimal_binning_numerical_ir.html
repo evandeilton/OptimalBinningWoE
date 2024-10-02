@@ -11,7 +11,7 @@ target variable, maximizing the predictive power while respecting user-defined c
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -87,7 +87,7 @@ target variable, maximizing the predictive power while respecting user-defined c
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing two elements:</p>
+    <p>A list containing three elements:</p>
 <dl><dt>woefeature</dt>
 <dd><p>A numeric vector of Weight of Evidence (WoE) values for each observation.</p></dd>
 
@@ -98,6 +98,7 @@ target variable, maximizing the predictive power while respecting user-defined c
 <li><p>count: Integer vector of total observations in each bin.</p></li>
 <li><p>count_pos: Integer vector of positive target observations in each bin.</p></li>
 <li><p>count_neg: Integer vector of negative target observations in each bin.</p></li>
+<li><p>iv_total: Total Information Value (IV) for the feature.</p></li>
 </ul></dd>
 
 </dl></div>

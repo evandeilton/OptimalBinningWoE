@@ -9,7 +9,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -84,9 +84,10 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing three elements:</p><ul><li><p>woefeature: A numeric vector of WOE values for each input feature value</p></li>
+    <p>A list containing four elements:</p><ul><li><p>woefeature: A numeric vector of WOE values for each input feature value</p></li>
 <li><p>woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts</p></li>
 <li><p>total_iv: The total Information Value of the binning</p></li>
+<li><p>is_monotonic: A logical value indicating whether the final binning achieves monotonicity</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -128,6 +129,7 @@ $$IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WO
 <span class="r-in"><span><span class="co"># View results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Total IV:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Is monotonic:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">is_monotonic</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>

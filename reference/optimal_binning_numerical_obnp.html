@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -105,9 +105,9 @@
 <li><p>Compute Weight of Evidence (WoE) and Information Value (IV) for each bin.</p></li>
 </ol><p>The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.</p>
 <p>Weight of Evidence (WoE) is calculated as:
-$$WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})$$</p>
+$$WoE = \ln(\frac{\text{Distribution of Positives}}{\text{Distribution of Negatives}})$$</p>
 <p>Information Value (IV) is calculated as:
-$$IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE$$</p>
+$$IV = (\text{Distribution of Positives} - \text{Distribution of Negatives}) \times WoE$$</p>
 <p>This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.</p>
     </div>
     <div class="section level2">
@@ -116,10 +116,6 @@ $$IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE$$</p>
 <ul><li><p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774</p></li>
 <li><p>Bellotti, T., &amp; Crook, J. (2012). Loss given default models incorporating macroeconomic variables for credit cards. International Journal of Forecasting, 28(1), 171-182.</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

@@ -9,7 +9,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,15 +47,14 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">optimal_binning_categorical_gab</span><span class="op">(</span></span>
 <span>  <span class="va">target</span>,</span>
 <span>  <span class="va">feature</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
+<span>  min_bins <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
 <span>  population_size <span class="op">=</span> <span class="fl">100L</span>,</span>
 <span>  num_generations <span class="op">=</span> <span class="fl">100L</span>,</span>
-<span>  mutation_rate <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  crossover_rate <span class="op">=</span> <span class="fl">0.8</span>,</span>
-<span>  time_limit_seconds <span class="op">=</span> <span class="fl">300L</span></span>
+<span>  mutation_rate <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>  crossover_rate <span class="op">=</span> <span class="fl">0.8</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -72,7 +71,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
-<dd><p>Minimum number of bins (default: 3).</p></dd>
+<dd><p>Minimum number of bins (default: 2).</p></dd>
 
 
 <dt id="arg-max-bins">max_bins<a class="anchor" aria-label="anchor" href="#arg-max-bins"></a></dt>
@@ -96,47 +95,51 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 
 
 <dt id="arg-mutation-rate">mutation_rate<a class="anchor" aria-label="anchor" href="#arg-mutation-rate"></a></dt>
-<dd><p>Probability of mutation for each bin (default: 0.1).</p></dd>
+<dd><p>Probability of mutation for each gene (default: 0.01).</p></dd>
 
 
 <dt id="arg-crossover-rate">crossover_rate<a class="anchor" aria-label="anchor" href="#arg-crossover-rate"></a></dt>
 <dd><p>Probability of crossover between parents (default: 0.8).</p></dd>
 
-
-<dt id="arg-time-limit-seconds">time_limit_seconds<a class="anchor" aria-label="anchor" href="#arg-time-limit-seconds"></a></dt>
-<dd><p>Maximum execution time in seconds (default: 300).</p></dd>
-
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
+    <p>A list with three elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
 <li><p>woebin: Data frame with binning results (bin names, WoE, IV, counts).</p></li>
+<li><p>total_iv: Total Information Value across all bins.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The algorithm uses a genetic algorithm approach to find an optimal binning solution.
-It evolves a population of binning solutions over multiple generations, using
-selection, crossover, and mutation operations.</p>
-<p>Weight of Evidence (WoE) for each bin is calculated as:</p>
-<p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
-<p>The fitness of each individual (binning solution) is the sum of IVs across all bins.
-The algorithm aims to maximize this fitness while respecting constraints on the
-number of bins and ensuring monotonicity of WoE values across bins.</p>
-<p>The genetic algorithm includes the following key steps:</p><ol><li><p>Initialize population with random binning solutions.</p></li>
-<li><p>Evaluate fitness of each individual.</p></li>
-<li><p>Select parents based on fitness (using roulette wheel selection).</p></li>
-<li><p>Create offspring through crossover and mutation.</p></li>
-<li><p>Ensure offspring respect constraints (number of bins, monotonicity).</p></li>
-<li><p>Replace population with offspring.</p></li>
-<li><p>Repeat steps 2-6 for the specified number of generations or until time limit is reached.</p></li>
-</ol></div>
+    <p>The algorithm employs a Genetic Algorithm (GA) to identify an optimal binning solution for categorical variables.
+It evolves a population of binning solutions over multiple generations, utilizing selection, crossover, and mutation operations
+to maximize the overall Information Value (IV) while adhering to constraints on the number of bins and ensuring monotonicity
+of WoE values across bins.</p>
+<p><strong>Key Steps of the Genetic Algorithm:</strong></p><ol><li><p><strong>Initialization</strong>: Generate an initial population of binning solutions with random assignments, ensuring that the minimum number of bins (<code>min_bins</code>) is met.</p></li>
+<li><p><strong>Fitness Evaluation</strong>: Calculate the fitness of each individual in the population based on the sum of IVs across all bins.</p></li>
+<li><p><strong>Selection</strong>: Select parent individuals for reproduction using tournament selection, favoring individuals with higher fitness.</p></li>
+<li><p><strong>Crossover</strong>: Perform single-point crossover between pairs of parents to produce offspring, exchanging segments of their chromosomes.</p></li>
+<li><p><strong>Mutation</strong>: Introduce random mutations in the offspring's chromosomes with a probability defined by <code>mutation_rate</code>, altering bin assignments to maintain genetic diversity.</p></li>
+<li><p><strong>Replacement</strong>: Form a new population from the offspring, maintaining the population size.</p></li>
+<li><p><strong>Termination</strong>: Repeat the evaluation, selection, crossover, and mutation steps for a specified number of generations (<code>num_generations</code>) or until convergence criteria are met.</p></li>
+</ol><p><strong>Weight of Evidence (WoE):</strong>
+$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$
+Where:</p><ul><li><p>\( P(X|Y=1) \) is the distribution of positives in bin \( X \).</p></li>
+<li><p>\( P(X|Y=0) \) is the distribution of negatives in bin \( X \).</p></li>
+</ul><p><strong>Information Value (IV):</strong>
+$$IV = \sum_{i=1}^{N} (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i$$
+The IV measures the predictive power of the binned feature, with higher values indicating stronger predictive capability.</p>
+<p><strong>Numerical Stability and Edge Case Handling:</strong>
+The algorithm incorporates smoothing techniques by adding a small constant (e.g., 10^-10) to distributions to prevent division by zero and taking the logarithm of zero.
+It also ensures that each bin has positive and negative counts, except in cases where the target variable lacks sufficient cases for a particular category.
+All final bins consist solely of original unique category values concatenated with a "+" delimiter, preserving category integrity without introducing "Others" or "Rare" bins.</p>
+<p><strong>Monotonicity Enforcement:</strong>
+While the Genetic Algorithm inherently promotes higher IV through selection and reproduction, additional mechanisms can be integrated to enforce monotonicity of WoE values across bins when feasible. This ensures that the relationship between the feature and the target remains consistent and interpretable.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
 
-<ul><li><p>Holland, J. H. (1992). Adaptation in natural and artificial systems: an introductory analysis with applications to biology, control, and artificial intelligence. MIT press.</p></li>
-<li><p>Whitley, D. (1994). A genetic algorithm tutorial. Statistics and computing, 4(2), 65-85.</p></li>
+<ul><li><p>Beltrami, M., Mach, M., &amp; Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. <em>Risks</em>, 9(3), 58.</p></li>
+<li><p>Siddiqi, N. (2006). <em>Credit risk scorecards: developing and implementing intelligent credit scoring</em> (Vol. 3). John Wiley &amp; Sons.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
@@ -151,11 +154,27 @@ number of bins and ensuring monotonicity of WoE values across bins.</p>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"A"</span>, <span class="st">"C"</span>, <span class="st">"B"</span>, <span class="st">"D"</span>, <span class="st">"C"</span>, <span class="st">"A"</span>, <span class="st">"D"</span>, <span class="st">"B"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_gab</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_gab</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="va">target</span>, </span></span>
+<span class="r-in"><span>  <span class="va">feature</span>, </span></span>
+<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">2</span>, </span></span>
+<span class="r-in"><span>  max_bins <span class="op">=</span> <span class="fl">4</span>, </span></span>
+<span class="r-in"><span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>, </span></span>
+<span class="r-in"><span>  max_n_prebins <span class="op">=</span> <span class="fl">20</span>,</span></span>
+<span class="r-in"><span>  population_size <span class="op">=</span> <span class="fl">100</span>, </span></span>
+<span class="r-in"><span>  num_generations <span class="op">=</span> <span class="fl">100</span>, </span></span>
+<span class="r-in"><span>  mutation_rate <span class="op">=</span> <span class="fl">0.01</span>, </span></span>
+<span class="r-in"><span>  crossover_rate <span class="op">=</span> <span class="fl">0.8</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View results</span></span></span>
+<span class="r-in"><span><span class="co"># View binning results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># View WoE values assigned to each feature value</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># View total Information Value</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

@@ -13,7 +13,7 @@ power while respecting user-defined constraints."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,7 +56,8 @@ power while respecting user-defined constraints.</p>
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  monotonicity <span class="op">=</span> <span class="st">"none"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -86,6 +87,10 @@ power while respecting user-defined constraints.</p>
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins before the optimization process (default: 20).</p></dd>
+
+
+<dt id="arg-monotonicity">monotonicity<a class="anchor" aria-label="anchor" href="#arg-monotonicity"></a></dt>
+<dd><p>Direction of monotonicity constraint: "none" (default), "increasing", or "decreasing".</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -129,10 +134,6 @@ significantly speed up the computation for large datasets.</p>
 <ul><li><p>Kirkpatrick, S., Gelatt, C. D., &amp; Vecchi, M. P. (1983). Optimization by simulated annealing. Science, 220(4598), 671-680.</p></li>
 <li><p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

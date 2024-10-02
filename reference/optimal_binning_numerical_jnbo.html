@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -94,15 +94,15 @@
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The optimal binning algorithm uses dynamic programming to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints. The algorithm consists of several steps:</p><ol><li><p>Pre-binning: The feature is initially divided into a maximum number of bins specified by <code>max_n_prebins</code>.</p></li>
-<li><p>Merging rare bins: Bins with a fraction of observations less than <code>bin_cutoff</code> are merged with adjacent bins.</p></li>
-<li><p>Dynamic programming optimization: The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.</p></li>
-</ol><p>The Weight of Evidence (WoE) for each bin is calculated as:</p>
+    <p>The optimal binning algorithm uses dynamic programming to find the best binning strategy that maximizes the Information Value (IV) while respecting the specified constraints. The algorithm consists of several steps:</p><ol><li><p><strong>Pre-binning:</strong> The feature is initially divided into a maximum number of bins specified by <code>max_n_prebins</code>.</p></li>
+<li><p><strong>Merging rare bins:</strong> Bins with a fraction of observations less than <code>bin_cutoff</code> are merged with adjacent bins.</p></li>
+<li><p><strong>Dynamic programming optimization:</strong> The algorithm uses dynamic programming to find the optimal binning strategy that maximizes the total IV.</p></li>
+</ol><p>The <strong>Weight of Evidence (WoE)</strong> for each bin is calculated as:</p>
 <p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
 <p>where \(P(X|Y=1)\) is the probability of the feature being in a particular bin given a positive target, and \(P(X|Y=0)\) is the probability given a negative target.</p>
-<p>The Information Value (IV) for each bin is calculated as:</p>
+<p>The <strong>Information Value (IV)</strong> for each bin is calculated as:</p>
 <p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
-<p>The total IV is the sum of IVs for all bins:</p>
+<p>The <strong>total IV</strong> is the sum of IVs for all bins:</p>
 <p>$$\text{Total IV} = \sum_{i=1}^{n} IV_i$$</p>
 <p>The dynamic programming approach ensures that the global optimum is found within the constraints of the minimum and maximum number of bins.</p>
     </div>
@@ -112,10 +112,6 @@
 <ul><li><p>Belotti, P., &amp; Carrasco, M. (2016). Optimal Binning: Mathematical Programming Formulation and Solution Approach. <em>arXiv preprint arXiv:1605.05710</em>.</p></li>
 <li><p>Gutiérrez, P. A., Pérez-Ortiz, M., Sánchez-Monedero, J., Fernández-Navarro, F., &amp; Hervás-Martínez, C. (2016). Ordinal regression methods: survey and experimental study. <em>IEEE Transactions on Knowledge and Data Engineering</em>, 28(1), 127-146.</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

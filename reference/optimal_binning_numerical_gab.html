@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,7 +47,10 @@
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  population_size <span class="op">=</span> <span class="fl">50L</span>,</span>
+<span>  max_generations <span class="op">=</span> <span class="fl">100L</span>,</span>
+<span>  mutation_rate <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -78,6 +81,18 @@
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins (default: 20).</p></dd>
 
+
+<dt id="arg-population-size">population_size<a class="anchor" aria-label="anchor" href="#arg-population-size"></a></dt>
+<dd><p>Number of individuals in the GA population (default: 50).</p></dd>
+
+
+<dt id="arg-max-generations">max_generations<a class="anchor" aria-label="anchor" href="#arg-max-generations"></a></dt>
+<dd><p>Maximum number of generations for the GA (default: 100).</p></dd>
+
+
+<dt id="arg-mutation-rate">mutation_rate<a class="anchor" aria-label="anchor" href="#arg-mutation-rate"></a></dt>
+<dd><p>Probability of mutation in GA (default: 0.1).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -91,21 +106,21 @@
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The optimal binning algorithm using a genetic algorithm approach consists of several steps:</p><ol><li><p>Pre-binning: The feature is initially divided into a maximum number of bins specified by <code>max_n_prebins</code>.</p></li>
-<li><p>Genetic Algorithm:
-a. Initialization: Create a population of potential binning solutions.
-b. Evaluation: Calculate the fitness (Information Value) of each solution.
-c. Selection: Choose the best solutions for reproduction.
-d. Crossover: Create new solutions by combining existing ones.
-e. Mutation: Introduce small random changes to maintain diversity.
-f. Repeat b-e for a specified number of generations.</p></li>
-<li><p>Monotonicity check: Ensure that the WoE values are either monotonically increasing or decreasing across the bins.</p></li>
-<li><p>Bin adjustment: Merge bins that have fewer observations than specified by <code>bin_cutoff</code>.</p></li>
+    <p>The optimal binning algorithm using a genetic algorithm approach consists of several steps:</p><ol><li><p><strong>Pre-binning:</strong> The feature is initially divided into a maximum number of bins specified by <code>max_n_prebins</code> based on quantiles.</p></li>
+<li><p><strong>Genetic Algorithm:</strong>
+a. <strong>Initialization:</strong> Create a population of potential binning solutions with random cut points.
+b. <strong>Evaluation:</strong> Calculate the fitness (Information Value) of each solution.
+c. <strong>Selection:</strong> Choose the best solutions for reproduction based on fitness.
+d. <strong>Crossover:</strong> Create new solutions by combining cut points from parent individuals.
+e. <strong>Mutation:</strong> Introduce small random changes to maintain diversity in the population.
+f. <strong>Repeat:</strong> Iterate through evaluation, selection, crossover, and mutation for a specified number of generations.</p></li>
+<li><p><strong>Monotonicity Check:</strong> Ensure that the WoE values are either monotonically increasing or decreasing across the bins.</p></li>
+<li><p><strong>Bin Adjustment:</strong> Merge bins that have fewer observations than specified by <code>bin_cutoff</code> to maintain bin integrity.</p></li>
 </ol><p>The Weight of Evidence (WoE) for each bin is calculated as:</p>
 <p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
 <p>where \(P(X|Y=1)\) is the probability of the feature being in a particular bin given a positive target, and \(P(X|Y=0)\) is the probability given a negative target.</p>
 <p>The Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV = (P(X|Y=1) - P(X|Y=0)) * WoE$$</p>
+<p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
 <p>The total IV, which is used as the fitness function in the genetic algorithm, is the sum of IVs for all bins:</p>
 <p>$$Total IV = \sum_{i=1}^{n} IV_i$$</p>
 <p>The genetic algorithm approach allows for a global optimization of the binning strategy, potentially finding better solutions than greedy or local search methods.</p>
