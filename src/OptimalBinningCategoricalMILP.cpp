@@ -12,6 +12,9 @@
 #include <omp.h>
 #endif
 
+using namespace Rcpp;
+
+
 class OptimalBinningCategoricalMILP {
 private:
   std::vector<int> target;

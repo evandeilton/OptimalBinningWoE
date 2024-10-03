@@ -7,6 +7,8 @@
 #include <limits>
 #include <numeric>
 
+using namespace Rcpp;
+
 class OptimalBinningCategoricalGMB {
 private:
   std::vector<std::string> feature;

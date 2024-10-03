@@ -1,3 +1,4 @@
+// [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
 #include <algorithm>
 #include <vector>
@@ -11,7 +12,7 @@
 #include <omp.h>
 #endif
 
-// [[Rcpp::plugins(openmp)]]
+using namespace Rcpp;
 
 class OptimalBinningNumericalIR {
 private:
@@ -114,6 +115,7 @@ private:
     
     for (int i = 1; i < n_prebins; ++i) {
       int idx = std::round((static_cast<double>(i) / n_prebins) * unique_vals);
+      // idx = std::clamp(idx, 1, unique_vals - 1);
       idx = std::clamp(idx, 1, unique_vals - 1);
       bin_edges[i] = sorted_feature[idx];
     }

@@ -1,3 +1,5 @@
+// [[Rcpp::plugins(openmp)]]
+
 #include <Rcpp.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -11,8 +13,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
-// [[Rcpp::plugins(openmp)]]
 
 using namespace Rcpp;
 

@@ -1,3 +1,6 @@
+// [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::plugins(openmp)]]
+
 #include <Rcpp.h>
 #include <vector>
 #include <string>
@@ -8,8 +11,12 @@
 #include <limits>
 #include <sstream>
 
-// [[Rcpp::plugins(cpp11)]]
-// [[Rcpp::plugins(openmp)]]
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+using namespace Rcpp;
+
 
 class OptimalBinningCategoricalFETB {
 private:

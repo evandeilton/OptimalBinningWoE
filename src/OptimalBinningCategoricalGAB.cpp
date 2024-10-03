@@ -1,3 +1,5 @@
+// [[Rcpp::plugins(openmp)]]
+
 #include <Rcpp.h>
 #include <vector>
 #include <string>
@@ -8,8 +10,12 @@
 #include <omp.h>
 #include <limits>
 
-// Enable OpenMP for parallel processing
-// [[Rcpp::plugins(openmp)]]
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+using namespace Rcpp;
+
 
 // Define a small epsilon for floating-point comparisons
 const double EPSILON = 1e-9;

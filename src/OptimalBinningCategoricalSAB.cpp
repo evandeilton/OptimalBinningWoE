@@ -10,6 +10,8 @@
 #include <omp.h>
 #endif
 
+using namespace Rcpp;
+
 class OptimalBinningCategoricalSAB {
 private:
   std::vector<std::string> feature;

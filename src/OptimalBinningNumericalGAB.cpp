@@ -1,9 +1,6 @@
+// [[Rcpp::plugins(openmp)]]
+
 #include <Rcpp.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -12,7 +9,12 @@
 #include <sstream>
 #include <numeric>
 
-// [[Rcpp::plugins(openmp)]]
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+using namespace Rcpp;
 
 class OptimalBinningNumericalGAB {
 public:

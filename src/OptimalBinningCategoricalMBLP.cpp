@@ -11,6 +11,8 @@
 #include <omp.h>
 #endif
 
+using namespace Rcpp;
+
 class OptimalBinningCategoricalMBLP {
 private:
   int min_bins;
