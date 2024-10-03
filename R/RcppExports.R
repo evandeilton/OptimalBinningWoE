@@ -2018,11 +2018,10 @@ optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bi
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_gmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
-#' @title Optimal Binning for Numerical Variables using Isotonic Regression
+#' Optimal Binning for Numerical Variables using Isotonic Regression
 #' 
-#' @description
-#' This function performs optimal binning for numerical variables using isotonic regression. 
-#' It creates optimal bins for a numerical feature based on its relationship with a binary 
+#' This function performs optimal binning for numerical variables using isotonic regression.
+#' It creates optimal bins for a numerical feature based on its relationship with a binary
 #' target variable, maximizing the predictive power while respecting user-defined constraints.
 #' 
 #' @param target An integer vector of binary target values (0 or 1).
@@ -2045,6 +2044,7 @@ optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bi
 #'     \item iv_total: Total Information Value (IV) for the feature.
 #'   }
 #' }
+#' \item{iv}{The total Information Value (IV) for the feature.}
 #' 
 #' @details
 #' The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
@@ -2054,52 +2054,27 @@ optimal_binning_numerical_gmb <- function(target, feature, min_bins = 3L, max_bi
 #' 4. Apply isotonic regression to smooth the positive rates across bins.
 #' 5. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
 #' 
-#' Weight of Evidence (WoE) is calculated for each bin as:
-#' 
-#' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-#' 
-#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and 
-#' \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-#' 
-#' Information Value (IV) for each bin is calculated as:
-#' 
-#' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-#' 
-#' The algorithm aims to create monotonic bins that maximize the predictive power of the 
-#' numerical variable while adhering to the specified constraints. Isotonic regression ensures 
-#' that the positive rates are non-decreasing across bins, which is particularly useful for 
-#' credit scoring and risk modeling applications.
-#' 
-#' This implementation uses OpenMP for parallel processing when available, which can 
-#' significantly speed up the computation for large datasets.
-#' 
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- rnorm(n)
-#' # Run optimal binning
 #' result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins = 4)
-#' # Print results
 #' print(result$woebin)
-#' # Plot WoE values
 #' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
 #'      main = "Weight of Evidence by Bin")
 #' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin)
 #' }
 #' 
 #' @references
-#' \itemize{
-#'   \item Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972). 
-#'         Statistical inference under order restrictions: The theory and application 
-#'         of isotonic regression. Wiley.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm 
-#'         for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
-#' }
+#' Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
+#' Statistical inference under order restrictions: The theory and application
+#' of isotonic regression. Wiley.
 #' 
-#' @author Lopes, J. E.
+#' Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
+#' for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
+#' 
 #' @export
 optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_ir`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)

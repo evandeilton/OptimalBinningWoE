@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 
 // Enable OpenMP for parallel processing
 #ifdef _OPENMP
@@ -47,10 +48,11 @@ public:
                             const std::vector<int>& target_)
     : min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
-      feature(feature_), target(target_), total_iv(0.0) {}
+      feature(feature_), target(target_), total_iv(0.0) {
+    validateInputs();
+  }
   
   void fit() {
-    validateInputs();
     createInitialBins();
     mergeLowFrequencyBins();
     ensureMinMaxBins();
@@ -72,28 +74,28 @@ public:
 private:
   void validateInputs() const {
     if (feature.size() != target.size()) {
-      Rcpp::stop("Feature and target must have the same length.");
+      throw std::invalid_argument("Feature and target must have the same length.");
     }
     if (min_bins < 2) {
-      Rcpp::stop("min_bins must be at least 2.");
+      throw std::invalid_argument("min_bins must be at least 2.");
     }
     if (max_bins < min_bins) {
-      Rcpp::stop("max_bins must be greater than or equal to min_bins.");
+      throw std::invalid_argument("max_bins must be greater than or equal to min_bins.");
     }
     // Check if target contains only 0 and 1
     auto [min_it, max_it] = std::minmax_element(target.begin(), target.end());
     if (*min_it < 0 || *max_it > 1) {
-      Rcpp::stop("Target must be binary (0 or 1).");
+      throw std::invalid_argument("Target must be binary (0 or 1).");
     }
     // Check if both classes are present
     int sum_target = std::accumulate(target.begin(), target.end(), 0);
     if (sum_target == 0 || sum_target == static_cast<int>(target.size())) {
-      Rcpp::stop("Target must contain both classes (0 and 1).");
+      throw std::invalid_argument("Target must contain both classes (0 and 1).");
     }
     // Check for NaN and Inf in feature
-    for (size_t i = 0; i < feature.size(); ++i) {
-      if (std::isnan(feature[i]) || std::isinf(feature[i])) {
-        Rcpp::stop("Feature contains NaN or Inf values.");
+    for (const auto& value : feature) {
+      if (std::isnan(value) || std::isinf(value)) {
+        throw std::invalid_argument("Feature contains NaN or Inf values.");
       }
     }
   }
@@ -106,7 +108,7 @@ private:
     sorted_feature.erase(std::unique(sorted_feature.begin(), sorted_feature.end()), sorted_feature.end());
     
     int unique_vals = sorted_feature.size();
-    int n_prebins = std::min(max_n_prebins, unique_vals);
+    int n_prebins = std::min({max_n_prebins, unique_vals, max_bins});
     n_prebins = std::max(n_prebins, min_bins); // Ensure at least min_bins
     
     bin_edges.resize(n_prebins + 1);
@@ -114,8 +116,7 @@ private:
     bin_edges[n_prebins] = std::numeric_limits<double>::infinity();
     
     for (int i = 1; i < n_prebins; ++i) {
-      int idx = std::round((static_cast<double>(i) / n_prebins) * unique_vals);
-      // idx = std::clamp(idx, 1, unique_vals - 1);
+      int idx = static_cast<int>(std::round((static_cast<double>(i) / n_prebins) * unique_vals));
       idx = std::clamp(idx, 1, unique_vals - 1);
       bin_edges[i] = sorted_feature[idx];
     }
@@ -126,14 +127,7 @@ private:
     int total_count = feature.size();
     
     for (size_t i = 0; i < bin_edges.size() - 1; ++i) {
-      BinInfo bin;
-      bin.lower = bin_edges[i];
-      bin.upper = bin_edges[i + 1];
-      bin.count = 0;
-      bin.count_pos = 0;
-      bin.count_neg = 0;
-      bin.woe = 0.0;
-      bin.iv = 0.0;
+      BinInfo bin{bin_edges[i], bin_edges[i + 1], 0, 0, 0, 0.0, 0.0};
       
       for (size_t j = 0; j < feature.size(); ++j) {
         if ((feature[j] > bin.lower || (i == 0 && feature[j] == bin.lower)) && feature[j] <= bin.upper) {
@@ -159,51 +153,65 @@ private:
   }
   
   void ensureMinMaxBins() {
-    // Merge bins if less than min_bins
     while (bin_info.size() < static_cast<size_t>(min_bins)) {
-      // Find the bin with the smallest count to merge
-      auto it = std::min_element(bin_info.begin(), bin_info.end(),
-                                 [](const BinInfo& a, const BinInfo& b) {
-                                   return a.count < b.count;
-                                 });
-      if (it == bin_info.end()) break; // Safety check
-      
+      splitLargestBin();
+    }
+    
+    while (bin_info.size() > static_cast<size_t>(max_bins)) {
+      mergeSimilarBins();
+    }
+  }
+  
+  void splitLargestBin() {
+    auto it = std::max_element(bin_info.begin(), bin_info.end(),
+                               [](const BinInfo& a, const BinInfo& b) {
+                                 return a.count < b.count;
+                               });
+    
+    if (it != bin_info.end()) {
       size_t idx = std::distance(bin_info.begin(), it);
-      if (bin_info.size() == 1) break; // Cannot merge further
+      double mid = (it->lower + it->upper) / 2.0;
       
-      // Merge with the adjacent bin that has the closest count
-      if (idx == 0) {
-        // Merge with next bin
-        mergeBins(idx, idx + 1);
-      } else if (idx == bin_info.size() - 1) {
-        // Merge with previous bin
-        mergeBins(idx - 1, idx);
-      } else {
-        // Merge with the neighbor with the smaller count
-        if (bin_info[idx - 1].count < bin_info[idx + 1].count) {
-          mergeBins(idx - 1, idx);
-        } else {
-          mergeBins(idx, idx + 1);
+      BinInfo new_bin = *it;
+      it->upper = mid;
+      new_bin.lower = mid;
+      
+      // Recalculate counts for both bins
+      it->count = 0;
+      it->count_pos = 0;
+      new_bin.count = 0;
+      new_bin.count_pos = 0;
+      
+      for (size_t j = 0; j < feature.size(); ++j) {
+        if (feature[j] > it->lower && feature[j] <= it->upper) {
+          it->count++;
+          it->count_pos += target[j];
+        } else if (feature[j] > new_bin.lower && feature[j] <= new_bin.upper) {
+          new_bin.count++;
+          new_bin.count_pos += target[j];
         }
+      }
+      
+      it->count_neg = it->count - it->count_pos;
+      new_bin.count_neg = new_bin.count - new_bin.count_pos;
+      
+      bin_info.insert(it + 1, new_bin);
+    }
+  }
+  
+  void mergeSimilarBins() {
+    double min_diff = std::numeric_limits<double>::max();
+    size_t merge_idx = 0;
+    
+    for (size_t i = 0; i < bin_info.size() - 1; ++i) {
+      double diff = std::abs(bin_info[i].woe - bin_info[i + 1].woe);
+      if (diff < min_diff) {
+        min_diff = diff;
+        merge_idx = i;
       }
     }
     
-    // Merge bins if more than max_bins
-    while (bin_info.size() > static_cast<size_t>(max_bins)) {
-      // Find the pair of adjacent bins with the smallest WoE difference
-      double min_diff = std::numeric_limits<double>::max();
-      size_t merge_idx = 0;
-      
-      for (size_t i = 0; i < bin_info.size() - 1; ++i) {
-        double diff = std::abs(bin_info[i].woe - bin_info[i + 1].woe);
-        if (diff < min_diff) {
-          min_diff = diff;
-          merge_idx = i;
-        }
-      }
-      
-      mergeBins(merge_idx, merge_idx + 1);
-    }
+    mergeBins(merge_idx, merge_idx + 1);
   }
   
   void mergeBins(size_t idx1, size_t idx2) {
@@ -226,56 +234,40 @@ private:
     std::vector<double> isotonic_y = isotonic_regression(y, w);
     
     for (int i = 0; i < n; ++i) {
-      // Prevent division by zero
-      double pos_rate = isotonic_y[i];
-      double neg_rate = 1.0 - pos_rate;
-      if (neg_rate <= 0.0) {
-        bin_info[i].woe = std::log((pos_rate + 1e-10) / (neg_rate + 1e-10));
-      } else {
-        bin_info[i].woe = std::log(pos_rate / neg_rate);
-      }
+      bin_info[i].woe = calculateWoE(isotonic_y[i], 1.0 - isotonic_y[i]);
     }
   }
   
   std::vector<double> isotonic_regression(const std::vector<double>& y, const std::vector<double>& w) {
     int n = y.size();
     std::vector<double> result = y;
-    std::vector<double> weights = w;
-    std::vector<int> start(n);
-    std::vector<int> end(n);
+    std::vector<double> active_set(n);
+    std::vector<double> active_set_weights(n);
     
+    int j = 0;
     for (int i = 0; i < n; ++i) {
-      start[i] = i;
-      end[i] = i;
+      active_set[j] = y[i];
+      active_set_weights[j] = w[i];
+      
+      while (j > 0 && active_set[j - 1] > active_set[j]) {
+        double weighted_avg = (active_set[j - 1] * active_set_weights[j - 1] + 
+                               active_set[j] * active_set_weights[j]) / 
+                               (active_set_weights[j - 1] + active_set_weights[j]);
+        active_set[j - 1] = weighted_avg;
+        active_set_weights[j - 1] += active_set_weights[j];
+        --j;
+      }
+      ++j;
     }
     
-    int i = 0;
-    while (i < n - 1) {
-      if (result[i] > result[i + 1]) {
-        double sum_yw = result[i] * weights[i] + result[i + 1] * weights[i + 1];
-        double sum_w = weights[i] + weights[i + 1];
-        double pooled = sum_yw / sum_w;
-        result[i] = pooled;
-        result[i + 1] = pooled;
-        weights[i] = sum_w;
-        weights[i + 1] = sum_w;
-        
-        // Merge blocks
-        int j = i;
-        while (j > 0 && result[j - 1] > result[j]) {
-          sum_yw = result[j - 1] * weights[j - 1] + result[j] * weights[j];
-          sum_w = weights[j - 1] + weights[j];
-          pooled = sum_yw / sum_w;
-          result[j - 1] = pooled;
-          result[j] = pooled;
-          weights[j - 1] = sum_w;
-          weights[j] = sum_w;
-          j--;
+    for (int i = 0; i < n; ++i) {
+      result[i] = active_set[0];
+      for (int k = 1; k < j; ++k) {
+        if (y[i] >= active_set[k]) {
+          result[i] = active_set[k];
+        } else {
+          break;
         }
-        // Restart
-        i = std::max(j, 0);
-      } else {
-        i++;
       }
     }
     
@@ -289,9 +281,8 @@ private:
       total_neg += bin.count_neg;
     }
     
-    // Prevent division by zero
     if (total_pos == 0.0 || total_neg == 0.0) {
-      Rcpp::stop("Insufficient positive or negative cases for WoE and IV calculations.");
+      throw std::runtime_error("Insufficient positive or negative cases for WoE and IV calculations.");
     }
     
     total_iv = 0.0;
@@ -299,36 +290,40 @@ private:
       double pos_rate = static_cast<double>(bin.count_pos) / total_pos;
       double neg_rate = static_cast<double>(bin.count_neg) / total_neg;
       
-      // Handle cases where pos_rate or neg_rate is zero
-      if (pos_rate == 0.0) pos_rate = 1e-10;
-      if (neg_rate == 0.0) neg_rate = 1e-10;
-      
-      bin.woe = std::log(pos_rate / neg_rate);
-      bin.iv = (pos_rate - neg_rate) * bin.woe;
+      bin.woe = calculateWoE(pos_rate, neg_rate);
+      bin.iv = calculateIV(pos_rate, neg_rate, bin.woe);
       total_iv += bin.iv;
     }
   }
   
+  double calculateWoE(double pos_rate, double neg_rate) const {
+    const double epsilon = 1e-10;
+    return std::log((pos_rate + epsilon) / (neg_rate + epsilon));
+  }
+  
+  double calculateIV(double pos_rate, double neg_rate, double woe) const {
+    return (pos_rate - neg_rate) * woe;
+  }
+  
   std::vector<double> applyWOEToFeature() const {
-    int n = feature.size();
-    std::vector<double> woefeature(n, 0.0);
-    
-    // Create sorted bin edges for binary search
-    std::vector<double> sorted_edges;
-    for (const auto& bin : bin_info) {
-      sorted_edges.push_back(bin.upper);
-    }
+    std::vector<double> woefeature(feature.size());
     
 #pragma omp parallel for
-    for (int i = 0; i < n; ++i) {
-      double x = feature[i];
-      // Binary search to find the bin
-      int bin_idx = std::upper_bound(sorted_edges.begin(), sorted_edges.end(), x) - sorted_edges.begin();
-      if (bin_idx >= bin_info.size()) bin_idx = bin_info.size() - 1;
-      woefeature[i] = bin_info[bin_idx].woe;
+    for (size_t i = 0; i < feature.size(); ++i) {
+      woefeature[i] = getWoEForValue(feature[i]);
     }
     
     return woefeature;
+  }
+  
+  double getWoEForValue(double value) const {
+    auto it = std::upper_bound(bin_info.begin(), bin_info.end(), value,
+                               [](double v, const BinInfo& bin) { return v <= bin.upper; });
+    
+    if (it == bin_info.end()) {
+      return bin_info.back().woe;
+    }
+    return it->woe;
   }
   
   Rcpp::DataFrame createWOEBinDataFrame() const {
@@ -339,15 +334,7 @@ private:
     
     for (int i = 0; i < n_bins; ++i) {
       const auto& b = bin_info[i];
-      std::string label;
-      
-      if (i == 0) {
-        label = "(-Inf;" + std::to_string(b.upper) + "]";
-      } else if (i == n_bins - 1) {
-        label = "(" + std::to_string(b.lower) + ";Inf)";
-      } else {
-        label = "(" + std::to_string(b.lower) + ";" + std::to_string(b.upper) + "]";
-      }
+      std::string label = createBinLabel(b, i == 0, i == n_bins - 1);
       
       bin_labels[i] = label;
       woe[i] = b.woe;
@@ -364,16 +351,30 @@ private:
       Rcpp::Named("count") = count,
       Rcpp::Named("count_pos") = count_pos,
       Rcpp::Named("count_neg") = count_neg,
-      Rcpp::Named("iv_total") = total_iv
+      Rcpp::Named("iv_total") = Rcpp::NumericVector::create(total_iv)
     );
+  }
+  
+  std::string createBinLabel(const BinInfo& bin, bool is_first, bool is_last) const {
+    std::ostringstream oss;
+    oss.precision(6);
+    
+    if (is_first) {
+      oss << "(-Inf;" << bin.upper << "]";
+    } else if (is_last) {
+      oss << "(" << bin.lower << ";Inf)";
+    } else {
+      oss << "(" << bin.lower << ";" << bin.upper << "]";
+    }
+    
+    return oss.str();
   }
 };
 
-//' @title Optimal Binning for Numerical Variables using Isotonic Regression
+//' Optimal Binning for Numerical Variables using Isotonic Regression
 //' 
-//' @description
-//' This function performs optimal binning for numerical variables using isotonic regression. 
-//' It creates optimal bins for a numerical feature based on its relationship with a binary 
+//' This function performs optimal binning for numerical variables using isotonic regression.
+//' It creates optimal bins for a numerical feature based on its relationship with a binary
 //' target variable, maximizing the predictive power while respecting user-defined constraints.
 //' 
 //' @param target An integer vector of binary target values (0 or 1).
@@ -396,6 +397,7 @@ private:
 //'     \item iv_total: Total Information Value (IV) for the feature.
 //'   }
 //' }
+//' \item{iv}{The total Information Value (IV) for the feature.}
 //' 
 //' @details
 //' The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
@@ -405,58 +407,36 @@ private:
 //' 4. Apply isotonic regression to smooth the positive rates across bins.
 //' 5. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
 //' 
-//' Weight of Evidence (WoE) is calculated for each bin as:
-//' 
-//' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-//' 
-//' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and 
-//' \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-//' 
-//' Information Value (IV) for each bin is calculated as:
-//' 
-//' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-//' 
-//' The algorithm aims to create monotonic bins that maximize the predictive power of the 
-//' numerical variable while adhering to the specified constraints. Isotonic regression ensures 
-//' that the positive rates are non-decreasing across bins, which is particularly useful for 
-//' credit scoring and risk modeling applications.
-//' 
-//' This implementation uses OpenMP for parallel processing when available, which can 
-//' significantly speed up the computation for large datasets.
-//' 
 //' @examples
 //' \dontrun{
-//' # Create sample data
 //' set.seed(123)
 //' n <- 1000
 //' target <- sample(0:1, n, replace = TRUE)
 //' feature <- rnorm(n)
-//' # Run optimal binning
 //' result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins = 4)
-//' # Print results
 //' print(result$woebin)
-//' # Plot WoE values
 //' plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
 //'      main = "Weight of Evidence by Bin")
 //' axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin)
 //' }
 //' 
 //' @references
-//' \itemize{
-//'   \item Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972). 
-//'         Statistical inference under order restrictions: The theory and application 
-//'         of isotonic regression. Wiley.
-//'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm 
-//'         for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
-//' }
+//' Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
+//' Statistical inference under order restrictions: The theory and application
+//' of isotonic regression. Wiley.
 //' 
-//' @author Lopes, J. E.
+//' Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
+//' for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
+//' 
 //' @export
 // [[Rcpp::export]]
-Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target, Rcpp::NumericVector feature,
-                                       int min_bins = 3, int max_bins = 5,
-                                       double bin_cutoff = 0.05, int max_n_prebins = 20) {
- // Convert Rcpp vectors to std:: vectors
+Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target,
+                                       Rcpp::NumericVector feature,
+                                       int min_bins = 3,
+                                       int max_bins = 5,
+                                       double bin_cutoff = 0.05,
+                                       int max_n_prebins = 20) {
+ // Convert Rcpp vectors to std::vectors
  std::vector<int> target_std = Rcpp::as<std::vector<int>>(target);
  std::vector<double> feature_std = Rcpp::as<std::vector<double>>(feature);
  
@@ -465,6 +445,7 @@ Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target, Rcpp::Numeri
  std::sort(sorted_unique.begin(), sorted_unique.end());
  sorted_unique.erase(std::unique(sorted_unique.begin(), sorted_unique.end()), sorted_unique.end());
  int unique_vals = sorted_unique.size();
+ 
  if (unique_vals < min_bins) {
    min_bins = unique_vals;
    if (max_bins < min_bins) {
@@ -472,12 +453,16 @@ Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target, Rcpp::Numeri
    }
  }
  
- OptimalBinningNumericalIR binner(min_bins, max_bins, bin_cutoff, max_n_prebins, feature_std, target_std);
- binner.fit();
- return binner.getResults();
+ try {
+   OptimalBinningNumericalIR binner(min_bins, max_bins, bin_cutoff, max_n_prebins, feature_std, target_std);
+   binner.fit();
+   return binner.getResults();
+ } catch (const std::exception& e) {
+   Rcpp::stop("Error in optimal binning: " + std::string(e.what()));
+ }
 }
 
-
+                                              
 
 // #include <Rcpp.h>
 // 
