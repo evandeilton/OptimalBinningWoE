@@ -7,7 +7,10 @@
 #include <sstream>
 #include <numeric>
 #include <limits>
-#include <omp.h> // Ensure OpenMP is properly included
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 // [[Rcpp::plugins(openmp)]]
 

@@ -8,6 +8,7 @@
 #include <limits>
 #include <stdexcept>
 #include <sstream>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif

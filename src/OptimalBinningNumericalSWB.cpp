@@ -1,7 +1,6 @@
+// [[Rcpp::plugins(openmp)]]
+
 #include <Rcpp.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include <algorithm>
 #include <vector>
 #include <cmath>
@@ -11,9 +10,11 @@
 #include <numeric>
 #include <sstream>
 
-using namespace Rcpp;
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
-// [[Rcpp::plugins(openmp)]]
+using namespace Rcpp;
 
 // Constants for numerical stability
 const double EPSILON = 1e-10;

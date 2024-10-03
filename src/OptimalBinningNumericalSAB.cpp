@@ -1,9 +1,6 @@
 // [[Rcpp::plugins(cpp11)]]
 // [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +10,10 @@
 #include <set>
 #include <numeric>
 #include <sstream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace Rcpp;
 

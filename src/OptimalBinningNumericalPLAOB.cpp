@@ -1,3 +1,4 @@
+// [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
 #include <vector>
 #include <algorithm>
@@ -5,7 +6,6 @@
 #include <limits>
 #include <sstream>
 
-// [[Rcpp::plugins(openmp)]]
 #ifdef _OPENMP
 #include <omp.h>
 #endif
