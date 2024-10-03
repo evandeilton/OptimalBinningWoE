@@ -100,6 +100,11 @@ private:
     }
   }
   
+  // Custom clamp function for C++ versions prior to C++17
+  static int clamp(int value, int low, int high) {
+    return (value < low) ? low : ((value > high) ? high : value);
+  }
+  
   void createInitialBins() {
     std::vector<double> sorted_feature = feature;
     std::sort(sorted_feature.begin(), sorted_feature.end());
@@ -117,7 +122,7 @@ private:
     
     for (int i = 1; i < n_prebins; ++i) {
       int idx = static_cast<int>(std::round((static_cast<double>(i) / n_prebins) * unique_vals));
-      idx = std::clamp(idx, 1, unique_vals - 1);
+      idx = clamp(idx, 1, unique_vals - 1);
       bin_edges[i] = sorted_feature[idx];
     }
   }
