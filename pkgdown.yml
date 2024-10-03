@@ -3,7 +3,7 @@ pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
   cm_paper: cm_paper.html
-last_built: 2024-10-03T14:22Z
+last_built: 2024-10-03T17:10Z
 urls:
   reference: https://evandeilton.github.io/OptimalBinningWoE/reference
   article: https://evandeilton.github.io/OptimalBinningWoE/articles
