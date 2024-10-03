@@ -101,6 +101,9 @@ target variable, maximizing the predictive power while respecting user-defined c
 <li><p>iv_total: Total Information Value (IV) for the feature.</p></li>
 </ul></dd>
 
+<dt>iv</dt>
+<dd><p>The total Information Value (IV) for the feature.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -109,46 +112,25 @@ target variable, maximizing the predictive power while respecting user-defined c
 <li><p>Ensure the number of bins is between <code>min_bins</code> and <code>max_bins</code> by splitting or merging bins.</p></li>
 <li><p>Apply isotonic regression to smooth the positive rates across bins.</p></li>
 <li><p>Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.</p></li>
-</ol><p>Weight of Evidence (WoE) is calculated for each bin as:</p>
-<p>$$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)$$</p>
-<p>where \(P(X_i|Y=1)\) is the proportion of positive cases in bin i, and
-\(P(X_i|Y=0)\) is the proportion of negative cases in bin i.</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i$$</p>
-<p>The algorithm aims to create monotonic bins that maximize the predictive power of the
-numerical variable while adhering to the specified constraints. Isotonic regression ensures
-that the positive rates are non-decreasing across bins, which is particularly useful for
-credit scoring and risk modeling applications.</p>
-<p>This implementation uses OpenMP for parallel processing when available, which can
-significantly speed up the computation for large datasets.</p>
-    </div>
+</ol></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Barlow, R. E., Bartholomew, D. J., Bremner, J. M., &amp; Brunk, H. D. (1972).
+    <p>Barlow, R. E., Bartholomew, D. J., Bremner, J. M., &amp; Brunk, H. D. (1972).
 Statistical inference under order restrictions: The theory and application
-of isotonic regression. Wiley.</p></li>
-<li><p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm
-for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774</p></li>
-</ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
+of isotonic regression. Wiley.</p>
+<p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm
+for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Create sample data</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">1000</span></span></span>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">0</span><span class="op">:</span><span class="fl">1</span>, <span class="va">n</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_ir</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># Print results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># Plot WoE values</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">$</span><span class="va">woe</span>, type <span class="op">=</span> <span class="st">"s"</span>, xaxt <span class="op">=</span> <span class="st">"n"</span>, xlab <span class="op">=</span> <span class="st">"Bins"</span>, ylab <span class="op">=</span> <span class="st">"WoE"</span>,</span></span>
 <span class="r-in"><span>     main <span class="op">=</span> <span class="st">"Weight of Evidence by Bin"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/axis.html" class="external-link">axis</a></span><span class="op">(</span><span class="fl">1</span>, at <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span>, labels <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
