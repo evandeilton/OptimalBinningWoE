@@ -30,11 +30,15 @@ private:
   std::vector<std::string> merged_bins;
   std::vector<double> woe_values;
   std::vector<double> iv_values;
+  std::vector<int> count_values;
+  std::vector<int> count_pos_values;
+  std::vector<int> count_neg_values;
   
   void validate_inputs() const;
   void compute_category_stats() noexcept;
   void optimize_binning() noexcept;
   void compute_woe_iv() noexcept;
+  double safe_log(double x) const noexcept;
   
 public:
   OptimalBinningCategoricalIVB(const std::vector<std::string>& feature,
@@ -141,14 +145,25 @@ void OptimalBinningCategoricalIVB::optimize_binning() noexcept {
   }
 }
 
+double OptimalBinningCategoricalIVB::safe_log(double x) const noexcept {
+  return std::log(std::max(x, std::numeric_limits<double>::epsilon()));
+}
+
 void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
-  int total_pos = std::count(target.begin(), target.end(), 1);
+  int total_pos = std::accumulate(target.begin(), target.end(), 0);
   int total_neg = target.size() - total_pos;
   
   woe_values.clear();
   iv_values.clear();
+  count_values.clear();
+  count_pos_values.clear();
+  count_neg_values.clear();
+  
   woe_values.reserve(merged_bins.size());
   iv_values.reserve(merged_bins.size());
+  count_values.reserve(merged_bins.size());
+  count_pos_values.reserve(merged_bins.size());
+  count_neg_values.reserve(merged_bins.size());
   
   for (const auto& bin : merged_bins) {
     int bin_pos = 0, bin_neg = 0;
@@ -164,17 +179,18 @@ void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
     bin_pos += category_pos_counts[cat];
     bin_neg += category_neg_counts[cat];
     
+    int bin_count = bin_pos + bin_neg;
     double dist_pos = static_cast<double>(bin_pos) / total_pos;
     double dist_neg = static_cast<double>(bin_neg) / total_neg;
     
-    dist_pos = std::max(dist_pos, std::numeric_limits<double>::epsilon());
-    dist_neg = std::max(dist_neg, std::numeric_limits<double>::epsilon());
-    
-    double woe = std::log(dist_pos / dist_neg);
+    double woe = safe_log(dist_pos) - safe_log(dist_neg);
     double iv = (dist_pos - dist_neg) * woe;
     
     woe_values.push_back(woe);
     iv_values.push_back(iv);
+    count_values.push_back(bin_count);
+    count_pos_values.push_back(bin_pos);
+    count_neg_values.push_back(bin_neg);
   }
 }
 
@@ -230,7 +246,10 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
   Rcpp::DataFrame woebin = Rcpp::DataFrame::create(
     Rcpp::Named("bin") = merged_bins,
     Rcpp::Named("woe") = woe_values,
-    Rcpp::Named("iv") = iv_values
+    Rcpp::Named("iv") = iv_values,
+    Rcpp::Named("count") = count_values,
+    Rcpp::Named("count_pos") = count_pos_values,
+    Rcpp::Named("count_neg") = count_neg_values
   );
   
   return Rcpp::List::create(

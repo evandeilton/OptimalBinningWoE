@@ -36,54 +36,42 @@ optimal_binning_categorical_sab(
 \item{max_iterations}{Maximum number of iterations for Simulated Annealing (default: 1000).}
 }
 \value{
-A list containing two elements:
+A list containing three elements:
 \itemize{
 \item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
 \item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+\item total_iv: The total Information Value for the binning solution
 }
 }
 \description{
 This function performs optimal binning for categorical variables using a Simulated Annealing approach.
+It maximizes the Information Value (IV) while maintaining monotonicity in the bins.
 }
 \details{
-This algorithm performs optimal binning for categorical variables using Simulated Annealing (SA).
-The process aims to maximize the Information Value (IV) while maintaining monotonicity in the bins.
+The algorithm uses Simulated Annealing to find an optimal binning solution that maximizes
+the Information Value while maintaining monotonicity. It respects the specified constraints
+on the number of bins and bin sizes.
 
-The algorithm works as follows:
-\enumerate{
-\item Initialize by assigning each unique category to a random bin.
-\item Calculate the initial IV.
-\item In each iteration of SA:
-\enumerate{
-\item Generate a neighbor solution by randomly reassigning a category to a different bin.
-\item Calculate the IV of the new solution.
-\item Accept the new solution if it improves IV and maintains monotonicity.
-\item If the new solution is worse, accept it with a probability based on the current temperature.
-}
-\item Repeat step 3 for a specified number of iterations, reducing the temperature each time.
-\item Ensure the final solution is monotonic.
-}
+The Weight of Evidence (WoE) is calculated as:
+\deqn{WoE_i = \ln(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i})}
+
+Where:
+\deqn{\text{Distribution of positives}_i = \frac{\text{Number of positives in bin } i}{\text{Total Number of positives}}}
+\deqn{\text{Distribution of negatives}_i = \frac{\text{Number of negatives in bin } i}{\text{Total Number of negatives}}}
 
 The Information Value (IV) is calculated as:
-\deqn{IV = \sum(\text{\% of non-events} - \text{\% of events}) \times WoE}
+\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
 
-Where Weight of Evidence (WoE) is:
-\deqn{WoE = \ln(\frac{\text{\% of events}}{\text{\% of non-events}})}
-
-The algorithm uses OpenMP for parallel processing to improve performance.
+The algorithm uses OpenMP for parallel processing to improve performance on multi-core systems.
 }
 \examples{
 \dontrun{
-# Create sample data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-
-# Run optimal binning
 result <- optimal_binning_categorical_sab(target, feature)
-
-# View results
 print(result$woebin)
+print(result$total_iv)
 }
 
 }
@@ -91,9 +79,6 @@ print(result$woebin)
 \itemize{
 \item Bertsimas, D., & Dunn, J. (2017). Optimal classification trees. Machine Learning, 106(7), 1039-1082.
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-In Workshop on Data Science and Advanced Analytics (DSAA).
+Workshop on Data Science and Advanced Analytics (DSAA).
 }
-}
-\author{
-Lopes, J. E.
 }

@@ -12,7 +12,7 @@ The OptimalBinningWoE package offers a robust and flexible
 implementation of optimal binning and Weight of Evidence (WoE)
 calculation for data analysis and predictive modeling. This package is
 particularly useful for data preparation in credit scoring models but
-can be applied in other statistical modeling contexts.
+can be applied in other statistical modeling projects.
 
 ## Installation
 
