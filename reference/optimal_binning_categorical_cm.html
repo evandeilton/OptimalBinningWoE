@@ -9,7 +9,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bi
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9001</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,70 +59,62 @@ calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bi
 
 
 <dl><dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
-<dd><p>Integer vector of binary target values (0 or 1).</p></dd>
+<dd><p>Integer vector de valores binários do target (0 ou 1).</p></dd>
 
 
 <dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
-<dd><p>Character vector of categorical feature values.</p></dd>
+<dd><p>Character vector de valores categóricos da feature.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
-<dd><p>Minimum number of bins (default: 3).</p></dd>
+<dd><p>Número mínimo de bins (padrão: 3).</p></dd>
 
 
 <dt id="arg-max-bins">max_bins<a class="anchor" aria-label="anchor" href="#arg-max-bins"></a></dt>
-<dd><p>Maximum number of bins (default: 5).</p></dd>
+<dd><p>Número máximo de bins (padrão: 5).</p></dd>
 
 
 <dt id="arg-bin-cutoff">bin_cutoff<a class="anchor" aria-label="anchor" href="#arg-bin-cutoff"></a></dt>
-<dd><p>Minimum frequency for a separate bin (default: 0.05).</p></dd>
+<dd><p>Frequência mínima para uma bin separada (padrão: 0.05).</p></dd>
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Maximum number of pre-bins before merging (default: 20).</p></dd>
+<dd><p>Número máximo de pre-bins antes do merging (padrão: 20).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
-<li><p>woebin: Data frame with binning results (bin names, WoE, IV, counts).</p></li>
+    <p>Uma lista com dois elementos:</p><ul><li><p>woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.</p></li>
+<li><p>woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The Chi-Merge algorithm uses chi-square statistics to merge adjacent bins:</p>
+    <p>O algoritmo Chi-Merge utiliza estatísticas de qui-quadrado para mesclar bins adjacentes:</p>
 <p>$$\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}$$</p>
-<p>where \(O_{ij}\) is the observed frequency and \(E_{ij}\) is the expected frequency
-for bin i and class j.</p>
-<p>Weight of Evidence (WoE) for each bin:</p>
+<p>onde \(O_{ij}\) é a frequência observada e \(E_{ij}\) é a frequência esperada
+para a bin i e classe j.</p>
+<p>Weight of Evidence (WoE) para cada bin:</p>
 <p>$$WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})$$</p>
-<p>Information Value (IV) for each bin:</p>
+<p>Information Value (IV) para cada bin:</p>
 <p>$$IV = (P(X|Y=1) - P(X|Y=0)) * WoE$$</p>
-<p>The algorithm initializes bins for each category, merges rare categories based on
-bin_cutoff, and then iteratively merges bins with the lowest chi-square statistic
-until reaching max_bins. It enforces WoE monotonicity and handles edge cases like
-zero frequencies using small constant values.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>Kerber, R. (1992). ChiMerge: Discretization of numeric attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.</p>
-<p>Beltrami, M., Mach, M., &amp; Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
+<p>O algoritmo inicializa bins para cada categoria, mescla categorias raras com base
+no bin_cutoff, e então itera mesclando bins com o menor qui-quadrado
+até atingir max_bins. Determina a direção da monotonicidade com base na
+tendência inicial e a impõe, permitindo desvios se as restrições de min_bins
+forem acionadas.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Sample data</span></span></span>
+<span class="r-in"><span><span class="co"># Dados de exemplo</span></span></span>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"A"</span>, <span class="st">"C"</span>, <span class="st">"B"</span>, <span class="st">"D"</span>, <span class="st">"C"</span>, <span class="st">"A"</span>, <span class="st">"D"</span>, <span class="st">"B"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
+<span class="r-in"><span><span class="co"># Executar o binning ótimo</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_cm</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View results</span></span></span>
+<span class="r-in"><span><span class="co"># Ver resultados</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
