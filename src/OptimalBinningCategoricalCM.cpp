@@ -522,13 +522,13 @@ private:
     bins.erase(bin_it2);
   }
   
-  // Concatenate category names with "+"
+  // Concatenate category names with "%;%"
   std::string join_categories(const std::vector<std::string>& categories) const {
     std::string result;
     for (size_t i = 0; i < categories.size(); ++i) {
       result += categories[i];
       if (i != categories.size() - 1) {
-        result += "+";
+        result += "%;%";
       }
     }
     return result;

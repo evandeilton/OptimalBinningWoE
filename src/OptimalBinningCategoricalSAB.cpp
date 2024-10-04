@@ -348,7 +348,7 @@ if (attempts == max_attempts) {
         // Create bin name by concatenating categories with "+"
         std::string bin_name = "";
         for (const auto& category : bin_categories[i]) {
-          if (!bin_name.empty()) bin_name += "+";
+          if (!bin_name.empty()) bin_name += "%;%";
           bin_name += category;
         }
         bins.push_back(bin_name);

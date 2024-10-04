@@ -129,7 +129,7 @@ private:
         }
       }
       if (min_idx != -1) {
-        non_rare_categories[min_idx].category += "+" + rare_cat.category;
+        non_rare_categories[min_idx].category += "%;%" + rare_cat.category;
         non_rare_categories[min_idx].count += rare_cat.count;
         non_rare_categories[min_idx].count_pos += rare_cat.count_pos;
         non_rare_categories[min_idx].count_neg += rare_cat.count_neg;
@@ -158,7 +158,7 @@ private:
         
         CategoryStats cs = category_stats[start_idx];
         for (int j = start_idx + 1; j < end_idx; ++j) {
-          cs.category += "+" + category_stats[j].category;
+          cs.category += "%;%" + category_stats[j].category;
           cs.count += category_stats[j].count;
           cs.count_pos += category_stats[j].count_pos;
           cs.count_neg += category_stats[j].count_neg;
@@ -253,7 +253,7 @@ private:
   
   CategoryStats merge_two_bins(const CategoryStats& a, const CategoryStats& b) {
     CategoryStats merged;
-    merged.category = a.category + "+" + b.category;
+    merged.category = a.category + "%;%" + b.category;
     merged.count = a.count + b.count;
     merged.count_pos = a.count_pos + b.count_pos;
     merged.count_neg = a.count_neg + b.count_neg;

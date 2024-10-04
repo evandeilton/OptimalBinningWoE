@@ -240,7 +240,7 @@ public:
     for (const auto& bin : bins) {
       std::string bin_name = bin.categories[0];
       for (size_t i = 1; i < bin.categories.size(); ++i) {
-        bin_name += "+" + bin.categories[i];
+        bin_name += "%;%" + bin.categories[i];
       }
       
       bin_names.push_back(bin_name);

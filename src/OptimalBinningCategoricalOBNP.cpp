@@ -288,7 +288,7 @@ void OptimalBinningCategoricalMILP::fit() {
     
     std::string bin_name = sorted_categories[0];
     for (size_t j = 1; j < sorted_categories.size(); ++j) {
-      bin_name += "+" + sorted_categories[j];
+      bin_name += "%;%" + sorted_categories[j];
     }
     
     bin_vec[i] = bin_name;

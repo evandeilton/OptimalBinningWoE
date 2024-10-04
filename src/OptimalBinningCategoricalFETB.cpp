@@ -276,7 +276,7 @@ public:
     counts_neg.reserve(bins.size());
     
     for (const auto& bin : bins) {
-      std::string label = joinStrings(bin.categories, "+");
+      std::string label = joinStrings(bin.categories, "%;%");
       bin_labels.emplace_back(label);
       woe_values.emplace_back(bin.woe);
       iv_values.emplace_back(bin.iv);

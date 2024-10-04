@@ -368,7 +368,7 @@ List OptimalBinningCategoricalMOB::fit() {
     
     std::string bin_name = sorted_categories[0];
     for (size_t i = 1; i < sorted_categories.size(); ++i) {
-      bin_name += "+" + sorted_categories[i];
+      bin_name += "%;%" + sorted_categories[i];
     }
     bin_names.push_back(bin_name);
     woe_values.push_back(bin.woe);

@@ -45,7 +45,7 @@ struct Bin {
   std::string get_name() const {
     std::string name = categories[0];
     for (size_t i = 1; i < categories.size(); ++i) {
-      name += "+" + categories[i];
+      name += "%;%" + categories[i];
     }
     return name;
   }

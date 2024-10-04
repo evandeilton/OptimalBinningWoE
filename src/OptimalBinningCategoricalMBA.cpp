@@ -180,7 +180,7 @@ void OptimalBinningCategoricalMBA::prebinning() {
   // Update feature with grouped categories
   std::unordered_map<std::string, std::string> category_mapping;
   for (const auto& bin : bins) {
-    std::string bin_name = utils::join(bin.categories, "+");
+    std::string bin_name = utils::join(bin.categories, "%;%");
     for (const auto& cat : bin.categories) {
       category_mapping[cat] = bin_name;
     }
@@ -401,7 +401,7 @@ Rcpp::List OptimalBinningCategoricalMBA::fit() {
   double total_iv = 0.0;
   
   for (const auto& bin : bins) {
-    std::string bin_name = utils::join(bin.categories, "+");
+    std::string bin_name = utils::join(bin.categories, "%;%");
     bin_names.push_back(bin_name);
     woe_values.push_back(bin.woe);
     iv_values.push_back(bin.iv);

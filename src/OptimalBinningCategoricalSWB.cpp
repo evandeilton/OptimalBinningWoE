@@ -212,7 +212,7 @@ public:
     
     std::unordered_map<std::string, double> category_to_woe;
     for (const auto& bin : bins) {
-      std::string bin_name = join_categories(bin.categories, "+");
+      std::string bin_name = join_categories(bin.categories, "%;%");
       bin_categories.push_back(bin_name);
       woes.push_back(bin.woe);
       ivs.push_back(bin.iv);

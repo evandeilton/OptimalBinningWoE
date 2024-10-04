@@ -244,7 +244,7 @@ public:
       std::string label = std::accumulate(std::next(bin.categories.begin()), bin.categories.end(),
                                           bin.categories[0],
                                                         [](std::string a, std::string b) {
-                                                          return std::move(a) + "+" + b;
+                                                          return std::move(a) + "%;%" + b;
                                                         });
       bin_labels.push_back(label);
       woe_vals.push_back(bin.woe);
