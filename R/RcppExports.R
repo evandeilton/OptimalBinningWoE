@@ -38,8 +38,8 @@
 #'
 #' The algorithm initializes bins for each category, merges rare categories based on
 #' bin_cutoff, and then iteratively merges bins with the lowest chi-square statistic
-#' until reaching max_bins. It enforces WoE monotonicity and handles edge cases like
-#' zero frequencies using small constant values.
+#' until reaching max_bins. It determines the direction of monotonicity based on the
+#' initial trend and enforces it, allowing deviations if min_bins constraints are triggered.
 #'
 #' @examples
 #' \dontrun{
@@ -54,13 +54,6 @@
 #' print(result$woebin)
 #' print(result$woefeature)
 #' }
-#'
-#' @author Lopes, J. E.
-#'
-#' @references
-#' Kerber, R. (1992). ChiMerge: Discretization of numeric attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
-#'
-#' Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
 #'
 #' @export
 optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
