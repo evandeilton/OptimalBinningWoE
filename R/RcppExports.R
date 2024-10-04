@@ -7,50 +7,51 @@
 #' Implements optimal binning for categorical variables using the Chi-Merge algorithm,
 #' calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#' @param target Integer vector de valores binários do target (0 ou 1).
+#' @param feature Character vector de valores categóricos da feature.
+#' @param min_bins Número mínimo de bins (padrão: 3).
+#' @param max_bins Número máximo de bins (padrão: 5).
+#' @param bin_cutoff Frequência mínima para uma bin separada (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pre-bins antes do merging (padrão: 20).
 #'
-#' @return A list with two elements:
+#' @return Uma lista com dois elementos:
 #' \itemize{
-#'   \item woefeature: Numeric vector of WoE values for each input feature value.
-#'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+#'   \item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
+#'   \item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
 #' }
 #'
 #' @details
-#' The Chi-Merge algorithm uses chi-square statistics to merge adjacent bins:
+#' O algoritmo Chi-Merge utiliza estatísticas de qui-quadrado para mesclar bins adjacentes:
 #'
 #' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
 #'
-#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
-#' for bin i and class j.
+#' onde \eqn{O_{ij}} é a frequência observada e \eqn{E_{ij}} é a frequência esperada
+#' para a bin i e classe j.
 #'
-#' Weight of Evidence (WoE) for each bin:
+#' Weight of Evidence (WoE) para cada bin:
 #'
 #' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 #'
-#' Information Value (IV) for each bin:
+#' Information Value (IV) para cada bin:
 #'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
 #'
-#' The algorithm initializes bins for each category, merges rare categories based on
-#' bin_cutoff, and then iteratively merges bins with the lowest chi-square statistic
-#' until reaching max_bins. It determines the direction of monotonicity based on the
-#' initial trend and enforces it, allowing deviations if min_bins constraints are triggered.
+#' O algoritmo inicializa bins para cada categoria, mescla categorias raras com base
+#' no bin_cutoff, e então itera mesclando bins com o menor qui-quadrado
+#' até atingir max_bins. Determina a direção da monotonicidade com base na
+#' tendência inicial e a impõe, permitindo desvios se as restrições de min_bins
+#' forem acionadas.
 #'
 #' @examples
 #' \dontrun{
-#' # Sample data
+#' # Dados de exemplo
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 #'
-#' # Run optimal binning
+#' # Executar o binning ótimo
 #' result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
 #'
-#' # View results
+#' # Ver resultados
 #' print(result$woebin)
 #' print(result$woefeature)
 #' }
@@ -274,48 +275,48 @@ optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_gmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
-#' @title Categorical Optimal Binning with Information Value Binning
+#' @title Binning Categórico Ótimo com Information Value (IVB)
 #'
 #' @description
-#' Implements optimal binning for categorical variables using Information Value (IV)
-#' as the primary criterion, calculating Weight of Evidence (WoE) and IV for resulting bins.
+#' Implementa binning ótimo para variáveis categóricas usando Information Value (IV)
+#' como critério principal, calculando Weight of Evidence (WoE) e IV para as bins resultantes.
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector or factor of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#' @param target Vetor inteiro de valores binários do target (0 ou 1).
+#' @param feature Vetor character ou fator de valores categóricos da feature.
+#' @param min_bins Número mínimo de bins (padrão: 3).
+#' @param max_bins Número máximo de bins (padrão: 5).
+#' @param bin_cutoff Frequência mínima para uma bin separada (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pre-bins antes do merging (padrão: 20).
 #'
-#' @return A list with three elements:
+#' @return Uma lista com três elementos:
 #' \itemize{
-#'   \item woefeature: Numeric vector of WoE values for each input feature value.
-#'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
-#'   \item category_mapping: Named vector mapping original categories to their WoE values.
+#'   \item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
+#'   \item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
+#'   \item category_mapping: Vetor nomeado mapeando categorias originais para seus valores de WoE.
 #' }
 #'
 #' @details
-#' The algorithm uses Information Value (IV) to create optimal bins for categorical variables.
-#' It starts by computing statistics for each category, then sorts categories by event rate
-#' to ensure monotonicity. The algorithm then creates initial bins based on the specified
-#' constraints and computes WoE and IV for each bin.
+#' O algoritmo utiliza Information Value (IV) para criar bins ótimos para variáveis categóricas.
+#' Inicia computando estatísticas para cada categoria, depois ordena as categorias por taxa de evento
+#' para garantir monotonicidade. O algoritmo então cria bins iniciais com base nas restrições especificadas
+#' e calcula WoE e IV para cada bin.
 #'
-#' Weight of Evidence (WoE) for each bin is calculated as:
+#' Weight of Evidence (WoE) para cada bin é calculado como:
 #' \deqn{WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 #'
-#' Information Value (IV) for each bin is calculated as:
+#' Information Value (IV) para cada bin é calculado como:
 #' \deqn{IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
 #'
 #' @examples
 #' \dontrun{
-#' # Sample data
+#' # Dados de exemplo
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 #'
-#' # Run optimal binning
+#' # Executar o binning ótimo
 #' result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
 #'
-#' # View results
+#' # Ver resultados
 #' print(result$woebin)
 #' print(result$woefeature)
 #' print(result$category_mapping)
@@ -458,80 +459,6 @@ optimal_binning_categorical_ldb <- function(target, feature, min_bins = 3L, max_
 #' @export
 optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_mba`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
-}
-
-#' @title Optimal Binning for Categorical Variables using MILP
-#'
-#' @description
-#' This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
-#'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#'
-#' @return A list containing two elements:
-#' \item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-#' \item{woebin}{A data frame with the following columns:
-#'   \itemize{
-#'     \item bin: Character vector of bin categories.
-#'     \item woe: Numeric vector of WoE values for each bin.
-#'     \item iv: Numeric vector of Information Value (IV) for each bin.
-#'     \item count: Integer vector of total observations in each bin.
-#'     \item count_pos: Integer vector of positive target observations in each bin.
-#'     \item count_neg: Integer vector of negative target observations in each bin.
-#'   }
-#' }
-#'
-#' @details
-#' The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
-#' 1. Create initial bins for each unique category.
-#' 2. Merge bins with counts below the cutoff.
-#' 3. Calculate initial Weight of Evidence (WoE) and Information Value (IV) for each bin.
-#' 4. Optimize bins by merging categories to maximize total IV while respecting constraints.
-#' 5. Ensure the number of bins is between min_bins and max_bins.
-#' 6. Recalculate WoE and IV for the final bins.
-#'
-#' The algorithm aims to create bins that maximize the predictive power of the categorical variable while adhering to the specified constraints.
-#'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
-#'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#'
-#' @references
-#' \itemize{
-#'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' n <- 1000
-#' target <- sample(0:1, n, replace = TRUE)
-#' feature <- sample(LETTERS[1:10], n, replace = TRUE)
-#'
-#' # Run optimal binning
-#' result <- optimal_binning_categorical_milp(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # Print results
-#' print(result$woebin)
-#'
-#' # Plot WoE values
-#' barplot(result$woebin$woe, names.arg = result$woebin$bin,
-#'         xlab = "Bins", ylab = "WoE", main = "Weight of Evidence by Bin")
-#' }
-#'
-#' @author Lopes, J. E.
-#'
-#' @export
-optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_milp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' @title

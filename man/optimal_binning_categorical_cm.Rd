@@ -14,23 +14,23 @@ optimal_binning_categorical_cm(
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 or 1).}
+\item{target}{Integer vector de valores binários do target (0 ou 1).}
 
-\item{feature}{Character vector of categorical feature values.}
+\item{feature}{Character vector de valores categóricos da feature.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
+\item{bin_cutoff}{Frequência mínima para uma bin separada (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Número máximo de pre-bins antes do merging (padrão: 20).}
 }
 \value{
-A list with two elements:
+Uma lista com dois elementos:
 \itemize{
-\item woefeature: Numeric vector of WoE values for each input feature value.
-\item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+\item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
+\item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
 }
 }
 \description{
@@ -38,46 +38,39 @@ Implements optimal binning for categorical variables using the Chi-Merge algorit
 calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
 }
 \details{
-The Chi-Merge algorithm uses chi-square statistics to merge adjacent bins:
+O algoritmo Chi-Merge utiliza estatísticas de qui-quadrado para mesclar bins adjacentes:
 
 \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
 
-where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
-for bin i and class j.
+onde \eqn{O_{ij}} é a frequência observada e \eqn{E_{ij}} é a frequência esperada
+para a bin i e classe j.
 
-Weight of Evidence (WoE) for each bin:
+Weight of Evidence (WoE) para cada bin:
 
 \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 
-Information Value (IV) for each bin:
+Information Value (IV) para cada bin:
 
 \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
 
-The algorithm initializes bins for each category, merges rare categories based on
-bin_cutoff, and then iteratively merges bins with the lowest chi-square statistic
-until reaching max_bins. It enforces WoE monotonicity and handles edge cases like
-zero frequencies using small constant values.
+O algoritmo inicializa bins para cada categoria, mescla categorias raras com base
+no bin_cutoff, e então itera mesclando bins com o menor qui-quadrado
+até atingir max_bins. Determina a direção da monotonicidade com base na
+tendência inicial e a impõe, permitindo desvios se as restrições de min_bins
+forem acionadas.
 }
 \examples{
 \dontrun{
-# Sample data
+# Dados de exemplo
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Run optimal binning
+# Executar o binning ótimo
 result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
 
-# View results
+# Ver resultados
 print(result$woebin)
 print(result$woefeature)
 }
 
-}
-\references{
-Kerber, R. (1992). ChiMerge: Discretization of numeric attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
-
-Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
-}
-\author{
-Lopes, J. E.
 }

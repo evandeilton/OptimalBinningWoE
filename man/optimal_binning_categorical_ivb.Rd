@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_ivb}
 \alias{optimal_binning_categorical_ivb}
-\title{Categorical Optimal Binning with Information Value Binning}
+\title{Binning Categórico Ótimo com Information Value (IVB)}
 \usage{
 optimal_binning_categorical_ivb(
   target,
@@ -14,52 +14,52 @@ optimal_binning_categorical_ivb(
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro de valores binários do target (0 ou 1).}
 
-\item{feature}{Character vector or factor of categorical feature values.}
+\item{feature}{Vetor character ou fator de valores categóricos da feature.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
+\item{bin_cutoff}{Frequência mínima para uma bin separada (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Número máximo de pre-bins antes do merging (padrão: 20).}
 }
 \value{
-A list with three elements:
+Uma lista com três elementos:
 \itemize{
-\item woefeature: Numeric vector of WoE values for each input feature value.
-\item woebin: Data frame with binning results (bin names, WoE, IV, counts).
-\item category_mapping: Named vector mapping original categories to their WoE values.
+\item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
+\item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
+\item category_mapping: Vetor nomeado mapeando categorias originais para seus valores de WoE.
 }
 }
 \description{
-Implements optimal binning for categorical variables using Information Value (IV)
-as the primary criterion, calculating Weight of Evidence (WoE) and IV for resulting bins.
+Implementa binning ótimo para variáveis categóricas usando Information Value (IV)
+como critério principal, calculando Weight of Evidence (WoE) e IV para as bins resultantes.
 }
 \details{
-The algorithm uses Information Value (IV) to create optimal bins for categorical variables.
-It starts by computing statistics for each category, then sorts categories by event rate
-to ensure monotonicity. The algorithm then creates initial bins based on the specified
-constraints and computes WoE and IV for each bin.
+O algoritmo utiliza Information Value (IV) para criar bins ótimos para variáveis categóricas.
+Inicia computando estatísticas para cada categoria, depois ordena as categorias por taxa de evento
+para garantir monotonicidade. O algoritmo então cria bins iniciais com base nas restrições especificadas
+e calcula WoE e IV para cada bin.
 
-Weight of Evidence (WoE) for each bin is calculated as:
+Weight of Evidence (WoE) para cada bin é calculado como:
 \deqn{WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 
-Information Value (IV) for each bin is calculated as:
+Information Value (IV) para cada bin é calculado como:
 \deqn{IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
 }
 \examples{
 \dontrun{
-# Sample data
+# Dados de exemplo
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Run optimal binning
+# Executar o binning ótimo
 result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
 
-# View results
+# Ver resultados
 print(result$woebin)
 print(result$woefeature)
 print(result$category_mapping)
