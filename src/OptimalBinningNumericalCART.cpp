@@ -222,9 +222,9 @@ public:
       if (i == 0) {
         oss << "(-Inf; " << bin_edges[i + 1] << "]";
       } else if (i == n_bins - 1) {
-        oss << "(" << bin_edges[i] << "; Inf]";
+        oss << "(" << bin_edges[i] << ";+Inf]";
       } else {
-        oss << "(" << bin_edges[i] << "; " << bin_edges[i + 1] << "]";
+        oss << "(" << bin_edges[i] << ";" << bin_edges[i + 1] << "]";
       }
       bins[i] = oss.str();
     }

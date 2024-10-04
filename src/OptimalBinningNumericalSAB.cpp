@@ -452,7 +452,7 @@ woebin = DataFrame::create(
     } else if (bin_idx == static_cast<int>(cuts.size())) {
       oss << "(" << cuts.back() << ", +Inf]";
     } else {
-      oss << "(" << cuts[bin_idx - 1] << ", " << cuts[bin_idx] << "]";
+      oss << "(" << cuts[bin_idx - 1] << ";" << cuts[bin_idx] << "]";
     }
     return oss.str();
   }

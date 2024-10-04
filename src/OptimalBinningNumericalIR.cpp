@@ -367,7 +367,7 @@ private:
     if (is_first) {
       oss << "(-Inf;" << bin.upper << "]";
     } else if (is_last) {
-      oss << "(" << bin.lower << ";Inf)";
+      oss << "(" << bin.lower << ";+Inf]";
     } else {
       oss << "(" << bin.lower << ";" << bin.upper << "]";
     }

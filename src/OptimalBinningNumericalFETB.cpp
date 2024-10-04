@@ -384,12 +384,12 @@ List OptimalBinningNumericalFETB::performBinning() {
     std::ostringstream oss;
     oss << "(";
     if (i == 0) {
-      oss << "-inf;";
+      oss << "-Inf;";
     } else {
       oss << binEdges[i] << ";";
     }
     if (i == n_bins - 1) {
-      oss << "inf]";
+      oss << "+Inf]";
     } else {
       oss << binEdges[i + 1] << "]";
     }
