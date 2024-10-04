@@ -84,8 +84,9 @@ as the primary criterion, calculating Weight of Evidence (WoE) and IV for result
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
-<li><p>woebin: Data frame with binning results (bin names, WoE, IV).</p></li>
+    <p>A list with three elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
+<li><p>woebin: Data frame with binning results (bin names, WoE, IV, counts).</p></li>
+<li><p>category_mapping: Named vector mapping original categories to their WoE values.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -93,25 +94,10 @@ as the primary criterion, calculating Weight of Evidence (WoE) and IV for result
 It starts by computing statistics for each category, then sorts categories by event rate
 to ensure monotonicity. The algorithm then creates initial bins based on the specified
 constraints and computes WoE and IV for each bin.</p>
-<p>Weight of Evidence (WoE) for each bin is calculated as:</p>
-<p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
-<p>The algorithm includes the following key steps:</p><ol><li><p>Compute category statistics (counts, positive counts, negative counts).</p></li>
-<li><p>Sort categories by event rate to ensure monotonicity.</p></li>
-<li><p>Create initial bins based on sorted categories and specified constraints.</p></li>
-<li><p>Compute WoE and IV for each bin.</p></li>
-<li><p>Assign WoE values to the original feature, handling unseen categories.</p></li>
-</ol></div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley &amp; Sons.</p></li>
-<li><p>Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. OUP Oxford.</p></li>
-</ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
+<p>Weight of Evidence (WoE) for each bin is calculated as:
+$$WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})$$</p>
+<p>Information Value (IV) for each bin is calculated as:
+$$IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i$$</p>
     </div>
 
     <div class="section level2">
@@ -127,6 +113,7 @@ constraints and computes WoE and IV for each bin.</p>
 <span class="r-in"><span><span class="co"># View results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">category_mapping</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
