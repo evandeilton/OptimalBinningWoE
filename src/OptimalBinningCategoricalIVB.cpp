@@ -37,8 +37,9 @@ private:
   void validate_inputs() const;
   void compute_category_stats() noexcept;
   void optimize_binning() noexcept;
-  void compute_woe_iv() noexcept;
+  void compute_woe_iv();
   double safe_log(double x) const noexcept;
+  void handle_small_categories() noexcept;
   
 public:
   OptimalBinningCategoricalIVB(const std::vector<std::string>& feature,
@@ -48,7 +49,7 @@ public:
                                int max_bins,
                                int max_n_prebins);
   
-  Rcpp::List fit() noexcept;
+  Rcpp::List fit();
 };
 
 OptimalBinningCategoricalIVB::OptimalBinningCategoricalIVB(const std::vector<std::string>& feature,
@@ -86,25 +87,53 @@ void OptimalBinningCategoricalIVB::validate_inputs() const {
 }
 
 void OptimalBinningCategoricalIVB::compute_category_stats() noexcept {
+  // Reserve space for the unordered_maps
   category_counts.reserve(feature.size());
   category_pos_counts.reserve(feature.size());
   category_neg_counts.reserve(feature.size());
   
-#pragma omp parallel for
+  // Build category counts
   for (size_t i = 0; i < feature.size(); ++i) {
-#pragma omp atomic
     category_counts[feature[i]]++;
     if (target[i] == 1) {
-#pragma omp atomic
       category_pos_counts[feature[i]]++;
     } else {
-#pragma omp atomic
       category_neg_counts[feature[i]]++;
     }
   }
 }
 
+void OptimalBinningCategoricalIVB::handle_small_categories() noexcept {
+  std::string other_category = "Other";
+  int other_count = 0;
+  int other_pos_count = 0;
+  int other_neg_count = 0;
+  
+  for (auto it = category_counts.begin(); it != category_counts.end();) {
+    double category_freq = static_cast<double>(it->second) / feature.size();
+    if (category_freq < bin_cutoff) {
+      std::string key = it->first;  // Store key before erasing
+      other_count += it->second;
+      other_pos_count += category_pos_counts[key];
+      other_neg_count += category_neg_counts[key];
+      it = category_counts.erase(it);
+      category_pos_counts.erase(key);
+      category_neg_counts.erase(key);
+    } else {
+      ++it;
+    }
+  }
+  
+  if (other_count > 0) {
+    category_counts[other_category] = other_count;
+    category_pos_counts[other_category] = other_pos_count;
+    category_neg_counts[other_category] = other_neg_count;
+  }
+}
+
 void OptimalBinningCategoricalIVB::optimize_binning() noexcept {
+  handle_small_categories();
+  
   struct CategoryStats {
     std::string category;
     double event_rate;
@@ -118,10 +147,12 @@ void OptimalBinningCategoricalIVB::optimize_binning() noexcept {
     stats.emplace_back(CategoryStats{pair.first, event_rate, pair.second});
   }
   
+  // Sort categories by event rate to ensure monotonicity
   std::sort(stats.begin(), stats.end(), [](const CategoryStats& a, const CategoryStats& b) {
     return a.event_rate < b.event_rate;
   });
   
+  // Limit the number of pre-bins
   if (static_cast<int>(stats.size()) > max_n_prebins) {
     stats.resize(max_n_prebins);
   }
@@ -149,9 +180,13 @@ double OptimalBinningCategoricalIVB::safe_log(double x) const noexcept {
   return std::log(std::max(x, std::numeric_limits<double>::epsilon()));
 }
 
-void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
+void OptimalBinningCategoricalIVB::compute_woe_iv() {
   int total_pos = std::accumulate(target.begin(), target.end(), 0);
   int total_neg = target.size() - total_pos;
+  
+  if (total_pos == 0 || total_neg == 0) {
+    Rcpp::stop("Target has only one class.");
+  }
   
   woe_values.clear();
   iv_values.clear();
@@ -164,6 +199,8 @@ void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
   count_values.reserve(merged_bins.size());
   count_pos_values.reserve(merged_bins.size());
   count_neg_values.reserve(merged_bins.size());
+  
+  double total_iv = 0.0;
   
   for (const auto& bin : merged_bins) {
     int bin_pos = 0, bin_neg = 0;
@@ -183,7 +220,7 @@ void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
     double dist_pos = static_cast<double>(bin_pos) / total_pos;
     double dist_neg = static_cast<double>(bin_neg) / total_neg;
     
-    double woe = safe_log(dist_pos) - safe_log(dist_neg);
+    double woe = safe_log(dist_pos / dist_neg);
     double iv = (dist_pos - dist_neg) * woe;
     
     woe_values.push_back(woe);
@@ -191,10 +228,17 @@ void OptimalBinningCategoricalIVB::compute_woe_iv() noexcept {
     count_values.push_back(bin_count);
     count_pos_values.push_back(bin_pos);
     count_neg_values.push_back(bin_neg);
+    
+    total_iv += iv;
+  }
+  
+  // Handle zero information case
+  if (total_iv == 0.0) {
+    Rcpp::warning("Zero information value. Check if target has sufficient variation.");
   }
 }
 
-Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
+Rcpp::List OptimalBinningCategoricalIVB::fit() {
   compute_category_stats();
   optimize_binning();
   compute_woe_iv();
@@ -214,32 +258,17 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
     category_to_woe[cat] = woe_values[i];
   }
   
+  // Apply WoE to the feature vector
+#ifdef _OPENMP
 #pragma omp parallel for
+#endif
   for (size_t i = 0; i < feature.size(); ++i) {
     auto it = category_to_woe.find(feature[i]);
     if (it != category_to_woe.end()) {
       woefeature[i] = it->second;
     } else {
-      double event_rate = static_cast<double>(category_pos_counts[feature[i]]) / category_counts[feature[i]];
-      auto it = std::lower_bound(merged_bins.begin(), merged_bins.end(), event_rate,
-                                 [this](const std::string& bin, double rate) {
-                                   double bin_pos = 0, bin_total = 0;
-                                   size_t start = 0, end = bin.find('+');
-                                   while (end != std::string::npos) {
-                                     std::string cat = bin.substr(start, end - start);
-                                     bin_pos += category_pos_counts[cat];
-                                     bin_total += category_counts[cat];
-                                     start = end + 1;
-                                     end = bin.find('+', start);
-                                   }
-                                   std::string cat = bin.substr(start);
-                                   bin_pos += category_pos_counts[cat];
-                                   bin_total += category_counts[cat];
-                                   return (static_cast<double>(bin_pos) / bin_total) < rate;
-                                 });
-      size_t index = std::distance(merged_bins.begin(), it);
-      if (index == merged_bins.size()) index--;
-      woefeature[i] = woe_values[index];
+      // Handle unseen categories
+      woefeature[i] = 0.0; // or use a special value to indicate unseen categories
     }
   }
   
@@ -254,7 +283,8 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
   
   return Rcpp::List::create(
     Rcpp::Named("woefeature") = woefeature,
-    Rcpp::Named("woebin") = woebin
+    Rcpp::Named("woebin") = woebin,
+    Rcpp::Named("category_mapping") = Rcpp::wrap(category_to_woe)
   );
 }
 
@@ -271,10 +301,11 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
 //' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
 //' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
 //'
-//' @return A list with two elements:
+//' @return A list with three elements:
 //' \itemize{
 //'   \item woefeature: Numeric vector of WoE values for each input feature value.
-//'   \item woebin: Data frame with binning results (bin names, WoE, IV).
+//'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+//'   \item category_mapping: Named vector mapping original categories to their WoE values.
 //' }
 //'
 //' @details
@@ -284,21 +315,10 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
 //' constraints and computes WoE and IV for each bin.
 //'
 //' Weight of Evidence (WoE) for each bin is calculated as:
-//'
-//' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+//' \deqn{WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 //'
 //' Information Value (IV) for each bin is calculated as:
-//'
-//' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-//'
-//' The algorithm includes the following key steps:
-//' \enumerate{
-//'   \item Compute category statistics (counts, positive counts, negative counts).
-//'   \item Sort categories by event rate to ensure monotonicity.
-//'   \item Create initial bins based on sorted categories and specified constraints.
-//'   \item Compute WoE and IV for each bin.
-//'   \item Assign WoE values to the original feature, handling unseen categories.
-//' }
+//' \deqn{IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
 //'
 //' @examples
 //' \dontrun{
@@ -312,43 +332,42 @@ Rcpp::List OptimalBinningCategoricalIVB::fit() noexcept {
 //' # View results
 //' print(result$woebin)
 //' print(result$woefeature)
-//' }
-//'
-//' @author Lopes, J. E.
-//'
-//' @references
-//' \itemize{
-//'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley & Sons.
-//'   \item Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. OUP Oxford.
+//' print(result$category_mapping)
 //' }
 //'
 //' @export
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_categorical_ivb(Rcpp::IntegerVector target,
-                                           Rcpp::CharacterVector feature,
-                                           int min_bins = 3,
-                                           int max_bins = 5,
-                                           double bin_cutoff = 0.05,
-                                           int max_n_prebins = 20) {
-  std::vector<std::string> feature_str;
-  feature_str.reserve(feature.size());
-  
-  if (Rf_isFactor(feature)) {
-    Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
-    Rcpp::CharacterVector level_names = levels.attr("levels");
-    for (int i = 0; i < levels.size(); ++i) {
-      feature_str.emplace_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
-    }
-  } else if (TYPEOF(feature) == STRSXP) {
-    feature_str = Rcpp::as<std::vector<std::string>>(feature);
-  } else {
-    Rcpp::stop("feature must be a factor or character vector");
-  }
-  
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-  
-  OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
-  return obcivb.fit();
+                                          Rcpp::CharacterVector feature,
+                                          int min_bins = 3,
+                                          int max_bins = 5,
+                                          double bin_cutoff = 0.05,
+                                          int max_n_prebins = 20) {
+ std::vector<std::string> feature_str;
+ feature_str.reserve(feature.size());
+ 
+ if (Rf_isFactor(feature)) {
+   Rcpp::IntegerVector levels = Rcpp::as<Rcpp::IntegerVector>(feature);
+   Rcpp::CharacterVector level_names = feature.attr("levels");
+   for (int i = 0; i < levels.size(); ++i) {
+     feature_str.emplace_back(Rcpp::as<std::string>(level_names[levels[i] - 1]));
+   }
+ } else if (TYPEOF(feature) == STRSXP) {
+   feature_str = Rcpp::as<std::vector<std::string>>(feature);
+ } else {
+   Rcpp::stop("feature must be a factor or character vector");
+ }
+ 
+ std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+ 
+ // Handle special case for features with two or fewer categories
+ std::set<std::string> unique_categories(feature_str.begin(), feature_str.end());
+ if (unique_categories.size() <= 2) {
+   min_bins = max_bins = unique_categories.size();
+ }
+ 
+ OptimalBinningCategoricalIVB obcivb(feature_str, target_vec, bin_cutoff, min_bins, max_bins, max_n_prebins);
+ return obcivb.fit();
 }
 
 

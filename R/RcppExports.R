@@ -294,10 +294,11 @@ optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_
 #' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
 #'
-#' @return A list with two elements:
+#' @return A list with three elements:
 #' \itemize{
 #'   \item woefeature: Numeric vector of WoE values for each input feature value.
-#'   \item woebin: Data frame with binning results (bin names, WoE, IV).
+#'   \item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+#'   \item category_mapping: Named vector mapping original categories to their WoE values.
 #' }
 #'
 #' @details
@@ -307,21 +308,10 @@ optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_
 #' constraints and computes WoE and IV for each bin.
 #'
 #' Weight of Evidence (WoE) for each bin is calculated as:
-#'
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#' \deqn{WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 #'
 #' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#'
-#' The algorithm includes the following key steps:
-#' \enumerate{
-#'   \item Compute category statistics (counts, positive counts, negative counts).
-#'   \item Sort categories by event rate to ensure monotonicity.
-#'   \item Create initial bins based on sorted categories and specified constraints.
-#'   \item Compute WoE and IV for each bin.
-#'   \item Assign WoE values to the original feature, handling unseen categories.
-#' }
+#' \deqn{IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
 #'
 #' @examples
 #' \dontrun{
@@ -335,14 +325,7 @@ optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_
 #' # View results
 #' print(result$woebin)
 #' print(result$woefeature)
-#' }
-#'
-#' @author Lopes, J. E.
-#'
-#' @references
-#' \itemize{
-#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley & Sons.
-#'   \item Thomas, L. C. (2009). Consumer credit models: Pricing, profit and portfolios. OUP Oxford.
+#' print(result$category_mapping)
 #' }
 #'
 #' @export
