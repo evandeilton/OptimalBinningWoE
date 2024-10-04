@@ -648,8 +648,9 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
 #' 1. Merge rare categories: Categories with fewer observations than the specified bin_cutoff are merged into an "Other" category.
 #' 2. Create initial bins: Each unique category is assigned to its own bin, up to max_n_prebins.
 #' 3. Optimize bins:
-#'    a. While the number of bins exceeds max_bins, merge the two bins with the lowest IV.
-#'    b. Calculate WoE and IV for each bin.
+#'    a. Calculate WoE and IV for each bin.
+#'    b. Enforce monotonicity when possible, merging bins as needed, unless min_bins is reached.
+#'    c. Limit the number of bins to be within min_bins and max_bins.
 #' 4. Transform the feature: Assign WoE values to each observation based on its category.
 #'
 #' The Weight of Evidence (WoE) is calculated as:
@@ -657,8 +658,6 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
 #'
 #' The Information Value (IV) is calculated as:
 #' \deqn{IV = (\text{% of events} - \text{% of non-events}) \times WoE}
-#'
-#' The algorithm uses OpenMP for parallel processing to improve performance.
 #'
 #' @examples
 #' \dontrun{
@@ -681,10 +680,9 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
 #'          International Journal of Forecasting, 16(2), 149-172.
 #' }
 #'
-#' @author Lopes, J. E.
 #' @export
-optimal_binning_categorical_obnp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_obnp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
+optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_milp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' @title

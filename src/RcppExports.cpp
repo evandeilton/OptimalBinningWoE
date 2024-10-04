@@ -154,9 +154,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// optimal_binning_categorical_obnp
-Rcpp::List optimal_binning_categorical_obnp(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_obnp(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP) {
+// optimal_binning_categorical_milp
+Rcpp::List optimal_binning_categorical_milp(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins);
+RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_milp(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -166,7 +166,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
     Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
     Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_categorical_obnp(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins));
+    rcpp_result_gen = Rcpp::wrap(optimal_binning_categorical_milp(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -712,7 +712,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_mba", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mba, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_milp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_milp, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_mob", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mob, 6},
-    {"_OptimalBinningWoE_optimal_binning_categorical_obnp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_obnp, 6},
+    {"_OptimalBinningWoE_optimal_binning_categorical_milp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_milp, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_sab", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sab, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_swb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_swb, 6},
     {"_OptimalBinningWoE_optimal_binning_categorical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_udt, 6},
