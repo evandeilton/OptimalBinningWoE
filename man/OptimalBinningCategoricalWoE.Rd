@@ -41,4 +41,3 @@ A list containing results, reports, woebins, bestmod, and failed_features.
 \description{
 Optimal Binning and Weight of Evidence Calculation for Categorical Variables
 }
-\keyword{internal}

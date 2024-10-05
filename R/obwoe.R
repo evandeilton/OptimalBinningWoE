@@ -336,7 +336,7 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 #'
 #' @return A list of preprocessed data for each feature.
 #'
-#' @keywords internal
+#' @export
 OptimalBinningPreprocessData <- function(dt, features, control) {
   preprocessed_data <- list()
   for (feat in features) {
@@ -356,7 +356,6 @@ OptimalBinningPreprocessData <- function(dt, features, control) {
   return(preprocessed_data)
 }
 
-
 #' Optimal Binning and Weight of Evidence Calculation for Numerical Variables
 #'
 #' @param dt A data.table containing the dataset.
@@ -371,7 +370,7 @@ OptimalBinningPreprocessData <- function(dt, features, control) {
 #'
 #' @return A list containing results, reports, woebins, bestmod, and failed_features.
 #'
-#' @keywords internal
+#' @export
 OptimalBinningNumericalWoE <- function(dt, target, features, method, min_bins, max_bins, control, positive, preprocessed_data) {
   results <- reports <- woebins <- bestmod <- list()
   failed_features <- character()
@@ -455,7 +454,7 @@ OptimalBinningNumericalWoE <- function(dt, target, features, method, min_bins, m
 #'
 #' @return A list containing results, reports, woebins, bestmod, and failed_features.
 #'
-#' @keywords internal
+#' @export
 OptimalBinningCategoricalWoE <- function(dt, target, features, method, min_bins, max_bins, control, positive, preprocessed_data) {
   results <- reports <- woebins <- bestmod <- list()
   failed_features <- character()
