@@ -23,7 +23,7 @@ information value optimization."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9002</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -99,7 +99,7 @@ information value optimization.</p>
 
 
 <dt id="arg-preprocess">preprocess<a class="anchor" aria-label="anchor" href="#arg-preprocess"></a></dt>
-<dd><p>Logical. Whether to preprocess the data before binning.</p></dd>
+<dd><p>Logical. Whether to preprocess the data before binning (default: TRUE).</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -128,6 +128,14 @@ information value optimization.</p>
 <li><p>iqr_k: IQR multiplier for outlier detection (default: 1.5)</p></li>
 <li><p>zscore_threshold: Z-score threshold for outlier detection (default: 3)</p></li>
 <li><p>grubbs_alpha: Significance level for Grubbs' test (default: 0.05)</p></li>
+<li><p>n_threads: Number of threads for parallel processing (default: 1)</p></li>
+<li><p>is_monotonic: Whether to enforce monotonicity in binning (default: TRUE)</p></li>
+<li><p>population_size: Population size for genetic algorithm (default: 50)</p></li>
+<li><p>max_generations: Maximum number of generations for genetic algorithm (default: 100)</p></li>
+<li><p>mutation_rate: Mutation rate for genetic algorithm (default: 0.1)</p></li>
+<li><p>initial_temperature: Initial temperature for simulated annealing (default: 1)</p></li>
+<li><p>cooling_rate: Cooling rate for simulated annealing (default: 0.995)</p></li>
+<li><p>max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)</p></li>
 </ul></dd>
 
 
@@ -185,45 +193,39 @@ information value optimization.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Supported Algorithms:
 The function implements the following binning algorithms:</p>
-<p>For Numerical Variables:</p><ul><li><p>BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning</p></li>
-<li><p>BS (Binary Search): Employs binary search to find optimal bin boundaries</p></li>
-<li><p>CM (ChiMerge): Merges adjacent bins based on chi-square statistic</p></li>
-<li><p>DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints</p></li>
-<li><p>DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning</p></li>
-<li><p>EB (Entropy-Based): Uses entropy-based criteria for binning</p></li>
-<li><p>EBLC (Equal-Frequency Binning with Local Convergence): Combines equal-frequency binning with local convergence</p></li>
-<li><p>EFB (Equal Frequency Binning): Creates bins with approximately equal number of observations</p></li>
-<li><p>EWB (Equal Width Binning): Creates bins of equal width across the range of the variable</p></li>
-<li><p>GMB (Greedy Monotonic Binning): Applies a greedy approach to create monotonic bins</p></li>
-<li><p>IR (Isotonic Regression): Uses isotonic regression for binning</p></li>
-<li><p>JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods</p></li>
-<li><p>KMB (K-means Binning): Applies k-means clustering for binning</p></li>
-<li><p>LDB (Local Density Binning): Uses local density estimation for binning</p></li>
-<li><p>LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation</p></li>
-<li><p>MBA (Modified Binning Algorithm): A modified approach to optimal binning</p></li>
-<li><p>MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning</p></li>
-<li><p>MDLP (Minimum Description Length Principle): Minimizes information loss during binning</p></li>
-<li><p>MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning</p></li>
-<li><p>MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins</p></li>
-<li><p>MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning): Combines monotonic risk binning with likelihood ratio pre-binning</p></li>
-<li><p>OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for non-parametric transformations</p></li>
-<li><p>PLAOB (Piecewise Linear Approximation Optimal Binning): Uses piecewise linear approximation for optimal binning</p></li>
-<li><p>QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution</p></li>
-<li><p>SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries</p></li>
-<li><p>SWB (Sliding Window Binning): Applies a sliding window approach to create optimal bins</p></li>
-<li><p>UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning</p></li>
-<li><p>UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning</p></li>
-</ul><p>For Categorical Variables:</p><ul><li><p>CM (ChiMerge): Merges categories based on chi-square statistic</p></li>
-<li><p>DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints to categorical variables</p></li>
-<li><p>GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories</p></li>
+<p>For Categorical Variables:</p><ul><li><p>FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning</p></li>
 <li><p>LDB (Local Density Binning): Applies local density estimation to categorical variables</p></li>
-<li><p>MBA (Modified Binning Algorithm): A modified approach for categorical variable binning</p></li>
-<li><p>MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning of categories</p></li>
-<li><p>MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning</p></li>
-<li><p>MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories</p></li>
-<li><p>OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for categorical variables</p></li>
-<li><p>SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables</p></li>
+<li><p>CM (ChiMerge): Merges categories based on chi-square statistic</p></li>
+<li><p>IVB (Information Value Binning): Bins based on information value</p></li>
 <li><p>UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning</p></li>
+<li><p>GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories</p></li>
+<li><p>SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables</p></li>
+<li><p>DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints</p></li>
+<li><p>MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories</p></li>
+<li><p>MBA (Modified Binning Algorithm): A modified approach for categorical variable binning</p></li>
+<li><p>MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning</p></li>
+<li><p>SAB (Simulated Annealing Binning): Uses simulated annealing for optimal binning</p></li>
+</ul><p>For Numerical Variables:</p><ul><li><p>EB (Entropy-Based): Uses entropy-based criteria for binning</p></li>
+<li><p>CART (Classification and Regression Trees): Uses decision tree algorithm for binning</p></li>
+<li><p>UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning</p></li>
+<li><p>DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints</p></li>
+<li><p>GAB (Genetic Algorithm Binning): Uses genetic algorithms for optimal binning</p></li>
+<li><p>LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation</p></li>
+<li><p>UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning</p></li>
+<li><p>SBLP (Supervised Binning via Linear Programming): Uses linear programming for supervised binning</p></li>
+<li><p>FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables</p></li>
+<li><p>EWB (Equal Width Binning): Creates bins of equal width across the range of the variable</p></li>
+<li><p>KMB (K-means Binning): Applies k-means clustering for binning</p></li>
+<li><p>OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning</p></li>
+<li><p>IR (Isotonic Regression): Uses isotonic regression for binning</p></li>
+<li><p>SAB (Simulated Annealing Binning): Applies simulated annealing to numerical variables</p></li>
+<li><p>BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning</p></li>
+<li><p>QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution</p></li>
+<li><p>DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning</p></li>
+<li><p>SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries</p></li>
+<li><p>LDB (Local Density Binning): Uses local density estimation for binning</p></li>
+<li><p>JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods</p></li>
+<li><p>MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning</p></li>
 </ul><p>Key Concepts:</p><ul><li><p>Weight of Evidence (WoE): $$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)$$
 where \(P(X_i|Y=1)\) is the proportion of positive cases in bin i, and
 \(P(X_i|Y=0)\) is the proportion of negative cases in bin i.</p></li>
@@ -265,10 +267,10 @@ that produces the highest total Information Value while respecting the specified
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View preprocessing report</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebins</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prepreport</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View best model report</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prepreport</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bestsreport</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Process only categoric features</span></span></span>
 <span class="r-in"><span><span class="va">categoric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dt</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">is.numeric</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span></span>
@@ -279,7 +281,7 @@ that produces the highest total Information Value while respecting the specified
 <span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">4</span>, positive <span class="op">=</span> <span class="st">"bad|1"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View preprocessing report</span></span></span>
+<span class="r-in"><span><span class="co"># View binning information for categorical features</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebins</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
