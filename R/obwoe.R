@@ -321,6 +321,7 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 #' @param target Target name
 #' @param features Vector of feature names to process.
 #' @param control A list of control parameters.
+#' @param preprocess Preprocess feature. 'both' feature and report. Can also be 'both' or 'feature'
 #'
 #' @return A list of preprocessed data for each feature.
 #'
