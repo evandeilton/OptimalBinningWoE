@@ -209,30 +209,15 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 
   # Default parameters
   default_control <- list(
-    cat_cutoff = 0.05,
-    bin_cutoff = 0.05,
-    min_bads = 0.05,
-    pvalue_threshold = 0.05,
-    max_n_prebins = 20,
-    monotonicity_direction = "increase",
-    lambda = 0.1,
-    min_bin_size = 0.05,
-    min_iv_gain = 0.01,
-    max_depth = 10,
-    num_miss_value = -999.0,
-    char_miss_value = "N/A",
-    outlier_method = "iqr",
-    outlier_process = FALSE,
-    iqr_k = 1.5,
-    zscore_threshold = 3,
-    grubbs_alpha = 0.05,
-    n_threads = 1L,
-    is_monotonic = TRUE,
-    population_size = 50L,
-    max_generations = 100L,
-    mutation_rate = 0.1,
-    initial_temperature = 1,
-    cooling_rate = 0.995,
+    cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05,
+    pvalue_threshold = 0.05, max_n_prebins = 20,
+    monotonicity_direction = "increase", lambda = 0.1,
+    min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10,
+    num_miss_value = -999.0, char_miss_value = "N/A",
+    outlier_method = "iqr", outlier_process = FALSE, iqr_k = 1.5,
+    zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L,
+    is_monotonic = TRUE, population_size = 50L, max_generations = 100L,
+    mutation_rate = 0.1, initial_temperature = 1, cooling_rate = 0.995,
     max_iterations = 1000L
   )
 
@@ -256,23 +241,25 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 
   # Preprocess data if required
   if (preprocess) {
-    preprocessed_data <- OptimalBinningPreprocessData(dt, features, control)
+    preprocessed_data <- OptimalBinningPreprocessData(dt, target, features, control, preprocess = "both")
   } else {
     preprocessed_data <- list()
     for (feat in features) {
       preprocessed_data[[feat]] <- list(
-        preprocess = list(feature_preprocessed = dt[[feat]]),
-        report = data.table::data.table(
-          feature = feat,
-          type = class(dt[[feat]]),
-          missing_count = sum(is.na(dt[[feat]])),
-          outlier_count = 0,
-          unique_count = length(unique(dt[[feat]])),
-          mean_before = mean(dt[[feat]], na.rm = TRUE),
-          mean_after = mean(dt[[feat]], na.rm = TRUE),
-          sd_before = sd(dt[[feat]], na.rm = TRUE),
-          sd_after = sd(dt[[feat]], na.rm = TRUE)
-        )
+        preprocess = data.table::data.table(feature_preprocessed = dt[[feat]]),
+        report = OptimalBinningPreprocessData(dt, target, features, control, preprocess = "report")
+
+        #   data.table::data.table(
+        #   feature = feat,
+        #   type = class(dt[[feat]]),
+        #   missing_count = sum(is.na(dt[[feat]])),
+        #   outlier_count = 0,
+        #   unique_count = length(unique(dt[[feat]])),
+        #   mean_before = mean(dt[[feat]], na.rm = TRUE),
+        #   mean_after = mean(dt[[feat]], na.rm = TRUE),
+        #   sd_before = sd(dt[[feat]], na.rm = TRUE),
+        #   sd_after = sd(dt[[feat]], na.rm = TRUE)
+        # )
       )
     }
   }
@@ -331,13 +318,14 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 #' Preprocess Data for Optimal Binning
 #'
 #' @param dt A data.table containing the dataset.
+#' @param target Target name
 #' @param features Vector of feature names to process.
 #' @param control A list of control parameters.
 #'
 #' @return A list of preprocessed data for each feature.
 #'
 #' @export
-OptimalBinningPreprocessData <- function(dt, features, control) {
+OptimalBinningPreprocessData <- function(dt, target, features, control, preprocess = "both") {
   preprocessed_data <- list()
   for (feat in features) {
     preprocessed_data[[feat]] <- OptimalBinningDataPreprocessor(
@@ -347,7 +335,7 @@ OptimalBinningPreprocessData <- function(dt, features, control) {
       char_miss_value = control$char_miss_value,
       outlier_method = control$outlier_method,
       outlier_process = control$outlier_process,
-      preprocess = as.character(c("both")),
+      preprocess = preprocess,
       iqr_k = control$iqr_k,
       zscore_threshold = control$zscore_threshold,
       grubbs_alpha = control$grubbs_alpha
@@ -741,12 +729,12 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   }
 
   # Check min_bins and max_bins
-  if (!is.numeric(min_bins) || min_bins < 2) {
-    stop("min_bins must be an integer greater than or equal to 2.")
-  }
-  if (!is.numeric(max_bins) || max_bins <= min_bins) {
-    stop("max_bins must be an integer greater than min_bins.")
-  }
+  # if (!is.numeric(min_bins) || min_bins < 2) {
+  #   stop("min_bins must be an integer greater than or equal to 2.")
+  # }
+  # if (!is.numeric(max_bins) | max_bins < min_bins) {
+  #   stop("max_bins must be an integer greater than or equal to min_bins.")
+  # }
 
   # Check control
   if (!is.list(control)) {

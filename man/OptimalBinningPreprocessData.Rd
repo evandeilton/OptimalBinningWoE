@@ -4,10 +4,18 @@
 \alias{OptimalBinningPreprocessData}
 \title{Preprocess Data for Optimal Binning}
 \usage{
-OptimalBinningPreprocessData(dt, features, control)
+OptimalBinningPreprocessData(
+  dt,
+  target,
+  features,
+  control,
+  preprocess = "both"
+)
 }
 \arguments{
 \item{dt}{A data.table containing the dataset.}
+
+\item{target}{Target name}
 
 \item{features}{Vector of feature names to process.}
 
