@@ -16,51 +16,45 @@
 #' Supported Algorithms:
 #' The function implements the following binning algorithms:
 #'
-#' For Numerical Variables:
-#' \itemize{
-#'   \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
-#'   \item BS (Binary Search): Employs binary search to find optimal bin boundaries
-#'   \item CM (ChiMerge): Merges adjacent bins based on chi-square statistic
-#'   \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
-#'   \item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
-#'   \item EB (Entropy-Based): Uses entropy-based criteria for binning
-#'   \item EBLC (Equal-Frequency Binning with Local Convergence): Combines equal-frequency binning with local convergence
-#'   \item EFB (Equal Frequency Binning): Creates bins with approximately equal number of observations
-#'   \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
-#'   \item GMB (Greedy Monotonic Binning): Applies a greedy approach to create monotonic bins
-#'   \item IR (Isotonic Regression): Uses isotonic regression for binning
-#'   \item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
-#'   \item KMB (K-means Binning): Applies k-means clustering for binning
-#'   \item LDB (Local Density Binning): Uses local density estimation for binning
-#'   \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
-#'   \item MBA (Modified Binning Algorithm): A modified approach to optimal binning
-#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
-#'   \item MDLP (Minimum Description Length Principle): Minimizes information loss during binning
-#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
-#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
-#'   \item MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning): Combines monotonic risk binning with likelihood ratio pre-binning
-#'   \item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for non-parametric transformations
-#'   \item PLAOB (Piecewise Linear Approximation Optimal Binning): Uses piecewise linear approximation for optimal binning
-#'   \item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
-#'   \item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
-#'   \item SWB (Sliding Window Binning): Applies a sliding window approach to create optimal bins
-#'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
-#'   \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
-#' }
-#'
 #' For Categorical Variables:
 #' \itemize{
-#'   \item CM (ChiMerge): Merges categories based on chi-square statistic
-#'   \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints to categorical variables
-#'   \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
+#'   \item FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning
 #'   \item LDB (Local Density Binning): Applies local density estimation to categorical variables
-#'   \item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
-#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning of categories
-#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
-#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
-#'   \item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for categorical variables
-#'   \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
+#'   \item CM (ChiMerge): Merges categories based on chi-square statistic
+#'   \item IVB (Information Value Binning): Bins based on information value
 #'   \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
+#'   \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
+#'   \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
+#'   \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints
+#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
+#'   \item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
+#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
+#'   \item SAB (Simulated Annealing Binning): Uses simulated annealing for optimal binning
+#' }
+#'
+#' For Numerical Variables:
+#' \itemize{
+#'   \item EB (Entropy-Based): Uses entropy-based criteria for binning
+#'   \item CART (Classification and Regression Trees): Uses decision tree algorithm for binning
+#'   \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
+#'   \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
+#'   \item GAB (Genetic Algorithm Binning): Uses genetic algorithms for optimal binning
+#'   \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
+#'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
+#'   \item SBLP (Supervised Binning via Linear Programming): Uses linear programming for supervised binning
+#'   \item FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables
+#'   \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
+#'   \item KMB (K-means Binning): Applies k-means clustering for binning
+#'   \item OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning
+#'   \item IR (Isotonic Regression): Uses isotonic regression for binning
+#'   \item SAB (Simulated Annealing Binning): Applies simulated annealing to numerical variables
+#'   \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
+#'   \item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
+#'   \item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
+#'   \item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
+#'   \item LDB (Local Density Binning): Uses local density estimation for binning
+#'   \item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
+#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
 #' }
 #'
 #' Key Concepts:
@@ -81,7 +75,7 @@
 #' @param target The name of the target variable (must be binary).
 #' @param features Vector of feature names to process. If NULL, all features except the target will be processed.
 #' @param method The binning method to use. Can be "auto" or one of the methods listed in the details section.
-#' @param preprocess Logical. Whether to preprocess the data before binning.
+#' @param preprocess Logical. Whether to preprocess the data before binning (default: TRUE).
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 4).
 #' @param control A list of additional control parameters:
@@ -103,6 +97,14 @@
 #'     \item iqr_k: IQR multiplier for outlier detection (default: 1.5)
 #'     \item zscore_threshold: Z-score threshold for outlier detection (default: 3)
 #'     \item grubbs_alpha: Significance level for Grubbs' test (default: 0.05)
+#'     \item n_threads: Number of threads for parallel processing (default: 1)
+#'     \item is_monotonic: Whether to enforce monotonicity in binning (default: TRUE)
+#'     \item population_size: Population size for genetic algorithm (default: 50)
+#'     \item max_generations: Maximum number of generations for genetic algorithm (default: 100)
+#'     \item mutation_rate: Mutation rate for genetic algorithm (default: 0.1)
+#'     \item initial_temperature: Initial temperature for simulated annealing (default: 1)
+#'     \item cooling_rate: Cooling rate for simulated annealing (default: 0.995)
+#'     \item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
 #'   }
 #' @param positive Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".
 #'
@@ -181,10 +183,10 @@
 #' )
 #'
 #' # View preprocessing report
-#' print(result$woebins)
+#' print(result$prepreport)
 #'
 #' # View best model report
-#' print(result$prepreport)
+#' print(result$bestsreport)
 #'
 #' # Process only categoric features
 #' categoric_features <- names(dt)[sapply(dt, function(i) !is.numeric(i))]
@@ -195,7 +197,7 @@
 #'   min_bins = 3, max_bins = 4, positive = "bad|1"
 #' )
 #'
-#' # View preprocessing report
+#' # View binning information for categorical features
 #' print(result$woebins)
 #' }
 #'
@@ -223,7 +225,15 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
     outlier_process = FALSE,
     iqr_k = 1.5,
     zscore_threshold = 3,
-    grubbs_alpha = 0.05
+    grubbs_alpha = 0.05,
+    n_threads = 1L,
+    is_monotonic = TRUE,
+    population_size = 50L,
+    max_generations = 100L,
+    mutation_rate = 0.1,
+    initial_temperature = 1,
+    cooling_rate = 0.995,
+    max_iterations = 1000L
   )
 
   # Update control, if needed
@@ -246,21 +256,25 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 
   # Preprocess data if required
   if (preprocess) {
-    preprocessed_data <- lapply(features, function(feat) {
-      OptimalBinningDataPreprocessor(
-        target = dt[[target]],
-        feature = dt[[feat]],
-        num_miss_value = control$num_miss_value,
-        char_miss_value = control$char_miss_value,
-        outlier_method = control$outlier_method,
-        outlier_process = control$outlier_process,
-        preprocess = as.character(c("both")),
-        iqr_k = control$iqr_k,
-        zscore_threshold = control$zscore_threshold,
-        grubbs_alpha = control$grubbs_alpha
+    preprocessed_data <- OptimalBinningPreprocessData(dt, features, control)
+  } else {
+    preprocessed_data <- list()
+    for (feat in features) {
+      preprocessed_data[[feat]] <- list(
+        preprocess = list(feature_preprocessed = dt[[feat]]),
+        report = data.table::data.table(
+          feature = feat,
+          type = class(dt[[feat]]),
+          missing_count = sum(is.na(dt[[feat]])),
+          outlier_count = 0,
+          unique_count = length(unique(dt[[feat]])),
+          mean_before = mean(dt[[feat]], na.rm = TRUE),
+          mean_after = mean(dt[[feat]], na.rm = TRUE),
+          sd_before = sd(dt[[feat]], na.rm = TRUE),
+          sd_after = sd(dt[[feat]], na.rm = TRUE)
+        )
       )
-    })
-    names(preprocessed_data) <- features
+    }
   }
 
   # Separate numerical and categorical features
@@ -314,6 +328,35 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 }
 
 
+#' Preprocess Data for Optimal Binning
+#'
+#' @param dt A data.table containing the dataset.
+#' @param features Vector of feature names to process.
+#' @param control A list of control parameters.
+#'
+#' @return A list of preprocessed data for each feature.
+#'
+#' @keywords internal
+OptimalBinningPreprocessData <- function(dt, features, control) {
+  preprocessed_data <- list()
+  for (feat in features) {
+    preprocessed_data[[feat]] <- OptimalBinningDataPreprocessor(
+      target = dt[[target]],
+      feature = dt[[feat]],
+      num_miss_value = control$num_miss_value,
+      char_miss_value = control$char_miss_value,
+      outlier_method = control$outlier_method,
+      outlier_process = control$outlier_process,
+      preprocess = as.character(c("both")),
+      iqr_k = control$iqr_k,
+      zscore_threshold = control$zscore_threshold,
+      grubbs_alpha = control$grubbs_alpha
+    )
+  }
+  return(preprocessed_data)
+}
+
+
 #' Optimal Binning and Weight of Evidence Calculation for Numerical Variables
 #'
 #' @param dt A data.table containing the dataset.
@@ -333,10 +376,9 @@ OptimalBinningNumericalWoE <- function(dt, target, features, method, min_bins, m
   results <- reports <- woebins <- bestmod <- list()
   failed_features <- character()
 
-  numerical_methods <- c(
-    "bb", "bs", "cm", "dplc", "dpb", "eb", "eblc", "efb", "ewb", "gmb", "ir", "jnbo", "kmb",
-    "ldb", "lpdb", "mba", "mblp", "mdlp", "milp", "mob", "mrblp", "obnp", "plaob", "qb", "sbb", "swb", "ubsd", "udt"
-  )
+  numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
+
+  # preprocessed_data <- preprocessed_data[numeric_features]
 
   for (feat in features) {
     tryCatch(
@@ -418,7 +460,8 @@ OptimalBinningCategoricalWoE <- function(dt, target, features, method, min_bins,
   results <- reports <- woebins <- bestmod <- list()
   failed_features <- character()
 
-  categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt")
+  # categorical_methods <- c("cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt")
+  categorical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$char)))
 
   for (feat in features) {
     tryCatch(
@@ -568,6 +611,7 @@ OptimalBinningSelectBestModel <- function(dt_binning, target, feature, min_bins,
     tryCatch(
       {
         algo_info <- OptimalBinningSelectAlgorithm(feature, method, dt_binning, min_bins, max_bins, control)
+
         binning_result <- do.call(
           algo_info$algorithm,
           c(
@@ -680,10 +724,12 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   }
 
   # Define all possible methods
-  all_methods <- c(
-    "auto", "cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt",
-    "bb", "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd"
-  )
+  # all_methods <- c(
+  #   "auto", "cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt",
+  #   "bb", "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd"
+  # )
+
+  all_methods <- c("auto", sort(unique(unlist(unname(sapply(OptimalBinningGetAlgoName(), names))))))
 
   # Check binning method
   if (!method %in% all_methods) {
@@ -724,7 +770,6 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   # If all checks pass, the function will return silently
 }
 
-
 #' Select Optimal Binning Algorithm
 #'
 #' @description
@@ -744,58 +789,21 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
   # Determine if the feature is categorical or numeric
   is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
 
-  # Define the mapping of method names to algorithm names
-  method_mapping <- list(
-    cart = list(categorical = "optimal_binning_categorical_cart", numeric = "optimal_binning_numerical_cart"),
-    cm = list(categorical = "optimal_binning_categorical_cm", numeric = "optimal_binning_numerical_cm"),
-    dplc = list(categorical = "optimal_binning_categorical_dplc", numeric = "optimal_binning_numerical_dplc"),
-    fetb = list(categorical = "optimal_binning_categorical_fetb", numeric = "optimal_binning_numerical_fetb"),
-    gab = list(categorical = "optimal_binning_categorical_gab", numeric = "optimal_binning_numerical_gab"),
-    gmb = list(categorical = "optimal_binning_categorical_gmb", numeric = "optimal_binning_numerical_gmb"),
-    ivb = list(categorical = "optimal_binning_categorical_ivb", numeric = "optimal_binning_numerical_ivb"),
-    ldb = list(categorical = "optimal_binning_categorical_ldb", numeric = "optimal_binning_numerical_ldb"),
-    lpdb = list(categorical = "optimal_binning_categorical_lpdb", numeric = "optimal_binning_numerical_lpdb"),
-    mba = list(categorical = "optimal_binning_categorical_mba", numeric = "optimal_binning_numerical_mba"),
-    mblp = list(categorical = "optimal_binning_categorical_mblp", numeric = "optimal_binning_numerical_mblp"),
-    milp = list(categorical = "optimal_binning_categorical_milp", numeric = "optimal_binning_numerical_milp"),
-    mob = list(categorical = "optimal_binning_categorical_mob", numeric = "optimal_binning_numerical_mob"),
-    obnp = list(categorical = "optimal_binning_categorical_obnp", numeric = "optimal_binning_numerical_obnp"),
-    sab = list(categorical = "optimal_binning_categorical_sab", numeric = "optimal_binning_numerical_sab"),
-    sblp = list(categorical = "optimal_binning_categorical_sblp", numeric = "optimal_binning_numerical_sblp"),
-    swb = list(categorical = "optimal_binning_categorical_swb", numeric = "optimal_binning_numerical_swb"),
-    udt = list(categorical = "optimal_binning_categorical_udt", numeric = "optimal_binning_numerical_udt"),
-    oslp = list(categorical = NULL, numeric = "optimal_binning_numerical_oslp"),
-    bb = list(categorical = NULL, numeric = "optimal_binning_numerical_bb"),
-    bs = list(categorical = NULL, numeric = "optimal_binning_numerical_bs"),
-    dpb = list(categorical = NULL, numeric = "optimal_binning_numerical_dpb"),
-    eb = list(categorical = NULL, numeric = "optimal_binning_numerical_eb"),
-    eblc = list(categorical = NULL, numeric = "optimal_binning_numerical_eblc"),
-    efb = list(categorical = NULL, numeric = "optimal_binning_numerical_efb"),
-    ewb = list(categorical = NULL, numeric = "optimal_binning_numerical_ewb"),
-    ir = list(categorical = NULL, numeric = "optimal_binning_numerical_ir"),
-    jnbo = list(categorical = NULL, numeric = "optimal_binning_numerical_jnbo"),
-    kmb = list(categorical = NULL, numeric = "optimal_binning_numerical_kmb"),
-    mdlp = list(categorical = NULL, numeric = "optimal_binning_numerical_mdlp"),
-    mrblp = list(categorical = NULL, numeric = "optimal_binning_numerical_mrblp"),
-    plaob = list(categorical = NULL, numeric = "optimal_binning_numerical_plaob"),
-    qb = list(categorical = NULL, numeric = "optimal_binning_numerical_qb"),
-    sbb = list(categorical = NULL, numeric = "optimal_binning_numerical_sbb"),
-    ubsd = list(categorical = NULL, numeric = "optimal_binning_numerical_ubsd")
-  )
+  # Get available algorithms using OptimalBinningGetAlgoName()
+  available_algorithms <- OptimalBinningGetAlgoName()
 
   # Select the appropriate algorithm based on the method and variable type
-  data_type <- if (is_categorical) "categorical" else "numeric"
+  data_type <- if (is_categorical) "char" else "num"
 
-  # Check if the method exists in the mapping
-  if (is.null(method_mapping[[method]])) {
-    stop(paste("Unknown method:", method))
+  # Find the algorithm that matches the method
+  selected_algorithm <- NULL
+  for (algo in names(available_algorithms[[data_type]])) {
+    selected_algorithm <- available_algorithms[[data_type]][[algo]]
   }
 
-  selected_algorithm <- method_mapping[[method]][[data_type]]
-
-  # Check if the selected algorithm is valid for the variable type
+  # Check if a valid algorithm was found
   if (is.null(selected_algorithm)) {
-    stop(paste("The", method, "method is not applicable for", data_type, "variables."))
+    stop(paste("The", method, "method is not applicable for", if (data_type == "char") "categorical" else "numeric", "variables."))
   }
 
   # Define default parameters for all algorithms
@@ -806,7 +814,7 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
     max_n_prebins = control$max_n_prebins
   )
 
-  # Add specific parameters for certain algorithms
+  # Define specific parameters for certain algorithms
   specific_params <- list(
     optimal_binning_categorical_gab = list(
       population_size = control$population_size,
@@ -847,4 +855,52 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
     params = algorithm_params,
     method = method
   )
+}
+
+
+#' Get Available Optimal Binning Algorithms
+#'
+#' @description
+#' This function retrieves all available optimal binning algorithms from the OptimalBinningWoE package,
+#' separating them into categorical and numerical types.
+#'
+#' @return A list containing two elements:
+#'   \item{char}{A named list of categorical binning algorithms}
+#'   \item{num}{A named list of numerical binning algorithms}
+#'
+#' @details
+#' The function searches for all exported functions in the OptimalBinningWoE package that start with
+#' "optimal_binning_categorical_" or "optimal_binning_numerical_". It then creates two separate lists
+#' for categorical and numerical algorithms, using the last part of the function name (after the last
+#' underscore) as the list item name.
+#'
+#' @examples
+#' \dontrun{
+#' algorithms <- OptimalBinningGetAlgoName()
+#' print(algorithms$char) # List of categorical algorithms
+#' print(algorithms$num) # List of numerical algorithms
+#' }
+#'
+#' @export
+OptimalBinningGetAlgoName <- function() {
+  # Get all exported functions from OptimalBinningWoE package
+  pk <- getNamespaceExports("OptimalBinningWoE")
+
+  # Helper function to extract the last part of the function name
+  get_last_part <- function(x) {
+    sapply(strsplit(as.character(x), "_"), function(parts) parts[length(parts)])
+  }
+
+  # Filter and process categorical algorithms
+  categorical <- pk[grepl("optimal_binning_categorical_", pk)]
+  categorical <- as.list(categorical)
+  names(categorical) <- get_last_part(categorical)
+
+  # Filter and process numerical algorithms
+  numerical <- pk[grepl("optimal_binning_numerical_", pk)]
+  numerical <- as.list(numerical)
+  names(numerical) <- get_last_part(numerical)
+
+  # Return a list with both types of algorithms
+  return(list(char = categorical, num = numerical))
 }

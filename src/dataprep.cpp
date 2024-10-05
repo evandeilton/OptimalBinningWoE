@@ -389,8 +389,8 @@ List OptimalBinningDataPreprocessor(
     Named("preprocessed_stats") = preprocessed_stats_str
   );
   
-  preprocess_df.attr("class") = CharacterVector::create("data.table", "data.frame");
-  report_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+  // preprocess_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+  // report_df.attr("class") = CharacterVector::create("data.table", "data.frame");
 
   // Prepare output List
   List output;
@@ -401,7 +401,7 @@ List OptimalBinningDataPreprocessor(
     output["report"] = report_df;
   }
   
-  output.attr("class") = CharacterVector::create("data.table", "data.frame");
+  // output.attr("class") = CharacterVector::create("data.table", "data.frame");
   
   return output;
 }

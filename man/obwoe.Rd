@@ -25,7 +25,7 @@ obwoe(
 
 \item{method}{The binning method to use. Can be "auto" or one of the methods listed in the details section.}
 
-\item{preprocess}{Logical. Whether to preprocess the data before binning.}
+\item{preprocess}{Logical. Whether to preprocess the data before binning (default: TRUE).}
 
 \item{min_bins}{Minimum number of bins (default: 3).}
 
@@ -50,6 +50,14 @@ obwoe(
 \item iqr_k: IQR multiplier for outlier detection (default: 1.5)
 \item zscore_threshold: Z-score threshold for outlier detection (default: 3)
 \item grubbs_alpha: Significance level for Grubbs' test (default: 0.05)
+\item n_threads: Number of threads for parallel processing (default: 1)
+\item is_monotonic: Whether to enforce monotonicity in binning (default: TRUE)
+\item population_size: Population size for genetic algorithm (default: 50)
+\item max_generations: Maximum number of generations for genetic algorithm (default: 100)
+\item mutation_rate: Mutation rate for genetic algorithm (default: 0.1)
+\item initial_temperature: Initial temperature for simulated annealing (default: 1)
+\item cooling_rate: Cooling rate for simulated annealing (default: 0.995)
+\item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
 }}
 
 \item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
@@ -112,51 +120,45 @@ information value optimization.
 Supported Algorithms:
 The function implements the following binning algorithms:
 
-For Numerical Variables:
-\itemize{
-\item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
-\item BS (Binary Search): Employs binary search to find optimal bin boundaries
-\item CM (ChiMerge): Merges adjacent bins based on chi-square statistic
-\item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
-\item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
-\item EB (Entropy-Based): Uses entropy-based criteria for binning
-\item EBLC (Equal-Frequency Binning with Local Convergence): Combines equal-frequency binning with local convergence
-\item EFB (Equal Frequency Binning): Creates bins with approximately equal number of observations
-\item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
-\item GMB (Greedy Monotonic Binning): Applies a greedy approach to create monotonic bins
-\item IR (Isotonic Regression): Uses isotonic regression for binning
-\item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
-\item KMB (K-means Binning): Applies k-means clustering for binning
-\item LDB (Local Density Binning): Uses local density estimation for binning
-\item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
-\item MBA (Modified Binning Algorithm): A modified approach to optimal binning
-\item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
-\item MDLP (Minimum Description Length Principle): Minimizes information loss during binning
-\item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
-\item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
-\item MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning): Combines monotonic risk binning with likelihood ratio pre-binning
-\item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for non-parametric transformations
-\item PLAOB (Piecewise Linear Approximation Optimal Binning): Uses piecewise linear approximation for optimal binning
-\item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
-\item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
-\item SWB (Sliding Window Binning): Applies a sliding window approach to create optimal bins
-\item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
-\item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
-}
-
 For Categorical Variables:
 \itemize{
-\item CM (ChiMerge): Merges categories based on chi-square statistic
-\item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints to categorical variables
-\item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
+\item FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning
 \item LDB (Local Density Binning): Applies local density estimation to categorical variables
-\item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
-\item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning of categories
-\item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
-\item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
-\item OBNP (Optimal Binning for Non-Parametric Transformations): Optimizes binning for categorical variables
-\item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
+\item CM (ChiMerge): Merges categories based on chi-square statistic
+\item IVB (Information Value Binning): Bins based on information value
 \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
+\item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
+\item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
+\item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints
+\item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
+\item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
+\item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
+\item SAB (Simulated Annealing Binning): Uses simulated annealing for optimal binning
+}
+
+For Numerical Variables:
+\itemize{
+\item EB (Entropy-Based): Uses entropy-based criteria for binning
+\item CART (Classification and Regression Trees): Uses decision tree algorithm for binning
+\item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
+\item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
+\item GAB (Genetic Algorithm Binning): Uses genetic algorithms for optimal binning
+\item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
+\item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
+\item SBLP (Supervised Binning via Linear Programming): Uses linear programming for supervised binning
+\item FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables
+\item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
+\item KMB (K-means Binning): Applies k-means clustering for binning
+\item OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning
+\item IR (Isotonic Regression): Uses isotonic regression for binning
+\item SAB (Simulated Annealing Binning): Applies simulated annealing to numerical variables
+\item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
+\item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
+\item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
+\item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
+\item LDB (Local Density Binning): Uses local density estimation for binning
+\item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
+\item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
 }
 
 Key Concepts:
@@ -203,10 +205,10 @@ result <- obwoe(dt,
 )
 
 # View preprocessing report
-print(result$woebins)
+print(result$prepreport)
 
 # View best model report
-print(result$prepreport)
+print(result$bestsreport)
 
 # Process only categoric features
 categoric_features <- names(dt)[sapply(dt, function(i) !is.numeric(i))]
@@ -217,7 +219,7 @@ result <- obwoe(dt,
   min_bins = 3, max_bins = 4, positive = "bad|1"
 )
 
-# View preprocessing report
+# View binning information for categorical features
 print(result$woebins)
 }
 
