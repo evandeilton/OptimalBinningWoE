@@ -20,6 +20,8 @@ OptimalBinningPreprocessData(
 \item{features}{Vector of feature names to process.}
 
 \item{control}{A list of control parameters.}
+
+\item{preprocess}{Preprocess feature. 'both' feature and report. Can also be 'both' or 'feature'}
 }
 \value{
 A list of preprocessed data for each feature.
