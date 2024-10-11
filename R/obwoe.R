@@ -892,3 +892,173 @@ OptimalBinningGetAlgoName <- function() {
   # Return a list with both types of algorithms
   return(list(char = categorical, num = numerical))
 }
+
+
+#' Select Optimal Features Based on Weight of Evidence
+#'
+#' @description
+#' This function selects optimal features from the result of an Optimal Binning and
+#' Weight of Evidence (WoE) analysis. It filters features based on their Information
+#' Value (IV), allowing for fine-tuned feature selection for predictive modeling.
+#'
+#' @param obresult A list containing the result of the Optimal Binning and WoE analysis.
+#'   Must include elements 'woedt' (a data.table with WoE transformed data) and
+#'   'bestsreport' (a data.table with feature performance metrics).
+#' @param target Character. The name of the target variable in the dataset.
+#' @param iv_threshold Numeric. The minimum Information Value threshold for feature selection.
+#'   Features with IV below this threshold will be excluded. Default is 0.02.
+#' @param min_features Integer. The minimum number of features to select, regardless of
+#'   their IV. If fewer features meet the IV threshold, this ensures a minimum
+#'   set is still selected. Default is 5.
+#' @param max_features Integer or NULL. The maximum number of features to select.
+#'   If NULL (default), no maximum limit is applied.
+#'
+#' @return A list containing:
+#'   \item{data}{A data.table with the selected WoE features and the target variable.}
+#'   \item{selected_features}{A character vector of the selected WoE feature names.}
+#'   \item{feature_iv}{A data.table with all features and their total IV.}
+#'   \item{report}{A data.table summarizing the feature selection process.}
+#'
+#' @details
+#' The function performs the following steps:
+#' 1. Validates input parameters.
+#' 2. Extracts and sorts features by their Information Value.
+#' 3. Selects features based on the provided IV threshold.
+#' 4. Adjusts the selection to meet minimum and maximum feature count requirements.
+#' 5. Prepares a final dataset with selected WoE features and the target variable.
+#' 6. Generates a summary report of the selection process.
+#'
+#' Mathematical Background:
+#'
+#' Weight of Evidence (WoE) and Information Value (IV) are key concepts in predictive modeling,
+#' especially in credit scoring. They are derived from information theory and provide a way to
+#' measure the predictive power of an independent variable in relation to the dependent variable.
+#'
+#' Let \eqn{Y} be a binary target variable and \eqn{X} be a predictor variable.
+#'
+#' For a given bin \eqn{i} of \eqn{X}:
+#'
+#' \deqn{P(X_i|Y=1) = \frac{\text{Number of events in bin i}}{\text{Total number of events}}}
+#'
+#' \deqn{P(X_i|Y=0) = \frac{\text{Number of non-events in bin i}}{\text{Total number of non-events}}}
+#'
+#' The Weight of Evidence for bin \eqn{i} is defined as:
+#'
+#' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+#'
+#' The Information Value for the entire variable \eqn{X} is:
+#'
+#' \deqn{IV = \sum_{i} (P(X_i|Y=1) - P(X_i|Y=0)) \cdot WoE_i}
+#'
+#' Interpretation of Information Value:
+#'
+#' | IV Range  | Predictive Power |
+#' |-----------|-------------------|
+#' | < 0.02    | Useless           |
+#' | 0.02-0.1  | Weak              |
+#' | 0.1-0.3   | Medium            |
+#' | 0.3-0.5   | Strong            |
+#' | > 0.5     | Suspicious        |
+#'
+#' Note: An IV > 0.5 might indicate overfitting or data leakage and should be investigated.
+#'
+#' @examples
+#' \dontrun{
+#' # Assuming 'obwoe_result' is the output from an Optimal Binning and WoE analysis
+#' result <- OptimalBinningSelectOptimalFeatures(
+#'   obresult = obwoe_result,
+#'   target = "target_variable",
+#'   iv_threshold = 0.05,
+#'   min_features = 10,
+#'   max_features = 30
+#' )
+#'
+#' # Access the final dataset with selected WoE features
+#' final_dataset <- result$data
+#'
+#' # View the selected WoE feature names
+#' print(result$selected_features)
+#'
+#' # View the feature selection summary report
+#' print(result$report)
+#' }
+#'
+#' @importFrom data.table setDT setorder data.table
+#' @export
+OptimalBinningSelectOptimalFeatures <- function(obresult, target, iv_threshold = 0.02, min_features = 5, max_features = NULL) {
+  # Input validation
+  if (!is.list(obresult) || !all(c("woedt", "woebins") %in% names(obresult))) {
+    stop("'obresult' must be a list containing 'woedt' and 'woebins' elements")
+  }
+  if (!is.character(target) || length(target) != 1) {
+    stop("'target' must be a single character string")
+  }
+  if (!is.numeric(iv_threshold) || iv_threshold < 0) {
+    stop("'iv_threshold' must be a non-negative numeric value")
+  }
+  if (!is.numeric(min_features) || min_features < 1) {
+    stop("'min_features' must be a positive integer")
+  }
+  if (!is.null(max_features) && (!is.numeric(max_features) || max_features < min_features)) {
+    stop("'max_features' must be NULL or a numeric value greater than or equal to 'min_features'")
+  }
+
+  # Ensure woedt is a data.table
+  obdt <- data.table::setDT(obresult$woedt)
+
+  # Validate target variable
+  if (!target %in% names(obdt)) {
+    stop(sprintf("Target variable '%s' not found in the dataset", target))
+  }
+
+  # Calculate total IV for each feature from woebins
+  feature_iv <- obresult$woebins[, .(total_iv = sum(iv)), by = .(feature)]
+  data.table::setorder(feature_iv, -total_iv)
+
+  # Select features based on IV threshold
+  selected_features <- unique(feature_iv[total_iv >= iv_threshold, feature])
+
+  # Adjust for min_features if necessary
+  if (length(selected_features) < min_features) {
+    selected_features <- feature_iv[1:min(min_features, nrow(feature_iv)), feature]
+  }
+
+  # Adjust for max_features if specified
+  if (!is.null(max_features) && length(selected_features) > max_features) {
+    selected_features <- selected_features[1:max_features]
+  }
+
+  # Add "_woe" suffix to selected features
+  selected_woe_features <- paste0(selected_features, "_woe")
+
+  # Validate selected WoE features exist in the dataset
+  missing_features <- selected_woe_features[!selected_woe_features %in% names(obdt)]
+  if (length(missing_features) > 0) {
+    warning(sprintf(
+      "The following WoE features were not found in the dataset: %s",
+      paste(missing_features, collapse = ", ")
+    ))
+    selected_woe_features <- selected_woe_features[selected_woe_features %in% names(obdt)]
+  }
+
+  # Prepare the final dataset with selected WoE features and target
+  final_dt <- obdt[, c(target, selected_woe_features), with = FALSE]
+
+  # Prepare the report
+  report <- data.table::data.table(
+    total_features = sum(grepl("_woe$", names(obdt))),
+    selected_features = length(selected_woe_features),
+    iv_threshold = iv_threshold,
+    min_iv = feature_iv[feature %in% selected_features, min(total_iv)],
+    max_iv = feature_iv[feature %in% selected_features, max(total_iv)],
+    mean_iv = feature_iv[feature %in% selected_features, mean(total_iv)]
+  )
+
+  # Return the results
+  return(list(
+    data = final_dt,
+    selected_features = selected_woe_features,
+    feature_iv = feature_iv,
+    report = report
+  ))
+}

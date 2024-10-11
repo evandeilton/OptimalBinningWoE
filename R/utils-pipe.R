@@ -1,7 +1,7 @@
 utils::globalVariables(c(
   ":=", "target", "count_pos", "count_neg", "woe", "original_index", "bin", "..va",
-  "min_bins", "max_bins", "total_iv", "..", "%||%", "va", "::", ":::", "%||%",
-  "..features"
+  "min_bins", "max_bins", "total_iv", "..", "%||%", "va", "::", ":::", "%||%", ".",
+  "..features", "iv", "feature"
 ))
 
 #' Pipe operator
@@ -30,8 +30,8 @@ NULL
 ## usethis namespace: end
 NULL
 
-
 ## usethis namespace: start
-#' @import RcppParallel
+#' @importFrom stats as.formula binomial model.frame model.response
+#' @importFrom stats plogis predict printCoefmat terms update update.formula
 ## usethis namespace: end
 NULL

@@ -72,6 +72,8 @@ configure_parallel_setup <- function() {
   )
 }
 
+#' @importFrom TMB compile
+#' @importFrom tools file_path_sans_ext
 .onLoad <- function(libname, pkgname) {
   parallel_setup <- configure_parallel_setup()
 

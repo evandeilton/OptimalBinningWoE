@@ -82,6 +82,3 @@ hist(result$woefeature)
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.05095.
 }
 }
-\author{
-Lopes, J. E.
-}
