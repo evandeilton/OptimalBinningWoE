@@ -281,22 +281,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// optimal_binning_numerical_cm
-Rcpp::List optimal_binning_numerical_cm(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_cm(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type target(targetSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
-    Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
-    Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
-    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_cm(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins));
-    return rcpp_result_gen;
-END_RCPP
-}
 // optimal_binning_numerical_dpb
 List optimal_binning_numerical_dpb(const IntegerVector& target, const NumericVector& feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, int n_threads);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_dpb(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP n_threadsSEXP) {
@@ -736,7 +720,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_fit_logistic_regression", (DL_FUNC) &_OptimalBinningWoE_fit_logistic_regression, 5},
     {"_OptimalBinningWoE_optimal_binning_numerical_bb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_bb, 7},
     {"_OptimalBinningWoE_optimal_binning_numerical_cart", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_cart, 7},
-    {"_OptimalBinningWoE_optimal_binning_numerical_cm", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_cm, 6},
     {"_OptimalBinningWoE_optimal_binning_numerical_dpb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_dpb, 7},
     {"_OptimalBinningWoE_optimal_binning_numerical_dplc", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_dplc, 6},
     {"_OptimalBinningWoE_optimal_binning_numerical_eb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_eb, 7},
