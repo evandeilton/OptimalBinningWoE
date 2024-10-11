@@ -3,7 +3,7 @@
 
 #' @title Categorical Optimal Binning with Chi-Merge
 #'
-#' @description 
+#' @description
 #' Implements optimal binning for categorical variables using the Chi-Merge algorithm,
 #' calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
 #'
@@ -1136,6 +1136,85 @@ optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bin
 #' @export
 optimal_binning_numerical_cart <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, is_monotonic = TRUE) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_cart`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic)
+}
+
+#' @title Optimal Numerical Binning with Chi-Merge
+#'
+#' @description
+#' Implements optimal binning for numerical variables using the Chi-Merge algorithm,
+#' calculating the Weight of Evidence (WoE) and Information Value (IV) for the resulting bins.
+#' It ensures monotonicity of the WoE values during the binning process.
+#'
+#' @param target Integer vector of binary target values (0 or 1).
+#' @param feature Numeric vector of the feature to be binned.
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#'
+#' @return A list containing two elements:
+#' \itemize{
+#'   \item woefeature: Numeric vector of WoE values for each input feature value.
+#'   \item woebin: A data frame with binning details (bin boundaries, WoE, IV, counts).
+#' }
+#'
+#' @details
+#' The Chi-Merge algorithm uses chi-square statistics to merge adjacent bins:
+#'
+#' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+#'
+#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+#' for bin i and class j.
+#'
+#' Weight of Evidence (WoE) for each bin:
+#'
+#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#'
+#' Information Value (IV) for each bin:
+#'
+#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
+#'
+#' The algorithm initializes bins based on the sorted distribution of the feature, merges bins
+#' with the smallest chi-square statistic until reaching the minimum number of bins, and then
+#' enforces monotonicity in the WoE values, ensuring the trend (increasing or decreasing) is maintained.
+#'
+#' @examples
+#' \dontrun{
+#' # Load the Rcpp library and compile the C++ code
+#' library(Rcpp)
+#' sourceCpp("path_to_your_cpp_file.cpp")  # Replace with the actual file path
+#'
+#' # Generate example data
+#' set.seed(123)
+#' n <- 10000
+#' feature <- rnorm(n)
+#' target <- rbinom(n, 1, plogis(0.5 * feature))
+#'
+#' # Apply optimal binning
+#' result <- optimal_binning_numerical_cm(target, feature, min_bins = 5, max_bins = 10)
+#'
+#' # View the binning results
+#' print(result$woebin)
+#'
+#' # Check for monotonicity
+#' woe_values <- result$woebin$woe
+#' is_monotonic <- all(diff(woe_values) >= 0) || all(diff(woe_values) <= 0)
+#' print(paste("Is WoE monotonic?", is_monotonic))
+#'
+#' # Plot the WoE transformation
+#' plot(feature, result$woefeature, main = "WoE Transformation",
+#'      xlab = "Original Feature", ylab = "WoE")
+#' }
+#'
+#' @details
+#' Optimal numerical binning with Chi-Merge is a discretization technique that groups
+#' continuous values into bins to maximize separation between target classes, using chi-square
+#' statistics to determine the best combinations. Additionally, it ensures that WoE values are
+#' monotonic, which is desirable for interpretable models and to avoid overfitting.
+#'
+#' @export
+optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins)
 }
 
 #' @title Optimal Binning for Numerical Variables using Dynamic Programming
