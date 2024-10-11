@@ -1,6 +1,6 @@
 Package: OptimalBinningWoE
 Title: Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling
-Version: 0.1.5.9002
+Version: 0.1.5.9003
 Authors@R: 
     person("Lopes", "J. E", , "evandeilton@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
@@ -10,12 +10,18 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppEigen,
+    RcppNumerical
 Imports: 
     data.table,
     magrittr,
+    Matrix,
+    pROC,
     Rcpp,
-    RcppParallel
+    RcppEigen,
+    RcppNumerical,
+    TMB
 Suggests: 
     knitr,
     rmarkdown,
