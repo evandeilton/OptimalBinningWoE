@@ -13,31 +13,66 @@ OptimalBinningNumericalWoE(
   max_bins,
   control,
   positive,
-  preprocessed_data
+  preprocessed_data,
+  progress = TRUE,
+  trace = TRUE
 )
 }
 \arguments{
 \item{dt}{A data.table containing the dataset.}
 
-\item{target}{The name of the target variable.}
+\item{target}{Character. The name of the target variable column in \code{dt}.}
 
-\item{features}{Vector of numeric feature names to process.}
+\item{features}{Character vector. Names of numeric feature columns to process.}
 
-\item{method}{The binning method to use.}
+\item{method}{Character. The binning method to use. Use "auto" for automatic selection.}
 
-\item{min_bins}{Minimum number of bins.}
+\item{min_bins}{Integer. Minimum number of bins to create.}
 
-\item{max_bins}{Maximum number of bins.}
+\item{max_bins}{Integer. Maximum number of bins to create.}
 
-\item{control}{A list of additional control parameters.}
+\item{control}{List. Additional control parameters for binning algorithms.}
 
-\item{positive}{Character string specifying which category should be considered as positive.}
+\item{positive}{Character. Specifies which category of the target should be considered positive.}
 
-\item{preprocessed_data}{List of preprocessed data for each feature.}
+\item{preprocessed_data}{List. Preprocessed data for each feature.}
+
+\item{progress}{Logical. Whether to display a progress bar. Default is TRUE.}
+
+\item{trace}{Logical, whether to generate error logs when testing existing methods.}
 }
 \value{
-A list containing results, reports, woebins, bestmod, and failed_features.
+A list containing:
+\item{results}{List of WoE values for each processed feature.}
+\item{reports}{List of preprocessing reports for each feature.}
+\item{woebins}{List of binning and WoE information for each feature.}
+\item{bestmod}{List of best model reports for each feature when method is "auto".}
+\item{failed_features}{Character vector of features that failed processing.}
 }
 \description{
-Optimal Binning and Weight of Evidence Calculation for Numerical Variables
+This function performs optimal binning and calculates Weight of Evidence (WoE)
+for numerical variables. It supports various binning methods, handles special cases,
+and provides detailed results including binning information and WoE calculations.
+}
+\details{
+The function processes each feature in \code{features}, applying the specified binning method
+and calculating WoE. It handles special cases (e.g., missing values) separately.
+If \code{method} is "auto", it selects the best binning method for each feature.
+}
+\examples{
+\dontrun{
+result <- OptimalBinningNumericalWoE(
+  dt = my_data,
+  target = "target_column",
+  features = c("feature1", "feature2"),
+  method = "auto",
+  min_bins = 3,
+  max_bins = 10,
+  control = list(num_miss_value = -999),
+  positive = "1",
+  preprocessed_data = my_preprocessed_data,
+  progress = TRUE
+)
+}
+
 }

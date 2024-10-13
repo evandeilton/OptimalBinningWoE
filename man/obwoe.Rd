@@ -13,7 +13,9 @@ obwoe(
   min_bins = 3,
   max_bins = 4,
   control = list(),
-  positive = "bad|1"
+  positive = "bad|1",
+  progress = TRUE,
+  trace = TRUE
 )
 }
 \arguments{
@@ -61,6 +63,10 @@ obwoe(
 }}
 
 \item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
+
+\item{progress}{Logical. Whether to display a progress bar. Default is TRUE.}
+
+\item{trace}{Logical, whether to generate error logs when testing existing methods.}
 }
 \value{
 A list containing:

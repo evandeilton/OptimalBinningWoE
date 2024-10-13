@@ -11,7 +11,8 @@ OptimalBinningSelectBestModel(
   min_bins,
   max_bins,
   control,
-  allowed_methods
+  allowed_methods,
+  trace = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ OptimalBinningSelectBestModel(
 \item{control}{Control parameters}
 
 \item{allowed_methods}{Vector of allowed binning methods}
+
+\item{trace}{Logical, whether to generate error logs when testing existing methods}
 }
 \value{
 Best binning result
