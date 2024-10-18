@@ -11,7 +11,7 @@ and Information Value (IV) criteria."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,7 +49,9 @@ and Information Value (IV) criteria.</p>
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -80,15 +82,44 @@ and Information Value (IV) criteria.</p>
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).</p></dd>
 
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence of the total IV (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations for the algorithm (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing two elements:</p>
-<dl><dt>woefeature</dt>
-<dd><p>A numeric vector of WoE-transformed feature values.</p></dd>
+    <p>A list containing the following elements:</p>
+<dl><dt>bins</dt>
+<dd><p>A character vector of bin names.</p></dd>
 
-<dt>woebin</dt>
-<dd><p>A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.</p></dd>
+<dt>woe</dt>
+<dd><p>A numeric vector of Weight of Evidence values for each bin.</p></dd>
+
+<dt>iv</dt>
+<dd><p>A numeric vector of Information Value for each bin.</p></dd>
+
+<dt>count</dt>
+<dd><p>An integer vector of the total count of observations in each bin.</p></dd>
+
+<dt>count_pos</dt>
+<dd><p>An integer vector of the count of positive observations in each bin.</p></dd>
+
+<dt>count_neg</dt>
+<dd><p>An integer vector of the count of negative observations in each bin.</p></dd>
+
+<dt>cutpoints</dt>
+<dd><p>A numeric vector of cut points used to generate the bins.</p></dd>
+
+<dt>converged</dt>
+<dd><p>A logical value indicating whether the algorithm converged.</p></dd>
+
+<dt>iterations</dt>
+<dd><p>An integer value indicating the number of iterations run.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -102,28 +133,8 @@ to create bins that maximize the predictive power of the feature while maintaini
 <li><p>Calculation of WoE and IV for each bin</p></li>
 <li><p>Enforcement of monotonicity in WoE across bins</p></li>
 <li><p>Further merging of bins to ensure the number of bins is within the specified range</p></li>
-<li><p>Application of WoE transformation to the original feature</p></li>
-</ol><p>Weight of Evidence (WoE) is calculated for each bin as:</p>
-<p>$$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)$$</p>
-<p>where \(P(X_i|Y=1)\) is the proportion of positive cases in bin i, and
-\(P(X_i|Y=0)\) is the proportion of negative cases in bin i.</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i$$</p>
-<p>The total IV for the feature is the sum of IVs across all bins:</p>
-<p>$$IV_{total} = \sum_{i=1}^{n} IV_i$$</p>
-<p>The UBSD approach ensures that the resulting binning maximizes the separation between
-classes while maintaining the desired number of bins and respecting the minimum bin
-frequency constraint.</p>
+</ol><p>The algorithm iterates until convergence is reached or the maximum number of iterations is hit.</p>
     </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Kotsiantis, S., &amp; Kanellopoulos, D. (2006). Discretization techniques: A recent survey.
-GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.</p></li>
-<li><p>Dougherty, J., Kohavi, R., &amp; Sahami, M. (1995). Supervised and unsupervised
-discretization of continuous features. In Machine Learning Proceedings 1995
-(pp. 194-202). Morgan Kaufmann.</p></li>
-</ul></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -138,11 +149,7 @@ discretization of continuous features. In Machine Learning Proceedings 1995
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_ubsd</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View binning results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Plot WoE transformation</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">feature</span>, <span class="va">result</span><span class="op">$</span><span class="va">woefeature</span>, main <span class="op">=</span> <span class="st">"WoE Transformation"</span>, </span></span>
-<span class="r-in"><span>     xlab <span class="op">=</span> <span class="st">"Original Feature"</span>, ylab <span class="op">=</span> <span class="st">"WoE"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

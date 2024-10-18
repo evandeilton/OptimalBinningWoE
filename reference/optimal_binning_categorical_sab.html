@@ -9,7 +9,7 @@ It maximizes the Information Value (IV) while maintaining monotonicity in the bi
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,9 +47,11 @@ It maximizes the Information Value (IV) while maintaining monotonicity in the bi
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span>,</span>
 <span>  initial_temperature <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  cooling_rate <span class="op">=</span> <span class="fl">0.995</span>,</span>
-<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -81,6 +83,10 @@ It maximizes the Information Value (IV) while maintaining monotonicity in the bi
 <dd><p>Maximum number of pre-bins (default: 20).</p></dd>
 
 
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>Separator string for merging categories (default: "%;%").</p></dd>
+
+
 <dt id="arg-initial-temperature">initial_temperature<a class="anchor" aria-label="anchor" href="#arg-initial-temperature"></a></dt>
 <dd><p>Initial temperature for Simulated Annealing (default: 1.0).</p></dd>
 
@@ -92,12 +98,21 @@ It maximizes the Information Value (IV) while maintaining monotonicity in the bi
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
 <dd><p>Maximum number of iterations for Simulated Annealing (default: 1000).</p></dd>
 
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence (default: 1e-6).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing three elements:</p><ul><li><p>woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation</p></li>
-<li><p>woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts</p></li>
-<li><p>total_iv: The total Information Value for the binning solution</p></li>
+    <p>A list containing the following elements:</p><ul><li><p>bins: A character vector of bin names</p></li>
+<li><p>woe: A numeric vector of Weight of Evidence (WoE) values for each bin</p></li>
+<li><p>iv: A numeric vector of Information Value (IV) for each bin</p></li>
+<li><p>count: An integer vector of total counts for each bin</p></li>
+<li><p>count_pos: An integer vector of positive counts for each bin</p></li>
+<li><p>count_neg: An integer vector of negative counts for each bin</p></li>
+<li><p>converged: A logical value indicating whether the algorithm converged</p></li>
+<li><p>iterations: An integer value indicating the number of iterations run</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -111,15 +126,7 @@ $$\text{Distribution of positives}_i = \frac{\text{Number of positives in bin } 
 $$\text{Distribution of negatives}_i = \frac{\text{Number of negatives in bin } i}{\text{Total Number of negatives}}$$</p>
 <p>The Information Value (IV) is calculated as:
 $$IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i$$</p>
-<p>The algorithm uses OpenMP for parallel processing to improve performance on multi-core systems.</p>
     </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Bertsimas, D., &amp; Dunn, J. (2017). Optimal classification trees. Machine Learning, 106(7), 1039-1082.</p></li>
-<li><p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-Workshop on Data Science and Advanced Analytics (DSAA).</p></li>
-</ul></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -128,8 +135,7 @@ Workshop on Data Science and Advanced Analytics (DSAA).</p></li>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">0</span><span class="op">:</span><span class="fl">1</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="va">LETTERS</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_sab</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

@@ -9,7 +9,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,10 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -77,54 +80,45 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins before merging (default: 20).</p></dd>
 
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations (default: 1000).</p></dd>
+
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>Separator for bin labels (default: "%;%").</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
-<li><p>woebin: Data frame with binning results (bin names, WoE, IV, counts).</p></li>
+    <p>A list containing:</p><ul><li><p>bin: Character vector of bin labels (merged categories).</p></li>
+<li><p>woe: Numeric vector of Weight of Evidence values for each bin.</p></li>
+<li><p>iv: Numeric vector of Information Value for each bin.</p></li>
+<li><p>count: Integer vector of total count in each bin.</p></li>
+<li><p>count_pos: Integer vector of positive class count in each bin.</p></li>
+<li><p>count_neg: Integer vector of negative class count in each bin.</p></li>
+<li><p>converged: Logical indicating whether the algorithm converged.</p></li>
+<li><p>iterations: Integer indicating the number of iterations performed.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
-the statistical significance of the difference between adjacent bins.</p>
-<p>Weight of Evidence (WoE) for each bin is calculated as:</p>
-<p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
-<p>Fisher's Exact Test p-value is calculated using the hypergeometric distribution:</p>
-<p>$$p = \frac{{a+b \choose a}{c+d \choose c}}{{n \choose a+c}}$$</p>
-<p>where a, b, c, d are the elements of the 2x2 contingency table, and n is the total sample size.</p>
-<p>The algorithm first merges rare categories based on the bin_cutoff, then
-iteratively merges bins with the lowest p-value from Fisher's Exact Test
-until the desired number of bins is reached or further merging is not statistically significant.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Agresti, A. (1992). A Survey of Exact Inference for Contingency Tables.
-Statistical Science, 7(1), 131-153.</p></li>
-<li><p>Savage, L. J. (1956). On the Choice of a Classification Statistic.
-In Contributions to Probability and Statistics: Essays in Honor of Harold Hotelling,
-Stanford University Press, 139-161.</p></li>
-</ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
+the statistical significance of the difference between adjacent bins. It ensures
+monotonicity in the resulting bins and respects the minimum number of bins specified.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Sample data</span></span></span>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"A"</span>, <span class="st">"C"</span>, <span class="st">"B"</span>, <span class="st">"D"</span>, <span class="st">"C"</span>, <span class="st">"A"</span>, <span class="st">"D"</span>, <span class="st">"B"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_fetb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_fetb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, </span></span>
+<span class="r-in"><span>max_bins <span class="op">=</span> <span class="fl">4</span>, bin_separator <span class="op">=</span> <span class="st">"|"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

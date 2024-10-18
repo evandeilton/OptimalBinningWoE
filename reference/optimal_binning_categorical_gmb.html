@@ -9,7 +9,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,10 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -55,7 +58,7 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 
 
 <dl><dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
-<dd><p>Integer vector of binary target values (0 or 1).</p></dd>
+<dd><p>Integer vector of binary target values (0 ou 1).</p></dd>
 
 
 <dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
@@ -63,43 +66,62 @@ calculating Weight of Evidence (WoE) and Information Value (IV).</p>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
-<dd><p>Minimum number of bins (default: 3).</p></dd>
+<dd><p>Número mínimo de bins (padrão: 3).</p></dd>
 
 
 <dt id="arg-max-bins">max_bins<a class="anchor" aria-label="anchor" href="#arg-max-bins"></a></dt>
-<dd><p>Maximum number of bins (default: 5).</p></dd>
+<dd><p>Número máximo de bins (padrão: 5).</p></dd>
 
 
 <dt id="arg-bin-cutoff">bin_cutoff<a class="anchor" aria-label="anchor" href="#arg-bin-cutoff"></a></dt>
-<dd><p>Minimum frequency for a separate bin (default: 0.05).</p></dd>
+<dd><p>Frequência mínima para um bin separado (padrão: 0.05).</p></dd>
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Maximum number of pre-bins before merging (default: 20).</p></dd>
+<dd><p>Número máximo de pré-bins antes da fusão (padrão: 20).</p></dd>
+
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>Separador usado para mesclar nomes de categorias (padrão: "%;%").</p></dd>
+
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Limite para convergência (padrão: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Número máximo de iterações (padrão: 1000).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p>woefeature: Numeric vector of WoE values for each input feature value.</p></li>
-<li><p>woebin: Data frame with binning results (bin names, WoE, IV, counts).</p></li>
+    <p>Uma lista com os seguintes elementos:</p><ul><li><p>bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).</p></li>
+<li><p>woe: Vetor numérico dos valores de Weight of Evidence para cada bin.</p></li>
+<li><p>iv: Vetor numérico do Information Value para cada bin.</p></li>
+<li><p>count: Vetor inteiro da contagem total para cada bin.</p></li>
+<li><p>count_pos: Vetor inteiro da contagem da classe positiva para cada bin.</p></li>
+<li><p>count_neg: Vetor inteiro da contagem da classe negativa para cada bin.</p></li>
+<li><p>converged: Lógico indicando se o algoritmo convergiu.</p></li>
+<li><p>iterations: Inteiro indicando o número de iterações realizadas.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The algorithm uses a greedy merge approach to find an optimal binning solution.
-It starts with each unique category as a separate bin and iteratively merges
-bins to maximize the overall Information Value (IV) while respecting the
-constraints on the number of bins.</p>
-<p>Weight of Evidence (WoE) for each bin is calculated as:</p>
+    <p>O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
+Ele começa com cada categoria única como um bin separado e itera fusões de
+bins para maximizar o Information Value (IV) geral, respeitando as
+restrições no número de bins.</p>
+<p>O Weight of Evidence (WoE) para cada bin é calculado como:</p>
 <p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
+<p>O Information Value (IV) para cada bin é calculado como:</p>
 <p>$$IV = (P(X|Y=1) - P(X|Y=0)) \times WoE$$</p>
-<p>The algorithm includes the following key steps:</p><ol><li><p>Initialize bins with each unique category.</p></li>
-<li><p>Merge rare categories based on bin_cutoff.</p></li>
-<li><p>Iteratively merge adjacent bins that result in the highest IV.</p></li>
-<li><p>Stop merging when the number of bins reaches min_bins or max_bins.</p></li>
-<li><p>Calculate final WoE and IV for each bin.</p></li>
-</ol><p>The algorithm handles zero counts by using a small constant (epsilon) to avoid
-undefined logarithms and division by zero.</p>
+<p>O algoritmo inclui os seguintes passos principais:</p><ol><li><p>Inicializar bins com cada categoria única.</p></li>
+<li><p>Mesclar categorias raras com base no bin_cutoff.</p></li>
+<li><p>Iterativamente mesclar bins adjacentes que resultem no maior IV.</p></li>
+<li><p>Parar de mesclar quando o número de bins atingir min_bins ou max_bins.</p></li>
+<li><p>Garantir a monotonicidade dos valores de WoE através dos bins.</p></li>
+<li><p>Calcular o WoE e IV final para cada bin.</p></li>
+</ol><p>O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
+logaritmos indefinidos e divisão por zero.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -115,16 +137,15 @@ undefined logarithms and division by zero.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Sample data</span></span></span>
+<span class="r-in"><span><span class="co"># Dados de exemplo</span></span></span>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span>, <span class="st">"A"</span>, <span class="st">"C"</span>, <span class="st">"B"</span>, <span class="st">"D"</span>, <span class="st">"C"</span>, <span class="st">"A"</span>, <span class="st">"D"</span>, <span class="st">"B"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
+<span class="r-in"><span><span class="co"># Executar binning ótimo</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_gmb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Ver resultados</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

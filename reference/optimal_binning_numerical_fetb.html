@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,9 @@
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -74,18 +76,44 @@
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins (default: 20).</p></dd>
 
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list containing:</p>
-<dl><dt>woefeature</dt>
-<dd><p>A numeric vector of Weight of Evidence (WoE) values for each observation</p></dd>
+<dl><dt>bins</dt>
+<dd><p>A vector of bin labels</p></dd>
 
-<dt>woebin</dt>
-<dd><p>A data frame with binning information, including bin ranges, WoE, IV, and counts</p></dd>
+<dt>woe</dt>
+<dd><p>A numeric vector of Weight of Evidence (WoE) values for each bin</p></dd>
 
-<dt>totalIV</dt>
-<dd><p>The total Information Value for the binning</p></dd>
+<dt>iv</dt>
+<dd><p>A numeric vector of Information Value (IV) for each bin</p></dd>
+
+<dt>count</dt>
+<dd><p>Total count of observations in each bin</p></dd>
+
+<dt>count_pos</dt>
+<dd><p>Count of positive target observations in each bin</p></dd>
+
+<dt>count_neg</dt>
+<dd><p>Count of negative target observations in each bin</p></dd>
+
+<dt>cutpoints</dt>
+<dd><p>Numeric vector of cutpoints used to generate the bins</p></dd>
+
+<dt>converged</dt>
+<dd><p>Logical value indicating if the algorithm converged</p></dd>
+
+<dt>iterations</dt>
+<dd><p>Number of iterations run by the algorithm</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -94,38 +122,7 @@
 <li><p>Bin merging: Adjacent bins are iteratively merged based on the p-value of Fisher's Exact Test.</p></li>
 <li><p>Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.</p></li>
 <li><p>WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.</p></li>
-</ol><p>Fisher's Exact Test is used to determine if there is a significant difference in the proportion of positive cases between adjacent bins. The test is performed on a 2x2 contingency table:</p>
-<p>$$
-\begin{array}{|c|c|c|}
-\hline
- &amp; \text{Positive} &amp; \text{Negative} \\
-\hline
-\text{Bin 1} &amp; a &amp; b \\
-\hline
-\text{Bin 2} &amp; c &amp; d \\
-\hline
-\end{array}
-$$</p>
-<p>The p-value from this test is used to decide whether to merge adjacent bins.</p>
-<p>The Weight of Evidence (WoE) for each bin is calculated as:</p>
-<p>$$WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)$$</p>
-<p>where \(P(X|Y=1)\) is the probability of the feature being in a particular bin given a positive target, and \(P(X|Y=0)\) is the probability given a negative target.</p>
-<p>The Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV = (P(X|Y=1) - P(X|Y=0)) * WoE$$</p>
-<p>The total IV is the sum of IVs for all bins:</p>
-<p>$$Total IV = \sum_{i=1}^{n} IV_i$$</p>
-<p>This approach ensures that the resulting bins are statistically different from each other, potentially leading to more robust and meaningful binning.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Fisher, R. A. (1922). On the interpretation of χ2 from contingency tables, and the calculation of P. Journal of the Royal Statistical Society, 85(1), 87-94.</p></li>
-<li><p>Belotti, P., &amp; Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.</p></li>
-</ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
+</ol></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -134,8 +131,9 @@ $$</p>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">0</span><span class="op">:</span><span class="fl">1</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_fetb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">totalIV</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bins</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

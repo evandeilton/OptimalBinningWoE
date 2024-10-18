@@ -9,7 +9,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,10 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -77,13 +80,29 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins before merging (default: 20).</p></dd>
 
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>String used to separate category names when merging bins (default: "%;%").</p></dd>
+
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence in optimization (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations for optimization (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing four elements:</p><ul><li><p>woefeature: A numeric vector of WOE values for each input feature value</p></li>
-<li><p>woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts</p></li>
-<li><p>total_iv: The total Information Value of the binning</p></li>
-<li><p>is_monotonic: A logical value indicating whether the final binning achieves monotonicity</p></li>
+    <p>A list containing:</p><ul><li><p>bins: A character vector of bin labels</p></li>
+<li><p>woe: A numeric vector of Weight of Evidence values for each bin</p></li>
+<li><p>iv: A numeric vector of Information Value for each bin</p></li>
+<li><p>count: An integer vector of total counts for each bin</p></li>
+<li><p>count_pos: An integer vector of positive target counts for each bin</p></li>
+<li><p>count_neg: An integer vector of negative target counts for each bin</p></li>
+<li><p>converged: A logical value indicating whether the algorithm converged</p></li>
+<li><p>iterations: An integer indicating the number of iterations run</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -93,19 +112,11 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 <li><p>Calculating initial Weight of Evidence (WOE) and Information Value (IV)</p></li>
 <li><p>Enforcing monotonicity of WOE across bins</p></li>
 <li><p>Optimizing the number of bins through iterative merging</p></li>
-<li><p>Assigning final WOE values to each category</p></li>
 </ol><p>The Weight of Evidence (WOE) is calculated as:
 $$WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)$$</p>
 <p>The Information Value (IV) for each bin is calculated as:
 $$IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE$$</p>
-<p>The total IV is the sum of IVs across all bins.</p>
     </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Belaid, A., &amp; Ghorbel, H. (2018). An Optimal Binning Technique for Credit Scoring. In Advances in Time Series and Forecasting (pp. 217-228). Springer, Cham.</p></li>
-<li><p>Mironchyk, P., &amp; Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.05095.</p></li>
-</ul></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -116,13 +127,10 @@ $$IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WO
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="va">LETTERS</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span>, <span class="fl">1000</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Run optimal binning</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_mba</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_mba</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Total IV:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Is monotonic:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">is_monotonic</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

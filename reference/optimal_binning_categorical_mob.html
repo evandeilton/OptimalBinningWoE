@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,10 @@
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -74,11 +77,29 @@
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins (default: 20).</p></dd>
 
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>Separator used for merging category names (default: "%;%").</p></dd>
+
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Convergence threshold for the algorithm (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations for the algorithm (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing two elements:</p><ul><li><p>woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation</p></li>
-<li><p>woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts</p></li>
+    <p>A list containing the following elements:</p><ul><li><p>bins: A character vector of bin names (merged categories)</p></li>
+<li><p>woe: A numeric vector of Weight of Evidence (WoE) values for each bin</p></li>
+<li><p>iv: A numeric vector of Information Value (IV) for each bin</p></li>
+<li><p>count: An integer vector of total counts for each bin</p></li>
+<li><p>count_pos: An integer vector of positive target counts for each bin</p></li>
+<li><p>count_neg: An integer vector of negative target counts for each bin</p></li>
+<li><p>converged: A logical value indicating whether the algorithm converged</p></li>
+<li><p>iterations: An integer value indicating the number of iterations run</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -86,32 +107,18 @@
 The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.</p>
 <p>The algorithm works as follows:</p>
 <ol><li><p>Category Statistics Calculation:
-For each category i, we calculate:</p><ul><li><p>ni: total count</p></li>
-<li><p>ni+: count of positive instances (target = 1)</p></li>
-<li><p>ni-: count of negative instances (target = 0)</p></li>
-</ul></li>
-<li><p>Rare Categories Merging:
-Categories with frequency below the bin_cutoff threshold are merged into an "Other" category.
-Let tau be the bin_cutoff, and N be the total number of observations.
-A category i is merged if: ni &lt; tau * N</p></li>
+For each category, we calculate the total count, count of positive instances, and count of negative instances.</p></li>
 <li><p>Initial Binning:
-Categories are sorted based on their initial Weight of Evidence (WoE):
-WoE_i = ln((ni+ / N+) / (ni- / N-))
-Where N+ and N- are the total counts of positive and negative instances respectively.</p></li>
+Categories are sorted based on their initial Weight of Evidence (WoE).</p></li>
 <li><p>Monotonicity Enforcement:
 The algorithm enforces decreasing monotonicity of WoE across bins.
-For any two adjacent bins i and j, where i &lt; j:
-WoE_i &gt;= WoE_j
-If this condition is violated, bins i and j are merged.</p></li>
+If this condition is violated, adjacent bins are merged.</p></li>
 <li><p>Bin Limiting:
 The number of bins is limited to the specified max_bins.
 When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.</p></li>
 <li><p>Information Value (IV) Computation:
-For each bin i, the IV is calculated as:
-IV_i = (P(X=i|Y=1) - P(X=i|Y=0)) * WoE_i
-The total IV is the sum of IVs across all bins:
-IV_total = sum(IV_i)</p></li>
-</ol><p>The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications. This monotonicity property ensures that the relationship between the binned variable and the target variable (e.g., default probability) is consistent and interpretable.</p>
+For each bin, the IV is calculated and the total IV is computed.</p></li>
+</ol><p>The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -121,10 +128,6 @@ Journal of the Operational Research Society, 60(12), 1699-1707.</p></li>
 <li><p>Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
 arXiv preprint arXiv:1711.05095.</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -138,7 +141,7 @@ arXiv preprint arXiv:1711.05095.</p></li>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_mob</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

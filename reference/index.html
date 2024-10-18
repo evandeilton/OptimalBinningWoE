@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,10 +60,16 @@
         <dd>BIC Method for oblr Objects</dd>
       </dl><dl><dt>
 
-          <code><a href="OptimalBinningCategoricalWoE.html">OptimalBinningCategoricalWoE()</a></code>
+          <code><a href="OptimalBinningApplyWoECat.html">OptimalBinningApplyWoECat()</a></code>
 
         </dt>
-        <dd>Optimal Binning and Weight of Evidence Calculation for Categorical Variables</dd>
+        <dd>Apply Optimal Weight of Evidence (WoE) to a Categorical Feature</dd>
+      </dl><dl><dt>
+
+          <code><a href="OptimalBinningApplyWoENum.html">OptimalBinningApplyWoENum()</a></code>
+
+        </dt>
+        <dd>Apply Optimal Weight of Evidence (WoE) to a Numerical Feature</dd>
       </dl><dl><dt>
 
           <code><a href="OptimalBinningDataPreprocessor.html">OptimalBinningDataPreprocessor()</a></code>
@@ -90,16 +96,16 @@
         <dd>Get Available Optimal Binning Algorithms</dd>
       </dl><dl><dt>
 
-          <code><a href="OptimalBinningNumericalWoE.html">OptimalBinningNumericalWoE()</a></code>
-
-        </dt>
-        <dd>Optimal Binning and Weight of Evidence Calculation for Numerical Variables</dd>
-      </dl><dl><dt>
-
           <code><a href="OptimalBinningPreprocessData.html">OptimalBinningPreprocessData()</a></code>
 
         </dt>
         <dd>Preprocess Data for Optimal Binning</dd>
+      </dl><dl><dt>
+
+          <code><a href="OptimalBinningSelectBestModel.html">OptimalBinningSelectBestModel()</a></code>
+
+        </dt>
+        <dd>Select the Best Model for Optimal Binning</dd>
       </dl><dl><dt>
 
           <code><a href="OptimalBinningSelectOptimalFeatures.html">OptimalBinningSelectOptimalFeatures()</a></code>
@@ -171,7 +177,7 @@
           <code><a href="optimal_binning_categorical_cm.html">optimal_binning_categorical_cm()</a></code>
 
         </dt>
-        <dd>Categorical Optimal Binning with Chi-Merge</dd>
+        <dd>Optimal Binning for Categorical Variables</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_categorical_dplc.html">optimal_binning_categorical_dplc()</a></code>
@@ -195,7 +201,7 @@
           <code><a href="optimal_binning_categorical_ivb.html">optimal_binning_categorical_ivb()</a></code>
 
         </dt>
-        <dd>Binning Categórico Ótimo com Information Value (IVB)</dd>
+        <dd>Optimal Binning for Categorical Variables using Information Value-based Binning (IVB)</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_categorical_ldb.html">optimal_binning_categorical_ldb()</a></code>
@@ -213,7 +219,7 @@
           <code><a href="optimal_binning_categorical_milp.html">optimal_binning_categorical_milp()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using OBNP</dd>
+        <dd>Optimal Binning for Categorical Variables using MILP</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_categorical_mob.html">optimal_binning_categorical_mob()</a></code>
@@ -226,6 +232,12 @@
 
         </dt>
         <dd>Optimal Binning for Categorical Variables using Simulated Annealing</dd>
+      </dl><dl><dt>
+
+          <code><a href="optimal_binning_categorical_sblp.html">optimal_binning_categorical_sblp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_categorical_swb.html">optimal_binning_categorical_swb()</a></code>
@@ -246,28 +258,10 @@
         <dd>Optimal Binning for Numerical Variables using Branch and Bound</dd>
       </dl><dl><dt>
 
-          <code><a href="optimal_binning_numerical_cart.html">optimal_binning_numerical_cart()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using CART-based approach</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_dpb.html">optimal_binning_numerical_dpb()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Dynamic Programming</dd>
-      </dl><dl><dt>
-
           <code><a href="optimal_binning_numerical_dplc.html">optimal_binning_numerical_dplc()</a></code>
 
         </dt>
         <dd>Optimal Binning for Numerical Variables using Dynamic Programming with Local Constraints (DPLC)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_eb.html">optimal_binning_numerical_eb()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Entropy-Based Approach</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_numerical_ewb.html">optimal_binning_numerical_ewb()</a></code>
@@ -282,22 +276,10 @@
         <dd>Optimal Binning for Numerical Variables using Fisher's Exact Test</dd>
       </dl><dl><dt>
 
-          <code><a href="optimal_binning_numerical_gab.html">optimal_binning_numerical_gab()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Genetic Algorithm</dd>
-      </dl><dl><dt>
-
           <code><a href="optimal_binning_numerical_ir.html">optimal_binning_numerical_ir()</a></code>
 
         </dt>
         <dd>Optimal Binning for Numerical Variables using Isotonic Regression</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_jnbo.html">optimal_binning_numerical_jnbo()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Dynamic Programming</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_numerical_kmb.html">optimal_binning_numerical_kmb()</a></code>
@@ -318,40 +300,34 @@
         <dd>Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)</dd>
       </dl><dl><dt>
 
-          <code><a href="optimal_binning_numerical_milp.html">optimal_binning_numerical_milp()</a></code>
+          <code><a href="optimal_binning_numerical_mblp.html">optimal_binning_numerical_mblp()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using MILP</dd>
+        <dd>Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming</dd>
+      </dl><dl><dt>
+
+          <code><a href="optimal_binning_numerical_mdlp.html">optimal_binning_numerical_mdlp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Features using MDLP</dd>
+      </dl><dl><dt>
+
+          <code><a href="optimal_binning_numerical_mob.html">optimal_binning_numerical_mob()</a></code>
+
+        </dt>
+        <dd>Perform Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)</dd>
+      </dl><dl><dt>
+
+          <code><a href="optimal_binning_numerical_mrblp.html">optimal_binning_numerical_mrblp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP)</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_numerical_oslp.html">optimal_binning_numerical_oslp()</a></code>
 
         </dt>
         <dd>Optimal Binning for Numerical Variables using OSLP</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_qb.html">optimal_binning_numerical_qb()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Quantile-based Binning (QB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_sab.html">optimal_binning_numerical_sab()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Simulated Annealing Binning (SAB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_sbb.html">optimal_binning_numerical_sbb()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Supervised Boundary Binning (SBB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_sblp.html">optimal_binning_numerical_sblp()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP)</dd>
       </dl><dl><dt>
 
           <code><a href="optimal_binning_numerical_ubsd.html">optimal_binning_numerical_ubsd()</a></code>

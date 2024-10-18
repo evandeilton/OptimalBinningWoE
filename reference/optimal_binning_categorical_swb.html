@@ -9,7 +9,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,10 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -77,15 +80,45 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins before merging (default: 20).</p></dd>
 
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>Separator used for merging category names (default: "%;%").</p></dd>
+
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence of IV (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations for optimization (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing two elements:</p>
-<dl><dt>woefeature</dt>
-<dd><p>A numeric vector of WOE values for each input feature value</p></dd>
+    <p>A list containing the following elements:</p>
+<dl><dt>bins</dt>
+<dd><p>A character vector of bin labels</p></dd>
 
-<dt>woebin</dt>
-<dd><p>A data frame containing bin information, including bin labels, WOE, IV, and counts</p></dd>
+<dt>woe</dt>
+<dd><p>A numeric vector of WOE values for each bin</p></dd>
+
+<dt>iv</dt>
+<dd><p>A numeric vector of IV values for each bin</p></dd>
+
+<dt>count</dt>
+<dd><p>An integer vector of total counts for each bin</p></dd>
+
+<dt>count_pos</dt>
+<dd><p>An integer vector of positive class counts for each bin</p></dd>
+
+<dt>count_neg</dt>
+<dd><p>An integer vector of negative class counts for each bin</p></dd>
+
+<dt>converged</dt>
+<dd><p>A logical value indicating whether the algorithm converged</p></dd>
+
+<dt>iterations</dt>
+<dd><p>An integer value indicating the number of iterations run</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -123,8 +156,7 @@ $$IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WO
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_categorical_swb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html" class="external-link">hist</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

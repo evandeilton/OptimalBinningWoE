@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9003</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,9 @@
 <span>  min_bins <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5L</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span></span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
+<span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -74,46 +76,46 @@
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
 <dd><p>Maximum number of pre-bins (default: 20).</p></dd>
 
+
+<dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
+<dd><p>Threshold for convergence (default: 1e-6).</p></dd>
+
+
+<dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
+<dd><p>Maximum number of iterations (default: 1000).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing three elements:</p>
-<dl><dt>woefeature</dt>
-<dd><p>A numeric vector of Weight of Evidence (WoE) transformed feature values.</p></dd>
+    <p>A list containing:</p>
+<dl><dt>bins</dt>
+<dd><p>A vector of bin labels</p></dd>
 
-<dt>woebin</dt>
-<dd><p>A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.</p></dd>
+<dt>woe</dt>
+<dd><p>A numeric vector of Weight of Evidence (WoE) values for each bin</p></dd>
 
-<dt>iv_total</dt>
-<dd><p>The total Information Value of the binned feature.</p></dd>
+<dt>iv</dt>
+<dd><p>A numeric vector of Information Value (IV) for each bin</p></dd>
+
+<dt>count</dt>
+<dd><p>Total count of observations in each bin</p></dd>
+
+<dt>count_pos</dt>
+<dd><p>Count of positive target observations in each bin</p></dd>
+
+<dt>count_neg</dt>
+<dd><p>Count of negative target observations in each bin</p></dd>
+
+<dt>cutpoints</dt>
+<dd><p>Numeric vector of cutpoints used to generate the bins</p></dd>
+
+<dt>converged</dt>
+<dd><p>Logical value indicating if the algorithm converged</p></dd>
+
+<dt>iterations</dt>
+<dd><p>Number of iterations run by the algorithm</p></dd>
 
 </dl></div>
-    <div class="section level2">
-    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The Local Density Binning (LDB) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values and respecting user-defined constraints.</p>
-<p>The algorithm works through several steps:</p><ol><li><p>Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins) using quantiles.</p></li>
-<li><p>WoE and IV Calculation: For each bin, computes the Weight of Evidence (WoE) and Information Value (IV):
-$$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right) = \ln\left(\frac{n_{1i}/N_1}{n_{0i}/N_0}\right)$$
-$$IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i$$
-where \(n_{1i}\) and \(n_{0i}\) are the number of events and non-events in bin i, and \(N_1\) and \(N_0\) are the total number of events and non-events.</p></li>
-<li><p>Monotonicity Enforcement: Merges adjacent bins to ensure monotonic WoE values. The direction of monotonicity is determined by the overall trend of WoE values across bins.</p></li>
-<li><p>Bin Merging: Merges bins with frequencies below the bin_cutoff threshold and ensures the number of bins is within the specified range (min_bins to max_bins).</p></li>
-</ol><p>The LDB method incorporates local density estimation to better capture the underlying distribution of the data. This approach can be particularly effective when dealing with complex, non-linear relationships between the feature and the target variable.</p>
-<p>The algorithm uses Information Value (IV) as a criterion for merging bins, aiming to minimize IV loss at each step. This approach helps preserve the predictive power of the feature while creating optimal bins.</p>
-<p>The total Information Value (IV) is calculated as the sum of IVs for all bins:
-$$IV_{total} = \sum_{i=1}^{n} IV_i$$</p>
-<p>The LDB method provides a balance between predictive power and model interpretability, allowing users to control the trade-off through parameters such as min_bins, max_bins, and bin_cutoff.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-
-<ul><li><p>Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gomez, A., &amp; Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.</p></li>
-<li><p>Thomas, L. C., Edelman, D. B., &amp; Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.</p></li>
-</ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes,</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -127,9 +129,9 @@ $$IV_{total} = \sum_{i=1}^{n} IV_i$$</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_ldb</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">iv_total</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bins</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
