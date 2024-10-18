@@ -215,8 +215,8 @@ DataFrame OptimalBinningApplyWoENum(const List& obresults,
  // Construct the output DataFrame
  DataFrame result = DataFrame::create(
    Named("feature") = feature_values,
-   Named("featurebins") = featurebins,
-   Named("featurewoe") = featurewoe
+   Named("bin") = featurebins,
+   Named("woe") = featurewoe
  );
  
  return result;

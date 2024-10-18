@@ -859,6 +859,8 @@ OptimalBinningGetAlgoName <- function() {
 #' @param control A list of control parameters for the binning algorithms (not used directly in this function).
 #' @param progress Logical; if TRUE, display a progress bar during processing (default is TRUE).
 #' @param trace Logical; if TRUE, provide more detailed output for debugging (default is FALSE).
+#' @param include_upper_bound Include upper bound for numeric bins (default is TRUE)?
+#' @param bin_separator bin separator for optimal bins categorical variables (default = "%;%")
 #'
 #' @return A list containing the results for each feature:
 #'   \item{woebin}{The Weight of Evidence (WoE) binning result for the best model.}
@@ -900,7 +902,7 @@ OptimalBinningGetAlgoName <- function() {
 #' }
 #'
 #' @export
-OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
+OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE, include_upper_bound = TRUE, bin_separator = "%;%") {
   results <- list()
 
   # numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
@@ -931,7 +933,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
   for (feat in features) {
     if (progress) pb$tick()
 
-    featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
+    featdim <- OptimalBinningWoE:::OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
 
     # If categ has only one class force factor to pass on char methods
     dt_feature <- if (featdim[1] <= 2) {
@@ -1009,11 +1011,11 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
             data.table::data.table(
               model_method = m,
               model_algorithm = OO[[m]]$algorithm,
-              total_iv = sum(OO[[m]]$woebin$iv, na.rm = TRUE),
-              total_bins = length(OO[[m]]$woebin$bin),
-              total_zero_pos = sum(OO[[m]]$woebin$count_pos == 0, na.rm = TRUE),
-              total_zero_neg = sum(OO[[m]]$woebin$count_neg == 0, na.rm = TRUE),
-              is_monotonic = as.numeric(OptimalBinningIsWoEMonotonic(OO[[m]]$woebin$woe))
+              total_iv = sum(OO[[m]]$iv, na.rm = TRUE),
+              total_bins = length(OO[[m]]$bin),
+              total_zero_pos = sum(OO[[m]]$count_pos == 0, na.rm = TRUE),
+              total_zero_neg = sum(OO[[m]]$count_neg == 0, na.rm = TRUE),
+              is_monotonic = as.numeric(OptimalBinningIsWoEMonotonic(OO[[m]]$woe))
             )
           },
           error = function(e) {
@@ -1050,11 +1052,33 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
     best_model <- OO[[unique(head(mm, 1)$model_method)]]
 
+    # woebin <- list(woebin = data.frame(bin = best_model$bins,
+    #                                    count = best_model$count,
+    #                                    count_pos = best_model$count_pos,
+    #                                    count_neg = best_model$count_neg
+    #                                    ))
+
+    # Apply WOE
+    woefeature <- if (is_numeric) {
+      OptimalBinningApplyWoENum(feature = dt_feature$feature, obresults = best_model, include_upper_bound = include_upper_bound)
+    } else {
+      OptimalBinningApplyWoECat(feature = dt_feature$feature, obresults = best_model, bin_separator = bin_separator)
+    }
+
+    # Prepare gains table after applying optimal woe
+    woebin <- OptimalBinningGainsTableFeature(binned_feature = woefeature$bin, dt_feature$target)
+
+    # Get mest method algo
+    bestmethod <- best_model$algorithm
+
+    # Get report from model selection
+    report <- mm
+
     results[[feat]] <- list(
-      woebin = best_model$woebin,
-      woefeature = best_model$woefeature,
-      bestmethod = best_model$algorithm,
-      report = mm
+      woebin = woebin,
+      woefeature = woefeature,
+      bestmethod = bestmethod,
+      report = report
     )
   }
 
