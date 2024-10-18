@@ -268,8 +268,7 @@ result_cat <- obwoe(
 )
 
 # View binning information for categorical features
-result_cat$woebin[, 1:7] %>%
-  knitr::kable()
+result_cat$woebin[, 1:7] %>% knitr::kable()
 ```
 
 ## Use Recommendations
