@@ -38,7 +38,7 @@ optimal_binning_categorical_mob(
 \value{
 A list containing the following elements:
 \itemize{
-\item bins: A character vector of bin names (merged categories)
+\item bin: A character vector of bin names (merged categories)
 \item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
 \item iv: A numeric vector of Information Value (IV) for each bin
 \item count: An integer vector of total counts for each bin
@@ -58,22 +58,22 @@ The process aims to maximize the Information Value (IV) while maintaining monoto
 The algorithm works as follows:
 
 \enumerate{
-\item Category Statistics Calculation:
-For each category, we calculate the total count, count of positive instances, and count of negative instances.
+\item \strong{Category Statistics Calculation}:
+For each category, calculate the total count, count of positive instances, and count of negative instances.
 
-\item Initial Binning:
+\item \strong{Initial Binning}:
 Categories are sorted based on their initial Weight of Evidence (WoE).
 
-\item Monotonicity Enforcement:
+\item \strong{Monotonicity Enforcement}:
 The algorithm enforces decreasing monotonicity of WoE across bins.
 If this condition is violated, adjacent bins are merged.
 
-\item Bin Limiting:
-The number of bins is limited to the specified max_bins.
+\item \strong{Bin Limiting}:
+The number of bins is limited to the specified \code{max_bins}.
 When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
 
-\item Information Value (IV) Computation:
-For each bin, the IV is calculated and the total IV is computed.
+\item \strong{Information Value (IV) Computation}:
+For each bin, the IV is calculated, and the total IV is computed.
 }
 
 The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
@@ -96,8 +96,8 @@ print(result)
 \references{
 \itemize{
 \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
-Journal of the Operational Research Society, 60(12), 1699-1707.
+\emph{Journal of the Operational Research Society}, 60(12), 1699-1707.
 \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-arXiv preprint arXiv:1711.05095.
+\emph{arXiv preprint} arXiv:1711.05095.
 }
 }

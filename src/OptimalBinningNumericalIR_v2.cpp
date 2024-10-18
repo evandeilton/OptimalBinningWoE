@@ -332,7 +332,7 @@ private:
     }
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_labels,
+      Rcpp::Named("bin") = bin_labels,
       Rcpp::Named("woe") = woe,
       Rcpp::Named("iv") = iv,
       Rcpp::Named("count") = count,

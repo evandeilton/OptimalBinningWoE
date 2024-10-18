@@ -415,7 +415,7 @@ private:
     
     // Create output list
     return List::create(
-      Named("bins") = bin_labels,
+      Named("bin") = bin_labels,
       Named("woe") = bin_woe,
       Named("iv") = bin_iv,
       Named("count") = bin_count,

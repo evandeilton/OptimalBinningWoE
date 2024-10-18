@@ -8,21 +8,15 @@ obwoe(
   dt,
   target,
   features = NULL,
-  method = "auto",
-  preprocess = TRUE,
   min_bins = 3,
   max_bins = 4,
+  method = "fetb",
   positive = "bad|1",
+  preprocess = TRUE,
   progress = TRUE,
-  trace = TRUE,
-  control = list(cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05, pvalue_threshold
-    = 0.05, max_n_prebins = 20, monotonicity_direction = "increase", lambda = 0.1,
-    min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10, num_miss_value = -999,
-    char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, iqr_k =
-    1.5, zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L, is_monotonic = TRUE,
-    population_size = 50L, max_generations = 100L, mutation_rate = 0.1,
-    initial_temperature = 1, cooling_rate = 0.995, 
-     max_iterations = 1000L)
+  trace = FALSE,
+  outputall = TRUE,
+  control = list()
 )
 }
 \arguments{
@@ -32,19 +26,21 @@ obwoe(
 
 \item{features}{Vector of feature names to process. If NULL, all features except the target will be processed.}
 
-\item{method}{The binning method to use. Can be "auto" or one of the methods listed in the details section.}
-
-\item{preprocess}{Logical. Whether to preprocess the data before binning (default: TRUE).}
-
 \item{min_bins}{Minimum number of bins (default: 3).}
 
 \item{max_bins}{Maximum number of bins (default: 4).}
 
+\item{method}{The binning method to use. Can be "auto" or one of the methods listed in the details section.}
+
 \item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
+
+\item{preprocess}{Logical. Whether to preprocess the data before binning (default: TRUE).}
 
 \item{progress}{Logical. Whether to display a progress bar. Default is TRUE.}
 
-\item{trace}{Logical, whether to generate error logs when testing existing methods.}
+\item{trace}{Logical. Whether to generate error logs when testing existing methods.}
+
+\item{outputall}{Logical. If TRUE, returns only the optimal binning gains table. If FALSE, returns a list with data, gains table, and reports (default: TRUE).}
 
 \item{control}{A list of additional control parameters:
 \itemize{
@@ -53,10 +49,10 @@ obwoe(
 \item min_bads: Minimum proportion of bad cases in a bin (default: 0.05)
 \item pvalue_threshold: P-value threshold for statistical tests (default: 0.05)
 \item max_n_prebins: Maximum number of pre-bins (default: 20)
-\item monotonicity_direction: Direction of monotonicity ("increase" or "decrease")
+\item monotonicity_direction: Direction of monotonicity for some algorithms ("increase" or "decrease")
 \item lambda: Regularization parameter for some algorithms (default: 0.1)
 \item min_bin_size: Minimum bin size as a proportion of total observations (default: 0.05)
-\item min_iv_gain: Minimum IV gain for bin splitting (default: 0.01)
+\item min_iv_gain: Minimum IV gain for bin splitting for some algorithms (default: 0.01)
 \item max_depth: Maximum depth for tree-based algorithms (default: 10)
 \item num_miss_value: Value to replace missing numeric values (default: -999.0)
 \item char_miss_value: Value to replace missing categorical values (default: "N/A")
@@ -73,12 +69,18 @@ obwoe(
 \item initial_temperature: Initial temperature for simulated annealing (default: 1)
 \item cooling_rate: Cooling rate for simulated annealing (default: 0.995)
 \item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
+\item include_upper_bound: Include upper bound for numeric bins (default is TRUE)
+\item bin_separator: Bin separator for optimal bins categorical variables (default = "\%;\%")
 }}
 }
 \value{
+Depending on the value of outputall:
+If outputall = FALSE:
+A data.table containing the optimal binning gains table (woebin).
+If outputall = TRUE:
 A list containing:
-\item{woedt}{The original dataset with added WoE columns}
-\item{woebins}{Information about the bins created, including:
+\item{data}{The original dataset with added WoE columns}
+\item{woebin}{Information about the bins created, including:
 \itemize{
 \item feature: Name of the feature
 \item bin: Bin label or range
@@ -92,7 +94,16 @@ A list containing:
 \item iv: Information Value contribution of the bin
 }
 }
-\item{prepreport}{Preprocessing report for each feature, including:
+\item{report_best_model}{Report on the best tested models, including:
+\itemize{
+\item feature: Name of the feature
+\item method: Best method selected for the feature
+\item iv_total: Total Information Value achieved
+\item n_bins: Number of bins created
+\item runtime: Execution time for binning the feature
+}
+}
+\item{report_preprocess}{Preprocessing report for each feature, including:
 \itemize{
 \item feature: Name of the feature
 \item type: Data type of the feature
@@ -105,21 +116,10 @@ A list containing:
 \item sd_after: Standard deviation after preprocessing
 }
 }
-\item{bestsreport}{Report on the best models used, including:
-\itemize{
-\item feature: Name of the feature
-\item method: Best method selected for the feature
-\item iv_total: Total Information Value achieved
-\item n_bins: Number of bins created
-\item runtime: Execution time for binning the feature
-}
-}
-\item{failedfeatures}{List of features that failed processing}
-\item{bestmethod}{Best method used for binning across all features}
 }
 \description{
 This function performs optimal binning and calculates Weight of Evidence (WoE)
-for both numerical and categorical features. It implements a wide variety of
+for both numerical and categorical features. It implements a variety of
 advanced binning algorithms to discretize continuous variables and optimize
 categorical variables for predictive modeling, particularly in credit scoring
 and risk assessment applications.
@@ -136,10 +136,9 @@ The function implements the following binning algorithms:
 For Categorical Variables:
 \itemize{
 \item FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning
-\item LDB (Local Density Binning): Applies local density estimation to categorical variables
 \item CM (ChiMerge): Merges categories based on chi-square statistic
-\item IVB (Information Value Binning): Bins based on information value
 \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
+\item IVB (Information Value Binning): Bins based on information value
 \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
 \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
 \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints
@@ -151,27 +150,21 @@ For Categorical Variables:
 
 For Numerical Variables:
 \itemize{
-\item EB (Entropy-Based): Uses entropy-based criteria for binning
-\item CART (Classification and Regression Trees): Uses decision tree algorithm for binning
 \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
+\item MDLP (Minimum Description Length Principle): Uses the MDLP criterion for binning
+\item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
+\item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
 \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
-\item GAB (Genetic Algorithm Binning): Uses genetic algorithms for optimal binning
 \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
 \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
-\item SBLP (Supervised Binning via Linear Programming): Uses linear programming for supervised binning
 \item FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables
 \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
 \item KMB (K-means Binning): Applies k-means clustering for binning
 \item OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning
+\item MRBLP (Monotonic Regression-Based Linear Programming): Combines monotonic regression with linear programming
 \item IR (Isotonic Regression): Uses isotonic regression for binning
-\item SAB (Simulated Annealing Binning): Applies simulated annealing to numerical variables
 \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
-\item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
-\item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
-\item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
 \item LDB (Local Density Binning): Uses local density estimation for binning
-\item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
-\item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
 }
 
 Key Concepts:
@@ -197,43 +190,45 @@ library(scorecard)
 data(germancredit, package = "scorecard")
 dt <- as.data.table(germancredit)
 
+# Process all features with MBLP method
 result <- obwoe(dt,
   target = "creditability", method = "mblp",
   min_bins = 3, max_bins = 5, positive = "bad|1"
 )
 
-# View WoE-transformed data
-head(result$woedt)
-# View binning information
-print(result$woebins)
+# View WoE binning information
+print(result)
 
-# Process only numeric features
+# Process only numeric features with MBLP method and get detailed output
 numeric_features <- names(dt)[sapply(dt, is.numeric)]
 numeric_features <- setdiff(numeric_features, "creditability")
 
-result <- obwoe(dt,
+result_detailed <- obwoe(dt,
   target = "creditability", features = numeric_features,
-  method = "mblp", preprocess = TRUE,
+  method = "mblp", preprocess = TRUE, outputall = FALSE,
   min_bins = 3, max_bins = 5, positive = "bad|1"
 )
 
+# View WoE-transformed data
+head(result_detailed$data)
+
 # View preprocessing report
-print(result$prepreport)
+print(result_detailed$report_preprocess)
 
 # View best model report
-print(result$bestsreport)
+print(result_detailed$report_best_model)
 
-# Process only categoric features
+# Process only categoric features with UDT method
 categoric_features <- names(dt)[sapply(dt, function(i) !is.numeric(i))]
 categoric_features <- setdiff(categoric_features, "creditability")
-result <- obwoe(dt,
+result_cat <- obwoe(dt,
   target = "creditability", features = categoric_features,
   method = "udt", preprocess = TRUE,
   min_bins = 3, max_bins = 4, positive = "bad|1"
 )
 
 # View binning information for categorical features
-print(result$woebins)
+print(result_cat)
 }
 
 }

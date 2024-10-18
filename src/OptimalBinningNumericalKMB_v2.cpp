@@ -377,7 +377,7 @@ public:
     }
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_labels,
+      Rcpp::Named("bin") = bin_labels,
       Rcpp::Named("woe") = woe_values,
       Rcpp::Named("iv") = iv_values,
       Rcpp::Named("count") = counts,

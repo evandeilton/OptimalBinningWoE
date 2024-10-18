@@ -132,25 +132,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// optimal_binning_categorical_ldb
-List optimal_binning_categorical_ldb(IntegerVector target, CharacterVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string bin_separator, double convergence_threshold, int max_iterations);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_ldb(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP bin_separatorSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
-    Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
-    Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
-    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type bin_separator(bin_separatorSEXP);
-    Rcpp::traits::input_parameter< double >::type convergence_threshold(convergence_thresholdSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_categorical_ldb(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations));
-    return rcpp_result_gen;
-END_RCPP
-}
 // optimal_binning_categorical_mba
 Rcpp::List optimal_binning_categorical_mba(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string bin_separator, double convergence_threshold, int max_iterations);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_mba(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP bin_separatorSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
@@ -662,7 +643,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_fetb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_fetb, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_gmb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_gmb, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_ivb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_ivb, 9},
-    {"_OptimalBinningWoE_optimal_binning_categorical_ldb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_ldb, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_mba", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mba, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_milp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_milp, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_mob", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mob, 9},

@@ -166,7 +166,7 @@ Rcpp::List OptimalBinningNumericalLPDB::fit(Rcpp::NumericVector feature, Rcpp::I
     
     // Return results
     return List::create(
-      Named("bins") = bin_intervals,
+      Named("bin") = bin_intervals,
       Named("woe") = woe_values,
       Named("iv") = iv_values,
       Named("count") = counts,
@@ -217,7 +217,7 @@ Rcpp::List OptimalBinningNumericalLPDB::fit(Rcpp::NumericVector feature, Rcpp::I
   
   // Return results
   return List::create(
-    Named("bins") = bin_labels,
+    Named("bin") = bin_labels,
     Named("woe") = woe_vals,
     Named("iv") = iv_vals,
     Named("count") = counts_vec,

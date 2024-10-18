@@ -371,7 +371,7 @@ List OptimalBinningCategoricalSBLP::prepare_output(const std::vector<std::vector
   }
   
   return List::create(
-    Named("bins") = bin_names,
+    Named("bin") = bin_names,
     Named("woe") = bin_woe,
     Named("iv") = bin_iv,
     Named("count") = bin_count,

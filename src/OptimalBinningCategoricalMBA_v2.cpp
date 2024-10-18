@@ -451,7 +451,7 @@ Rcpp::List OptimalBinningCategoricalMBA::fit() {
     }
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_names,
+      Rcpp::Named("bin") = bin_names,
       Rcpp::Named("woe") = bin_woe,
       Rcpp::Named("iv") = bin_iv,
       Rcpp::Named("count") = bin_count,

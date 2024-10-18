@@ -321,7 +321,7 @@ private:
     std::vector<double> cutpoints(bin_edges.begin() + 1, bin_edges.end() - 1);
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_labels,
+      Rcpp::Named("bin") = bin_labels,
       Rcpp::Named("woe") = woe_values,
       Rcpp::Named("iv") = iv_values,
       Rcpp::Named("count") = count_values,

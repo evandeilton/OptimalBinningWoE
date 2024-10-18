@@ -557,7 +557,7 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
  
  // Prepare the output list
  return Rcpp::List::create(
-   Rcpp::Named("bins") = binning_model.get_bin_names(),
+   Rcpp::Named("bin") = binning_model.get_bin_names(),
    Rcpp::Named("woe") = binning_model.get_bin_woe(),
    Rcpp::Named("iv") = binning_model.get_bin_iv(),
    Rcpp::Named("count") = binning_model.get_bin_count(),

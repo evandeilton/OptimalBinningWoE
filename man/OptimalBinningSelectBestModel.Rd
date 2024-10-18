@@ -13,9 +13,7 @@ OptimalBinningSelectBestModel(
   max_bins,
   control,
   progress = TRUE,
-  trace = FALSE,
-  include_upper_bound = TRUE,
-  bin_separator = "\%;\%"
+  trace = FALSE
 )
 }
 \arguments{
@@ -36,10 +34,6 @@ OptimalBinningSelectBestModel(
 \item{progress}{Logical; if TRUE, display a progress bar during processing (default is TRUE).}
 
 \item{trace}{Logical; if TRUE, provide more detailed output for debugging (default is FALSE).}
-
-\item{include_upper_bound}{Include upper bound for numeric bins (default is TRUE)?}
-
-\item{bin_separator}{bin separator for optimal bins categorical variables (default = "\%;\%")}
 }
 \value{
 A list containing the results for each feature:

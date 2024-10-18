@@ -317,7 +317,7 @@ List OptimalBinningNumericalFETB::performBinning() {
     
     // Create woebin List
     return List::create(
-      Named("bins") = bin_labels,
+      Named("bin") = bin_labels,
       Named("woe") = binWoE,
       Named("iv") = binIV,
       Named("count") = binCounts,
@@ -350,7 +350,7 @@ List OptimalBinningNumericalFETB::performBinning() {
   
   // Create woebin List
   return List::create(
-    Named("bins") = bin_labels,
+    Named("bin") = bin_labels,
     Named("woe") = binWoE,
     Named("iv") = binIV,
     Named("count") = binCounts,

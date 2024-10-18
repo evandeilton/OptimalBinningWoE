@@ -2,7 +2,7 @@
 #'
 #' @description
 #' This function performs optimal binning and calculates Weight of Evidence (WoE)
-#' for both numerical and categorical features. It implements a wide variety of
+#' for both numerical and categorical features. It implements a variety of
 #' advanced binning algorithms to discretize continuous variables and optimize
 #' categorical variables for predictive modeling, particularly in credit scoring
 #' and risk assessment applications.
@@ -19,10 +19,9 @@
 #' For Categorical Variables:
 #' \itemize{
 #'   \item FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning
-#'   \item LDB (Local Density Binning): Applies local density estimation to categorical variables
 #'   \item CM (ChiMerge): Merges categories based on chi-square statistic
-#'   \item IVB (Information Value Binning): Bins based on information value
 #'   \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
+#'   \item IVB (Information Value Binning): Bins based on information value
 #'   \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
 #'   \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
 #'   \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints
@@ -34,27 +33,21 @@
 #'
 #' For Numerical Variables:
 #' \itemize{
-#'   \item EB (Entropy-Based): Uses entropy-based criteria for binning
-#'   \item CART (Classification and Regression Trees): Uses decision tree algorithm for binning
 #'   \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
+#'   \item MDLP (Minimum Description Length Principle): Uses the MDLP criterion for binning
+#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
+#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
 #'   \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
-#'   \item GAB (Genetic Algorithm Binning): Uses genetic algorithms for optimal binning
 #'   \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
 #'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
-#'   \item SBLP (Supervised Binning via Linear Programming): Uses linear programming for supervised binning
 #'   \item FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables
 #'   \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
 #'   \item KMB (K-means Binning): Applies k-means clustering for binning
 #'   \item OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning
+#'   \item MRBLP (Monotonic Regression-Based Linear Programming): Combines monotonic regression with linear programming
 #'   \item IR (Isotonic Regression): Uses isotonic regression for binning
-#'   \item SAB (Simulated Annealing Binning): Applies simulated annealing to numerical variables
 #'   \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
-#'   \item QB (Quantile-based Binning): Creates bins based on quantiles of the feature distribution
-#'   \item DPB (Dynamic Programming Binning): Applies dynamic programming for optimal binning
-#'   \item SBB (Supervised Boundary Binning): Uses supervised learning to determine bin boundaries
 #'   \item LDB (Local Density Binning): Uses local density estimation for binning
-#'   \item JNBO (Joint Neighborhood-based Optimization): Optimizes bins based on joint neighborhoods
-#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming for binning
 #' }
 #'
 #' Key Concepts:
@@ -76,6 +69,7 @@
 #' @param features Vector of feature names to process. If NULL, all features except the target will be processed.
 #' @param method The binning method to use. Can be "auto" or one of the methods listed in the details section.
 #' @param preprocess Logical. Whether to preprocess the data before binning (default: TRUE).
+#' @param outputall Logical. If TRUE, returns only the optimal binning gains table. If FALSE, returns a list with data, gains table, and reports (default: TRUE).
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 4).
 #' @param control A list of additional control parameters:
@@ -85,10 +79,10 @@
 #'     \item min_bads: Minimum proportion of bad cases in a bin (default: 0.05)
 #'     \item pvalue_threshold: P-value threshold for statistical tests (default: 0.05)
 #'     \item max_n_prebins: Maximum number of pre-bins (default: 20)
-#'     \item monotonicity_direction: Direction of monotonicity ("increase" or "decrease")
+#'     \item monotonicity_direction: Direction of monotonicity for some algorithms ("increase" or "decrease")
 #'     \item lambda: Regularization parameter for some algorithms (default: 0.1)
 #'     \item min_bin_size: Minimum bin size as a proportion of total observations (default: 0.05)
-#'     \item min_iv_gain: Minimum IV gain for bin splitting (default: 0.01)
+#'     \item min_iv_gain: Minimum IV gain for bin splitting for some algorithms (default: 0.01)
 #'     \item max_depth: Maximum depth for tree-based algorithms (default: 10)
 #'     \item num_miss_value: Value to replace missing numeric values (default: -999.0)
 #'     \item char_miss_value: Value to replace missing categorical values (default: "N/A")
@@ -105,14 +99,20 @@
 #'     \item initial_temperature: Initial temperature for simulated annealing (default: 1)
 #'     \item cooling_rate: Cooling rate for simulated annealing (default: 0.995)
 #'     \item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
+#'     \item include_upper_bound: Include upper bound for numeric bins (default is TRUE)
+#'     \item bin_separator: Bin separator for optimal bins categorical variables (default = "%;%")
 #'   }
 #' @param positive Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".
 #' @param progress Logical. Whether to display a progress bar. Default is TRUE.
-#' @param trace Logical, whether to generate error logs when testing existing methods.
+#' @param trace Logical. Whether to generate error logs when testing existing methods.
 #'
-#' @return A list containing:
-#'   \item{woedt}{The original dataset with added WoE columns}
-#'   \item{woebins}{Information about the bins created, including:
+#' @return Depending on the value of outputall:
+#' If outputall = FALSE:
+#'   A data.table containing the optimal binning gains table (woebin).
+#' If outputall = TRUE:
+#'   A list containing:
+#'   \item{data}{The original dataset with added WoE columns}
+#'   \item{woebin}{Information about the bins created, including:
 #'     \itemize{
 #'       \item feature: Name of the feature
 #'       \item bin: Bin label or range
@@ -126,7 +126,16 @@
 #'       \item iv: Information Value contribution of the bin
 #'     }
 #'   }
-#'   \item{prepreport}{Preprocessing report for each feature, including:
+#'   \item{report_best_model}{Report on the best tested models, including:
+#'     \itemize{
+#'       \item feature: Name of the feature
+#'       \item method: Best method selected for the feature
+#'       \item iv_total: Total Information Value achieved
+#'       \item n_bins: Number of bins created
+#'       \item runtime: Execution time for binning the feature
+#'     }
+#'   }
+#'   \item{report_preprocess}{Preprocessing report for each feature, including:
 #'     \itemize{
 #'       \item feature: Name of the feature
 #'       \item type: Data type of the feature
@@ -139,17 +148,6 @@
 #'       \item sd_after: Standard deviation after preprocessing
 #'     }
 #'   }
-#'   \item{bestsreport}{Report on the best models used, including:
-#'     \itemize{
-#'       \item feature: Name of the feature
-#'       \item method: Best method selected for the feature
-#'       \item iv_total: Total Information Value achieved
-#'       \item n_bins: Number of bins created
-#'       \item runtime: Execution time for binning the feature
-#'     }
-#'   }
-#'   \item{failedfeatures}{List of features that failed processing}
-#'   \item{bestmethod}{Best method used for binning across all features}
 #'
 #' @import data.table
 #' @importFrom stats rnorm pchisq median sd quantile
@@ -164,60 +162,70 @@
 #' data(germancredit, package = "scorecard")
 #' dt <- as.data.table(germancredit)
 #'
+#' # Process all features with MBLP method
 #' result <- obwoe(dt,
 #'   target = "creditability", method = "mblp",
 #'   min_bins = 3, max_bins = 5, positive = "bad|1"
 #' )
 #'
-#' # View WoE-transformed data
-#' head(result$woedt)
-#' # View binning information
-#' print(result$woebins)
+#' # View WoE binning information
+#' print(result)
 #'
-#' # Process only numeric features
+#' # Process only numeric features with MBLP method and get detailed output
 #' numeric_features <- names(dt)[sapply(dt, is.numeric)]
 #' numeric_features <- setdiff(numeric_features, "creditability")
 #'
-#' result <- obwoe(dt,
+#' result_detailed <- obwoe(dt,
 #'   target = "creditability", features = numeric_features,
-#'   method = "mblp", preprocess = TRUE,
+#'   method = "mblp", preprocess = TRUE, outputall = FALSE,
 #'   min_bins = 3, max_bins = 5, positive = "bad|1"
 #' )
 #'
+#' # View WoE-transformed data
+#' head(result_detailed$data)
+#'
 #' # View preprocessing report
-#' print(result$prepreport)
+#' print(result_detailed$report_preprocess)
 #'
 #' # View best model report
-#' print(result$bestsreport)
+#' print(result_detailed$report_best_model)
 #'
-#' # Process only categoric features
+#' # Process only categoric features with UDT method
 #' categoric_features <- names(dt)[sapply(dt, function(i) !is.numeric(i))]
 #' categoric_features <- setdiff(categoric_features, "creditability")
-#' result <- obwoe(dt,
+#' result_cat <- obwoe(dt,
 #'   target = "creditability", features = categoric_features,
 #'   method = "udt", preprocess = TRUE,
 #'   min_bins = 3, max_bins = 4, positive = "bad|1"
 #' )
 #'
 #' # View binning information for categorical features
-#' print(result$woebins)
+#' print(result_cat)
 #' }
 #'
 #' @export
-obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRUE,
-                  min_bins = 3, max_bins = 4, positive = "bad|1", progress = TRUE, trace = TRUE,
-                  control = list(
-                    cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05,
-                    pvalue_threshold = 0.05, max_n_prebins = 20,
-                    monotonicity_direction = "increase", lambda = 0.1,
-                    min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10,
-                    num_miss_value = -999.0, char_miss_value = "N/A",
-                    outlier_method = "iqr", outlier_process = FALSE, iqr_k = 1.5,
-                    zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L,
-                    is_monotonic = TRUE, population_size = 50L, max_generations = 100L,
-                    mutation_rate = 0.1, initial_temperature = 1, cooling_rate = 0.995,
-                    max_iterations = 1000L
-                  )) {
+obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, method = "fetb",
+                  positive = "bad|1", preprocess = TRUE, progress = TRUE, trace = FALSE,
+                  outputall = TRUE, control = list()) {
+  # Default control
+  defaultControl <- list(
+    cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05,
+    pvalue_threshold = 0.05, max_n_prebins = 20,
+    monotonicity_direction = "increase", lambda = 0.1,
+    min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10,
+    num_miss_value = -999.0, char_miss_value = "N/A",
+    outlier_method = "iqr", outlier_process = FALSE, iqr_k = 1.5,
+    zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L,
+    is_monotonic = TRUE, population_size = 50L, max_generations = 100L,
+    mutation_rate = 0.1, initial_temperature = 1, cooling_rate = 0.995,
+    max_iterations = 1000L,
+    include_upper_bound = TRUE,
+    bin_separator = "%;%"
+  )
+
+  # Update default control
+  control <- utils::modifyList(defaultControl, control)
+
   # Ensure dt is a data.table
   dt <- data.table::setDT(data.table::copy(dt))
 
@@ -226,7 +234,7 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
 
   # Determine the features to process
   if (is.null(features)) {
-    features <- setdiff(names(dt), target)
+    features <- setdiff(names(dt), c(target, "target"))
   }
 
   # Initialize results list
@@ -271,60 +279,26 @@ obwoe <- function(dt, target, features = NULL, method = "auto", preprocess = TRU
     results <- OptimalBinningSelectBestModel(dt, target, features, method, min_bins, max_bins, control, progress, trace)
   }
 
+  # Prepare woebin gains table stats
+  woebin <- data.table::rbindlist(lapply(results, function(x) x$woebin), idcol = "feature")
 
-  # Separate numerical and categorical features
-  # numeric_features <- features[sapply(dt[, ..features], is.numeric)]
-  # categorical_features <- setdiff(features, numeric_features)
+  if (!outputall) {
+    return(woebin)
+  } else {
+    # Prepare data pos-processed
+    data <- data.table::data.table()[, (target) := dt[[target]]]
+    data <- cbind(data, do.call(cbind, lapply(results, function(x) x$woefeature)))
 
-  # Process numerical features
-  # if (length(numeric_features) > 0) {
-  #   numeric_results <- OptimalBinningNumericalWoE(
-  #     dt, target, numeric_features, method,
-  #     min_bins, max_bins, control, positive,
-  #     preprocessed_data[numeric_features],
-  #     progress, trace
-  #   )
-  #   results <- c(results, numeric_results$results)
-  #   reports <- c(reports, numeric_results$reports)
-  #   woebins <- c(woebins, numeric_results$woebins)
-  #   bestmod <- c(bestmod, numeric_results$bestmod)
-  #   failed_features <- c(failed_features, numeric_results$failed_features)
-  # }
-  #
-  # # Process categorical features
-  # if (length(categorical_features) > 0) {
-  #   categorical_results <- OptimalBinningCategoricalWoE(
-  #     dt, target, categorical_features, method,
-  #     min_bins, max_bins, control, positive,
-  #     preprocessed_data[categorical_features],
-  #     progress, trace
-  #   )
-  #   results <- c(results, categorical_results$results)
-  #   reports <- c(reports, categorical_results$reports)
-  #   woebins <- c(woebins, categorical_results$woebins)
-  #   bestmod <- c(bestmod, categorical_results$bestmod)
-  #   failed_features <- c(failed_features, categorical_results$failed_features)
-  # }
-  #
-  # # Combine results
-  # woedt <- data.table::copy(dt)
-  # for (feat in names(results)) {
-  #   woedt[[paste0(feat, "_woe")]] <- results[[feat]]
-  # }
-  #
-  # return(
-  #   list(
-  #     woedt = woedt,
-  #     woebins = data.table::rbindlist(woebins, fill = TRUE, idcol = "feature"),
-  #     prepreport = data.table::rbindlist(reports, fill = TRUE, idcol = "feature"),
-  #     bestsreport = data.table::rbindlist(bestmod, fill = TRUE, idcol = "feature"),
-  #     failedfeatures = failed_features,
-  #     bestmethod = method,
-  #     nonprocessedfeatures = nonprocessed_features,
-  #     singleclasstargetfeatures = singleclass_target_features
-  #   )
-  # )
-  return(results)
+    # Best model selection report
+    report_best_model <- data.table::rbindlist(lapply(results, function(x) x$report), idcol = "feature")
+
+    # Stats from pré-processed data
+    report_preprocess <- data.table::rbindlist(lapply(preprocessed_data, function(x) x$report), idcol = "feature")
+
+    return(
+      list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = report_preprocess)
+    )
+  }
 }
 
 
@@ -859,8 +833,6 @@ OptimalBinningGetAlgoName <- function() {
 #' @param control A list of control parameters for the binning algorithms (not used directly in this function).
 #' @param progress Logical; if TRUE, display a progress bar during processing (default is TRUE).
 #' @param trace Logical; if TRUE, provide more detailed output for debugging (default is FALSE).
-#' @param include_upper_bound Include upper bound for numeric bins (default is TRUE)?
-#' @param bin_separator bin separator for optimal bins categorical variables (default = "%;%")
 #'
 #' @return A list containing the results for each feature:
 #'   \item{woebin}{The Weight of Evidence (WoE) binning result for the best model.}
@@ -902,13 +874,9 @@ OptimalBinningGetAlgoName <- function() {
 #' }
 #'
 #' @export
-OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE, include_upper_bound = TRUE, bin_separator = "%;%") {
+OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
   results <- list()
 
-  # numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
-  # categorical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$char)))
-
-  # Update agrs list for all methods
   algoes <- OptimalBinningGetAlgoName()
 
   numerical_methods <- lapply(algoes$num, function(a) {
@@ -917,25 +885,26 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
   })
 
   categorical_methods <- lapply(algoes$char, function(a) {
-    a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins))
+    a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins, bin_separator = control$bin_separator))
     return(a)
   })
 
   if (progress) {
     pb <- progress::progress_bar$new(
-      format = "Processing features [:bar] :percent eta: :eta",
-      total = length(features),
+      format = "Processing :what [:bar] :percent | ETA: :eta | Elapsed: :elapsed",
+      total = length(features) * 3, # Multiplicamos por 3 para representar as principais etapas
       clear = FALSE,
       width = 80
     )
   }
 
   for (feat in features) {
-    if (progress) pb$tick()
+    if (progress) {
+      pb$tick(tokens = list(what = sprintf("%-20s", paste0("Feature: ", feat))))
+    }
 
-    featdim <- OptimalBinningWoE:::OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
+    featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
 
-    # If categ has only one class force factor to pass on char methods
     dt_feature <- if (featdim[1] <= 2) {
       data.table::copy(
         data.table::data.table(
@@ -957,52 +926,91 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
     if (!is.null(method) && method != "auto") {
       if (method %in% names(methods_to_try)) {
-        # The method provided by the user is in the list of available methods
         methods_to_try <- methods_to_try[method]
-        # message(sprintf("Using the user-provided method '%s'.", method))
       } else {
-        # The method provided by the user is not in the list of available methods
         warning(sprintf(
           "The provided method '%s' is not available for this variable type (%s). Using automatic method selection.",
           method,
           if (is_numeric) "numeric" else "categorical"
         ))
-        # Keep all methods for automatic selection
       }
     }
 
+    if (progress) {
+      pb$tick(tokens = list(what = sprintf("%-20s", "Trying methods")))
+    }
+
     OO <- lapply(methods_to_try, function(m) {
-      # cat("log: rodando ", m$algorithm, "para ", feat, "\n")
-      binning_result <- try({
-        do.call(
-          m$algorithm,
-          c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
-        )
-      })
+      tryCatch(
+        {
+          binning_result <- suppressWarnings(suppressMessages(
+            do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), m$params))
+          ))
 
-      if (inherits(binning_result, "try-error") | featdim[1] <= 2) {
-        # relax args for binary or unary ckasses and try again
-        m$params$min_bins <- 2
-        m$params$max_bins <- 3
-        m$params$bin_cutoff <- 0.001
-        m$params$max_n_prebins <- 5
+          if (is.null(binning_result) || featdim[1] <= 2) {
+            # Relaxed parameters for binary or unary classes
+            relaxed_params <- utils::modifyList(m$params, list(
+              min_bins = 2,
+              max_bins = 3,
+              bin_cutoff = 0.001,
+              max_n_prebins = 5
+            ))
 
-        binning_result <- try({
-          do.call(
-            m$algorithm,
-            c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
-          )
-        })
-      }
+            binning_result <- suppressWarnings(suppressMessages(
+              do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), relaxed_params))
+            ))
+          }
 
-      if (!inherits(binning_result, "try-error")) {
-        binning_result$algorithm <- m$algorithm
-        binning_result$method <- m$method
-        return(binning_result)
-      } else {
-        NULL
-      }
+          if (!is.null(binning_result)) {
+            binning_result$algorithm <- m$algorithm
+            binning_result$method <- m$method
+            return(binning_result)
+          } else {
+            return(NULL)
+          }
+        },
+        error = function(e) {
+          if (trace) {
+            message(sprintf("Error in method %s for feature %s: %s", m$method, feat, e$message))
+          }
+          return(NULL)
+        }
+      )
     })
+
+    # Remove NULL results
+    OO <- Filter(Negate(is.null), OO)
+
+    # OO <- lapply(methods_to_try, function(m) {
+    #
+    #   binning_result <- try({
+    #     suppressWarnings(suppressMessages(
+    #       do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), m$params))
+    #     ))
+    #   })
+    #
+    #   if (inherits(binning_result, "try-error") | featdim[1] <= 2) {
+    #     m$params$min_bins <- 2
+    #     m$params$max_bins <- 3
+    #     m$params$bin_cutoff <- 0.001
+    #     m$params$max_n_prebins <- 5
+    #
+    #     binning_result <- try({
+    #       do.call(
+    #         m$algorithm,
+    #         c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
+    #       )
+    #     })
+    #   }
+    #
+    #   if (!inherits(binning_result, "try-error")) {
+    #     binning_result$algorithm <- m$algorithm
+    #     binning_result$method <- m$method
+    #     return(binning_result)
+    #   } else {
+    #     NULL
+    #   }
+    # })
 
     mm <- data.table::rbindlist(
       lapply(names(OO), function(m) {
@@ -1019,7 +1027,6 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
             )
           },
           error = function(e) {
-            # Se houver um erro, retorna uma linha com NAs, mantendo a estrutura
             data.table::data.table(
               model_method = m,
               model_algorithm = NA_character_,
@@ -1046,44 +1053,213 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
       m$rk0 <- m$rk1 <- m$rk2 <- m$rk3 <- NULL
       return(m)
     }
-    # Sort models to select the best
-    # mm <- data.table::setorder(mm, -is_monotonic, -total_iv, total_zero_pos, total_zero_neg, -total_bins)
-    mm <- fn_rank(mm)
 
+    mm <- fn_rank(mm)
     best_model <- OO[[unique(head(mm, 1)$model_method)]]
 
-    # woebin <- list(woebin = data.frame(bin = best_model$bins,
-    #                                    count = best_model$count,
-    #                                    count_pos = best_model$count_pos,
-    #                                    count_neg = best_model$count_neg
-    #                                    ))
-
-    # Apply WOE
     woefeature <- if (is_numeric) {
-      OptimalBinningApplyWoENum(feature = dt_feature$feature, obresults = best_model, include_upper_bound = include_upper_bound)
+      OptimalBinningApplyWoENum(best_model, dt_feature$feature, include_upper_bound = control$include_upper_bound)
     } else {
-      OptimalBinningApplyWoECat(feature = dt_feature$feature, obresults = best_model, bin_separator = bin_separator)
+      OptimalBinningApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
     }
 
-    # Prepare gains table after applying optimal woe
     woebin <- OptimalBinningGainsTableFeature(binned_feature = woefeature$bin, dt_feature$target)
 
-    # Get mest method algo
     bestmethod <- best_model$algorithm
 
-    # Get report from model selection
     report <- mm
 
+    if (progress) {
+      pb$tick(tokens = list(what = sprintf("%-20s", "Finalizing")))
+    }
+
     results[[feat]] <- list(
-      woebin = woebin,
-      woefeature = woefeature,
-      bestmethod = bestmethod,
-      report = report
+      woebin = data.table::setDT(woebin),
+      woefeature = data.table::setDT(woefeature),
+      report = data.table::setDT(report),
+      bestmethod = bestmethod
     )
   }
 
   return(results)
 }
+
+
+
+# OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
+#   results <- list()
+#
+#   # numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
+#   # categorical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$char)))
+#
+#   # Update agrs list for all methods
+#   algoes <- OptimalBinningGetAlgoName()
+#
+#   numerical_methods <- lapply(algoes$num, function(a) {
+#     a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins))
+#     return(a)
+#   })
+#
+#   categorical_methods <- lapply(algoes$char, function(a) {
+#     a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins, bin_separator = control$bin_separator))
+#     return(a)
+#   })
+#
+#   if (progress) {
+#     pb <- progress::progress_bar$new(
+#       format = "Processing features [:bar] :percent eta: :eta",
+#       total = length(features),
+#       clear = FALSE,
+#       width = 80
+#     )
+#   }
+#
+#   for (feat in features) {
+#     if (progress) pb$tick()
+#
+#     featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
+#
+#     # If categ has only one class force factor to pass on char methods
+#     dt_feature <- if (featdim[1] <= 2) {
+#       data.table::copy(
+#         data.table::data.table(
+#           target = dt[[target]],
+#           feature = as.factor(dt[[feat]])
+#         )
+#       )
+#     } else {
+#       data.table::copy(
+#         data.table::data.table(
+#           target = dt[[target]],
+#           feature = dt[[feat]]
+#         )
+#       )
+#     }
+#
+#     is_numeric <- is.numeric(dt_feature$feature)
+#     methods_to_try <- if (is_numeric) numerical_methods else categorical_methods
+#
+#     if (!is.null(method) && method != "auto") {
+#       if (method %in% names(methods_to_try)) {
+#         # The method provided by the user is in the list of available methods
+#         methods_to_try <- methods_to_try[method]
+#         # message(sprintf("Using the user-provided method '%s'.", method))
+#       } else {
+#         # The method provided by the user is not in the list of available methods
+#         warning(sprintf(
+#           "The provided method '%s' is not available for this variable type (%s). Using automatic method selection.",
+#           method,
+#           if (is_numeric) "numeric" else "categorical"
+#         ))
+#         # Keep all methods for automatic selection
+#       }
+#     }
+#
+#     OO <- lapply(methods_to_try, function(m) {
+#       # cat("log: rodando ", m$algorithm, "para ", feat, "\n")
+#       binning_result <- try({
+#         suppressWarnings(suppressMessages(
+#           do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), m$params))
+#         ))
+#       })
+#
+#       if (inherits(binning_result, "try-error") | featdim[1] <= 2) {
+#         # relax args for binary or unary ckasses and try again
+#         m$params$min_bins <- 2
+#         m$params$max_bins <- 3
+#         m$params$bin_cutoff <- 0.001
+#         m$params$max_n_prebins <- 5
+#
+#         binning_result <- try({
+#           do.call(
+#             m$algorithm,
+#             c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
+#           )
+#         })
+#       }
+#
+#       if (!inherits(binning_result, "try-error")) {
+#         binning_result$algorithm <- m$algorithm
+#         binning_result$method <- m$method
+#         return(binning_result)
+#       } else {
+#         NULL
+#       }
+#     })
+#
+#     mm <- data.table::rbindlist(
+#       lapply(names(OO), function(m) {
+#         tryCatch(
+#           {
+#             data.table::data.table(
+#               model_method = m,
+#               model_algorithm = OO[[m]]$algorithm,
+#               total_iv = sum(OO[[m]]$iv, na.rm = TRUE),
+#               total_bins = length(OO[[m]]$bin),
+#               total_zero_pos = sum(OO[[m]]$count_pos == 0, na.rm = TRUE),
+#               total_zero_neg = sum(OO[[m]]$count_neg == 0, na.rm = TRUE),
+#               is_monotonic = as.numeric(OptimalBinningIsWoEMonotonic(OO[[m]]$woe))
+#             )
+#           },
+#           error = function(e) {
+#             # Se houver um erro, retorna uma linha com NAs, mantendo a estrutura
+#             data.table::data.table(
+#               model_method = m,
+#               model_algorithm = NA_character_,
+#               total_iv = NA_real_,
+#               total_bins = NA_integer_,
+#               total_zero_pos = NA_integer_,
+#               total_zero_neg = NA_integer_,
+#               is_monotonic = NA_real_
+#             )
+#           }
+#         )
+#       }),
+#       fill = TRUE,
+#       use.names = TRUE
+#     )
+#
+#     fn_rank <- function(m) {
+#       m$rk0 <- rank(-m$is_monotonic)
+#       m$rk1 <- rank(-m$total_iv)
+#       m$rk2 <- rank(m$total_zero_pos)
+#       m$rk3 <- rank(m$total_zero_neg)
+#       m$id <- apply(m[, c("rk0", "rk0", "rk1", "rk2", "rk3")], 1, mean)
+#       m <- m[order(m$id)]
+#       m$rk0 <- m$rk1 <- m$rk2 <- m$rk3 <- NULL
+#       return(m)
+#     }
+#     # Sort models to select the best
+#
+#     mm <- fn_rank(mm)
+#     best_model <- OO[[unique(head(mm, 1)$model_method)]]
+#
+#     # Apply WOE
+#     woefeature <- if (is_numeric) {
+#       OptimalBinningApplyWoENum(best_model, dt_feature$feature, include_upper_bound = control$include_upper_bound)
+#     } else {
+#       OptimalBinningApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
+#     }
+#
+#     # Prepare gains table after applying optimal woe
+#     woebin <- OptimalBinningGainsTableFeature(binned_feature = woefeature$bin, dt_feature$target)
+#
+#     # Get mest method algo
+#     bestmethod <- best_model$algorithm
+#
+#     # Get report from model selection
+#     report <- mm
+#
+#     results[[feat]] <- list(
+#       woebin = data.table::setDT(woebin),
+#       woefeature = data.table::setDT(woefeature),
+#       report = data.table::setDT(report),
+#       bestmethod = bestmethod
+#     )
+#   }
+#
+#   return(results)
+# }
 
 
 

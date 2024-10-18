@@ -1,4 +1,3 @@
-// [[Rcpp::export]]
 #include <Rcpp.h>
 #include <vector>
 #include <string>
@@ -284,7 +283,7 @@ public:
     double total_iv = std::accumulate(iv_values.begin(), iv_values.end(), 0.0);
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_names,
+      Rcpp::Named("bin") = bin_names,
       Rcpp::Named("woe") = woe_values,
       Rcpp::Named("iv") = iv_values,
       Rcpp::Named("count") = count_values,

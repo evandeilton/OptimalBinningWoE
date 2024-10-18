@@ -7,32 +7,28 @@
 #' This function applies optimal Weight of Evidence (WoE) values to an original categorical feature based on the results from an optimal binning algorithm. It assigns each category in the feature to its corresponding optimal bin and maps the associated WoE value.
 #'
 #' @param obresults A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:
-#' \itemize{
-#'   \item \code{bins}: A character vector where each element represents a merged bin of categories, with categories separated by \code{bin_separator}.
-#'   \item \code{woe}: A numeric vector of WoE values corresponding to each bin.
-#' }
 #' @param feature A character vector containing the original categorical feature data to which WoE values will be applied.
-#' @param bin_separator A string representing the separator used in \code{bins} to separate categories within merged bins (default is \code{";"}).
+#' @param bin_separator A string representing the separator used in \code{bins} to separate categories within merged bins (default: "%;%").
 #'
 #' @return A data frame with three columns:
 #' \itemize{
 #'   \item \code{feature}: Original feature values.
-#'   \item \code{featurebins}: Optimal merged bins to which each feature value belongs.
-#'   \item \code{featurewoe}: Optimal WoE values corresponding to each feature value.
+#'   \item \code{bin}: Optimal merged bins to which each feature value belongs.
+#'   \item \code{woe}: Optimal WoE values corresponding to each feature value.
 #' }
 #'
 #' @details
-#' The function processes the \code{bins} from \code{obresults} by splitting each merged bin into individual categories using \code{bin_separator}. It then creates a mapping from each category to its corresponding bin index and WoE value.
+#' The function processes the \code{bin} from \code{obresults} by splitting each merged bin into individual categories using \code{bin_separator}. It then creates a mapping from each category to its corresponding bin index and WoE value.
 #'
-#' For each value in \code{feature}, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in \code{feature} is not found in any bin, \code{NA} is assigned to both \code{featurebins} and \code{featurewoe}.
+#' For each value in \code{feature}, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in \code{feature} is not found in any bin, \code{NA} is assigned to both \code{bin} and \code{woe}.
 #'
-#' The function handles missing values (\code{NA}) in \code{feature} by assigning \code{NA} to both \code{featurebins} and \code{featurewoe} for those entries.
+#' The function handles missing values (\code{NA}) in \code{feature} by assigning \code{NA} to both \code{bin} and \code{woe} for those entries.
 #'
 #' @examples
 #' \dontrun{
 #' # Example usage with hypothetical obresults and feature vector
 #' obresults <- list(
-#'   bins = c("business;repairs;car (used);retraining",
+#'   bin = c("business;repairs;car (used);retraining",
 #'            "car (new);furniture/equipment;domestic appliances;education;others",
 #'            "radio/television"),
 #'   woe = c(-0.2000211, 0.2892885, -0.4100628)
@@ -418,71 +414,6 @@ optimal_binning_categorical_ivb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_ivb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Categorical Optimal Binning with Local Distance-Based Algorithm
-#'
-#' @description
-#' This function performs optimal binning for categorical variables using a Local Distance-Based (LDB) algorithm,
-#' which merges categories based on their Weight of Evidence (WoE) similarity and Information Value (IV) loss.
-#'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of categorical feature values.
-#' @param min_bins Minimum number of bins to create (default: 3).
-#' @param max_bins Maximum number of bins to create (default: 5).
-#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator used when merging category names (default: "%;%").
-#' @param convergence_threshold Threshold for considering WoE values equal (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the binning process (default: 1000).
-#'
-#' @return A list containing the following elements:
-#' \itemize{
-#'   \item bins: A character vector of bin names.
-#'   \item woe: A numeric vector of Weight of Evidence (WoE) values for each bin.
-#'   \item iv: A numeric vector of Information Value (IV) for each bin.
-#'   \item count: An integer vector of total count for each bin.
-#'   \item count_pos: An integer vector of positive class count for each bin.
-#'   \item count_neg: An integer vector of negative class count for each bin.
-#'   \item converged: A logical value indicating whether the algorithm converged.
-#'   \item iterations: An integer indicating the number of iterations performed.
-#' }
-#'
-#' @details
-#' The LDB algorithm works as follows:
-#' \enumerate{
-#'   \item Compute initial statistics for each category.
-#'   \item Handle rare categories by merging them with the most similar (in terms of WoE) non-rare category.
-#'   \item Limit the number of pre-bins to max_n_prebins.
-#'   \item Iteratively merge bins with the lowest IV loss until the desired number of bins is reached or monotonicity is achieved.
-#'   \item Ensure monotonicity of WoE across bins.
-#' }
-#'
-#' Weight of Evidence (WoE) for each bin is calculated as:
-#'
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#'
-#' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#'
-#' @examples
-#' \dontrun{
-#' # Sample data
-#' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-#' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-#'
-#' # Run optimal binning
-#' result <- optimal_binning_categorical_ldb(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # View results
-#' print(result)
-#' }
-#'
-#' @export
-#'
-optimal_binning_categorical_ldb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_ldb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
-}
-
 #' @title Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)
 #'
 #' @description
@@ -633,7 +564,7 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'
 #' @return A list containing the following elements:
 #' \itemize{
-#'   \item bins: A character vector of bin names (merged categories)
+#'   \item bin: A character vector of bin names (merged categories)
 #'   \item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
 #'   \item iv: A numeric vector of Information Value (IV) for each bin
 #'   \item count: An integer vector of total counts for each bin
@@ -664,22 +595,22 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #' The algorithm works as follows:
 #'
 #' \enumerate{
-#'   \item Category Statistics Calculation:
-#'         For each category, we calculate the total count, count of positive instances, and count of negative instances.
+#'   \item **Category Statistics Calculation**:
+#'         For each category, calculate the total count, count of positive instances, and count of negative instances.
 #'
-#'   \item Initial Binning:
+#'   \item **Initial Binning**:
 #'         Categories are sorted based on their initial Weight of Evidence (WoE).
 #'
-#'   \item Monotonicity Enforcement:
+#'   \item **Monotonicity Enforcement**:
 #'         The algorithm enforces decreasing monotonicity of WoE across bins.
 #'         If this condition is violated, adjacent bins are merged.
 #'
-#'   \item Bin Limiting:
-#'         The number of bins is limited to the specified max_bins.
+#'   \item **Bin Limiting**:
+#'         The number of bins is limited to the specified `max_bins`.
 #'         When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
 #'
-#'   \item Information Value (IV) Computation:
-#'         For each bin, the IV is calculated and the total IV is computed.
+#'   \item **Information Value (IV) Computation**:
+#'         For each bin, the IV is calculated, and the total IV is computed.
 #' }
 #'
 #' The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
@@ -687,9 +618,9 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #' @references
 #' \itemize{
 #'    \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
-#'          Journal of the Operational Research Society, 60(12), 1699-1707.
+#'          *Journal of the Operational Research Society*, 60(12), 1699-1707.
 #'    \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-#'          arXiv preprint arXiv:1711.05095.
+#'          *arXiv preprint* arXiv:1711.05095.
 #' }
 #'
 #' @export
@@ -1532,9 +1463,9 @@ optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bi
 }
 
 #' @title Optimal Binning for Numerical Variables using Local Density Binning (LDB)
-#' 
+#'
 #' @description This function implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -1543,7 +1474,7 @@ optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bi
 #' @param max_n_prebins Maximum number of pre-bins (default: 20).
 #' @param convergence_threshold Threshold for convergence (default: 1e-6).
 #' @param max_iterations Maximum number of iterations (default: 1000).
-#' 
+#'
 #' @return A list containing:
 #' \item{bins}{A vector of bin labels}
 #' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
@@ -1554,23 +1485,23 @@ optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bi
 #' \item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
 #' \item{converged}{Logical value indicating if the algorithm converged}
 #' \item{iterations}{Number of iterations run by the algorithm}
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' 
+#'
 #' # Run optimal binning
 #' result <- optimal_binning_numerical_ldb(target, feature)
-#' 
+#'
 #' # View results
 #' print(result$bins)
 #' print(result$woe)
 #' print(result$iv)
 #' }
-#' 
+#'
 #' @export
 optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_ldb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)

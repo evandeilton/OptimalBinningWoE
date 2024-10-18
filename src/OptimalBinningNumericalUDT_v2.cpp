@@ -99,7 +99,7 @@ public:
     }
     
     return Rcpp::List::create(
-      Rcpp::Named("bins") = bin_intervals,
+      Rcpp::Named("bin") = bin_intervals,
       Rcpp::Named("woe") = woe_values,
       Rcpp::Named("iv") = iv_values,
       Rcpp::Named("count") = counts,
@@ -451,7 +451,7 @@ Rcpp::List handle_few_unique_values(
   }
   
   return Rcpp::List::create(
-    Rcpp::Named("bins") = bin_intervals,
+    Rcpp::Named("bin") = bin_intervals,
     Rcpp::Named("woe") = woe_values,
     Rcpp::Named("iv") = iv_values,
     Rcpp::Named("count") = counts,

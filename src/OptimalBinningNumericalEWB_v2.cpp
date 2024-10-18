@@ -355,7 +355,7 @@ public:
     }
     
     return List::create(
-      Named("bins") = bin_labels,
+      Named("bin") = bin_labels,
       Named("woe") = woe_values,
       Named("iv") = iv_values,
       Named("count") = counts,
