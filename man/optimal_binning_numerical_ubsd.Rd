@@ -11,7 +11,7 @@ optimal_binning_numerical_ubsd(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
-  convergence_threshold = 1e-06,
+  convergence_threshold = 0.000001,
   max_iterations = 1000L
 )
 }

@@ -12,7 +12,7 @@ optimal_binning_categorical_ivb(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   bin_separator = "\%;\%",
-  convergence_threshold = 1e-06,
+  convergence_threshold = 0.000001,
   max_iterations = 1000L
 )
 }

@@ -4,7 +4,13 @@
 \alias{fit_logistic_regression}
 \title{Logistic Regression with Optional Hessian Calculation}
 \usage{
-fit_logistic_regression(X_r, y_r, maxit = 300L, eps_f = 1e-08, eps_g = 1e-05)
+fit_logistic_regression(
+  X_r,
+  y_r,
+  maxit = 300L,
+  eps_f = 0.00000001,
+  eps_g = 0.00001
+)
 }
 \arguments{
 \item{X_r}{A matrix of predictor variables. This can be a dense matrix (\code{MatrixXd}) or a sparse matrix (\code{dgCMatrix}).}

@@ -280,7 +280,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   }
 
   # Prepare woebin gains table stats
-  woebin <- data.table::rbindlist(lapply(results, function(x) x$woebin), idcol = "feature")
+  woebin <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$woebin)), idcol = "feature")
 
   if (!outputall) {
     return(woebin)
@@ -290,10 +290,12 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     data <- cbind(data, do.call(cbind, lapply(results, function(x) x$woefeature)))
 
     # Best model selection report
-    report_best_model <- data.table::rbindlist(lapply(results, function(x) x$report), idcol = "feature")
+    report_best_model <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$report)), idcol = "feature")
+    data.table::setorder(report_best_model, feature, id)
 
     # Stats from pré-processed data
-    report_preprocess <- data.table::rbindlist(lapply(preprocessed_data, function(x) x$report), idcol = "feature")
+    report_preprocess <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
+    data.table::setorder(report_preprocess, feature, variable_type)
 
     return(
       list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = report_preprocess)
@@ -900,7 +902,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
   for (feat in features) {
     if (progress) {
-      pb$tick(tokens = list(what = sprintf("%-20s", paste0("Feature: ", feat))))
+      pb$tick(tokens = list(what = sprintf("%-5s", paste0("Feature: ", feat))))
     }
 
     featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
@@ -937,7 +939,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
     }
 
     if (progress) {
-      pb$tick(tokens = list(what = sprintf("%-20s", "Trying methods")))
+      pb$tick(tokens = list(what = sprintf("%-5s", "Trying methods")))
     }
 
     OO <- lapply(methods_to_try, function(m) {
@@ -1070,7 +1072,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
     report <- mm
 
     if (progress) {
-      pb$tick(tokens = list(what = sprintf("%-20s", "Finalizing")))
+      pb$tick(tokens = list(what = sprintf("%-5s", "Finalizing")))
     }
 
     results[[feat]] <- list(

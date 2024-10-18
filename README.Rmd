@@ -293,6 +293,8 @@ Contributions are welcome! Please open an issue or submit a pull request on [Git
 
 This project is licensed under the MIT License - see the [LICENSE](https://opensource.org/licenses/MIT) for details.
 
-## Acknowledgments
+<!-- ## Acknowledgments -->
 
-Special thanks to the contributors and the open-source community for their valuable input and support.
+<!-- Special thanks to the contributors and the open-source community for their valuable input and support. -->
+
+----
