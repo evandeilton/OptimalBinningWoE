@@ -49,7 +49,9 @@ using various binning algorithms for both numerical and categorical variables.</
 <span>  <span class="va">max_bins</span>,</span>
 <span>  <span class="va">control</span>,</span>
 <span>  progress <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  trace <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  trace <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  include_upper_bound <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  bin_separator <span class="op">=</span> <span class="st">"%;%"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -91,6 +93,14 @@ using various binning algorithms for both numerical and categorical variables.</
 
 <dt id="arg-trace">trace<a class="anchor" aria-label="anchor" href="#arg-trace"></a></dt>
 <dd><p>Logical; if TRUE, provide more detailed output for debugging (default is FALSE).</p></dd>
+
+
+<dt id="arg-include-upper-bound">include_upper_bound<a class="anchor" aria-label="anchor" href="#arg-include-upper-bound"></a></dt>
+<dd><p>Include upper bound for numeric bins (default is TRUE)?</p></dd>
+
+
+<dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
+<dd><p>bin separator for optimal bins categorical variables (default = "%;%")</p></dd>
 
 </dl></div>
     <div class="section level2">
