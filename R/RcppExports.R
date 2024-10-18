@@ -1165,6 +1165,88 @@ optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bin
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_bb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic, convergence_threshold, max_iterations)
 }
 
+#' @title Optimal Binning for Numerical Variables using ChiMerge
+#'
+#' @description
+#' This function implements an optimal binning algorithm for numerical variables using the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+#'
+#' @param target An integer vector of binary target values (0 or 1).
+#' @param feature A numeric vector of feature values to be binned.
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins for initial discretization (default: 20).
+#' @param convergence_threshold Threshold for convergence of the algorithm (default: 1e-6).
+#' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
+#'
+#' @return A list containing the following elements:
+#' \item{bins}{A character vector of bin names.}
+#' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
+#' \item{iv}{A numeric vector of Information Value for each bin.}
+#' \item{count}{An integer vector of total counts for each bin.}
+#' \item{count_pos}{An integer vector of positive target counts for each bin.}
+#' \item{count_neg}{An integer vector of negative target counts for each bin.}
+#' \item{cutpoints}{A numeric vector of cutpoints used to create the bins.}
+#' \item{converged}{A logical value indicating whether the algorithm converged.}
+#' \item{iterations}{An integer value indicating the number of iterations run.}
+#'
+#' @details
+#' The optimal binning algorithm for numerical variables uses the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
+#'
+#' The algorithm follows these steps:
+#' 1. Initial discretization into max_n_prebins
+#' 2. Iterative merging of adjacent bins based on chi-square statistic
+#' 3. Merging of rare bins based on the bin_cutoff parameter
+#' 4. Calculation of WoE and IV for each final bin
+#'
+#' The chi-square statistic for two adjacent bins is calculated as:
+#'
+#' \deqn{\chi^2 = \sum_{i=1}^{2} \sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+#'
+#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency for bin i and class j.
+#'
+#' Weight of Evidence (WoE) is calculated for each bin as:
+#'
+#' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+#'
+#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
+#'
+#' Information Value (IV) for each bin is calculated as:
+#'
+#' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+#'
+#' The total IV for the feature is the sum of IVs across all bins:
+#'
+#' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+#'
+#' The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
+#'
+#' @references
+#' \itemize{
+#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
+#'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Generate sample data
+#' set.seed(123)
+#' n <- 10000
+#' feature <- rnorm(n)
+#' target <- rbinom(n, 1, plogis(0.5 * feature))
+#'
+#' # Apply optimal binning
+#' result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
+#'
+#' # View binning results
+#' print(result)
+#' }
+#'
+#' @export
+optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+}
+
 #' @title Optimal Binning for Numerical Variables using Dynamic Programming with Local Constraints (DPLC)
 #'
 #' @description
