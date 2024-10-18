@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -92,7 +92,7 @@
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing the following elements:</p><ul><li><p>bins: A character vector of bin names (merged categories)</p></li>
+    <p>A list containing the following elements:</p><ul><li><p>bin: A character vector of bin names (merged categories)</p></li>
 <li><p>woe: A numeric vector of Weight of Evidence (WoE) values for each bin</p></li>
 <li><p>iv: A numeric vector of Information Value (IV) for each bin</p></li>
 <li><p>count: An integer vector of total counts for each bin</p></li>
@@ -106,27 +106,27 @@
     <p>This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
 The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.</p>
 <p>The algorithm works as follows:</p>
-<ol><li><p>Category Statistics Calculation:
-For each category, we calculate the total count, count of positive instances, and count of negative instances.</p></li>
-<li><p>Initial Binning:
+<ol><li><p><strong>Category Statistics Calculation</strong>:
+For each category, calculate the total count, count of positive instances, and count of negative instances.</p></li>
+<li><p><strong>Initial Binning</strong>:
 Categories are sorted based on their initial Weight of Evidence (WoE).</p></li>
-<li><p>Monotonicity Enforcement:
+<li><p><strong>Monotonicity Enforcement</strong>:
 The algorithm enforces decreasing monotonicity of WoE across bins.
 If this condition is violated, adjacent bins are merged.</p></li>
-<li><p>Bin Limiting:
-The number of bins is limited to the specified max_bins.
+<li><p><strong>Bin Limiting</strong>:
+The number of bins is limited to the specified <code>max_bins</code>.
 When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.</p></li>
-<li><p>Information Value (IV) Computation:
-For each bin, the IV is calculated and the total IV is computed.</p></li>
+<li><p><strong>Information Value (IV) Computation</strong>:
+For each bin, the IV is calculated, and the total IV is computed.</p></li>
 </ol><p>The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
 
 <ul><li><p>Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
-Journal of the Operational Research Society, 60(12), 1699-1707.</p></li>
+<em>Journal of the Operational Research Society</em>, 60(12), 1699-1707.</p></li>
 <li><p>Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-arXiv preprint arXiv:1711.05095.</p></li>
+<em>arXiv preprint</em> arXiv:1711.05095.</p></li>
 </ul></div>
 
     <div class="section level2">

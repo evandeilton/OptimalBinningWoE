@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,9 +45,7 @@
 
 
 <dl><dt id="arg-obresults">obresults<a class="anchor" aria-label="anchor" href="#arg-obresults"></a></dt>
-<dd><p>A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:</p><ul><li><p><code>bins</code>: A character vector where each element represents a merged bin of categories, with categories separated by <code>bin_separator</code>.</p></li>
-<li><p><code>woe</code>: A numeric vector of WoE values corresponding to each bin.</p></li>
-</ul></dd>
+<dd><p>A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:</p></dd>
 
 
 <dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
@@ -55,20 +53,20 @@
 
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
-<dd><p>A string representing the separator used in <code>bins</code> to separate categories within merged bins (default is <code>";"</code>).</p></dd>
+<dd><p>A string representing the separator used in <code>bins</code> to separate categories within merged bins (default: "%;%").</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame with three columns:</p><ul><li><p><code>feature</code>: Original feature values.</p></li>
-<li><p><code>featurebins</code>: Optimal merged bins to which each feature value belongs.</p></li>
-<li><p><code>featurewoe</code>: Optimal WoE values corresponding to each feature value.</p></li>
+<li><p><code>bin</code>: Optimal merged bins to which each feature value belongs.</p></li>
+<li><p><code>woe</code>: Optimal WoE values corresponding to each feature value.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The function processes the <code>bins</code> from <code>obresults</code> by splitting each merged bin into individual categories using <code>bin_separator</code>. It then creates a mapping from each category to its corresponding bin index and WoE value.</p>
-<p>For each value in <code>feature</code>, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in <code>feature</code> is not found in any bin, <code>NA</code> is assigned to both <code>featurebins</code> and <code>featurewoe</code>.</p>
-<p>The function handles missing values (<code>NA</code>) in <code>feature</code> by assigning <code>NA</code> to both <code>featurebins</code> and <code>featurewoe</code> for those entries.</p>
+    <p>The function processes the <code>bin</code> from <code>obresults</code> by splitting each merged bin into individual categories using <code>bin_separator</code>. It then creates a mapping from each category to its corresponding bin index and WoE value.</p>
+<p>For each value in <code>feature</code>, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in <code>feature</code> is not found in any bin, <code>NA</code> is assigned to both <code>bin</code> and <code>woe</code>.</p>
+<p>The function handles missing values (<code>NA</code>) in <code>feature</code> by assigning <code>NA</code> to both <code>bin</code> and <code>woe</code> for those entries.</p>
     </div>
 
     <div class="section level2">
@@ -76,7 +74,7 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="co"># Example usage with hypothetical obresults and feature vector</span></span></span>
 <span class="r-in"><span><span class="va">obresults</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"business;repairs;car (used);retraining"</span>,</span></span>
+<span class="r-in"><span>  bin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"business;repairs;car (used);retraining"</span>,</span></span>
 <span class="r-in"><span>           <span class="st">"car (new);furniture/equipment;domestic appliances;education;others"</span>,</span></span>
 <span class="r-in"><span>           <span class="st">"radio/television"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  woe <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.2000211</span>, <span class="fl">0.2892885</span>, <span class="op">-</span><span class="fl">0.4100628</span><span class="op">)</span></span></span>

@@ -15,7 +15,7 @@ IV (Information Value), and additional metadata regarding convergence."></head><
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.5.9005</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -137,7 +137,7 @@ IV (Information Value), and additional metadata regarding convergence.</p>
 <span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">1</span>, <span class="fl">0.3</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_mblp</span><span class="op">(</span><span class="va">target</span>, <span class="va">feature</span>, min_bins <span class="op">=</span> <span class="fl">3</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $bins</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-0.348472]"      "(-0.348472;-0.214505]" "(-0.214505;+Inf]"     </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
