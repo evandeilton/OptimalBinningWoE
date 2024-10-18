@@ -10,7 +10,9 @@ optimal_binning_numerical_ir(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,22 +27,25 @@ optimal_binning_numerical_ir(
 \item{bin_cutoff}{Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence in isotonic regression (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for isotonic regression (default: 1000).}
 }
 \value{
-A list containing three elements:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-\item{woebin}{A data frame with the following columns:
+A list containing the following elements:
 \itemize{
-\item bin: Character vector of bin ranges.
-\item woe: Numeric vector of WoE values for each bin.
+\item bins: Character vector of bin ranges.
+\item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
 \item iv: Numeric vector of Information Value (IV) for each bin.
 \item count: Integer vector of total observations in each bin.
 \item count_pos: Integer vector of positive target observations in each bin.
 \item count_neg: Integer vector of negative target observations in each bin.
-\item iv_total: Total Information Value (IV) for the feature.
+\item cutpoints: Numeric vector of cutpoints between bins.
+\item converged: Logical indicating whether the algorithm converged.
+\item iterations: Number of iterations run.
+\item total_iv: Total Information Value (IV) for the feature.
 }
-}
-\item{iv}{The total Information Value (IV) for the feature.}
 }
 \description{
 This function performs optimal binning for numerical variables using isotonic regression.
@@ -64,10 +69,7 @@ n <- 1000
 target <- sample(0:1, n, replace = TRUE)
 feature <- rnorm(n)
 result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins = 4)
-print(result$woebin)
-plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
-     main = "Weight of Evidence by Bin")
-axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin)
+print(result)
 }
 
 }

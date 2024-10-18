@@ -10,7 +10,10 @@ optimal_binning_categorical_dplc(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L,
+  bin_separator = "\%;\%"
 )
 }
 \arguments{
@@ -25,13 +28,15 @@ optimal_binning_categorical_dplc(
 \item{bin_cutoff}{Minimum proportion of total observations for a bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{convergence_threshold}{Convergence threshold for the dynamic programming algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the dynamic programming algorithm (default: 1000).}
+
+\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%").}
 }
 \value{
-A list containing two elements:
-\itemize{
-\item woefeature: A numeric vector of Weight of Evidence (WOE) values for each observation.
-\item woebin: A data frame containing binning information, including bin names, WOE, IV, and counts.
-}
+A data frame containing binning information, including bin names, WOE, IV, and counts.
 }
 \description{
 This function performs optimal binning for categorical variables using a dynamic programming approach with linear constraints. It aims to find the optimal grouping of categories that maximizes the Information Value (IV) while respecting user-defined constraints on the number of bins.
@@ -57,7 +62,7 @@ And the Information Value (IV) for each bin is:
 
 \deqn{IV = (\text{Distribution of Good} - \text{Distribution of Bad}) \times WOE}
 
-The algorithm aims to find the binning solution that maximizes the total IV while respecting the constraints on the number of bins.
+The algorithm aims to find the binning solution that maximizes the total IV while respecting the constraints on the number of bins and ensuring monotonicity when possible.
 }
 \examples{
 \dontrun{
@@ -71,8 +76,7 @@ feature <- sample(c("A", "B", "C", "D", "E"), n, replace = TRUE)
 result <- optimal_binning_categorical_dplc(target, feature, min_bins = 2, max_bins = 4)
 
 # View results
-print(result$woebin)
-hist(result$woefeature)
+print(result)
 }
 
 }
@@ -81,7 +85,4 @@ hist(result$woefeature)
 \item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gómez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal.
 }
-}
-\author{
-Lopes, J. E.
 }

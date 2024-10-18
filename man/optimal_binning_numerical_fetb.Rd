@@ -10,7 +10,9 @@ optimal_binning_numerical_fetb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,12 +27,22 @@ optimal_binning_numerical_fetb(
 \item{bin_cutoff}{P-value threshold for merging bins (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations (default: 1000).}
 }
 \value{
 A list containing:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
-\item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
-\item{totalIV}{The total Information Value for the binning}
+\item{bins}{A vector of bin labels}
+\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
+\item{iv}{A numeric vector of Information Value (IV) for each bin}
+\item{count}{Total count of observations in each bin}
+\item{count_pos}{Count of positive target observations in each bin}
+\item{count_neg}{Count of negative target observations in each bin}
+\item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
+\item{converged}{Logical value indicating if the algorithm converged}
+\item{iterations}{Number of iterations run by the algorithm}
 }
 \description{
 This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It aims to find the best binning strategy that maximizes the predictive power while ensuring statistical significance between adjacent bins.
@@ -43,38 +55,6 @@ The optimal binning algorithm using Fisher's Exact Test consists of several step
 \item Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.
 \item WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.
 }
-
-Fisher's Exact Test is used to determine if there is a significant difference in the proportion of positive cases between adjacent bins. The test is performed on a 2x2 contingency table:
-
-\deqn{
-\begin{array}{|c|c|c|}
-\hline
- & \text{Positive} & \text{Negative} \\
-\hline
-\text{Bin 1} & a & b \\
-\hline
-\text{Bin 2} & c & d \\
-\hline
-\end{array}
-}
-
-The p-value from this test is used to decide whether to merge adjacent bins.
-
-The Weight of Evidence (WoE) for each bin is calculated as:
-
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-
-where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-
-The Information Value (IV) for each bin is calculated as:
-
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-
-The total IV is the sum of IVs for all bins:
-
-\deqn{Total IV = \sum_{i=1}^{n} IV_i}
-
-This approach ensures that the resulting bins are statistically different from each other, potentially leading to more robust and meaningful binning.
 }
 \examples{
 \dontrun{
@@ -82,17 +62,9 @@ set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
 result <- optimal_binning_numerical_fetb(target, feature)
-print(result$woebin)
-print(result$totalIV)
+print(result$bins)
+print(result$woe)
+print(result$iv)
 }
 
-}
-\references{
-\itemize{
-\item Fisher, R. A. (1922). On the interpretation of χ2 from contingency tables, and the calculation of P. Journal of the Royal Statistical Society, 85(1), 87-94.
-\item Belotti, P., & Carrasco, M. (2017). Optimal binning: mathematical programming formulation and solution approach. arXiv preprint arXiv:1705.03287.
-}
-}
-\author{
-Lopes, J. E.
 }

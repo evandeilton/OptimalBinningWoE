@@ -12,10 +12,17 @@ obwoe(
   preprocess = TRUE,
   min_bins = 3,
   max_bins = 4,
-  control = list(),
   positive = "bad|1",
   progress = TRUE,
-  trace = TRUE
+  trace = TRUE,
+  control = list(cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05, pvalue_threshold
+    = 0.05, max_n_prebins = 20, monotonicity_direction = "increase", lambda = 0.1,
+    min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10, num_miss_value = -999,
+    char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, iqr_k =
+    1.5, zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L, is_monotonic = TRUE,
+    population_size = 50L, max_generations = 100L, mutation_rate = 0.1,
+    initial_temperature = 1, cooling_rate = 0.995, 
+     max_iterations = 1000L)
 )
 }
 \arguments{
@@ -32,6 +39,12 @@ obwoe(
 \item{min_bins}{Minimum number of bins (default: 3).}
 
 \item{max_bins}{Maximum number of bins (default: 4).}
+
+\item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
+
+\item{progress}{Logical. Whether to display a progress bar. Default is TRUE.}
+
+\item{trace}{Logical, whether to generate error logs when testing existing methods.}
 
 \item{control}{A list of additional control parameters:
 \itemize{
@@ -61,12 +74,6 @@ obwoe(
 \item cooling_rate: Cooling rate for simulated annealing (default: 0.995)
 \item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
 }}
-
-\item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
-
-\item{progress}{Logical. Whether to display a progress bar. Default is TRUE.}
-
-\item{trace}{Logical, whether to generate error logs when testing existing methods.}
 }
 \value{
 A list containing:

@@ -10,7 +10,9 @@ optimal_binning_numerical_ewb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,56 +27,44 @@ optimal_binning_numerical_ewb(
 \item{bin_cutoff}{Minimum fraction of total observations in each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
 A list containing:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation}
-\item{woebin}{A data frame with binning information, including bin ranges, WoE, IV, and counts}
+\item{bins}{Character vector of bin ranges.}
+\item{woe}{Numeric vector of WoE values for each bin.}
+\item{iv}{Numeric vector of Information Value (IV) for each bin.}
+\item{count}{Numeric vector of total observations in each bin.}
+\item{count_pos}{Numeric vector of positive target observations in each bin.}
+\item{count_neg}{Numeric vector of negative target observations in each bin.}
+\item{cutpoints}{Numeric vector of cut points to generate the bins.}
+\item{converged}{Logical indicating if the algorithm converged.}
+\item{iterations}{Integer number of iterations run by the algorithm.}
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
+Performs optimal binning for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
 }
 \details{
 The optimal binning algorithm using Equal-Width Binning consists of several steps:
 \enumerate{
 \item Initial binning: The feature range is divided into \code{max_n_prebins} bins of equal width.
-\item Merging rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-\item Adjusting number of bins: If the number of bins exceeds \code{max_bins}, adjacent bins with the most similar WoE values are merged until \code{max_bins} is reached.
-\item WoE and IV calculation: The Weight of Evidence (WoE) and Information Value (IV) are calculated for each bin.
+\item Assign data to bins based on feature values.
+\item Merge rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
+\item Enforce monotonicity of WoE values by merging adjacent non-monotonic bins.
+\item Adjust the number of bins to not exceed \code{max_bins} by merging bins with the smallest counts.
+\item Calculate WoE and IV for each bin.
 }
 
-The Weight of Evidence (WoE) for each bin is calculated as:
-
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-
-where \eqn{P(X|Y=1)} is the probability of the feature being in a particular bin given a positive target, and \eqn{P(X|Y=0)} is the probability given a negative target.
-
-The Information Value (IV) for each bin is calculated as:
-
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-
-The total IV is the sum of IVs for all bins:
-
-\deqn{Total IV = \sum_{i=1}^{n} IV_i}
-
-This approach provides a balance between simplicity and effectiveness, creating bins of equal width initially and then adjusting them based on the data distribution and target variable relationship.
+The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
 }
 \examples{
-\dontrun{
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
 result <- optimal_binning_numerical_ewb(target, feature)
-print(result$woebin)
-}
+print(result)
 
-}
-\references{
-\itemize{
-\item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of continuous features. In Machine Learning Proceedings 1995 (pp. 194-202). Morgan Kaufmann.
-\item Liu, H., Hussain, F., Tan, C. L., & Dash, M. (2002). Discretization: An enabling technique. Data mining and knowledge discovery, 6(4), 393-423.
-}
-}
-\author{
-Lopes, J. E.
 }

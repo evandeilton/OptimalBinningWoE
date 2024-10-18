@@ -10,27 +10,42 @@ optimal_binning_categorical_gmb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 or 1).}
+\item{target}{Integer vector of binary target values (0 ou 1).}
 
 \item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
+\item{bin_cutoff}{Frequência mínima para um bin separado (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins antes da fusão (padrão: 20).}
+
+\item{bin_separator}{Separador usado para mesclar nomes de categorias (padrão: "\%;\%").}
+
+\item{convergence_threshold}{Limite para convergência (padrão: 1e-6).}
+
+\item{max_iterations}{Número máximo de iterações (padrão: 1000).}
 }
 \value{
-A list with two elements:
+Uma lista com os seguintes elementos:
 \itemize{
-\item woefeature: Numeric vector of WoE values for each input feature value.
-\item woebin: Data frame with binning results (bin names, WoE, IV, counts).
+\item bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).
+\item woe: Vetor numérico dos valores de Weight of Evidence para cada bin.
+\item iv: Vetor numérico do Information Value para cada bin.
+\item count: Vetor inteiro da contagem total para cada bin.
+\item count_pos: Vetor inteiro da contagem da classe positiva para cada bin.
+\item count_neg: Vetor inteiro da contagem da classe negativa para cada bin.
+\item converged: Lógico indicando se o algoritmo convergiu.
+\item iterations: Inteiro indicando o número de iterações realizadas.
 }
 }
 \description{
@@ -38,43 +53,43 @@ Implements optimal binning for categorical variables using a Greedy Merge approa
 calculating Weight of Evidence (WoE) and Information Value (IV).
 }
 \details{
-The algorithm uses a greedy merge approach to find an optimal binning solution.
-It starts with each unique category as a separate bin and iteratively merges
-bins to maximize the overall Information Value (IV) while respecting the
-constraints on the number of bins.
+O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
+Ele começa com cada categoria única como um bin separado e itera fusões de
+bins para maximizar o Information Value (IV) geral, respeitando as
+restrições no número de bins.
 
-Weight of Evidence (WoE) for each bin is calculated as:
+O Weight of Evidence (WoE) para cada bin é calculado como:
 
 \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
 
-Information Value (IV) for each bin is calculated as:
+O Information Value (IV) para cada bin é calculado como:
 
 \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
 
-The algorithm includes the following key steps:
+O algoritmo inclui os seguintes passos principais:
 \enumerate{
-\item Initialize bins with each unique category.
-\item Merge rare categories based on bin_cutoff.
-\item Iteratively merge adjacent bins that result in the highest IV.
-\item Stop merging when the number of bins reaches min_bins or max_bins.
-\item Calculate final WoE and IV for each bin.
+\item Inicializar bins com cada categoria única.
+\item Mesclar categorias raras com base no bin_cutoff.
+\item Iterativamente mesclar bins adjacentes que resultem no maior IV.
+\item Parar de mesclar quando o número de bins atingir min_bins ou max_bins.
+\item Garantir a monotonicidade dos valores de WoE através dos bins.
+\item Calcular o WoE e IV final para cada bin.
 }
 
-The algorithm handles zero counts by using a small constant (epsilon) to avoid
-undefined logarithms and division by zero.
+O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
+logaritmos indefinidos e divisão por zero.
 }
 \examples{
 \dontrun{
-# Sample data
+# Dados de exemplo
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Run optimal binning
+# Executar binning ótimo
 result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
 
-# View results
-print(result$woebin)
-print(result$woefeature)
+# Ver resultados
+print(result)
 }
 
 }

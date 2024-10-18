@@ -10,7 +10,9 @@ optimal_binning_numerical_dplc(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,23 +27,25 @@ optimal_binning_numerical_dplc(
 \item{bin_cutoff}{Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
+
+\item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) values for each observation.}
-\item{woebin}{A data frame with the following columns:
-\itemize{
-\item bin: Character vector of bin ranges.
-\item woe: Numeric vector of WoE values for each bin.
-\item iv: Numeric vector of Information Value (IV) for each bin.
-\item count: Numeric vector of total observations in each bin.
-\item count_pos: Numeric vector of positive target observations in each bin.
-\item count_neg: Numeric vector of negative target observations in each bin.
-}
-}
+A list containing the following elements:
+\item{bins}{Character vector of bin ranges.}
+\item{woe}{Numeric vector of WoE values for each bin.}
+\item{iv}{Numeric vector of Information Value (IV) for each bin.}
+\item{count}{Numeric vector of total observations in each bin.}
+\item{count_pos}{Numeric vector of positive target observations in each bin.}
+\item{count_neg}{Numeric vector of negative target observations in each bin.}
+\item{cutpoints}{Numeric vector of cut points to generate the bins.}
+\item{converged}{Logical indicating if the algorithm converged.}
+\item{iterations}{Integer number of iterations run by the algorithm.}
 }
 \description{
-This function performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
 }
 \details{
 The Dynamic Programming with Local Constraints (DPLC) algorithm for numerical variables works as follows:
@@ -52,7 +56,7 @@ The Dynamic Programming with Local Constraints (DPLC) algorithm for numerical va
 \item Ensure the number of bins is between \code{min_bins} and \code{max_bins}:
 }
 \itemize{
-\item Merge bins with the smallest IV difference if above \code{max_bins}.
+\item Merge bins with the smallest WoE difference if above \code{max_bins}.
 \item Handle rare bins by merging those below the \code{bin_cutoff} threshold.
 }
 \enumerate{
@@ -66,11 +70,8 @@ Weight of Evidence (WoE) is calculated as:
 
 Information Value (IV) is calculated as:
 \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-
-This implementation uses OpenMP for parallel processing when available, which can significantly speed up the computation for large datasets.
 }
 \examples{
-\dontrun{
 # Create sample data
 set.seed(123)
 n <- 1000
@@ -81,21 +82,6 @@ feature <- rnorm(n)
 result <- optimal_binning_numerical_dplc(target, feature, min_bins = 2, max_bins = 4)
 
 # Print results
-print(result$woebin)
+print(result)
 
-# Plot WoE values
-plot(result$woebin$woe, type = "s", xaxt = "n", xlab = "Bins", ylab = "WoE",
-     main = "Weight of Evidence by Bin")
-axis(1, at = 1:nrow(result$woebin), labels = result$woebin$bin, las = 2)
-}
-
-}
-\references{
-\itemize{
-\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
-\item Bellman, R. (1952). On the theory of dynamic programming. Proceedings of the National Academy of Sciences, 38(8), 716-719.
-}
-}
-\author{
-Lopes, J. E.
 }

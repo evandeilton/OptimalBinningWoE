@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_milp}
 \alias{optimal_binning_categorical_milp}
-\title{Optimal Binning for Categorical Variables using OBNP}
+\title{Optimal Binning for Categorical Variables using MILP}
 \usage{
 optimal_binning_categorical_milp(
   target,
@@ -10,70 +10,84 @@ optimal_binning_categorical_milp(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
 \item{target}{An integer vector of binary target values (0 or 1).}
 
-\item{feature}{A character vector of categorical feature values.}
+\item{feature}{A character vector of feature values.}
 
 \item{min_bins}{Minimum number of bins (default: 3).}
 
 \item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum proportion of observations in a bin (default: 0.05).}
+\item{bin_cutoff}{Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
+
+\item{bin_separator}{Separator used to join categories within a bin (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for convergence of total Information Value (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the optimization process (default: 1000).}
 }
 \value{
-A list containing two elements:
+A list containing the following elements:
 \itemize{
-\item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
-\item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+\item bins: Character vector of bin categories.
+\item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
+\item iv: Numeric vector of Information Value (IV) for each bin.
+\item count: Integer vector of total observations in each bin.
+\item count_pos: Integer vector of positive target observations in each bin.
+\item count_neg: Integer vector of negative target observations in each bin.
+\item converged: Logical indicating whether the algorithm converged.
+\item iterations: Integer indicating the number of iterations run.
 }
 }
 \description{
-This function performs optimal binning for categorical variables using the Optimal Binning Numerical Procedures (OBNP) approach.
-The process aims to maximize the Information Value (IV) while maintaining a specified number of bins.
+This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
 }
 \details{
-The algorithm works as follows:
+The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
 \enumerate{
-\item Merge rare categories: Categories with fewer observations than the specified bin_cutoff are merged into an "Other" category.
-\item Create initial bins: Each unique category is assigned to its own bin, up to max_n_prebins.
-\item Optimize bins:
-a. Calculate WoE and IV for each bin.
-b. Enforce monotonicity when possible, merging bins as needed, unless min_bins is reached.
-c. Limit the number of bins to be within min_bins and max_bins.
-\item Transform the feature: Assign WoE values to each observation based on its category.
+\item Validate input and initialize bins for each unique category.
+\item If the number of unique categories is less than or equal to max_bins, no optimization is performed.
+\item Otherwise, merge bins iteratively based on the following criteria:
+a. Merge bins with counts below the bin_cutoff.
+b. Ensure the number of bins is between min_bins and max_bins.
+c. Attempt to achieve monotonicity in Weight of Evidence (WoE) values.
+\item The algorithm stops when convergence is reached or max_iterations is hit.
 }
 
-The Weight of Evidence (WoE) is calculated as:
-\deqn{WoE = \ln\left(\frac{\text{\% of events}}{\text{\% of non-events}}\right)}
+Weight of Evidence (WoE) is calculated as:
+\deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
 
-The Information Value (IV) is calculated as:
-\deqn{IV = (\text{\% of events} - \text{\% of non-events}) \times WoE}
+Information Value (IV) is calculated as:
+\deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
 }
 \examples{
 \dontrun{
 # Create sample data
-target <- sample(0:1, 1000, replace = TRUE)
-feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+set.seed(123)
+n <- 1000
+target <- sample(0:1, n, replace = TRUE)
+feature <- sample(LETTERS[1:10], n, replace = TRUE)
 
 # Run optimal binning
-result <- optimal_binning_categorical_obnp(target, feature)
+result <- optimal_binning_categorical_milp(target, feature, min_bins = 2, max_bins = 4)
 
-# View results
-print(result$woebin)
+# Print results
+print(result)
 }
 
 }
 \references{
 \itemize{
-\item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis.
-Journal of the Operational Research Society, 60(12), 1699-1707.
-\item Thomas, L. C. (2000). A survey of credit and behavioural scoring: forecasting financial risk of lending to consumers.
-International Journal of Forecasting, 16(2), 149-172.
+\item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
+\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
 }
 }

@@ -10,7 +10,9 @@ optimal_binning_numerical_udt(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,11 +27,22 @@ optimal_binning_numerical_udt(
 \item{bin_cutoff}{Minimum frequency of observations in each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins for initial quantile-based discretization (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence of the optimization process (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the optimization process (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of WoE-transformed feature values.}
-\item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+A list containing binning details:
+\item{bins}{A character vector of bin intervals.}
+\item{woe}{A numeric vector of Weight of Evidence values for each bin.}
+\item{iv}{A numeric vector of Information Value for each bin.}
+\item{count}{An integer vector of total observations in each bin.}
+\item{count_pos}{An integer vector of positive observations in each bin.}
+\item{count_neg}{An integer vector of negative observations in each bin.}
+\item{cutpoints}{A numeric vector of cut points between bins.}
+\item{converged}{A logical value indicating whether the algorithm converged.}
+\item{iterations}{An integer value of the number of iterations run.}
 }
 \description{
 This function implements an optimal binning algorithm for numerical variables
@@ -49,25 +62,6 @@ The algorithm follows these steps:
 \item Enforcement of monotonicity in WoE across bins
 \item Adjustment of the number of bins to be within the specified range
 }
-
-Weight of Evidence (WoE) is calculated for each bin as:
-
-\deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-
-where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and
-\eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-
-Information Value (IV) for each bin is calculated as:
-
-\deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-
-The total IV for the feature is the sum of IVs across all bins:
-
-\deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-
-The UDT approach ensures that the resulting binning maximizes the separation between
-classes while maintaining the desired number of bins and respecting the minimum bin
-frequency constraint.
 }
 \examples{
 \dontrun{
@@ -81,24 +75,7 @@ target <- rbinom(n, 1, plogis(0.5 * feature))
 result <- optimal_binning_numerical_udt(target, feature, min_bins = 3, max_bins = 5)
 
 # View binning results
-print(result$woebin)
-
-# Plot WoE transformation
-plot(feature, result$woefeature, main = "WoE Transformation", 
-     xlab = "Original Feature", ylab = "WoE")
+print(result)
 }
 
-}
-\references{
-\itemize{
-\item Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of
-continuous-valued attributes for classification learning. In Proceedings
-of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
-\item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised
-discretization of continuous features. In Machine Learning Proceedings 1995
-(pp. 194-202). Morgan Kaufmann.
-}
-}
-\author{
-Lopes, J. E.
 }

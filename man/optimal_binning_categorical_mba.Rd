@@ -10,7 +10,10 @@ optimal_binning_categorical_mba(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,14 +28,24 @@ optimal_binning_categorical_mba(
 \item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{String used to separate category names when merging bins (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for convergence in optimization (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for optimization (default: 1000).}
 }
 \value{
-A list containing four elements:
+A list containing:
 \itemize{
-\item woefeature: A numeric vector of WOE values for each input feature value
-\item woebin: A data frame containing bin information, including bin labels, WOE, IV, and counts
-\item total_iv: The total Information Value of the binning
-\item is_monotonic: A logical value indicating whether the final binning achieves monotonicity
+\item bins: A character vector of bin labels
+\item woe: A numeric vector of Weight of Evidence values for each bin
+\item iv: A numeric vector of Information Value for each bin
+\item count: An integer vector of total counts for each bin
+\item count_pos: An integer vector of positive target counts for each bin
+\item count_neg: An integer vector of negative target counts for each bin
+\item converged: A logical value indicating whether the algorithm converged
+\item iterations: An integer indicating the number of iterations run
 }
 }
 \description{
@@ -48,7 +61,6 @@ The algorithm performs the following steps:
 \item Calculating initial Weight of Evidence (WOE) and Information Value (IV)
 \item Enforcing monotonicity of WOE across bins
 \item Optimizing the number of bins through iterative merging
-\item Assigning final WOE values to each category
 }
 
 The Weight of Evidence (WOE) is calculated as:
@@ -56,8 +68,6 @@ The Weight of Evidence (WOE) is calculated as:
 
 The Information Value (IV) for each bin is calculated as:
 \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
-
-The total IV is the sum of IVs across all bins.
 }
 \examples{
 \dontrun{
@@ -67,18 +77,9 @@ target <- sample(0:1, 1000, replace = TRUE)
 feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 
 # Run optimal binning
-result <- optimal_binning_categorical_mba(target, feature)
+result <- optimal_binning_categorical_mba(feature, target)
 
 # View results
-print(result$woebin)
-print(paste("Total IV:", result$total_iv))
-print(paste("Is monotonic:", result$is_monotonic))
-hist(result$woefeature)
-}
-}
-\references{
-\itemize{
-\item Belaid, A., & Ghorbel, H. (2018). An Optimal Binning Technique for Credit Scoring. In Advances in Time Series and Forecasting (pp. 217-228). Springer, Cham.
-\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.05095.
+print(result)
 }
 }

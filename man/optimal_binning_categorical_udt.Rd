@@ -10,7 +10,10 @@ optimal_binning_categorical_udt(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,11 +28,23 @@ optimal_binning_categorical_udt(
 \item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{Separator used for merging category names (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for convergence of the algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of WOE values for each input feature value}
-\item{woebin}{A data frame containing bin information, including bin labels, WOE, IV, and counts}
+A list containing bin information:
+\item{bins}{A character vector of bin labels}
+\item{woe}{A numeric vector of WOE values for each bin}
+\item{iv}{A numeric vector of IV values for each bin}
+\item{count}{An integer vector of total counts for each bin}
+\item{count_pos}{An integer vector of positive target counts for each bin}
+\item{count_neg}{An integer vector of negative target counts for each bin}
+\item{converged}{A logical indicating whether the algorithm converged}
+\item{iterations}{An integer indicating the number of iterations run}
 }
 \description{
 This function performs optimal binning for categorical variables using an Unsupervised Decision Tree (UDT) approach,
@@ -38,10 +53,12 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods.
 \details{
 The algorithm performs the following steps:
 \enumerate{
-\item Rare category handling: Categories with frequency below bin_cutoff are merged into a "Rare" bin.
-\item Pre-binning: If the number of bins exceeds max_n_prebins, the least frequent categories are merged into an "Other" bin.
-\item Calculate initial WOE and IV for each bin.
-\item Iterative merging: Bins are merged based on minimum combined IV until the number of bins reaches max_bins.
+\item Input validation and preprocessing
+\item Initial binning based on unique categories
+\item Merge bins to respect max_n_prebins
+\item Iterative merging of bins based on minimum IV difference
+\item Ensure monotonicity of WOE values across bins (if possible)
+\item Respect min_bins and max_bins constraints
 }
 
 The Weight of Evidence (WOE) is calculated as:
@@ -51,6 +68,9 @@ WOE = ln((Distribution of Good) / (Distribution of Bad))
 The Information Value (IV) for each bin is calculated as:
 
 IV = (Distribution of Good - Distribution of Bad) * WOE
+
+The algorithm aims to find an optimal binning solution while respecting the specified constraints.
+It uses a convergence threshold and maximum number of iterations to ensure stability and prevent infinite loops.
 }
 \examples{
 \dontrun{
@@ -63,8 +83,7 @@ feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 result <- optimal_binning_categorical_udt(target, feature)
 
 # View results
-print(result$woebin)
-hist(result$woefeature)
+print(result)
 }
 
 }
@@ -73,7 +92,4 @@ hist(result$woefeature)
 \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
 \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
 }
-}
-\author{
-Lopes, J. E.
 }

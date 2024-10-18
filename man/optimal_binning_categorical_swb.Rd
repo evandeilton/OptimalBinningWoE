@@ -10,7 +10,10 @@ optimal_binning_categorical_swb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,11 +28,23 @@ optimal_binning_categorical_swb(
 \item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{Separator used for merging category names (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for convergence of IV (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for optimization (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of WOE values for each input feature value}
-\item{woebin}{A data frame containing bin information, including bin labels, WOE, IV, and counts}
+A list containing the following elements:
+\item{bins}{A character vector of bin labels}
+\item{woe}{A numeric vector of WOE values for each bin}
+\item{iv}{A numeric vector of IV values for each bin}
+\item{count}{An integer vector of total counts for each bin}
+\item{count_pos}{An integer vector of positive class counts for each bin}
+\item{count_neg}{An integer vector of negative class counts for each bin}
+\item{converged}{A logical value indicating whether the algorithm converged}
+\item{iterations}{An integer value indicating the number of iterations run}
 }
 \description{
 This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach,
@@ -62,8 +77,7 @@ feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 result <- optimal_binning_categorical_swb(target, feature)
 
 # View results
-print(result$woebin)
-hist(result$woefeature)
+print(result)
 }
 
 }

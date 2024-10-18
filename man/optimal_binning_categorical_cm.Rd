@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_cm}
 \alias{optimal_binning_categorical_cm}
-\title{Categorical Optimal Binning with Chi-Merge}
+\title{Optimal Binning for Categorical Variables}
 \usage{
 optimal_binning_categorical_cm(
   target,
@@ -10,27 +10,42 @@ optimal_binning_categorical_cm(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{Integer vector de valores binários do target (0 ou 1).}
+\item{target}{Integer vector of binary target values (0 or 1).}
 
-\item{feature}{Character vector de valores categóricos da feature.}
+\item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (padrão: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (padrão: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para uma bin separada (padrão: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pre-bins antes do merging (padrão: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for convergence in Chi-square difference (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for bin merging (default: 1000).}
 }
 \value{
-Uma lista com dois elementos:
+A list containing:
 \itemize{
-\item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
-\item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
+\item bins: Vector of bin names (concatenated categories).
+\item woe: Vector of Weight of Evidence values for each bin.
+\item iv: Vector of Information Value for each bin.
+\item count: Vector of total counts for each bin.
+\item count_pos: Vector of positive class counts for each bin.
+\item count_neg: Vector of negative class counts for each bin.
+\item converged: Boolean indicating whether the algorithm converged.
+\item iterations: Number of iterations run.
 }
 }
 \description{
@@ -38,39 +53,38 @@ Implements optimal binning for categorical variables using the Chi-Merge algorit
 calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
 }
 \details{
-O algoritmo Chi-Merge utiliza estatísticas de qui-quadrado para mesclar bins adjacentes:
+The algorithm uses Chi-square statistics to merge adjacent bins:
 
 \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
 
-onde \eqn{O_{ij}} é a frequência observada e \eqn{E_{ij}} é a frequência esperada
-para a bin i e classe j.
+where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+for bin i and class j.
 
-Weight of Evidence (WoE) para cada bin:
+Weight of Evidence (WoE) for each bin:
 
 \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 
-Information Value (IV) para cada bin:
+Information Value (IV) for each bin:
 
 \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
 
-O algoritmo inicializa bins para cada categoria, mescla categorias raras com base
-no bin_cutoff, e então itera mesclando bins com o menor qui-quadrado
-até atingir max_bins. Determina a direção da monotonicidade com base na
-tendência inicial e a impõe, permitindo desvios se as restrições de min_bins
-forem acionadas.
+The algorithm initializes bins for each category, merges rare categories based on
+bin_cutoff, and then iteratively merges bins with the lowest chi-square
+until max_bins is reached or no further merging is possible. It determines the
+direction of monotonicity based on the initial trend and enforces it, allowing
+deviations if min_bins constraints are triggered.
 }
 \examples{
 \dontrun{
-# Dados de exemplo
+# Example data
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Executar o binning ótimo
+# Run optimal binning
 result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
 
-# Ver resultados
-print(result$woebin)
-print(result$woefeature)
+# View results
+print(result)
 }
 
 }

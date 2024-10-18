@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_ivb}
 \alias{optimal_binning_categorical_ivb}
-\title{Binning Categórico Ótimo com Information Value (IVB)}
+\title{Optimal Binning for Categorical Variables using Information Value-based Binning (IVB)}
 \usage{
 optimal_binning_categorical_ivb(
   target,
@@ -10,59 +10,58 @@ optimal_binning_categorical_ivb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{Vetor inteiro de valores binários do target (0 ou 1).}
+\item{target}{Integer vector of binary target values (0 or 1).}
 
-\item{feature}{Vetor character ou fator de valores categóricos da feature.}
+\item{feature}{Character vector or factor of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (padrão: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (padrão: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para uma bin separada (padrão: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pre-bins antes do merging (padrão: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{Separator for merged category names (default: "\%;\%").}
+
+\item{convergence_threshold}{Convergence threshold for optimization (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for optimization (default: 1000).}
 }
 \value{
-Uma lista com três elementos:
+A list containing:
 \itemize{
-\item woefeature: Vetor numérico de valores WoE para cada valor de feature de entrada.
-\item woebin: Data frame com resultados do binning (nomes das bins, WoE, IV, contagens).
-\item category_mapping: Vetor nomeado mapeando categorias originais para seus valores de WoE.
+\item bins: Character vector of bin names.
+\item iv: Numeric vector of Information Values for each bin.
+\item count: Integer vector of total counts for each bin.
+\item count_pos: Integer vector of positive target counts for each bin.
+\item count_neg: Integer vector of negative target counts for each bin.
+\item converged: Logical indicating whether the algorithm converged.
+\item iterations: Integer indicating the number of iterations run.
 }
 }
 \description{
-Implementa binning ótimo para variáveis categóricas usando Information Value (IV)
-como critério principal, calculando Weight of Evidence (WoE) e IV para as bins resultantes.
+Optimal Binning for Categorical Variables using Information Value-based Binning (IVB)
 }
 \details{
-O algoritmo utiliza Information Value (IV) para criar bins ótimos para variáveis categóricas.
-Inicia computando estatísticas para cada categoria, depois ordena as categorias por taxa de evento
-para garantir monotonicidade. O algoritmo então cria bins iniciais com base nas restrições especificadas
-e calcula WoE e IV para cada bin.
-
-Weight of Evidence (WoE) para cada bin é calculado como:
-\deqn{WoE_i = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
-
-Information Value (IV) para cada bin é calculado como:
-\deqn{IV = \sum_{i=1}^{N} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+This function performs optimal binning for categorical variables using a dynamic
+programming approach. It aims to maximize the total Information Value while
+respecting the constraints on the number of bins. The algorithm handles rare
+categories, ensures monotonicity in event rates, and provides stable results.
 }
 \examples{
 \dontrun{
-# Dados de exemplo
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-
-# Executar o binning ótimo
 result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
-
-# Ver resultados
-print(result$woebin)
-print(result$woefeature)
-print(result$category_mapping)
+print(result)
 }
 
 }

@@ -10,7 +10,9 @@ optimal_binning_numerical_oslp(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -27,11 +29,22 @@ to avoid being merged (default: 0.05, must be in (0, 1)).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before optimization
 (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations (default: 1000).}
 }
 \value{
 A list containing:
-\item{woefeature}{Numeric vector of WoE values for each observation.}
-\item{woebin}{Data frame with binning information.}
+\item{bins}{Character vector of bin labels.}
+\item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
+\item{iv}{Numeric vector of Information Value (IV) for each bin.}
+\item{count}{Integer vector of total count of observations in each bin.}
+\item{count_pos}{Integer vector of positive class count in each bin.}
+\item{count_neg}{Integer vector of negative class count in each bin.}
+\item{cutpoints}{Numeric vector of cutpoints used to create the bins.}
+\item{converged}{Logical value indicating whether the algorithm converged.}
+\item{iterations}{Integer value indicating the number of iterations run.}
 }
 \description{
 Performs optimal binning for numerical variables using the Optimal
@@ -50,6 +63,6 @@ result <- optimal_binning_numerical_oslp(target, feature,
                                          min_bins = 2, max_bins = 4)
 
 # Print results
-print(result$woebin)
+print(result)
 }
 }

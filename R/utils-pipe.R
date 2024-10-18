@@ -1,7 +1,8 @@
 utils::globalVariables(c(
   ":=", "target", "count_pos", "count_neg", "woe", "original_index", "bin", "..va",
   "min_bins", "max_bins", "total_iv", "..", "%||%", "va", "::", ":::", "%||%", ".",
-  "..features", "iv", "feature"
+  "..features", "iv", "feature", "is_monotonic", "total_zero_pos", "total_zero_neg",
+  "total_bins", "head", "numeric_features", "categorical_features"
 ))
 
 #' Pipe operator

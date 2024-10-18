@@ -11,7 +11,9 @@ optimal_binning_numerical_bb(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
-  is_monotonic = TRUE
+  is_monotonic = TRUE,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -28,11 +30,22 @@ optimal_binning_numerical_bb(
 \item{max_n_prebins}{Maximum number of pre-bins for initial quantile-based discretization (default: 20).}
 
 \item{is_monotonic}{Boolean indicating whether to enforce monotonicity of WoE across bins (default: TRUE).}
+
+\item{convergence_threshold}{Threshold for convergence of total IV (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of WoE-transformed feature values.}
-\item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+A list containing the following elements:
+\item{bins}{A character vector of bin labels.}
+\item{woe}{A numeric vector of Weight of Evidence values for each bin.}
+\item{iv}{A numeric vector of Information Value for each bin.}
+\item{count}{An integer vector of total count of observations in each bin.}
+\item{count_pos}{An integer vector of count of positive observations in each bin.}
+\item{count_neg}{An integer vector of count of negative observations in each bin.}
+\item{cutpoints}{A numeric vector of cutpoints for generating the bins.}
+\item{converged}{A boolean indicating whether the algorithm converged.}
+\item{iterations}{An integer indicating the number of iterations run.}
 }
 \description{
 This function implements an optimal binning algorithm for numerical variables using a Branch and Bound approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
@@ -77,11 +90,7 @@ target <- rbinom(n, 1, plogis(0.5 * feature))
 result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
 
 # View binning results
-print(result$woebin)
-
-# Plot WoE transformation
-plot(feature, result$woefeature, main = "WoE Transformation",
-xlab = "Original Feature", ylab = "WoE")
+print(result)
 }
 
 }
@@ -90,7 +99,4 @@ xlab = "Original Feature", ylab = "WoE")
 \item Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables in Credit Scoring. Journal of Risk Model Validation, 9(1), 1-21.
 \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
 }
-}
-\author{
-Lopes, J. E.
 }

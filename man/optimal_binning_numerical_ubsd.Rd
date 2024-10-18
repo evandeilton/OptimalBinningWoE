@@ -10,7 +10,9 @@ optimal_binning_numerical_ubsd(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,11 +27,22 @@ optimal_binning_numerical_ubsd(
 \item{bin_cutoff}{Minimum frequency of observations in each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence of the total IV (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of WoE-transformed feature values.}
-\item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+A list containing the following elements:
+\item{bins}{A character vector of bin names.}
+\item{woe}{A numeric vector of Weight of Evidence values for each bin.}
+\item{iv}{A numeric vector of Information Value for each bin.}
+\item{count}{An integer vector of the total count of observations in each bin.}
+\item{count_pos}{An integer vector of the count of positive observations in each bin.}
+\item{count_neg}{An integer vector of the count of negative observations in each bin.}
+\item{cutpoints}{A numeric vector of cut points used to generate the bins.}
+\item{converged}{A logical value indicating whether the algorithm converged.}
+\item{iterations}{An integer value indicating the number of iterations run.}
 }
 \description{
 This function implements an optimal binning algorithm for numerical variables using an
@@ -49,27 +62,9 @@ The algorithm follows these steps:
 \item Calculation of WoE and IV for each bin
 \item Enforcement of monotonicity in WoE across bins
 \item Further merging of bins to ensure the number of bins is within the specified range
-\item Application of WoE transformation to the original feature
 }
 
-Weight of Evidence (WoE) is calculated for each bin as:
-
-\deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-
-where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and
-\eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-
-Information Value (IV) for each bin is calculated as:
-
-\deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-
-The total IV for the feature is the sum of IVs across all bins:
-
-\deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-
-The UBSD approach ensures that the resulting binning maximizes the separation between
-classes while maintaining the desired number of bins and respecting the minimum bin
-frequency constraint.
+The algorithm iterates until convergence is reached or the maximum number of iterations is hit.
 }
 \examples{
 \dontrun{
@@ -83,20 +78,7 @@ target <- rbinom(n, 1, plogis(0.5 * feature))
 result <- optimal_binning_numerical_ubsd(target, feature, min_bins = 3, max_bins = 5)
 
 # View binning results
-print(result$woebin)
-
-# Plot WoE transformation
-plot(feature, result$woefeature, main = "WoE Transformation", 
-     xlab = "Original Feature", ylab = "WoE")
+print(result)
 }
 
-}
-\references{
-\itemize{
-\item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey.
-GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
-\item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised
-discretization of continuous features. In Machine Learning Proceedings 1995
-(pp. 194-202). Morgan Kaufmann.
-}
 }

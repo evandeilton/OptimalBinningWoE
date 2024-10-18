@@ -10,7 +10,9 @@ optimal_binning_numerical_lpdb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,45 +27,25 @@ optimal_binning_numerical_lpdb(
 \item{bin_cutoff}{Minimum frequency for a bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
-\item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
+A list containing:
+\item{bins}{A vector of bin labels.}
+\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin.}
+\item{iv}{A numeric vector of Information Value (IV) for each bin.}
+\item{count}{Total count of observations in each bin.}
+\item{count_pos}{Count of positive target observations in each bin.}
+\item{count_neg}{Count of negative target observations in each bin.}
+\item{cutpoints}{Numeric vector of cutpoints used to generate the bins.}
+\item{converged}{Logical value indicating if the algorithm converged.}
+\item{iterations}{Number of iterations run by the algorithm.}
 }
 \description{
 This function implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
-}
-\details{
-The Local Polynomial Density Binning (LPDB) algorithm is an advanced method for optimal binning of numerical variables. It aims to create bins that maximize the predictive power of the feature while maintaining monotonicity in the Weight of Evidence (WoE) values and respecting user-defined constraints.
-
-The algorithm works through several steps:
-\enumerate{
-\item Pre-binning: Initially divides the feature into a large number of bins (max_n_prebins) using quantiles.
-\item Merging rare bins: Combines bins with frequencies below the bin_cutoff threshold to ensure statistical significance.
-\item Enforcing monotonicity: Merges adjacent bins to ensure monotonic WoE values. The direction of monotonicity is determined by the correlation between bin means and WoE values.
-\item Respecting bin constraints: Ensures the final number of bins is between min_bins and max_bins.
-}
-
-The algorithm uses the Weight of Evidence (WoE) and Information Value (IV) as key metrics:
-
-WoE is calculated as:
-\deqn{WoE = \ln\left(\frac{\text{\% of positive cases}}{\text{\% of negative cases}}\right)}
-
-IV is calculated as:
-\deqn{IV = (\text{\% of positive cases} - \text{\% of negative cases}) \times WoE}
-
-The LPDB method incorporates local polynomial density estimation to better capture the underlying distribution of the data. This approach can be particularly effective when dealing with complex, non-linear relationships between the feature and the target variable.
-
-The algorithm uses a correlation-based approach to determine the direction of monotonicity:
-
-\deqn{\rho = \frac{\sum_{i=1}^{n} (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n} (x_i - \bar{x})^2 \sum_{i=1}^{n} (y_i - \bar{y})^2}}}
-
-where \eqn{x_i} are the bin means and \eqn{y_i} are the corresponding WoE values.
-
-The binning process iteratively merges adjacent bins with the smallest WoE difference until monotonicity is achieved or the minimum number of bins is reached. This approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
-
-The LPDB method provides a balance between predictive power and model interpretability, allowing users to control the trade-off through parameters such as min_bins, max_bins, and bin_cutoff.
 }
 \examples{
 \dontrun{
@@ -76,17 +58,9 @@ feature <- rnorm(1000)
 result <- optimal_binning_numerical_lpdb(target, feature)
 
 # View results
-head(result$woefeature)
-print(result$woebin)
+print(result$bins)
+print(result$woe)
+print(result$iv)
 }
 
-}
-\references{
-\itemize{
-\item Belotti, P., & Bonami, P. (2013). A Two-Phase Local Search Method for Nonconvex Mixed-Integer Quadratic Programming. Journal of Global Optimization, 57(1), 121-141.
-\item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
-}
-}
-\author{
-Lopes, J. E.
 }

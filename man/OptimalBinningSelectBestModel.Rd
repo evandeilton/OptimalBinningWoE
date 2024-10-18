@@ -2,40 +2,77 @@
 % Please edit documentation in R/obwoe.R
 \name{OptimalBinningSelectBestModel}
 \alias{OptimalBinningSelectBestModel}
-\title{Select Best Binning Model}
+\title{Select the Best Model for Optimal Binning}
 \usage{
 OptimalBinningSelectBestModel(
-  dt_binning,
+  dt,
   target,
-  feature,
+  features,
+  method = NULL,
   min_bins,
   max_bins,
   control,
-  allowed_methods,
+  progress = TRUE,
   trace = FALSE
 )
 }
 \arguments{
-\item{dt_binning}{Data for binning}
+\item{dt}{A data.table containing the target variable and features to be binned.}
 
-\item{target}{Target variable name}
+\item{target}{The name of the target variable in the data.table.}
 
-\item{feature}{Feature variable name}
+\item{features}{A character vector of feature names to be binned.}
 
-\item{min_bins}{Minimum number of bins}
+\item{method}{A method for use. If not available, test all.}
 
-\item{max_bins}{Maximum number of bins}
+\item{min_bins}{The minimum number of bins to use in the binning process.}
 
-\item{control}{Control parameters}
+\item{max_bins}{The maximum number of bins to use in the binning process.}
 
-\item{allowed_methods}{Vector of allowed binning methods}
+\item{control}{A list of control parameters for the binning algorithms (not used directly in this function).}
 
-\item{trace}{Logical, whether to generate error logs when testing existing methods}
+\item{progress}{Logical; if TRUE, display a progress bar during processing (default is TRUE).}
+
+\item{trace}{Logical; if TRUE, provide more detailed output for debugging (default is FALSE).}
 }
 \value{
-Best binning result
+A list containing the results for each feature:
+\item{woebin}{The Weight of Evidence (WoE) binning result for the best model.}
+\item{woefeature}{The WoE-transformed feature for the best model.}
+\item{bestmethod}{The name of the algorithm that produced the best model.}
+\item{report}{A data.table summarizing the performance of all tried models.}
 }
 \description{
-Select Best Binning Model
+This function selects the best model for optimal binning across multiple features
+using various binning algorithms for both numerical and categorical variables.
 }
-\keyword{internal}
+\details{
+The function iterates through each feature, applying various binning algorithms
+suitable for either numerical or categorical data. It then selects the best model
+based on monotonicity, number of zero-count bins, total number of bins, and
+Information Value (IV).
+
+For features with 2 or fewer distinct values, the function forces them to be
+treated as factors and applies categorical binning methods.
+
+If a binning algorithm fails, the function attempts to relax the binning parameters
+and try again. If it still fails, that method is skipped for that feature.
+}
+\examples{
+\dontrun{
+library(data.table)
+dt <- data.table(
+  target = sample(0:1, 1000, replace = TRUE),
+  feature1 = rnorm(1000),
+  feature2 = sample(letters[1:5], 1000, replace = TRUE)
+)
+results <- OptimalBinningSelectBestModel(
+  dt = dt,
+  target = "target",
+  features = c("feature1", "feature2"),
+  min_bins = 3,
+  max_bins = 10
+)
+}
+
+}

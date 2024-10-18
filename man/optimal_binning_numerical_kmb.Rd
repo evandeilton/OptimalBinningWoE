@@ -10,7 +10,9 @@ optimal_binning_numerical_kmb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,56 +27,71 @@ optimal_binning_numerical_kmb(
 \item{bin_cutoff}{Minimum frequency for a bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
-A list containing two elements:
-\item{woefeature}{A numeric vector of Weight of Evidence (WoE) transformed feature values.}
-\item{woebin}{A data frame containing bin information, including bin labels, WoE, Information Value (IV), and counts.}
+A list containing the following elements:
+\item{bins}{Character vector of bin ranges.}
+\item{woe}{Numeric vector of WoE values for each bin.}
+\item{iv}{Numeric vector of Information Value (IV) for each bin.}
+\item{count}{Integer vector of total observations in each bin.}
+\item{count_pos}{Integer vector of positive target observations in each bin.}
+\item{count_neg}{Integer vector of negative target observations in each bin.}
+\item{cutpoints}{Numeric vector of cut points to generate the bins.}
+\item{converged}{Logical indicating if the algorithm converged.}
+\item{iterations}{Integer number of iterations run by the algorithm.}
 }
 \description{
 This function implements the K-means Binning (KMB) algorithm for optimal binning of numerical variables.
 }
 \details{
-The K-means Binning (KMB) algorithm is an advanced method for optimal binning of numerical variables. It combines elements of k-means clustering with traditional binning techniques to create bins that maximize the predictive power of the feature while respecting user-defined constraints.
+The K-means Binning (KMB) algorithm is an advanced method for optimal binning of numerical variables.
+It combines elements of k-means clustering with traditional binning techniques to create bins that maximize
+the predictive power of the feature while respecting user-defined constraints.
 
 The algorithm works through several steps:
 \enumerate{
 \item Initial Binning: Creates initial bins based on the unique values of the feature, respecting the max_n_prebins constraint.
 \item Data Assignment: Assigns data points to the appropriate bins.
 \item Low Frequency Merging: Merges bins with frequencies below the bin_cutoff threshold.
+\item Enforce Monotonicity: Merges bins to ensure that the WoE values are monotonic.
 \item Bin Count Adjustment: Adjusts the number of bins to fall within the specified range (min_bins to max_bins).
 \item Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.
 }
 
-The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing to handle cases with zero counts:
+The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
+to handle cases with zero counts:
 
 \deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
 
-where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i, and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
+where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
+and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
 
 The Information Value (IV) for each bin is calculated as:
 
 \deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
 
-The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints. It uses a greedy approach to merge bins when necessary, choosing to merge bins with the smallest difference in IV.
+The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
+It uses a greedy approach to merge bins when necessary, choosing to merge bins with the smallest difference in IV.
 
-When adjusting the number of bins, the algorithm either merges bins with the most similar IVs (if there are too many bins) or splits the bin with the largest range (if there are too few bins).
-
-The KMB method provides a balance between predictive power and model interpretability, allowing users to control the trade-off through parameters such as min_bins, max_bins, and bin_cutoff.
+When adjusting the number of bins, the algorithm either merges bins with the most similar IVs (if there are too many bins)
+or stops merging when min_bins is reached, even if monotonicity is not achieved.
 }
 \examples{
 \dontrun{
-# Create sample data
-set.seed(123)
-target <- sample(0:1, 1000, replace = TRUE)
-feature <- rnorm(1000)
+  # Create sample data
+  set.seed(123)
+  target <- sample(0:1, 1000, replace = TRUE)
+  feature <- rnorm(1000)
 
-# Run optimal binning
-result <- optimal_binning_numerical_kmb(target, feature)
+  # Run optimal binning
+  result <- optimal_binning_numerical_kmb(target, feature)
 
-# View results
-head(result$woefeature)
-print(result$woebin)
+  # View results
+  print(result)
 }
 
 }
@@ -83,7 +100,4 @@ print(result$woebin)
 \item Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. In Proceedings of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
 \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
 }
-}
-\author{
-Lopes,
 }

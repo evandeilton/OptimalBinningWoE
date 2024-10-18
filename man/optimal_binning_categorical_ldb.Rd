@@ -10,7 +10,10 @@ optimal_binning_categorical_ldb(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,12 +28,24 @@ optimal_binning_categorical_ldb(
 \item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+
+\item{bin_separator}{Separator used when merging category names (default: "\%;\%").}
+
+\item{convergence_threshold}{Threshold for considering WoE values equal (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the binning process (default: 1000).}
 }
 \value{
-A list containing two elements:
+A list containing the following elements:
 \itemize{
-\item woefeature: A numeric vector of WoE values for each input feature value.
-\item woebin: A data frame with binning results, including bin names, WoE, IV, and counts.
+\item bins: A character vector of bin names.
+\item woe: A numeric vector of Weight of Evidence (WoE) values for each bin.
+\item iv: A numeric vector of Information Value (IV) for each bin.
+\item count: An integer vector of total count for each bin.
+\item count_pos: An integer vector of positive class count for each bin.
+\item count_neg: An integer vector of negative class count for each bin.
+\item converged: A logical value indicating whether the algorithm converged.
+\item iterations: An integer indicating the number of iterations performed.
 }
 }
 \description{
@@ -65,17 +80,7 @@ feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 result <- optimal_binning_categorical_ldb(target, feature, min_bins = 2, max_bins = 4)
 
 # View results
-print(result$woebin)
-print(result$woefeature)
+print(result)
 }
 
-}
-\references{
-\itemize{
-\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
-\item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
-}
-}
-\author{
-Lopes, J. E.
 }

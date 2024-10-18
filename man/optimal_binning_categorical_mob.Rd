@@ -10,7 +10,10 @@ optimal_binning_categorical_mob(
   min_bins = 3L,
   max_bins = 5L,
   bin_cutoff = 0.05,
-  max_n_prebins = 20L
+  max_n_prebins = 20L,
+  bin_separator = "\%;\%",
+  convergence_threshold = 1e-06,
+  max_iterations = 1000L
 )
 }
 \arguments{
@@ -25,12 +28,24 @@ optimal_binning_categorical_mob(
 \item{bin_cutoff}{Minimum proportion of observations in a bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+
+\item{bin_separator}{Separator used for merging category names (default: "\%;\%").}
+
+\item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
+
+\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
 }
 \value{
-A list containing two elements:
+A list containing the following elements:
 \itemize{
-\item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
-\item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
+\item bins: A character vector of bin names (merged categories)
+\item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
+\item iv: A numeric vector of Information Value (IV) for each bin
+\item count: An integer vector of total counts for each bin
+\item count_pos: An integer vector of positive target counts for each bin
+\item count_neg: An integer vector of negative target counts for each bin
+\item converged: A logical value indicating whether the algorithm converged
+\item iterations: An integer value indicating the number of iterations run
 }
 }
 \description{
@@ -44,41 +59,24 @@ The algorithm works as follows:
 
 \enumerate{
 \item Category Statistics Calculation:
-For each category i, we calculate:
-\itemize{
-\item ni: total count
-\item ni+: count of positive instances (target = 1)
-\item ni-: count of negative instances (target = 0)
-}
-
-\item Rare Categories Merging:
-Categories with frequency below the bin_cutoff threshold are merged into an "Other" category.
-Let tau be the bin_cutoff, and N be the total number of observations.
-A category i is merged if: ni < tau * N
+For each category, we calculate the total count, count of positive instances, and count of negative instances.
 
 \item Initial Binning:
-Categories are sorted based on their initial Weight of Evidence (WoE):
-WoE_i = ln((ni+ / N+) / (ni- / N-))
-Where N+ and N- are the total counts of positive and negative instances respectively.
+Categories are sorted based on their initial Weight of Evidence (WoE).
 
 \item Monotonicity Enforcement:
 The algorithm enforces decreasing monotonicity of WoE across bins.
-For any two adjacent bins i and j, where i < j:
-WoE_i >= WoE_j
-If this condition is violated, bins i and j are merged.
+If this condition is violated, adjacent bins are merged.
 
 \item Bin Limiting:
 The number of bins is limited to the specified max_bins.
 When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
 
 \item Information Value (IV) Computation:
-For each bin i, the IV is calculated as:
-IV_i = (P(X=i|Y=1) - P(X=i|Y=0)) * WoE_i
-The total IV is the sum of IVs across all bins:
-IV_total = sum(IV_i)
+For each bin, the IV is calculated and the total IV is computed.
 }
 
-The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications. This monotonicity property ensures that the relationship between the binned variable and the target variable (e.g., default probability) is consistent and interpretable.
+The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
 }
 \examples{
 \dontrun{
@@ -91,7 +89,7 @@ feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 result <- optimal_binning_categorical_mob(target, feature)
 
 # View results
-print(result$woebin)
+print(result)
 }
 
 }
@@ -102,7 +100,4 @@ Journal of the Operational Research Society, 60(12), 1699-1707.
 \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
 arXiv preprint arXiv:1711.05095.
 }
-}
-\author{
-Lopes, J. E.
 }

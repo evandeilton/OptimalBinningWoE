@@ -11,9 +11,11 @@ optimal_binning_categorical_sab(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
+  bin_separator = "\%;\%",
   initial_temperature = 1,
   cooling_rate = 0.995,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  convergence_threshold = 1e-06
 )
 }
 \arguments{
@@ -29,18 +31,27 @@ optimal_binning_categorical_sab(
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
 
+\item{bin_separator}{Separator string for merging categories (default: "\%;\%").}
+
 \item{initial_temperature}{Initial temperature for Simulated Annealing (default: 1.0).}
 
 \item{cooling_rate}{Cooling rate for Simulated Annealing (default: 0.995).}
 
 \item{max_iterations}{Maximum number of iterations for Simulated Annealing (default: 1000).}
+
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
 }
 \value{
-A list containing three elements:
+A list containing the following elements:
 \itemize{
-\item woefeature: A numeric vector of Weight of Evidence (WoE) values for each observation
-\item woebin: A data frame containing binning information, including bin names, WoE, Information Value (IV), and counts
-\item total_iv: The total Information Value for the binning solution
+\item bins: A character vector of bin names
+\item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
+\item iv: A numeric vector of Information Value (IV) for each bin
+\item count: An integer vector of total counts for each bin
+\item count_pos: An integer vector of positive counts for each bin
+\item count_neg: An integer vector of negative counts for each bin
+\item converged: A logical value indicating whether the algorithm converged
+\item iterations: An integer value indicating the number of iterations run
 }
 }
 \description{
@@ -61,8 +72,6 @@ Where:
 
 The Information Value (IV) is calculated as:
 \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
-
-The algorithm uses OpenMP for parallel processing to improve performance on multi-core systems.
 }
 \examples{
 \dontrun{
@@ -70,15 +79,7 @@ set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 result <- optimal_binning_categorical_sab(target, feature)
-print(result$woebin)
-print(result$total_iv)
+print(result)
 }
 
-}
-\references{
-\itemize{
-\item Bertsimas, D., & Dunn, J. (2017). Optimal classification trees. Machine Learning, 106(7), 1039-1082.
-\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
-Workshop on Data Science and Advanced Analytics (DSAA).
-}
 }
