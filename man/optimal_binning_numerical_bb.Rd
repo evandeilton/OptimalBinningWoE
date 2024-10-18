@@ -12,7 +12,7 @@ optimal_binning_numerical_bb(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   is_monotonic = TRUE,
-  convergence_threshold = 0.000001,
+  convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
 }

@@ -291,11 +291,11 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 
     # Best model selection report
     report_best_model <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$report)), idcol = "feature")
-    data.table::setorder(report_best_model, feature, id)
+    # data.table::setorder(report_best_model, feature, id)
 
     # Stats from pré-processed data
     report_preprocess <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
-    data.table::setorder(report_preprocess, feature, variable_type)
+    # data.table::setorder(report_preprocess, feature, variable_type)
 
     return(
       list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = report_preprocess)

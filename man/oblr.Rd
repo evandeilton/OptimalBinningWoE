@@ -4,7 +4,7 @@
 \alias{oblr}
 \title{Optimized Logistic Regression}
 \usage{
-oblr(formula, data, max_iter = 1000, tol = 0.000001)
+oblr(formula, data, max_iter = 1000, tol = 1e-06)
 }
 \arguments{
 \item{formula}{An object of class \code{formula} describing the model to be fitted.}

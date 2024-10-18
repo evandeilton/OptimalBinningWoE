@@ -15,7 +15,7 @@ optimal_binning_categorical_sab(
   initial_temperature = 1,
   cooling_rate = 0.995,
   max_iterations = 1000L,
-  convergence_threshold = 0.000001
+  convergence_threshold = 1e-06
 )
 }
 \arguments{
