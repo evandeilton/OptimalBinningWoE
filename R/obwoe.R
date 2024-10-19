@@ -149,10 +149,6 @@
 #'     }
 #'   }
 #'
-#' @import data.table
-#' @importFrom stats rnorm pchisq median sd quantile
-#' @importFrom utils modifyList setTxtProgressBar txtProgressBar
-#'
 #' @examples
 #' \dontrun{
 #' # Example 1: Using the German Credit Data
@@ -202,13 +198,17 @@
 #' # View binning information for categorical features
 #' print(result_cat)
 #' }
+#' @import data.table
+#' @importFrom stats rnorm pchisq median sd quantile
+#' @importFrom utils modifyList setTxtProgressBar txtProgressBar
 #'
 #' @export
 obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, method = "fetb",
                   positive = "bad|1", preprocess = TRUE, progress = TRUE, trace = FALSE,
                   outputall = TRUE, control = list()) {
-  # Default control
-  defaultControl <- list(
+  # Step 1: Treatment of arguments and exceptions
+  # Set default control parameters
+  default_control <- list(
     cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05,
     pvalue_threshold = 0.05, max_n_prebins = 20,
     monotonicity_direction = "increase", lambda = 0.1,
@@ -222,67 +222,68 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     include_upper_bound = TRUE,
     bin_separator = "%;%"
   )
+  # Update default control with user-provided control parameters
+  control <- modifyList(default_control, control)
 
-  # Ensure dt is a data.table
+  # Validate input arguments and handle exceptions
+  OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
+
+  # Step 2: Check input data 'dt', and if not data.table, transform
   if (!data.table::is.data.table(dt)) {
-    data.table::setDT(dt)
+    dt <- data.table::as.data.table(dt)
+  } else {
+    dt <- data.table::copy(dt)
   }
-  dt <- data.table::copy(dt)
 
-  # Determine the features to process
+  # Step 3: Capture the features to be optimized in the model
   if (is.null(features)) {
     features <- setdiff(colnames(dt), c(target, "target"))
   }
 
-  # Update default control
-  control <- utils::modifyList(defaultControl, control)
+  # Step 4: Map the target variable and preprocess data
+  # Map the target variable based on 'positive' argument
+  data <- OptimalBinningMapTargetVariable(dt, target, positive)
 
-  # Validate inputs
-  OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
-
-  # Preprocess data if required
   if (preprocess) {
-    # Check target
-    data_ <- data.table::copy(
-      OptimalBinningMapTargetVariable(dt, target, positive)
-    )
-
-    preprocessed_data <- OptimalBinningPreprocessData(data_, target, features, control, preprocess = "both")
+    # Preprocess data (handling outliers, missing values, etc.)
+    preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "both")
+    # Extract preprocessing reports
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
-
-    # Prepare data pos-processed
-    data <- data.table::data.table()[, (target) := dt[[target]]]
-    data <- cbind(data, do.call(cbind, lapply(preprocessed_data, function(x) x$preprocess$feature_preprocessed)))
-
-    features <- setdiff(colnames(data), c(target, "target"))
-    # do.call(rbind, lapply(temp1, function(x)data.table::setDT(x$report)))
+    # Prepare preprocessed data
+    for (feat in features) {
+      data[[feat]] <- preprocessed_data[[feat]]$preprocess$feature_preprocessed
+    }
   } else {
-    # check target
-    data <- data.table::copy(
-      OptimalBinningMapTargetVariable(dt, target, positive)
-    )
+    # Generate preprocessing reports without modifying data
     preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "report")
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
-    features <- setdiff(colnames(data), c(target, "target"))
-    # do.call(rbind, lapply(temp2, function(x)data.table::setDT(x$report)))
   }
 
-  # Initialize results list
-  results <- reports <- woebins <- bestmod <- list()
-  failed_features <- character()
+  # Step 5: Validate the target variable
+  # Check that the target variable is binary [0,1]
+  if (!all(data[[target]] %in% c(0, 1))) {
+    stop("Target variable must be binary and coded as 0 and 1 after mapping.")
+  }
+
+  # Step 6: Further treatments of variable types and other exceptions
+  # Initialize lists to keep track of features
   nonprocessed_features <- character()
   singleclass_target_features <- character()
 
-  # Map target based on 'positive' argument
-  # dt <- OptimalBinningMapTargetVariable(dt, target, positive)
-
   # Check for unsupported variable types and single-class target in categorical variables
   for (feat in features) {
+    featdim <- OptimalBinningCheckDistinctsLength(data[[feat]], data[[target]])
+
+    if (featdim[1] <= 2) {
+      data[[feat]] <- as.factor(data[[feat]])
+    }
+
     if (!is.numeric(data[[feat]]) && !is.factor(data[[feat]]) && !is.character(data[[feat]])) {
+      # Unsupported variable type
       nonprocessed_features <- c(nonprocessed_features, feat)
     } else if (is.factor(data[[feat]]) || is.character(data[[feat]])) {
+      # For categorical features, check if target variable has only one class
       target_values <- data[[target]][!is.na(data[[feat]])]
-      feature_values <- data[[feat]][!is.na(data[[feat]])]
       if (length(unique(target_values)) == 1) {
         singleclass_target_features <- c(singleclass_target_features, feat)
       }
@@ -292,31 +293,147 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   # Remove nonprocessed and singleclass target features from the features list
   features <- setdiff(features, c(nonprocessed_features, singleclass_target_features))
 
-  if (length(features) > 0) {
-    results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
-  } else {
-    stop("No variable for optimizing!")
+  if (length(features) == 0) {
+    stop("No features to process after removing unsupported or single-class target features.")
   }
 
-  # Prepare woebin gains table stats
+  # Step 7: Apply algorithms
+  # If there are features to process, apply the optimal binning algorithms
+  results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
+
+  # Step 8: Prepare outputs conditional on user choice
+  # Prepare WoE binning gains table
   woebin <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$woebin)), idcol = "feature")
 
   if (!outputall) {
+    # If outputall is FALSE, return the woebin gains table
     return(woebin)
   } else {
-    # Prepare data pos-processed
-    data <- data.table::data.table()[, (target) := dt[[target]]]
-    data <- cbind(data, do.call(cbind, lapply(results, function(x) x$woefeature)))
-
-    # Best model selection report
+    # Prepare data with WoE features
+    data_woe <- data.table::data.table()[, (target) := dt[[target]]]
+    # Add WoE features
+    data_woe <- cbind(data_woe, do.call(cbind, lapply(results, function(x) data.table::setDT(x$woefeature))))
+    # Prepare best model selection report
     report_best_model <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$report)), idcol = "feature")
-    # data.table::setorder(report_best_model, feature, id)
-
-    return(
-      list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = preprocessed_report)
-    )
+    # Return the results
+    return(list(data = data_woe, woebin = woebin, report_best_model = report_best_model, report_preprocess = preprocessed_report))
   }
 }
+
+# obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, method = "fetb",
+#                   positive = "bad|1", preprocess = TRUE, progress = TRUE, trace = FALSE,
+#                   outputall = TRUE, control = list()) {
+#   # Default control
+#   defaultControl <- list(
+#     cat_cutoff = 0.05, bin_cutoff = 0.05, min_bads = 0.05,
+#     pvalue_threshold = 0.05, max_n_prebins = 20,
+#     monotonicity_direction = "increase", lambda = 0.1,
+#     min_bin_size = 0.05, min_iv_gain = 0.01, max_depth = 10,
+#     num_miss_value = -999.0, char_miss_value = "N/A",
+#     outlier_method = "iqr", outlier_process = FALSE, iqr_k = 1.5,
+#     zscore_threshold = 3, grubbs_alpha = 0.05, n_threads = 1L,
+#     is_monotonic = TRUE, population_size = 50L, max_generations = 100L,
+#     mutation_rate = 0.1, initial_temperature = 1, cooling_rate = 0.995,
+#     max_iterations = 1000L,
+#     include_upper_bound = TRUE,
+#     bin_separator = "%;%"
+#   )
+#
+#
+#   # Update default control
+#   control <- utils::modifyList(defaultControl, control)
+#
+#   # Validate inputs
+#   OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
+#
+#     # Ensure dt is a data.table
+#   if (!data.table::is.data.table(dt)) {
+#     data.table::setDT(dt)
+#   }
+#   dt <- data.table::copy(dt)
+#
+#   # Determine the features to process
+#   if (is.null(features)) {
+#     features <- setdiff(colnames(dt), c(target, "target"))
+#   }
+#
+#   # Preprocess data if required
+#   if (preprocess) {
+#     # Check target
+#     data_ <- data.table::copy(
+#       OptimalBinningMapTargetVariable(dt, target, positive)
+#     )
+#
+#     preprocessed_data <- OptimalBinningPreprocessData(data_, target, features, control, preprocess = "both")
+#     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
+#
+#     # Prepare data pos-processed
+#     data <- data.table::data.table()[, (target) := dt[[target]]]
+#     data <- cbind(data, do.call(cbind, lapply(preprocessed_data, function(x) x$preprocess$feature_preprocessed)))
+#
+#     features <- setdiff(colnames(data), c(target, "target"))
+#     # do.call(rbind, lapply(temp1, function(x)data.table::setDT(x$report)))
+#   } else {
+#     # check target
+#     data <- data.table::copy(
+#       OptimalBinningMapTargetVariable(dt, target, positive)
+#     )
+#     preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "report")
+#     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
+#     features <- setdiff(colnames(data), c(target, "target"))
+#     # do.call(rbind, lapply(temp2, function(x)data.table::setDT(x$report)))
+#   }
+#
+#   # Initialize results list
+#   results <- reports <- woebins <- bestmod <- list()
+#   failed_features <- character()
+#   nonprocessed_features <- character()
+#   singleclass_target_features <- character()
+#
+#   # Map target based on 'positive' argument
+#   # dt <- OptimalBinningMapTargetVariable(dt, target, positive)
+#
+#   # Check for unsupported variable types and single-class target in categorical variables
+#   for (feat in features) {
+#     if (!is.numeric(data[[feat]]) && !is.factor(data[[feat]]) && !is.character(data[[feat]])) {
+#       nonprocessed_features <- c(nonprocessed_features, feat)
+#     } else if (is.factor(data[[feat]]) || is.character(data[[feat]])) {
+#       target_values <- data[[target]][!is.na(data[[feat]])]
+#       feature_values <- data[[feat]][!is.na(data[[feat]])]
+#       if (length(unique(target_values)) == 1) {
+#         singleclass_target_features <- c(singleclass_target_features, feat)
+#       }
+#     }
+#   }
+#
+#   # Remove nonprocessed and singleclass target features from the features list
+#   features <- setdiff(features, c(nonprocessed_features, singleclass_target_features))
+#
+#   if (length(features) > 0) {
+#     results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
+#   } else {
+#     stop("No variable for optimizing!")
+#   }
+#
+#   # Prepare woebin gains table stats
+#   woebin <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$woebin)), idcol = "feature")
+#
+#   if (!outputall) {
+#     return(woebin)
+#   } else {
+#     # Prepare data pos-processed
+#     data <- data.table::data.table()[, (target) := dt[[target]]]
+#     data <- cbind(data, do.call(cbind, lapply(results, function(x) x$woefeature)))
+#
+#     # Best model selection report
+#     report_best_model <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$report)), idcol = "feature")
+#     # data.table::setorder(report_best_model, feature, id)
+#
+#     return(
+#       list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = preprocessed_report)
+#     )
+#   }
+# }
 
 
 #' Select Optimal Features Based on Weight of Evidence
@@ -687,8 +804,6 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
 }
 
 
-
-
 #' Select Optimal Binning Algorithm
 #'
 #' @description
@@ -920,23 +1035,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
       pb$tick(tokens = list(what = sprintf("%-5s", paste0("Feature: ", feat))))
     }
 
-    featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
-
-    dt_feature <- if (featdim[1] <= 2) {
-      data.table::copy(
-        data.table::data.table(
-          target = dt[[target]],
-          feature = as.factor(dt[[feat]])
-        )
-      )
-    } else {
-      data.table::copy(
-        data.table::data.table(
-          target = dt[[target]],
-          feature = dt[[feat]]
-        )
-      )
-    }
+    dt_feature <- data.table::data.table(target = dt[[target]], feature = dt[[feat]])
 
     is_numeric <- is.numeric(dt_feature$feature)
     methods_to_try <- if (is_numeric) numerical_methods else categorical_methods
@@ -997,38 +1096,6 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
     # Remove NULL results
     OO <- Filter(Negate(is.null), OO)
-
-    # OO <- lapply(methods_to_try, function(m) {
-    #
-    #   binning_result <- try({
-    #     suppressWarnings(suppressMessages(
-    #       do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), m$params))
-    #     ))
-    #   })
-    #
-    #   if (inherits(binning_result, "try-error") | featdim[1] <= 2) {
-    #     m$params$min_bins <- 2
-    #     m$params$max_bins <- 3
-    #     m$params$bin_cutoff <- 0.001
-    #     m$params$max_n_prebins <- 5
-    #
-    #     binning_result <- try({
-    #       do.call(
-    #         m$algorithm,
-    #         c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
-    #       )
-    #     })
-    #   }
-    #
-    #   if (!inherits(binning_result, "try-error")) {
-    #     binning_result$algorithm <- m$algorithm
-    #     binning_result$method <- m$method
-    #     return(binning_result)
-    #   } else {
-    #     NULL
-    #   }
-    # })
-
     mm <- data.table::rbindlist(
       lapply(names(OO), function(m) {
         tryCatch(
@@ -1100,538 +1167,3 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
   return(results)
 }
-
-
-
-# OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
-#   results <- list()
-#
-#   # numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
-#   # categorical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$char)))
-#
-#   # Update agrs list for all methods
-#   algoes <- OptimalBinningGetAlgoName()
-#
-#   numerical_methods <- lapply(algoes$num, function(a) {
-#     a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins))
-#     return(a)
-#   })
-#
-#   categorical_methods <- lapply(algoes$char, function(a) {
-#     a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins, bin_separator = control$bin_separator))
-#     return(a)
-#   })
-#
-#   if (progress) {
-#     pb <- progress::progress_bar$new(
-#       format = "Processing features [:bar] :percent eta: :eta",
-#       total = length(features),
-#       clear = FALSE,
-#       width = 80
-#     )
-#   }
-#
-#   for (feat in features) {
-#     if (progress) pb$tick()
-#
-#     featdim <- OptimalBinningCheckDistinctsLength(dt[[feat]], dt[[target]])
-#
-#     # If categ has only one class force factor to pass on char methods
-#     dt_feature <- if (featdim[1] <= 2) {
-#       data.table::copy(
-#         data.table::data.table(
-#           target = dt[[target]],
-#           feature = as.factor(dt[[feat]])
-#         )
-#       )
-#     } else {
-#       data.table::copy(
-#         data.table::data.table(
-#           target = dt[[target]],
-#           feature = dt[[feat]]
-#         )
-#       )
-#     }
-#
-#     is_numeric <- is.numeric(dt_feature$feature)
-#     methods_to_try <- if (is_numeric) numerical_methods else categorical_methods
-#
-#     if (!is.null(method) && method != "auto") {
-#       if (method %in% names(methods_to_try)) {
-#         # The method provided by the user is in the list of available methods
-#         methods_to_try <- methods_to_try[method]
-#         # message(sprintf("Using the user-provided method '%s'.", method))
-#       } else {
-#         # The method provided by the user is not in the list of available methods
-#         warning(sprintf(
-#           "The provided method '%s' is not available for this variable type (%s). Using automatic method selection.",
-#           method,
-#           if (is_numeric) "numeric" else "categorical"
-#         ))
-#         # Keep all methods for automatic selection
-#       }
-#     }
-#
-#     OO <- lapply(methods_to_try, function(m) {
-#       # cat("log: rodando ", m$algorithm, "para ", feat, "\n")
-#       binning_result <- try({
-#         suppressWarnings(suppressMessages(
-#           do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), m$params))
-#         ))
-#       })
-#
-#       if (inherits(binning_result, "try-error") | featdim[1] <= 2) {
-#         # relax args for binary or unary ckasses and try again
-#         m$params$min_bins <- 2
-#         m$params$max_bins <- 3
-#         m$params$bin_cutoff <- 0.001
-#         m$params$max_n_prebins <- 5
-#
-#         binning_result <- try({
-#           do.call(
-#             m$algorithm,
-#             c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
-#           )
-#         })
-#       }
-#
-#       if (!inherits(binning_result, "try-error")) {
-#         binning_result$algorithm <- m$algorithm
-#         binning_result$method <- m$method
-#         return(binning_result)
-#       } else {
-#         NULL
-#       }
-#     })
-#
-#     mm <- data.table::rbindlist(
-#       lapply(names(OO), function(m) {
-#         tryCatch(
-#           {
-#             data.table::data.table(
-#               model_method = m,
-#               model_algorithm = OO[[m]]$algorithm,
-#               total_iv = sum(OO[[m]]$iv, na.rm = TRUE),
-#               total_bins = length(OO[[m]]$bin),
-#               total_zero_pos = sum(OO[[m]]$count_pos == 0, na.rm = TRUE),
-#               total_zero_neg = sum(OO[[m]]$count_neg == 0, na.rm = TRUE),
-#               is_monotonic = as.numeric(OptimalBinningIsWoEMonotonic(OO[[m]]$woe))
-#             )
-#           },
-#           error = function(e) {
-#             # Se houver um erro, retorna uma linha com NAs, mantendo a estrutura
-#             data.table::data.table(
-#               model_method = m,
-#               model_algorithm = NA_character_,
-#               total_iv = NA_real_,
-#               total_bins = NA_integer_,
-#               total_zero_pos = NA_integer_,
-#               total_zero_neg = NA_integer_,
-#               is_monotonic = NA_real_
-#             )
-#           }
-#         )
-#       }),
-#       fill = TRUE,
-#       use.names = TRUE
-#     )
-#
-#     fn_rank <- function(m) {
-#       m$rk0 <- rank(-m$is_monotonic)
-#       m$rk1 <- rank(-m$total_iv)
-#       m$rk2 <- rank(m$total_zero_pos)
-#       m$rk3 <- rank(m$total_zero_neg)
-#       m$id <- apply(m[, c("rk0", "rk0", "rk1", "rk2", "rk3")], 1, mean)
-#       m <- m[order(m$id)]
-#       m$rk0 <- m$rk1 <- m$rk2 <- m$rk3 <- NULL
-#       return(m)
-#     }
-#     # Sort models to select the best
-#
-#     mm <- fn_rank(mm)
-#     best_model <- OO[[unique(head(mm, 1)$model_method)]]
-#
-#     # Apply WOE
-#     woefeature <- if (is_numeric) {
-#       OptimalBinningApplyWoENum(best_model, dt_feature$feature, include_upper_bound = control$include_upper_bound)
-#     } else {
-#       OptimalBinningApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
-#     }
-#
-#     # Prepare gains table after applying optimal woe
-#     woebin <- OptimalBinningGainsTableFeature(binned_feature = woefeature$bin, dt_feature$target)
-#
-#     # Get mest method algo
-#     bestmethod <- best_model$algorithm
-#
-#     # Get report from model selection
-#     report <- mm
-#
-#     results[[feat]] <- list(
-#       woebin = data.table::setDT(woebin),
-#       woefeature = data.table::setDT(woefeature),
-#       report = data.table::setDT(report),
-#       bestmethod = bestmethod
-#     )
-#   }
-#
-#   return(results)
-# }
-
-
-
-#'
-#'
-#' #' Optimal Binning and Weight of Evidence Calculation for Numerical Variables
-#' #'
-#' #' This function performs optimal binning and calculates Weight of Evidence (WoE)
-#' #' for numerical variables. It supports various binning methods, handles special cases,
-#' #' and provides detailed results including binning information and WoE calculations.
-#' #'
-#' #' @param dt A data.table containing the dataset.
-#' #' @param target Character. The name of the target variable column in `dt`.
-#' #' @param features Character vector. Names of numeric feature columns to process.
-#' #' @param method Character. The binning method to use. Use "auto" for automatic selection.
-#' #' @param min_bins Integer. Minimum number of bins to create.
-#' #' @param max_bins Integer. Maximum number of bins to create.
-#' #' @param control List. Additional control parameters for binning algorithms.
-#' #' @param positive Character. Specifies which category of the target should be considered positive.
-#' #' @param preprocessed_data List. Preprocessed data for each feature.
-#' #' @param progress Logical. Whether to display a progress bar. Default is TRUE.
-#' #' @param trace Logical, whether to generate error logs when testing existing methods.
-#' #'
-#' #' @return A list containing:
-#' #'   \item{results}{List of WoE values for each processed feature.}
-#' #'   \item{reports}{List of preprocessing reports for each feature.}
-#' #'   \item{woebins}{List of binning and WoE information for each feature.}
-#' #'   \item{bestmod}{List of best model reports for each feature when method is "auto".}
-#' #'   \item{failed_features}{Character vector of features that failed processing.}
-#' #'
-#' #' @details
-#' #' The function processes each feature in `features`, applying the specified binning method
-#' #' and calculating WoE. It handles special cases (e.g., missing values) separately.
-#' #' If `method` is "auto", it selects the best binning method for each feature.
-#' #'
-#' #' @examples
-#' #' \dontrun{
-#' #' result <- OptimalBinningNumericalWoE(
-#' #'   dt = my_data,
-#' #'   target = "target_column",
-#' #'   features = c("feature1", "feature2"),
-#' #'   method = "auto",
-#' #'   min_bins = 3,
-#' #'   max_bins = 10,
-#' #'   control = list(num_miss_value = -999),
-#' #'   positive = "1",
-#' #'   preprocessed_data = my_preprocessed_data,
-#' #'   progress = TRUE
-#' #' )
-#' #' }
-#' #'
-#' #' @importFrom data.table data.table :=
-#' #' @importFrom utils modifyList
-#' #' @importFrom progress progress_bar
-#' #'
-#' #' @export
-#' OptimalBinningNumericalWoE <- function(dt, target, features, method, min_bins, max_bins, control, positive, preprocessed_data, progress = TRUE, trace = TRUE) {
-#'
-#'   results <- reports <- woebins <- bestmod <- list()
-#'   failed_features <- character()
-#'   numerical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$num)))
-#'
-#'   # Initialize progress bar if progress is TRUE
-#'   if (progress) {
-#'     pb <- progress::progress_bar$new(
-#'       format = "Processing WoE for num. [:bar] :percent eta: :eta",
-#'       total = length(features),
-#'       clear = FALSE,
-#'       width = 80
-#'     )
-#'   }
-#'
-#'   for (feat in features) {
-#'     tryCatch(
-#'       {
-#'         if (progress) pb$tick()
-#'
-#'         dt_proc <- data.table::data.table(
-#'           target = dt[[target]],
-#'           feature = preprocessed_data[[feat]]$preprocess$feature_preprocessed,
-#'           original_index = seq_len(nrow(dt))
-#'         )
-#'         # Identify special cases
-#'         is_special <- dt_proc$feature == control$num_miss_value
-#'         # Perform binning on non-special cases
-#'         dt_binning <- dt_proc[!is_special]
-#'         # Select the best method if method is "auto"
-#'         if (method == "auto") {
-#'           binning_result <- OptimalBinningSelectBestModel(data.table::copy(dt_binning), "target", "feature", min_bins, max_bins, control, numerical_methods, trace)
-#'         } else {
-#'           algo_info <- OptimalBinningSelectAlgorithm("feature", method, dt_binning, min_bins, max_bins, control)
-#'           algo_params <- utils::modifyList(list(min_bins = min_bins, max_bins = max_bins), algo_info$params)
-#'           binning_result <- do.call(algo_info$algorithm, c(list(target = dt_binning$target, feature = dt_binning$feature), algo_params))
-#'           binning_result$best_model_report <- NULL
-#'           binning_result$best_method <- method
-#'         }
-#'         # Add WoE values to non-special cases
-#'         dt_proc[!is_special, woe := binning_result$woefeature]
-#'         # Handle special cases
-#'         if (any(is_special)) {
-#'           special_woe <- OptimalBinningCalculateSpecialWoE(dt_proc[is_special, target])
-#'           dt_proc[is_special, woe := special_woe]
-#'           # Add special bin to woebin
-#'           special_bin <- OptimalBinningCreateSpecialBin(dt_proc[is_special], binning_result$woebin, special_woe)
-#'           special_bin[, bin := paste0(special_bin$bin, "(", control$num_miss_value, ")")]
-#'           binning_result$woebin <- rbind(binning_result$woebin, special_bin, fill = TRUE)
-#'         }
-#'         # Sort by original index
-#'         dt_proc <- dt_proc[order(original_index)]
-#'         # Update results
-#'         results[[feat]] <- dt_proc$woe
-#'         reports[[feat]] <- preprocessed_data[[feat]]$report
-#'         woebins[[feat]] <- OptimalBinningGainsTable(binning_result)
-#'         bestmod[[feat]] <- binning_result$best_model_report
-#'       },
-#'       error = function(e) {
-#'         warning(paste("Error processing feature:", feat, "-", e$message))
-#'         failed_features <- c(failed_features, feat)
-#'       }
-#'     )
-#'   }
-#'   list(results = results, reports = reports, woebins = woebins, bestmod = bestmod, failed_features = failed_features)
-#' }
-#'
-#'
-#' #' Optimal Binning and Weight of Evidence Calculation for Categorical Variables
-#' #'
-#' #' This function performs optimal binning and calculates Weight of Evidence (WoE)
-#' #' for categorical variables. It supports various binning methods, handles special cases,
-#' #' and provides detailed results including binning information and WoE calculations.
-#' #'
-#' #' @param dt A data.table containing the dataset.
-#' #' @param target Character. The name of the target variable column in `dt`.
-#' #' @param features Character vector. Names of categorical feature columns to process.
-#' #' @param method Character. The binning method to use. Use "auto" for automatic selection.
-#' #' @param min_bins Integer. Minimum number of bins to create.
-#' #' @param max_bins Integer. Maximum number of bins to create.
-#' #' @param control List. Additional control parameters for binning algorithms.
-#' #' @param positive Character. Specifies which category of the target should be considered positive.
-#' #' @param preprocessed_data List. Preprocessed data for each feature.
-#' #' @param progress Logical. Whether to display a progress bar. Default is TRUE.
-#' #' @param trace Logical, whether to generate error logs when testing existing methods
-#' #'
-#' #' @return A list containing:
-#' #'   \item{results}{List of WoE values for each processed feature.}
-#' #'   \item{reports}{List of preprocessing reports for each feature.}
-#' #'   \item{woebins}{List of binning and WoE information for each feature.}
-#' #'   \item{bestmod}{List of best model reports for each feature when method is "auto".}
-#' #'   \item{failed_features}{Character vector of features that failed processing.}
-#' #'
-#' #' @details
-#' #' The function processes each feature in `features`, applying the specified binning method
-#' #' and calculating WoE. It handles special cases (e.g., missing values) separately.
-#' #' If `method` is "auto", it selects the best binning method for each feature from a set of
-#' #' categorical binning algorithms.
-#' #'
-#' #' @examples
-#' #' \dontrun{
-#' #' result <- OptimalBinningCategoricalWoE(
-#' #'   dt = my_data,
-#' #'   target = "target_column",
-#' #'   features = c("category1", "category2"),
-#' #'   method = "auto",
-#' #'   min_bins = 2,
-#' #'   max_bins = 5,
-#' #'   control = list(char_miss_value = "NA"),
-#' #'   positive = "1",
-#' #'   preprocessed_data = my_preprocessed_data,
-#' #'   progress = TRUE
-#' #' )
-#' #' }
-#' #'
-#' #' @importFrom data.table data.table :=
-#' #' @importFrom utils modifyList
-#' #' @importFrom progress progress_bar
-#' #'
-#' #' @export
-#' OptimalBinningCategoricalWoE <- function(dt, target, features, method, min_bins, max_bins, control, positive, preprocessed_data, progress = TRUE, trace = TRUE) {
-#'   results <- reports <- woebins <- bestmod <- list()
-#'   failed_features <- character()
-#'   categorical_methods <- sort(unique(names(OptimalBinningGetAlgoName()$char)))
-#'
-#'   # Initialize progress bar if progress is TRUE
-#'   if (progress) {
-#'     pb <- progress::progress_bar$new(
-#'       format = "Processing WoE for cat. [:bar] :percent eta: :eta",
-#'       total = length(features),
-#'       clear = FALSE,
-#'       width = 80
-#'     )
-#'   }
-#'
-#'   for (feat in features) {
-#'     tryCatch(
-#'       {
-#'         if (progress) pb$tick()
-#'
-#'         dt_proc <- data.table::data.table(
-#'           target = dt[[target]],
-#'           feature = preprocessed_data[[feat]]$preprocess$feature_preprocessed,
-#'           original_index = seq_len(nrow(dt))
-#'         )
-#'         # Identify special cases
-#'         is_special <- dt_proc$feature == control$char_miss_value
-#'         # Perform binning on non-special cases
-#'         dt_binning <- dt_proc[!is_special]
-#'         # Select the best method if method is "auto"
-#'         if (method == "auto") {
-#'           binning_result <- OptimalBinningSelectBestModel(dt_binning, "target", "feature", min_bins, max_bins, control, categorical_methods, trace)
-#'         } else {
-#'           algo_info <- OptimalBinningSelectAlgorithm("feature", method, dt_binning, min_bins, max_bins, control)
-#'           algo_params <- utils::modifyList(list(min_bins = min_bins, max_bins = max_bins), algo_info$params)
-#'           binning_result <- do.call(algo_info$algorithm, c(list(target = dt_binning$target, feature = dt_binning$feature), algo_params))
-#'           binning_result$best_model_report <- NULL
-#'           binning_result$best_method <- method
-#'         }
-#'         # Add WoE values to non-special cases
-#'         dt_proc[!is_special, woe := binning_result$woefeature]
-#'         # Handle special cases
-#'         if (any(is_special)) {
-#'           special_woe <- OptimalBinningCalculateSpecialWoE(dt_proc[is_special, target])
-#'           dt_proc[is_special, woe := special_woe]
-#'           # Add special bin to woebin
-#'           special_bin <- OptimalBinningCreateSpecialBin(dt_proc[is_special], binning_result$woebin, special_woe)
-#'           special_bin[, bin := paste0(special_bin$bin, "(", control$char_miss_value, ")")]
-#'           binning_result$woebin <- rbind(binning_result$woebin, special_bin, fill = TRUE)
-#'         }
-#'         # Sort by original index
-#'         dt_proc <- dt_proc[order(original_index)]
-#'         # Update results
-#'         results[[feat]] <- dt_proc$woe
-#'         reports[[feat]] <- preprocessed_data[[feat]]$report
-#'         woebins[[feat]] <- OptimalBinningGainsTable(binning_result)
-#'         bestmod[[feat]] <- binning_result$best_model_report
-#'       },
-#'       error = function(e) {
-#'         warning(paste("Error processing feature:", feat, "-", e$message))
-#'         failed_features <- c(failed_features, feat)
-#'       }
-#'     )
-#'   }
-#'   list(results = results, reports = reports, woebins = woebins, bestmod = bestmod, failed_features = failed_features)
-#' }
-#'
-#' #' Select Best Binning Model
-#' #'
-#' #' @param dt_binning Data for binning
-#' #' @param target Target variable name
-#' #' @param feature Feature variable name
-#' #' @param min_bins Minimum number of bins
-#' #' @param max_bins Maximum number of bins
-#' #' @param control Control parameters
-#' #' @param allowed_methods Vector of allowed binning methods
-#' #' @param trace Logical, whether to generate error logs when testing existing methods
-#' #'
-#' #' @return Best binning result
-#' #'
-#' #' @keywords internal
-#' OptimalBinningSelectBestModel <- function(dt_binning, target, feature, min_bins, max_bins, control, allowed_methods, trace = FALSE) {
-#'
-#'   best_method <- NULL
-#'   best_iv <- -Inf
-#'   best_result <- NULL
-#'   best_monotonic <- FALSE
-#'   best_bins <- Inf
-#'
-#'   best_model_report <- data.table::data.table(
-#'     model_name = character(),
-#'     model_method = character(),
-#'     total_iv = numeric(),
-#'     bin_counts = integer()
-#'   )
-#'
-#'   error_log <- character()
-#'   failed_methods <- character()
-#'
-#'   for (method in allowed_methods) {
-#'     tryCatch(
-#'       {
-#'         algo_info <- OptimalBinningSelectAlgorithm(feature, method, dt_binning, min_bins, max_bins, control)
-#'
-#'         binning_result <- do.call(algo_info$algorithm,
-#'                                   c(list(target = dt_binning[[target]],
-#'                                          feature = dt_binning[[feature]]),
-#'                                     algo_info$params)
-#'                                   )
-#'
-#'         if (length(binning_result$woebin$bin) >= 2) {
-#'           model_name <- algo_info$algorithm
-#'           current_iv <- sum(binning_result$woebin$iv, na.rm = TRUE)
-#'           is_monotonic <- OptimalBinningIsWoEMonotonic(binning_result$woebin$woe)
-#'           current_bins <- length(binning_result$woebin$bin)
-#'           best_model_report <- data.table::rbindlist(
-#'             list(
-#'               best_model_report,
-#'               data.table::data.table(
-#'                 model_name = model_name,
-#'                 model_method = method,
-#'                 total_iv = current_iv,
-#'                 bin_counts = current_bins
-#'               )
-#'             )
-#'           )
-#'           if (current_iv > best_iv ||
-#'             (current_iv == best_iv && is_monotonic && !best_monotonic) ||
-#'             (current_iv == best_iv && is_monotonic == best_monotonic && current_bins < best_bins)) {
-#'             best_iv <- current_iv
-#'             best_method <- method
-#'             best_result <- binning_result
-#'             best_monotonic <- is_monotonic
-#'             best_bins <- current_bins
-#'           }
-#'         }
-#'       },
-#'       error = function(e) {
-#'         error_message <- paste("Method (", method, ") not suitable for feature. Trying another one - ", e$message)
-#'         if (trace) {
-#'           warning(error_message)
-#'         }
-#'         error_log <- c(error_log, error_message)
-#'         failed_methods <- c(failed_methods, method)
-#'       }
-#'     )
-#'   }
-#'
-#'   if (is.null(best_method)) {
-#'     if (length(allowed_methods) > 0) {
-#'       warning("All methods failed. Returning the first tested method.")
-#'       best_method <- allowed_methods[1]
-#'       best_result <- tryCatch(
-#'         {
-#'           algo_info <- OptimalBinningSelectAlgorithm(feature, best_method, dt_binning, min_bins, max_bins, control)
-#'           do.call(
-#'             algo_info$algorithm,
-#'             c(
-#'               list(target = dt_binning[[target]], feature = dt_binning[[feature]]),
-#'               algo_info$params
-#'             )
-#'           )
-#'         },
-#'         error = function(e) {
-#'           list(error = paste("Error in first method:", e$message), feature = feature)
-#'         }
-#'       )
-#'     } else {
-#'       error_message <- "No methods provided or all methods failed."
-#'       warning(error_message)
-#'       return(list(error = error_message, feature = feature, error_log = error_log, failed_methods = failed_methods))
-#'     }
-#'   }
-#'
-#'   data.table::setorder(best_model_report, -total_iv)
-#'   best_result$best_method <- best_method
-#'   best_result$best_model_report <- best_model_report
-#'   best_result$error_log <- error_log
-#'   best_result$failed_methods <- failed_methods
-#'   return(best_result)
-#' }

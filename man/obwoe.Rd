@@ -230,5 +230,4 @@ result_cat <- obwoe(dt,
 # View binning information for categorical features
 print(result_cat)
 }
-
 }
