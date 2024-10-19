@@ -226,15 +226,35 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   # Update default control
   control <- utils::modifyList(defaultControl, control)
 
-  # Ensure dt is a data.table
-  dt <- data.table::setDT(data.table::copy(dt))
-
   # Validate inputs
   OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
 
+  # Ensure dt is a data.table
+  dt <- data.table::setDT(data.table::copy(dt))
+
+  # Preprocess data if required
+  if (preprocess) {
+    # Check target
+    data_ <- OptimalBinningWoE:::OptimalBinningMapTargetVariable(dt, target, positive)
+    preprocessed_data <- OptimalBinningPreprocessData(data_, target, features, control, preprocess = "both")
+    preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
+
+    # Prepare data pos-processed
+    data <- data.table::data.table()[, (target) := dt[[target]]]
+    data <- cbind(data, do.call(cbind, lapply(preprocessed_data, function(x) x$preprocess$feature_preprocessed)))
+
+    # do.call(rbind, lapply(temp1, function(x)data.table::setDT(x$report)))
+  } else {
+    # check target
+    data <- OptimalBinningWoE:::OptimalBinningMapTargetVariable(dt, target, positive)
+    preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "report")
+    preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
+    # do.call(rbind, lapply(temp2, function(x)data.table::setDT(x$report)))
+  }
+
   # Determine the features to process
   if (is.null(features)) {
-    features <- setdiff(names(dt), c(target, "target"))
+    features <- setdiff(colnames(data), c(target, "target"))
   }
 
   # Initialize results list
@@ -244,15 +264,15 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   singleclass_target_features <- character()
 
   # Map target based on 'positive' argument
-  dt <- OptimalBinningMapTargetVariable(dt, target, positive)
+  # dt <- OptimalBinningMapTargetVariable(dt, target, positive)
 
   # Check for unsupported variable types and single-class target in categorical variables
   for (feat in features) {
-    if (!is.numeric(dt[[feat]]) && !is.factor(dt[[feat]]) && !is.character(dt[[feat]])) {
+    if (!is.numeric(data[[feat]]) && !is.factor(data[[feat]]) && !is.character(data[[feat]])) {
       nonprocessed_features <- c(nonprocessed_features, feat)
-    } else if (is.factor(dt[[feat]]) || is.character(dt[[feat]])) {
-      target_values <- dt[[target]][!is.na(dt[[feat]])]
-      feature_values <- dt[[feat]][!is.na(dt[[feat]])]
+    } else if (is.factor(data[[feat]]) || is.character(data[[feat]])) {
+      target_values <- data[[target]][!is.na(data[[feat]])]
+      feature_values <- data[[feat]][!is.na(data[[feat]])]
       if (length(unique(target_values)) == 1) {
         singleclass_target_features <- c(singleclass_target_features, feat)
       }
@@ -262,21 +282,8 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   # Remove nonprocessed and singleclass target features from the features list
   features <- setdiff(features, c(nonprocessed_features, singleclass_target_features))
 
-  # Preprocess data if required
-  if (preprocess) {
-    preprocessed_data <- OptimalBinningPreprocessData(dt, target, features, control, preprocess = "both")
-  } else {
-    preprocessed_data <- list()
-    for (feat in features) {
-      preprocessed_data[[feat]] <- list(
-        preprocess = data.table::data.table(feature_preprocessed = dt[[feat]]),
-        report = OptimalBinningPreprocessData(dt, target, features, control, preprocess = "report")
-      )
-    }
-  }
-
   if (length(features) > 0) {
-    results <- OptimalBinningSelectBestModel(dt, target, features, method, min_bins, max_bins, control, progress, trace)
+    results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
   }
 
   # Prepare woebin gains table stats
@@ -293,12 +300,8 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     report_best_model <- data.table::rbindlist(lapply(results, function(x) data.table::setDT(x$report)), idcol = "feature")
     # data.table::setorder(report_best_model, feature, id)
 
-    # Stats from pré-processed data
-    report_preprocess <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
-    # data.table::setorder(report_preprocess, feature, variable_type)
-
     return(
-      list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = report_preprocess)
+      list(data = data, woebin = woebin, report_best_model = report_best_model, report_preprocess = preprocessed_report)
     )
   }
 }
