@@ -223,19 +223,30 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     bin_separator = "%;%"
   )
 
+  # Ensure dt is a data.table
+  if (!data.table::is.data.table(dt)) {
+    data.table::setDT(dt)
+  }
+  dt <- data.table::copy(dt)
+
+  # Determine the features to process
+  if (is.null(features)) {
+    features <- setdiff(colnames(dt), c(target, "target"))
+  }
+
   # Update default control
   control <- utils::modifyList(defaultControl, control)
 
   # Validate inputs
   OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
 
-  # Ensure dt is a data.table
-  dt <- data.table::setDT(data.table::copy(dt))
-
   # Preprocess data if required
   if (preprocess) {
     # Check target
-    data_ <- OptimalBinningWoE:::OptimalBinningMapTargetVariable(dt, target, positive)
+    data_ <- data.table::copy(
+      OptimalBinningMapTargetVariable(dt, target, positive)
+    )
+
     preprocessed_data <- OptimalBinningPreprocessData(data_, target, features, control, preprocess = "both")
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
 
@@ -243,18 +254,17 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     data <- data.table::data.table()[, (target) := dt[[target]]]
     data <- cbind(data, do.call(cbind, lapply(preprocessed_data, function(x) x$preprocess$feature_preprocessed)))
 
+    features <- setdiff(colnames(data), c(target, "target"))
     # do.call(rbind, lapply(temp1, function(x)data.table::setDT(x$report)))
   } else {
     # check target
-    data <- OptimalBinningWoE:::OptimalBinningMapTargetVariable(dt, target, positive)
+    data <- data.table::copy(
+      OptimalBinningMapTargetVariable(dt, target, positive)
+    )
     preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "report")
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
-    # do.call(rbind, lapply(temp2, function(x)data.table::setDT(x$report)))
-  }
-
-  # Determine the features to process
-  if (is.null(features)) {
     features <- setdiff(colnames(data), c(target, "target"))
+    # do.call(rbind, lapply(temp2, function(x)data.table::setDT(x$report)))
   }
 
   # Initialize results list
@@ -284,6 +294,8 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 
   if (length(features) > 0) {
     results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
+  } else {
+    stop("No variable for optimizing!")
   }
 
   # Prepare woebin gains table stats

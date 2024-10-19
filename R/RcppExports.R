@@ -770,7 +770,7 @@ optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max
 #' @param max_iterations Maximum number of iterations for optimization (default: 1000).
 #'
 #' @return A list containing the following elements:
-#' \item{bins}{A character vector of bin labels}
+#' \item{bin}{A character vector of bin labels}
 #' \item{woe}{A numeric vector of WOE values for each bin}
 #' \item{iv}{A numeric vector of IV values for each bin}
 #' \item{count}{An integer vector of total counts for each bin}
@@ -782,7 +782,7 @@ optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max
 #' @details
 #' The algorithm performs the following steps:
 #' \enumerate{
-#'   \item Initialize bins for each unique category
+#'   \item Initialize bins for each unique category, merging low-frequency categories based on bin_cutoff
 #'   \item Sort bins by their WOE values
 #'   \item Merge adjacent bins iteratively, minimizing information loss
 #'   \item Optimize the number of bins while maintaining monotonicity
@@ -800,8 +800,6 @@ optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max
 #'   \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
 #'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
 #' }
-#'
-#' @author Lopes, J. E.
 #'
 #' @examples
 #' \dontrun{
@@ -822,74 +820,6 @@ optimal_binning_categorical_swb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_swb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title
-#' Optimal Binning for Categorical Variables using Unsupervised Decision Tree (UDT)
-#'
-#' @description
-#' This function performs optimal binning for categorical variables using an Unsupervised Decision Tree (UDT) approach,
-#' which combines Weight of Evidence (WOE) and Information Value (IV) methods.
-#'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator used for merging category names (default: "%;%").
-#' @param convergence_threshold Threshold for convergence of the algorithm (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
-#'
-#' @return A list containing bin information:
-#' \item{bins}{A character vector of bin labels}
-#' \item{woe}{A numeric vector of WOE values for each bin}
-#' \item{iv}{A numeric vector of IV values for each bin}
-#' \item{count}{An integer vector of total counts for each bin}
-#' \item{count_pos}{An integer vector of positive target counts for each bin}
-#' \item{count_neg}{An integer vector of negative target counts for each bin}
-#' \item{converged}{A logical indicating whether the algorithm converged}
-#' \item{iterations}{An integer indicating the number of iterations run}
-#'
-#' @details
-#' The algorithm performs the following steps:
-#' 1. Input validation and preprocessing
-#' 2. Initial binning based on unique categories
-#' 3. Merge bins to respect max_n_prebins
-#' 4. Iterative merging of bins based on minimum IV difference
-#' 5. Ensure monotonicity of WOE values across bins (if possible)
-#' 6. Respect min_bins and max_bins constraints
-#'
-#' The Weight of Evidence (WOE) is calculated as:
-#'
-#' WOE = ln((Distribution of Good) / (Distribution of Bad))
-#'
-#' The Information Value (IV) for each bin is calculated as:
-#'
-#' IV = (Distribution of Good - Distribution of Bad) * WOE
-#'
-#' The algorithm aims to find an optimal binning solution while respecting the specified constraints.
-#' It uses a convergence threshold and maximum number of iterations to ensure stability and prevent infinite loops.
-#'
-#' @references
-#' \itemize{
-#'   \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
-#'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-#'
-#' # Run optimal binning
-#' result <- optimal_binning_categorical_udt(target, feature)
-#'
-#' # View results
-#' print(result)
-#' }
-#'
-#' @export
 optimal_binning_categorical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
@@ -1196,28 +1126,9 @@ optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bin
 #' The algorithm follows these steps:
 #' 1. Initial discretization into max_n_prebins
 #' 2. Iterative merging of adjacent bins based on chi-square statistic
-#' 3. Merging of rare bins based on the bin_cutoff parameter
-#' 4. Calculation of WoE and IV for each final bin
-#'
-#' The chi-square statistic for two adjacent bins is calculated as:
-#'
-#' \deqn{\chi^2 = \sum_{i=1}^{2} \sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
-#'
-#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency for bin i and class j.
-#'
-#' Weight of Evidence (WoE) is calculated for each bin as:
-#'
-#' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-#'
-#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-#'
-#' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-#'
-#' The total IV for the feature is the sum of IVs across all bins:
-#'
-#' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+#' 3. Merging of bins with zero counts in either class
+#' 4. Merging of rare bins based on the bin_cutoff parameter
+#' 5. Calculation of WoE and IV for each final bin
 #'
 #' The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
 #'

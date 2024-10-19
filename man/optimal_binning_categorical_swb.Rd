@@ -37,7 +37,7 @@ optimal_binning_categorical_swb(
 }
 \value{
 A list containing the following elements:
-\item{bins}{A character vector of bin labels}
+\item{bin}{A character vector of bin labels}
 \item{woe}{A numeric vector of WOE values for each bin}
 \item{iv}{A numeric vector of IV values for each bin}
 \item{count}{An integer vector of total counts for each bin}
@@ -53,7 +53,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 \details{
 The algorithm performs the following steps:
 \enumerate{
-\item Initialize bins for each unique category
+\item Initialize bins for each unique category, merging low-frequency categories based on bin_cutoff
 \item Sort bins by their WOE values
 \item Merge adjacent bins iteratively, minimizing information loss
 \item Optimize the number of bins while maintaining monotonicity
@@ -86,7 +86,4 @@ print(result)
 \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
 \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
 }
-}
-\author{
-Lopes, J. E.
 }

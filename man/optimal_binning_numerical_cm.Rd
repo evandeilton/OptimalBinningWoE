@@ -54,29 +54,10 @@ The algorithm follows these steps:
 \enumerate{
 \item Initial discretization into max_n_prebins
 \item Iterative merging of adjacent bins based on chi-square statistic
+\item Merging of bins with zero counts in either class
 \item Merging of rare bins based on the bin_cutoff parameter
 \item Calculation of WoE and IV for each final bin
 }
-
-The chi-square statistic for two adjacent bins is calculated as:
-
-\deqn{\chi^2 = \sum_{i=1}^{2} \sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
-
-where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency for bin i and class j.
-
-Weight of Evidence (WoE) is calculated for each bin as:
-
-\deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-
-where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-
-Information Value (IV) for each bin is calculated as:
-
-\deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-
-The total IV for the feature is the sum of IVs across all bins:
-
-\deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
 
 The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
 }
