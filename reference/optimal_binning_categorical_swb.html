@@ -96,7 +96,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list containing the following elements:</p>
-<dl><dt>bins</dt>
+<dl><dt>bin</dt>
 <dd><p>A character vector of bin labels</p></dd>
 
 <dt>woe</dt>
@@ -123,7 +123,7 @@ which combines Weight of Evidence (WOE) and Information Value (IV) methods with 
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The algorithm performs the following steps:</p><ol><li><p>Initialize bins for each unique category</p></li>
+    <p>The algorithm performs the following steps:</p><ol><li><p>Initialize bins for each unique category, merging low-frequency categories based on bin_cutoff</p></li>
 <li><p>Sort bins by their WOE values</p></li>
 <li><p>Merge adjacent bins iteratively, minimizing information loss</p></li>
 <li><p>Optimize the number of bins while maintaining monotonicity</p></li>
@@ -139,10 +139,6 @@ $$IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WO
 <ul><li><p>Saleem, S. M., &amp; Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.</p></li>
 <li><p>Thomas, L. C., Edelman, D. B., &amp; Crook, J. N. (2002). Credit scoring and its applications. SIAM.</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

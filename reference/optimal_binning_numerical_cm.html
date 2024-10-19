@@ -121,19 +121,10 @@
     <p>The optimal binning algorithm for numerical variables uses the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.</p>
 <p>The algorithm follows these steps:</p><ol><li><p>Initial discretization into max_n_prebins</p></li>
 <li><p>Iterative merging of adjacent bins based on chi-square statistic</p></li>
+<li><p>Merging of bins with zero counts in either class</p></li>
 <li><p>Merging of rare bins based on the bin_cutoff parameter</p></li>
 <li><p>Calculation of WoE and IV for each final bin</p></li>
-</ol><p>The chi-square statistic for two adjacent bins is calculated as:</p>
-<p>$$\chi^2 = \sum_{i=1}^{2} \sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}$$</p>
-<p>where \(O_{ij}\) is the observed frequency and \(E_{ij}\) is the expected frequency for bin i and class j.</p>
-<p>Weight of Evidence (WoE) is calculated for each bin as:</p>
-<p>$$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)$$</p>
-<p>where \(P(X_i|Y=1)\) is the proportion of positive cases in bin i, and \(P(X_i|Y=0)\) is the proportion of negative cases in bin i.</p>
-<p>Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i$$</p>
-<p>The total IV for the feature is the sum of IVs across all bins:</p>
-<p>$$IV_{total} = \sum_{i=1}^{n} IV_i$$</p>
-<p>The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.</p>
+</ol><p>The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
