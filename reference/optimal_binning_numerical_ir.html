@@ -11,7 +11,7 @@ target variable, maximizing the predictive power while respecting user-defined c
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,7 +93,7 @@ target variable, maximizing the predictive power while respecting user-defined c
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing the following elements:</p><ul><li><p>bins: Character vector of bin ranges.</p></li>
+    <p>A list containing the following elements:</p><ul><li><p>bin: Character vector of bin ranges.</p></li>
 <li><p>woe: Numeric vector of Weight of Evidence (WoE) values for each bin.</p></li>
 <li><p>iv: Numeric vector of Information Value (IV) for each bin.</p></li>
 <li><p>count: Integer vector of total observations in each bin.</p></li>
@@ -102,15 +102,15 @@ target variable, maximizing the predictive power while respecting user-defined c
 <li><p>cutpoints: Numeric vector of cutpoints between bins.</p></li>
 <li><p>converged: Logical indicating whether the algorithm converged.</p></li>
 <li><p>iterations: Number of iterations run.</p></li>
-<li><p>total_iv: Total Information Value (IV) for the feature.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:</p><ol><li><p>Create initial bins using equal-frequency binning.</p></li>
-<li><p>Merge low-frequency bins (those with a proportion less than <code>bin_cutoff</code>).</p></li>
-<li><p>Ensure the number of bins is between <code>min_bins</code> and <code>max_bins</code> by splitting or merging bins.</p></li>
-<li><p>Apply isotonic regression to smooth the positive rates across bins.</p></li>
-<li><p>Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.</p></li>
+    <p>The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:</p><ol><li><p>If the number of unique values in the feature is less than or equal to 2, the algorithm does not perform optimization or additional binning. It directly calculates the metrics based on the unique values.</p></li>
+<li><p>Otherwise, it creates initial bins using equal-frequency binning.</p></li>
+<li><p>Merges low-frequency bins (those with a proportion less than <code>bin_cutoff</code>).</p></li>
+<li><p>Ensures the number of bins is between <code>min_bins</code> and <code>max_bins</code> by splitting or merging bins.</p></li>
+<li><p>Applies isotonic regression to smooth the positive rates across bins.</p></li>
+<li><p>Calculates Weight of Evidence (WoE) and Information Value (IV) for each bin.</p></li>
 </ol></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

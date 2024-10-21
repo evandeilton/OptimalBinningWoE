@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -128,12 +128,12 @@ the predictive power of the feature while respecting user-defined constraints.</
 <li><p>Bin Count Adjustment: Adjusts the number of bins to fall within the specified range (min_bins to max_bins).</p></li>
 <li><p>Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.</p></li>
 </ol><p>The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-to handle cases with zero counts:</p>
-<p>$$WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)$$</p>
-<p>where \(n_{1i}\) and \(n_{0i}\) are the number of events and non-events in bin i,
+to handle cases with zero counts
+$$WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)$$
+where \(n_{1i}\) and \(n_{0i}\) are the number of events and non-events in bin i,
 and \(N_1\) and \(N_0\) are the total number of events and non-events.</p>
-<p>The Information Value (IV) for each bin is calculated as:</p>
-<p>$$IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i$$</p>
+<p>The Information Value (IV) for each bin is calculated as:
+$$IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i$$</p>
 <p>The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
 It uses a greedy approach to merge bins when necessary, choosing to merge bins with the smallest difference in IV.</p>
 <p>When adjusting the number of bins, the algorithm either merges bins with the most similar IVs (if there are too many bins)
