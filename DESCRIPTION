@@ -1,6 +1,6 @@
 Package: OptimalBinningWoE
 Title: Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling
-Version: 0.1.6
+Version: 0.1.6.9000
 Authors@R: 
     person("Lopes", "J. E", , "evandeilton@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
