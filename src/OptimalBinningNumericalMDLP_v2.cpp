@@ -24,6 +24,8 @@ private:
   int iterations_run;
   bool converged;
   
+  int n_unique; // Number of unique feature values
+  
   struct Bin {
     double lower_bound; // Inclusive
     double upper_bound; // Exclusive
@@ -222,7 +224,7 @@ public:
   ) : feature(feature), target(target), min_bins(min_bins), max_bins(max_bins),
   bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins),
   convergence_threshold(convergence_threshold), max_iterations(max_iterations),
-  iterations_run(0), converged(true) {
+  iterations_run(0), converged(true), n_unique(0) {
     
     // Basic input validations
     if (feature.empty()) {
@@ -265,7 +267,7 @@ public:
     
     // Count unique values
     std::set<double> unique_values(feature.begin(), feature.end());
-    int n_unique = static_cast<int>(unique_values.size());
+    n_unique = static_cast<int>(unique_values.size());
     
     // Adjust min_bins and max_bins based on unique values
     if (n_unique < min_bins) {
@@ -292,6 +294,93 @@ public:
               [](const std::pair<double, int>& a, const std::pair<double, int>& b) -> bool {
                 return a.first < b.first;
               });
+    
+    // Count unique values in sorted_data
+    int actual_unique = 1;
+    for (size_t i = 1; i < sorted_data.size(); ++i) {
+      if (sorted_data[i].first != sorted_data[i - 1].first) {
+        actual_unique++;
+      }
+    }
+    
+    // If the number of unique values is less than or equal to 2, handle accordingly
+    if (actual_unique <= 2) {
+      if (actual_unique == 1) {
+        // All feature values are identical
+        Bin bin;
+        bin.lower_bound = -std::numeric_limits<double>::infinity();
+        bin.upper_bound = std::numeric_limits<double>::infinity();
+        bin.count = static_cast<int>(sorted_data.size());
+        bin.count_pos = 0;
+        bin.count_neg = 0;
+        for (const auto& pair : sorted_data) {
+          if (pair.second == 1) {
+            bin.count_pos++;
+          } else {
+            bin.count_neg++;
+          }
+        }
+        bins.push_back(bin);
+      } else if (actual_unique == 2) {
+        // Two unique feature values
+        double cutoff = sorted_data[0].first;
+        // Identify unique values
+        std::vector<double> unique_sorted;
+        unique_sorted.reserve(2);
+        unique_sorted.push_back(sorted_data[0].first);
+        for (size_t i = 1; i < sorted_data.size(); ++i) {
+          if (sorted_data[i].first != sorted_data[i - 1].first) {
+            unique_sorted.push_back(sorted_data[i].first);
+            if (unique_sorted.size() == 2) break;
+          }
+        }
+        double min_val = unique_sorted[0];
+        double max_val = unique_sorted[1];
+        
+        // Create first bin: [-Inf, min_val]
+        Bin bin1;
+        bin1.lower_bound = -std::numeric_limits<double>::infinity();
+        bin1.upper_bound = min_val;
+        bin1.count = 0;
+        bin1.count_pos = 0;
+        bin1.count_neg = 0;
+        
+        // Create second bin: (min_val, +Inf]
+        Bin bin2;
+        bin2.lower_bound = min_val;
+        bin2.upper_bound = std::numeric_limits<double>::infinity();
+        bin2.count = 0;
+        bin2.count_pos = 0;
+        bin2.count_neg = 0;
+        
+        // Assign data to bins
+        for (const auto& pair : sorted_data) {
+          if (pair.first <= min_val) {
+            bin1.count++;
+            if (pair.second == 1) {
+              bin1.count_pos++;
+            } else {
+              bin1.count_neg++;
+            }
+          } else {
+            bin2.count++;
+            if (pair.second == 1) {
+              bin2.count_pos++;
+            } else {
+              bin2.count_neg++;
+            }
+          }
+        }
+        
+        bins.push_back(bin1);
+        bins.push_back(bin2);
+      }
+      
+      calculate_woe_iv();
+      converged = true;
+      iterations_run = 0;
+      return;
+    }
     
     // Handle case with all feature values identical
     if (sorted_data.front().first == sorted_data.back().first) {
@@ -543,8 +632,6 @@ Rcpp::List optimal_binning_numerical_mdlp(
 
 
 
-
-
 // #include <Rcpp.h>
 // #include <vector>
 // #include <algorithm>
@@ -555,12 +642,7 @@ Rcpp::List optimal_binning_numerical_mdlp(
 // #include <iomanip>
 // #include <set>
 // 
-// // Enable OpenMP if available
-// #ifdef _OPENMP
-// #include <omp.h>
-// #endif
-// 
-// // [[Rcpp::plugins(openmp)]]
+// // No OpenMP dependencies as per instruction
 // 
 // class OptimalBinningNumericalMDLP {
 // private:
@@ -570,6 +652,11 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //   int max_bins;
 //   double bin_cutoff;
 //   int max_n_prebins;
+//   double convergence_threshold;
+//   int max_iterations;
+//   
+//   int iterations_run;
+//   bool converged;
 //   
 //   struct Bin {
 //     double lower_bound; // Inclusive
@@ -646,19 +733,10 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //     // Calculate distributions
 //     std::vector<double> dist_pos(bins.size(), 0.0);
 //     std::vector<double> dist_neg(bins.size(), 0.0);
-//     double sum_dist_pos = 0.0;
-//     double sum_dist_neg = 0.0;
 //     
 //     for (size_t i = 0; i < bins.size(); ++i) {
 //       dist_pos[i] = static_cast<double>(bins[i].count_pos) / total_pos;
 //       dist_neg[i] = static_cast<double>(bins[i].count_neg) / total_neg;
-//       sum_dist_pos += dist_pos[i];
-//       sum_dist_neg += dist_neg[i];
-//     }
-//     
-//     // Validate if distributions sum to 1
-//     if (std::abs(sum_dist_pos - 1.0) > 1e-6 || std::abs(sum_dist_neg - 1.0) > 1e-6) {
-//       Rcpp::stop("Positive or negative distributions do not sum to 1.");
 //     }
 //     
 //     // Calculate WoE and IV
@@ -701,7 +779,8 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //   // Enforce monotonicity by merging bins where WoE decreases
 //   void enforce_monotonicity() {
 //     bool monotonic = false;
-//     while (!monotonic) {
+//     while (!monotonic && iterations_run < max_iterations) {
+//       iterations_run++;
 //       monotonic = true;
 //       for (size_t i = 1; i < bins.size(); ++i) {
 //         if (bins[i].woe < bins[i - 1].woe) {
@@ -713,6 +792,9 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //           break;
 //         }
 //       }
+//     }
+//     if (iterations_run >= max_iterations) {
+//       converged = false;
 //     }
 //   }
 //   
@@ -748,7 +830,7 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //     }
 //   }
 //   
-//   // New method to find the correct bin for a value
+//   // Find the correct bin for a value
 //   size_t find_bin(double value) const {
 //     for (size_t i = 0; i < bins.size(); ++i) {
 //       if (i == 0 && value < bins[i].upper_bound) {
@@ -768,9 +850,13 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //     int min_bins = 3,
 //     int max_bins = 5,
 //     double bin_cutoff = 0.05,
-//     int max_n_prebins = 20
+//     int max_n_prebins = 20,
+//     double convergence_threshold = 1e-6,
+//     int max_iterations = 1000
 //   ) : feature(feature), target(target), min_bins(min_bins), max_bins(max_bins),
-//   bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins) {
+//   bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins),
+//   convergence_threshold(convergence_threshold), max_iterations(max_iterations),
+//   iterations_run(0), converged(true) {
 //     
 //     // Basic input validations
 //     if (feature.empty()) {
@@ -897,7 +983,7 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //     }
 //     
 //     // MDLP algorithm for bin merging
-//     while (bins.size() > min_bins) {
+//     while (bins.size() > min_bins && iterations_run < max_iterations) {
 //       double current_mdl = calculate_mdl_cost(bins);
 //       double best_mdl = current_mdl;
 //       size_t best_merge_index = bins.size();
@@ -935,12 +1021,18 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //       if (bins.size() <= max_bins) {
 //         break;
 //       }
+//       
+//       iterations_run++;
+//     }
+//     
+//     if (iterations_run >= max_iterations) {
+//       converged = false;
 //     }
 //     
 //     // Merge rare bins based on bin_cutoff
 //     double total_count = static_cast<double>(feature.size());
 //     bool merged = true;
-//     while (merged) {
+//     while (merged && iterations_run < max_iterations) {
 //       merged = false;
 //       for (size_t i = 0; i < bins.size(); ++i) {
 //         double bin_proportion = static_cast<double>(bins[i].count) / total_count;
@@ -957,6 +1049,11 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //           break; // Restart the loop after merging
 //         }
 //       }
+//       iterations_run++;
+//     }
+//     
+//     if (iterations_run >= max_iterations) {
+//       converged = false;
 //     }
 //     
 //     calculate_woe_iv();
@@ -972,15 +1069,6 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //   
 //   // Get the binning results
 //   Rcpp::List get_results() const {
-//     // Prepare vector for WoE assignment
-//     Rcpp::NumericVector woefeature(feature.size());
-//     
-//     // Assign WoE values based on bin intervals
-//     for (size_t i = 0; i < feature.size(); ++i) {
-//       size_t bin_index = find_bin(feature[i]);
-//       woefeature[i] = bins[bin_index].woe;
-//     }
-//     
 //     // Prepare WoE bin details
 //     Rcpp::StringVector bin_labels;
 //     Rcpp::NumericVector woe_values;
@@ -988,6 +1076,7 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //     Rcpp::IntegerVector count_values;
 //     Rcpp::IntegerVector count_pos_values;
 //     Rcpp::IntegerVector count_neg_values;
+//     Rcpp::NumericVector cutpoints;
 //     
 //     std::ostringstream oss;
 //     oss << std::fixed << std::setprecision(6);
@@ -1010,6 +1099,7 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //         oss << "+Inf)";
 //       } else {
 //         oss << bin.upper_bound << ")";
+//         cutpoints.push_back(bin.upper_bound);
 //       }
 //       
 //       bin_labels.push_back(oss.str());
@@ -1020,15 +1110,6 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //       count_neg_values.push_back(bin.count_neg);
 //     }
 //     
-//     // Create WoE bins list
-//     Rcpp::List woebin;
-//     woebin["bin"] = bin_labels;
-//     woebin["woe"] = woe_values;
-//     woebin["iv"] = iv_values;
-//     woebin["count"] = count_values;
-//     woebin["count_pos"] = count_pos_values;
-//     woebin["count_neg"] = count_neg_values;
-//     
 //     // Verify total count
 //     int total_count = 0;
 //     for (const auto& bin : bins) {
@@ -1038,30 +1119,54 @@ Rcpp::List optimal_binning_numerical_mdlp(
 //       Rcpp::warning("Total count in bins does not match feature size");
 //     }
 //     
-//     return Rcpp::List::create(
-//       Rcpp::Named("woefeature") = woefeature,
-//       Rcpp::Named("woebin") = woebin
+//     // Create WoE bins list
+//     Rcpp::List woebin = Rcpp::List::create(
+//       Rcpp::Named("bin") = bin_labels,
+//       Rcpp::Named("woe") = woe_values,
+//       Rcpp::Named("iv") = iv_values,
+//       Rcpp::Named("count") = count_values,
+//       Rcpp::Named("count_pos") = count_pos_values,
+//       Rcpp::Named("count_neg") = count_neg_values,
+//       Rcpp::Named("cutpoints") = cutpoints,
+//       Rcpp::Named("converged") = converged,
+//       Rcpp::Named("iterations") = iterations_run
 //     );
+//     
+//     return woebin;
 //   }
 // };
 // 
+// //' Optimal Binning for Numerical Features using MDLP
+// //'
+// //' This function performs optimal binning on a numerical feature using the Minimum Description Length Principle (MDLP).
+// //'
+// //' @param target An integer vector containing binary target values (0 or 1).
+// //' @param feature A numeric vector containing the feature values to be binned.
+// //' @param min_bins The minimum number of bins to produce.
+// //' @param max_bins The maximum number of bins to produce.
+// //' @param bin_cutoff The minimum proportion of records allowed in a bin.
+// //' @param max_n_prebins The maximum number of pre-bins to create.
+// //' @param convergence_threshold The convergence threshold for the algorithm.
+// //' @param max_iterations The maximum number of iterations allowed.
+// //' @return A list containing the binning results, including bins, WoE, IV, counts, cutpoints, convergence status, and iterations run.
+// //' @export
 // // [[Rcpp::export]]
 // Rcpp::List optimal_binning_numerical_mdlp(
-//     Rcpp::IntegerVector target,
-//     Rcpp::NumericVector feature,
-//     int min_bins = 3,
-//     int max_bins = 5,
-//     double bin_cutoff = 0.05,
-//     int max_n_prebins = 20
+//    Rcpp::IntegerVector target,
+//    Rcpp::NumericVector feature,
+//    int min_bins = 3,
+//    int max_bins = 5,
+//    double bin_cutoff = 0.05,
+//    int max_n_prebins = 20,
+//    double convergence_threshold = 1e-6,
+//    int max_iterations = 1000
 // ) {
-//   // Input validation is handled within the class constructor
-//   
-//   // Convert Rcpp vectors to std::vector
-//   std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
-//   std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-//   
-//   // Create and run the binning
-//   OptimalBinningNumericalMDLP binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins);
-//   binner.fit();
-//   return binner.get_results();
+//  // Convert Rcpp vectors to std::vector
+//  std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
+//  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+//  
+//  // Create and run the binning
+//  OptimalBinningNumericalMDLP binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations);
+//  binner.fit();
+//  return binner.get_results();
 // }

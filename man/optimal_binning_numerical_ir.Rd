@@ -35,7 +35,7 @@ optimal_binning_numerical_ir(
 \value{
 A list containing the following elements:
 \itemize{
-\item bins: Character vector of bin ranges.
+\item bin: Character vector of bin ranges.
 \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
 \item iv: Numeric vector of Information Value (IV) for each bin.
 \item count: Integer vector of total observations in each bin.
@@ -44,7 +44,6 @@ A list containing the following elements:
 \item cutpoints: Numeric vector of cutpoints between bins.
 \item converged: Logical indicating whether the algorithm converged.
 \item iterations: Number of iterations run.
-\item total_iv: Total Information Value (IV) for the feature.
 }
 }
 \description{
@@ -55,11 +54,12 @@ target variable, maximizing the predictive power while respecting user-defined c
 \details{
 The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
 \enumerate{
-\item Create initial bins using equal-frequency binning.
-\item Merge low-frequency bins (those with a proportion less than \code{bin_cutoff}).
-\item Ensure the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
-\item Apply isotonic regression to smooth the positive rates across bins.
-\item Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
+\item If the number of unique values in the feature is less than or equal to 2, the algorithm does not perform optimization or additional binning. It directly calculates the metrics based on the unique values.
+\item Otherwise, it creates initial bins using equal-frequency binning.
+\item Merges low-frequency bins (those with a proportion less than \code{bin_cutoff}).
+\item Ensures the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
+\item Applies isotonic regression to smooth the positive rates across bins.
+\item Calculates Weight of Evidence (WoE) and Information Value (IV) for each bin.
 }
 }
 \examples{

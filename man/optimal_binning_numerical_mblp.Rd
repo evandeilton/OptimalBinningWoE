@@ -52,7 +52,13 @@ and ensures that rare bins are merged. The final result includes the optimal bin
 IV (Information Value), and additional metadata regarding convergence.
 }
 \examples{
-# Example of usage with synthetic data
+# Example with exactly 2 unique values
+feature <- c(1, 1, 2, 2, 1, 2)
+target <- c(0, 1, 0, 1, 0, 1)
+result <- optimal_binning_numerical_mblp(target, feature)
+print(result)
+
+# Example with more unique values
 set.seed(123)
 feature <- rnorm(1000)
 target <- rbinom(1000, 1, 0.3)

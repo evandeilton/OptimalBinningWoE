@@ -340,19 +340,17 @@ public:
   void fit() {
     validate_inputs();
     
-    // Check if the number of distinct feature values is less than or equal to min_bins
+    // Check if the number of distinct feature values is less than or equal to 2
     std::vector<double> unique_values = feature;
     std::sort(unique_values.begin(), unique_values.end());
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
     
-    if (unique_values.size() <= static_cast<size_t>(min_bins)) {
-      // No need to optimize, use unique values as bin boundaries
+    if (unique_values.size() <= 2) {
+      // No optimization or extra bins, use min value as cutpoint
+      double min_val = *std::min_element(feature.begin(), feature.end());
       bins.clear();
-      for (size_t i = 0; i < unique_values.size(); ++i) {
-        double lower = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i-1];
-        double upper = (i == unique_values.size() - 1) ? std::numeric_limits<double>::infinity() : unique_values[i];
-        bins.emplace_back(lower, upper);
-      }
+      bins.emplace_back(-std::numeric_limits<double>::infinity(), min_val);
+      bins.emplace_back(min_val, std::numeric_limits<double>::infinity());
       assign_bins();
       calculate_woe_iv();
       update_cutpoints();
@@ -557,7 +555,7 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
  
  // Prepare the output list
  return Rcpp::List::create(
-   Rcpp::Named("bin") = binning_model.get_bin_names(),
+   Rcpp::Named("bins") = binning_model.get_bin_names(),
    Rcpp::Named("woe") = binning_model.get_bin_woe(),
    Rcpp::Named("iv") = binning_model.get_bin_iv(),
    Rcpp::Named("count") = binning_model.get_bin_count(),
@@ -575,7 +573,11 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 
 
 
-// // [[Rcpp::plugins(openmp)]]
+
+
+
+
+// // [[Rcpp::depends(Rcpp)]]
 // #include <Rcpp.h>
 // #include <vector>
 // #include <algorithm>
@@ -584,10 +586,6 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 // #include <cmath>
 // #include <limits>
 // #include <numeric>
-// 
-// #ifdef _OPENMP
-// #include <omp.h>
-// #endif
 // 
 // using namespace Rcpp;
 // 
@@ -614,10 +612,12 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //   int max_bins;
 //   double bin_cutoff;
 //   int max_n_prebins;
-//   std::vector<double> woefeature;
-//   Rcpp::DataFrame woebin;
-//   
+//   double convergence_threshold;
+//   int max_iterations;
 //   std::vector<Bin> bins;
+//   std::vector<double> cutpoints;
+//   bool converged;
+//   int iterations_run;
 //   
 //   // Validate inputs
 //   void validate_inputs() {
@@ -630,13 +630,16 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //     if (max_bins < min_bins) {
 //       Rcpp::stop("max_bins must be greater than or equal to min_bins.");
 //     }
-//     // Check for NAs
+//     // Check for NAs and invalid values
 //     for(size_t i = 0; i < feature.size(); ++i) {
-//       if (std::isnan(feature[i])) {
-//         Rcpp::stop("Feature contains NA values. Please handle them before binning.");
+//       if (std::isnan(feature[i]) || std::isinf(feature[i])) {
+//         Rcpp::stop("Feature contains NA or infinite values. Please handle them before binning.");
 //       }
-//       if (std::isnan(target[i])) {
-//         Rcpp::stop("Target contains NA values. Please handle them before binning.");
+//       if (std::isnan(target[i]) || std::isinf(target[i])) {
+//         Rcpp::stop("Target contains NA or infinite values. Please handle them before binning.");
+//       }
+//       if (target[i] != 0 && target[i] != 1) {
+//         Rcpp::stop("Target must contain only 0 and 1 values.");
 //       }
 //     }
 //   }
@@ -722,43 +725,23 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //   
 //   // Assign data points to bins and calculate counts
 //   void assign_bins() {
-//     int n = feature.size();
-//     int n_bins = bins.size();
-//     
-//     // Create vectors of bin lower and upper bounds
-//     std::vector<double> bin_lowers(n_bins);
-//     std::vector<double> bin_uppers(n_bins);
-//     for(int i = 0; i < n_bins; ++i) {
-//       bin_lowers[i] = bins[i].lower;
-//       bin_uppers[i] = bins[i].upper;
-//     }
-//     
-//     // Parallel assignment of data points to bins
-// #pragma omp parallel for schedule(static)
-//     for(int i = 0; i < n; ++i) {
+//     for(size_t i = 0; i < feature.size(); ++i) {
 //       double val = feature[i];
 //       double tar = target[i];
-//       // Find the bin index where val belongs
-//       int bin_idx = -1;
-//       for(int j = 0; j < n_bins; ++j) {
-//         if(val > bin_lowers[j] && val <= bin_uppers[j]) {
-//           bin_idx = j;
-//           break;
-//         }
-//       }
-//       if(bin_idx == -1) {
+//       // Find the bin where val belongs
+//       auto it = std::find_if(bins.begin(), bins.end(), [val](const Bin& bin) {
+//         return val > bin.lower && val <= bin.upper;
+//       });
+//       if(it == bins.end()) {
 //         // Assign to the last bin if not found (should not happen)
-//         bin_idx = n_bins - 1;
+//         it = std::prev(bins.end());
 //       }
-//       // Update bin counts atomically
-// #pragma omp atomic
-//       bins[bin_idx].count++;
+//       // Update bin counts
+//       it->count++;
 //       if(tar == 1) {
-// #pragma omp atomic
-//         bins[bin_idx].count_pos++;
+//         it->count_pos++;
 //       } else {
-// #pragma omp atomic
-//         bins[bin_idx].count_neg++;
+//         it->count_neg++;
 //       }
 //     }
 //   }
@@ -913,123 +896,157 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //     }
 //   }
 //   
-//   // Apply WOE to the feature using correct bin assignment
-//   void apply_woe_to_feature() {
-//     woefeature.resize(feature.size());
-//     std::fill(woefeature.begin(), woefeature.end(), 0.0);
-//     
-//     int n = feature.size();
-//     int n_bins = bins.size();
-//     
-//     // Create vectors of bin lower and upper bounds
-//     std::vector<double> bin_lowers(n_bins);
-//     std::vector<double> bin_uppers(n_bins);
-//     for(int i = 0; i < n_bins; ++i) {
-//       bin_lowers[i] = bins[i].lower;
-//       bin_uppers[i] = bins[i].upper;
+//   // Update cutpoints based on current bins
+//   void update_cutpoints() {
+//     cutpoints.clear();
+//     for(size_t i = 1; i < bins.size(); ++i) {
+//       cutpoints.push_back(bins[i].lower);
 //     }
-//     
-//     // Parallel assignment of WOE values
-// #pragma omp parallel for schedule(static)
-//     for(int i = 0; i < n; ++i) {
-//       double val = feature[i];
-//       // Find the bin index where val belongs
-//       int bin_idx = -1;
-//       for(int j = 0; j < n_bins; ++j) {
-//         if(val > bin_lowers[j] && val <= bin_uppers[j]) {
-//           bin_idx = j;
-//           break;
-//         }
-//       }
-//       if(bin_idx == -1) {
-//         // Assign to the last bin if not found (should not happen)
-//         bin_idx = n_bins - 1;
-//       }
-//       woefeature[i] = bins[bin_idx].woe;
-//     }
-//   }
-//   
-//   // Prepare the output DataFrame for WoE bins
-//   void prepare_output() {
-//     size_t n_bins = bins.size();
-//     Rcpp::CharacterVector bin_strings(n_bins);
-//     Rcpp::NumericVector woe_values(n_bins);
-//     Rcpp::NumericVector iv_values(n_bins);
-//     Rcpp::IntegerVector count_values(n_bins);
-//     Rcpp::IntegerVector count_pos_values(n_bins);
-//     Rcpp::IntegerVector count_neg_values(n_bins);
-//     
-//     for(size_t i = 0; i < n_bins; ++i) {
-//       std::ostringstream oss;
-//       oss << "(";
-//       if(std::isinf(bins[i].lower) && bins[i].lower < 0) {
-//         oss << "-Inf";
-//       } else {
-//         oss << bins[i].lower;
-//       }
-//       oss << ";";
-//       if(std::isinf(bins[i].upper)) {
-//         oss << "+Inf";
-//       } else {
-//         oss << bins[i].upper;
-//       }
-//       oss << "]";
-//       bin_strings[i] = oss.str();
-//       
-//       woe_values[i] = bins[i].woe;
-//       iv_values[i] = bins[i].iv;
-//       count_values[i] = bins[i].count;
-//       count_pos_values[i] = bins[i].count_pos;
-//       count_neg_values[i] = bins[i].count_neg;
-//     }
-//     
-//     woebin = Rcpp::DataFrame::create(
-//       Rcpp::Named("bin") = bin_strings,
-//       Rcpp::Named("woe") = woe_values,
-//       Rcpp::Named("iv") = iv_values,
-//       Rcpp::Named("count") = count_values,
-//       Rcpp::Named("count_pos") = count_pos_values,
-//       Rcpp::Named("count_neg") = count_neg_values,
-//       Rcpp::Named("stringsAsFactors") = false
-//     );
 //   }
 //   
 // public:
 //   // Constructor
 //   OptimalBinningNumericalUBSD(const std::vector<double>& feat, const std::vector<double>& targ,
-//                               int min_b, int max_b, double cutoff, int max_prebins) :
+//                               int min_b, int max_b, double cutoff, int max_prebins,
+//                               double conv_threshold, int max_iter) :
 //   feature(feat), target(targ),
 //   min_bins(min_b), max_bins(max_b),
-//   bin_cutoff(cutoff), max_n_prebins(max_prebins) {}
+//   bin_cutoff(cutoff), max_n_prebins(max_prebins),
+//   convergence_threshold(conv_threshold), max_iterations(max_iter),
+//   converged(false), iterations_run(0) {}
 //   
 //   // Fit the binning model
 //   void fit() {
 //     validate_inputs();
+//     
+//     // Check if the number of distinct feature values is less than or equal to min_bins
+//     std::vector<double> unique_values = feature;
+//     std::sort(unique_values.begin(), unique_values.end());
+//     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
+//     
+//     if (unique_values.size() <= static_cast<size_t>(min_bins)) {
+//       // No need to optimize, use unique values as bin boundaries
+//       bins.clear();
+//       for (size_t i = 0; i < unique_values.size(); ++i) {
+//         double lower = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i-1];
+//         double upper = (i == unique_values.size() - 1) ? std::numeric_limits<double>::infinity() : unique_values[i];
+//         bins.emplace_back(lower, upper);
+//       }
+//       assign_bins();
+//       calculate_woe_iv();
+//       update_cutpoints();
+//       converged = true;
+//       iterations_run = 1;
+//       return;
+//     }
+//     
 //     initial_binning();
 //     assign_bins();
 //     merge_bins_by_cutoff();
 //     calculate_woe_iv();
-//     enforce_monotonicity();
 //     
-//     // After enforcing monotonicity, ensure bin count does not exceed max_bins
-//     if(static_cast<int>(bins.size()) > max_bins) {
+//     double prev_total_iv = 0.0;
+//     for (int iter = 0; iter < max_iterations; ++iter) {
+//       enforce_monotonicity();
 //       merge_to_max_bins();
+//       calculate_woe_iv();
+//       
+//       double total_iv = 0.0;
+//       for (const auto& bin : bins) {
+//         total_iv += bin.iv;
+//       }
+//       
+//       if (std::abs(total_iv - prev_total_iv) < convergence_threshold) {
+//         converged = true;
+//         iterations_run = iter + 1;
+//         break;
+//       }
+//       
+//       prev_total_iv = total_iv;
 //     }
 //     
-//     apply_woe_to_feature();
-//     prepare_output();
+//     if (!converged) {
+//       iterations_run = max_iterations;
+//     }
+//     
+//     update_cutpoints();
 //   }
 //   
 //   // Getters for output
-//   std::vector<double> get_woefeature() const {
-//     return woefeature;
+//   std::vector<std::string> get_bin_names() const {
+//     std::vector<std::string> bin_names;
+//     for (const auto& bin : bins) {
+//       std::ostringstream oss;
+//       oss << "(";
+//       if (std::isinf(bin.lower) && bin.lower < 0) {
+//         oss << "-Inf";
+//       } else {
+//         oss << bin.lower;
+//       }
+//       oss << ";";
+//       if (std::isinf(bin.upper)) {
+//         oss << "Inf";
+//       } else {
+//         oss << bin.upper;
+//       }
+//       oss << "]";
+//       bin_names.push_back(oss.str());
+//     }
+//     return bin_names;
 //   }
 //   
-//   Rcpp::DataFrame get_woebin() const {
-//     return woebin;
+//   std::vector<double> get_bin_woe() const {
+//     std::vector<double> woe_values;
+//     for (const auto& bin : bins) {
+//       woe_values.push_back(bin.woe);
+//     }
+//     return woe_values;
+//   }
+//   
+//   std::vector<double> get_bin_iv() const {
+//     std::vector<double> iv_values;
+//     for (const auto& bin : bins) {
+//       iv_values.push_back(bin.iv);
+//     }
+//     return iv_values;
+//   }
+//   
+//   std::vector<int> get_bin_count() const {
+//     std::vector<int> count_values;
+//     for (const auto& bin : bins) {
+//       count_values.push_back(bin.count);
+//     }
+//     return count_values;
+//   }
+//   
+//   std::vector<int> get_bin_count_pos() const {
+//     std::vector<int> count_pos_values;
+//     for (const auto& bin : bins) {
+//       count_pos_values.push_back(bin.count_pos);
+//     }
+//     return count_pos_values;
+//   }
+//   
+//   std::vector<int> get_bin_count_neg() const {
+//     std::vector<int> count_neg_values;
+//     for (const auto& bin : bins) {
+//       count_neg_values.push_back(bin.count_neg);
+//     }
+//     return count_neg_values;
+//   }
+//   
+//   std::vector<double> get_cutpoints() const {
+//     return cutpoints;
+//   }
+//   
+//   bool get_converged() const {
+//     return converged;
+//   }
+//   
+//   int get_iterations_run() const {
+//     return iterations_run;
 //   }
 // };
-// 
 // 
 // //' @title Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation
 // //' 
@@ -1044,10 +1061,19 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 // //' @param max_bins Maximum number of bins (default: 5).
 // //' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
 // //' @param max_n_prebins Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).
+// //' @param convergence_threshold Threshold for convergence of the total IV (default: 1e-6).
+// //' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
 // //' 
-// //' @return A list containing two elements:
-// //' \item{woefeature}{A numeric vector of WoE-transformed feature values.}
-// //' \item{woebin}{A data frame with binning details, including bin boundaries, WoE, IV, and count statistics.}
+// //' @return A list containing the following elements:
+// //' \item{bins}{A character vector of bin names.}
+// //' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
+// //' \item{iv}{A numeric vector of Information Value for each bin.}
+// //' \item{count}{An integer vector of the total count of observations in each bin.}
+// //' \item{count_pos}{An integer vector of the count of positive observations in each bin.}
+// //' \item{count_neg}{An integer vector of the count of negative observations in each bin.}
+// //' \item{cutpoints}{A numeric vector of cut points used to generate the bins.}
+// //' \item{converged}{A logical value indicating whether the algorithm converged.}
+// //' \item{iterations}{An integer value indicating the number of iterations run.}
 // //' 
 // //' @details
 // //' The optimal binning algorithm for numerical variables uses an Unsupervised Binning approach 
@@ -1061,26 +1087,8 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 // //' 4. Calculation of WoE and IV for each bin
 // //' 5. Enforcement of monotonicity in WoE across bins
 // //' 6. Further merging of bins to ensure the number of bins is within the specified range
-// //' 7. Application of WoE transformation to the original feature
 // //' 
-// //' Weight of Evidence (WoE) is calculated for each bin as:
-// //' 
-// //' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-// //' 
-// //' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and 
-// //' \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-// //' 
-// //' Information Value (IV) for each bin is calculated as:
-// //' 
-// //' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) * WoE_i}
-// //' 
-// //' The total IV for the feature is the sum of IVs across all bins:
-// //' 
-// //' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-// //' 
-// //' The UBSD approach ensures that the resulting binning maximizes the separation between 
-// //' classes while maintaining the desired number of bins and respecting the minimum bin 
-// //' frequency constraint.
+// //' The algorithm iterates until convergence is reached or the maximum number of iterations is hit.
 // //' 
 // //' @examples
 // //' \dontrun{
@@ -1094,20 +1102,7 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 // //' result <- optimal_binning_numerical_ubsd(target, feature, min_bins = 3, max_bins = 5)
 // //' 
 // //' # View binning results
-// //' print(result$woebin)
-// //' 
-// //' # Plot WoE transformation
-// //' plot(feature, result$woefeature, main = "WoE Transformation", 
-// //'      xlab = "Original Feature", ylab = "WoE")
-// //' }
-// //' 
-// //' @references
-// //' \itemize{
-// //' \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent survey. 
-// //'       GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
-// //' \item Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised 
-// //'       discretization of continuous features. In Machine Learning Proceedings 1995 
-// //'       (pp. 194-202). Morgan Kaufmann.
+// //' print(result)
 // //' }
 // //' 
 // //' @export
@@ -1117,7 +1112,9 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //                                          int min_bins = 3,
 //                                          int max_bins = 5,
 //                                          double bin_cutoff = 0.05,
-//                                          int max_n_prebins = 20) {
+//                                          int max_n_prebins = 20,
+//                                          double convergence_threshold = 1e-6,
+//                                          int max_iterations = 1000) {
 //  // Check for NA values
 //  if(Rcpp::any(Rcpp::is_na(target))) {
 //    Rcpp::stop("Target vector contains NA values. Please remove or impute them before binning.");
@@ -1133,12 +1130,20 @@ Rcpp::List optimal_binning_numerical_ubsd(Rcpp::NumericVector target,
 //  // Instantiate and fit the binning model
 //  OptimalBinningNumericalUBSD binning_model(std_feature, std_target,
 //                                            min_bins, max_bins,
-//                                            bin_cutoff, max_n_prebins);
+//                                            bin_cutoff, max_n_prebins,
+//                                            convergence_threshold, max_iterations);
 //  binning_model.fit();
 //  
 //  // Prepare the output list
 //  return Rcpp::List::create(
-//    Rcpp::Named("woefeature") = binning_model.get_woefeature(),
-//    Rcpp::Named("woebin") = binning_model.get_woebin()
+//    Rcpp::Named("bin") = binning_model.get_bin_names(),
+//    Rcpp::Named("woe") = binning_model.get_bin_woe(),
+//    Rcpp::Named("iv") = binning_model.get_bin_iv(),
+//    Rcpp::Named("count") = binning_model.get_bin_count(),
+//    Rcpp::Named("count_pos") = binning_model.get_bin_count_pos(),
+//    Rcpp::Named("count_neg") = binning_model.get_bin_count_neg(),
+//    Rcpp::Named("cutpoints") = binning_model.get_cutpoints(),
+//    Rcpp::Named("converged") = binning_model.get_converged(),
+//    Rcpp::Named("iterations") = binning_model.get_iterations_run()
 //  );
 // }

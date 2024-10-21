@@ -63,15 +63,12 @@ The algorithm works through several steps:
 }
 
 The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-to handle cases with zero counts:
-
+to handle cases with zero counts
 \deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
-
 where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
 and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
 
 The Information Value (IV) for each bin is calculated as:
-
 \deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
 
 The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.

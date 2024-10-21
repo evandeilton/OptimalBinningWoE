@@ -90,5 +90,5 @@ In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.
 }
 }
 \author{
-Lopes, J. E.
+Lopes, J.
 }

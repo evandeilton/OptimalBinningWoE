@@ -68,11 +68,20 @@ public:
       std::sort(unique_values.begin(), unique_values.end());
       unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
       
-      // If number of unique values is less than or equal to min_bins, use them as-is
-      if (unique_values.size() <= static_cast<size_t>(min_bins)) {
-        bin_edges = unique_values;
-        bin_edges.insert(bin_edges.begin(), -std::numeric_limits<double>::infinity());
-        bin_edges.push_back(std::numeric_limits<double>::infinity());
+      // If number of unique values is less than or equal to 2, do not optimize or create extra bins
+      if (unique_values.size() <= 2) {
+        bin_edges.clear();
+        if (unique_values.size() == 1) {
+          // All values are the same, single bin
+          bin_edges.push_back(-std::numeric_limits<double>::infinity());
+          bin_edges.push_back(std::numeric_limits<double>::infinity());
+        } else {
+          // Two unique values, use the minimum value as the cutpoint
+          double min_val = unique_values[0];
+          bin_edges.push_back(-std::numeric_limits<double>::infinity());
+          bin_edges.push_back(min_val);
+          bin_edges.push_back(std::numeric_limits<double>::infinity());
+        }
       } else {
         prebin_data();
         merge_bins();
@@ -272,7 +281,6 @@ private:
   void enforce_monotonicity() {
     bool monotonic = false;
     while (!monotonic && bin_edges.size() - 1 > min_bins) {
-      monotonic = true;
       calculate_woe_iv();
       bool is_increasing = woe_values.front() <= woe_values.back();
       for (size_t i = 1; i < woe_values.size(); ++i) {
@@ -282,6 +290,9 @@ private:
           monotonic = false;
           break;
         }
+      }
+      if (monotonic) {
+        break;
       }
     }
     calculate_woe_iv();
@@ -435,8 +446,6 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 
 
 
-
-
 // // [[Rcpp::plugins(cpp11)]]
 // 
 // #include <Rcpp.h>
@@ -447,6 +456,7 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 // #include <numeric>
 // #include <sstream>
 // #include <iomanip>
+// #include <stdexcept>
 // 
 // using namespace Rcpp;
 // 
@@ -467,6 +477,10 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //   std::vector<int> count_neg_values;
 //   double total_iv;
 //   bool is_monotonic_increasing;
+//   double convergence_threshold;
+//   int max_iterations;
+//   bool converged;
+//   int iterations_run;
 //   
 // public:
 //   OptimalBinningNumericalOSLP(const std::vector<double>& feature,
@@ -474,7 +488,9 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //                               int min_bins = 3,
 //                               int max_bins = 5,
 //                               double bin_cutoff = 0.05,
-//                               int max_n_prebins = 20) {
+//                               int max_n_prebins = 20,
+//                               double convergence_threshold = 1e-6,
+//                               int max_iterations = 1000) {
 //     this->feature = feature;
 //     this->target = target;
 //     this->min_bins = std::max(min_bins, 2);
@@ -483,31 +499,40 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //     this->max_n_prebins = max_n_prebins;
 //     this->total_iv = 0.0;
 //     this->is_monotonic_increasing = true;
+//     this->convergence_threshold = convergence_threshold;
+//     this->max_iterations = max_iterations;
+//     this->converged = false;
+//     this->iterations_run = 0;
 //   }
 //   
-//   void fit() {
-//     prebin_data();
-//     merge_bins();
-//     calculate_woe_iv();
-//     enforce_monotonicity();
-//   }
-//   
-//   Rcpp::List transform() {
-//     std::vector<double> woefeature = apply_woe();
-//     
-//     DataFrame woebin = DataFrame::create(
-//       Named("bin") = bin_labels,
-//       Named("woe") = woe_values,
-//       Named("iv") = iv_values,
-//       Named("count") = count_values,
-//       Named("count_pos") = count_pos_values,
-//       Named("count_neg") = count_neg_values
-//     );
-//     
-//     return List::create(
-//       Named("woefeature") = woefeature,
-//       Named("woebin") = woebin
-//     );
+//   Rcpp::List fit() {
+//     try {
+//       if (feature.size() != target.size()) {
+//         throw std::runtime_error("Feature and target vectors must have the same length.");
+//       }
+//       
+//       // Get unique sorted feature values
+//       std::vector<double> unique_values = feature;
+//       std::sort(unique_values.begin(), unique_values.end());
+//       unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
+//       
+//       // If number of unique values is less than or equal to min_bins, use them as-is
+//       if (unique_values.size() <= static_cast<size_t>(min_bins)) {
+//         bin_edges = unique_values;
+//         bin_edges.insert(bin_edges.begin(), -std::numeric_limits<double>::infinity());
+//         bin_edges.push_back(std::numeric_limits<double>::infinity());
+//       } else {
+//         prebin_data();
+//         merge_bins();
+//       }
+//       
+//       calculate_woe_iv();
+//       enforce_monotonicity();
+//       
+//       return create_output();
+//     } catch (const std::exception& e) {
+//       Rcpp::stop("Error in OptimalBinningNumericalOSLP: " + std::string(e.what()));
+//     }
 //   }
 //   
 // private:
@@ -515,9 +540,7 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //     // Get unique sorted feature values
 //     std::vector<double> unique_values = feature;
 //     std::sort(unique_values.begin(), unique_values.end());
-//     unique_values.erase(std::unique(unique_values.begin(),
-//                                     unique_values.end()),
-//                                     unique_values.end());
+//     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
 //     int n_unique = unique_values.size();
 //     int n_prebins = std::min(max_n_prebins, n_unique);
 //     
@@ -530,8 +553,7 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //     // Determine cut points based on quantiles
 //     std::vector<double> cuts(n_prebins + 1);
 //     for (int i = 0; i <= n_prebins; ++i) {
-//       int index = std::min(static_cast<int>(quantiles[i] * (n_unique - 1)),
-//                            n_unique - 1);
+//       int index = std::min(static_cast<int>(quantiles[i] * (n_unique - 1)), n_unique - 1);
 //       cuts[i] = unique_values[index];
 //     }
 //     
@@ -548,19 +570,34 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //   
 //   void merge_bins() {
 //     bool bins_acceptable = false;
-//     while (!bins_acceptable &&
-//            (bin_edges.size() - 1 > min_bins)) {
+//     double prev_total_iv = 0.0;
+//     iterations_run = 0;
+//     
+//     while (!bins_acceptable && 
+//            (bin_edges.size() - 1 > min_bins) && 
+//            (iterations_run < max_iterations)) {
 //       calculate_woe_iv();
 //       bins_acceptable = check_bin_counts();
+//       
 //       if (!bins_acceptable) {
 //         merge_adjacent_bins();
 //       }
+//       
+//       // Check for convergence
+//       if (std::abs(total_iv - prev_total_iv) < convergence_threshold) {
+//         converged = true;
+//         break;
+//       }
+//       
+//       prev_total_iv = total_iv;
+//       iterations_run++;
 //     }
+//     
 //     // Ensure we do not exceed max_bins
 //     while (bin_edges.size() - 1 > max_bins) {
 //       merge_adjacent_bins();
+//       calculate_woe_iv();
 //     }
-//     calculate_woe_iv();
 //   }
 //   
 //   void merge_adjacent_bins() {
@@ -659,10 +696,8 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //       }
 //     }
 //     
-//     double total_pos = std::accumulate(counts_pos.begin(),
-//                                        counts_pos.end(), 0.0);
-//     double total_neg = std::accumulate(counts_neg.begin(),
-//                                        counts_neg.end(), 0.0);
+//     double total_pos = std::accumulate(counts_pos.begin(), counts_pos.end(), 0.0);
+//     double total_neg = std::accumulate(counts_neg.begin(), counts_neg.end(), 0.0);
 //     
 //     for (int i = 0; i < n_bins; ++i) {
 //       double pos_count = counts_pos[i];
@@ -700,23 +735,6 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //     calculate_woe_iv();
 //   }
 //   
-//   std::vector<double> apply_woe() {
-//     int n = feature.size();
-//     std::vector<double> woefeature(n);
-//     
-//     for (int i = 0; i < n; ++i) {
-//       double val = feature[i];
-//       int bin_idx = find_bin(bin_edges, val);
-//       if (bin_idx >= 0 && bin_idx < static_cast<int>(woe_values.size())) {
-//         woefeature[i] = woe_values[bin_idx];
-//       } else {
-//         woefeature[i] = 0.0;
-//       }
-//     }
-//     
-//     return woefeature;
-//   }
-//   
 //   int find_bin(const std::vector<double>& edges, double val) {
 //     auto it = std::lower_bound(edges.begin(), edges.end(), val);
 //     int idx = std::distance(edges.begin(), it) - 1;
@@ -746,6 +764,22 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //       return oss.str();
 //     }
 //   }
+//   
+//   Rcpp::List create_output() {
+//     std::vector<double> cutpoints(bin_edges.begin() + 1, bin_edges.end() - 1);
+//     
+//     return Rcpp::List::create(
+//       Rcpp::Named("bin") = bin_labels,
+//       Rcpp::Named("woe") = woe_values,
+//       Rcpp::Named("iv") = iv_values,
+//       Rcpp::Named("count") = count_values,
+//       Rcpp::Named("count_pos") = count_pos_values,
+//       Rcpp::Named("count_neg") = count_neg_values,
+//       Rcpp::Named("cutpoints") = cutpoints,
+//       Rcpp::Named("converged") = converged,
+//       Rcpp::Named("iterations") = iterations_run
+//     );
+//   }
 // };
 // 
 // //' @title Optimal Binning for Numerical Variables using OSLP
@@ -762,10 +796,19 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 // //'   to avoid being merged (default: 0.05, must be in (0, 1)).
 // //' @param max_n_prebins Maximum number of pre-bins before optimization
 // //'   (default: 20).
+// //' @param convergence_threshold Threshold for convergence (default: 1e-6).
+// //' @param max_iterations Maximum number of iterations (default: 1000).
 // //'
 // //' @return A list containing:
-// //' \item{woefeature}{Numeric vector of WoE values for each observation.}
-// //' \item{woebin}{Data frame with binning information.}
+// //' \item{bins}{Character vector of bin labels.}
+// //' \item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
+// //' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
+// //' \item{count}{Integer vector of total count of observations in each bin.}
+// //' \item{count_pos}{Integer vector of positive class count in each bin.}
+// //' \item{count_neg}{Integer vector of negative class count in each bin.}
+// //' \item{cutpoints}{Numeric vector of cutpoints used to create the bins.}
+// //' \item{converged}{Logical value indicating whether the algorithm converged.}
+// //' \item{iterations}{Integer value indicating the number of iterations run.}
 // //'
 // //' @examples
 // //' \dontrun{
@@ -780,7 +823,7 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 // //'                                          min_bins = 2, max_bins = 4)
 // //'
 // //' # Print results
-// //' print(result$woebin)
+// //' print(result)
 // //' }
 // //' @export
 // // [[Rcpp::export]]
@@ -789,17 +832,45 @@ Rcpp::List optimal_binning_numerical_oslp(Rcpp::NumericVector target,
 //                                          int min_bins = 3,
 //                                          int max_bins = 5,
 //                                          double bin_cutoff = 0.05,
-//                                          int max_n_prebins = 20) {
-//  std::vector<double> feature_vec(feature.begin(), feature.end());
-//  std::vector<double> target_vec(target.begin(), target.end());
+//                                          int max_n_prebins = 20,
+//                                          double convergence_threshold = 1e-6,
+//                                          int max_iterations = 1000) {
+//  // Input validation
+//  if (target.size() != feature.size()) {
+//    Rcpp::stop("Target and feature vectors must have the same length.");
+//  }
+//  if (min_bins < 2) {
+//    Rcpp::stop("min_bins must be at least 2.");
+//  }
+//  if (max_bins < min_bins) {
+//    Rcpp::stop("max_bins must be greater than or equal to min_bins.");
+//  }
+//  if (bin_cutoff <= 0 || bin_cutoff >= 1) {
+//    Rcpp::stop("bin_cutoff must be between 0 and 1.");
+//  }
+//  if (max_n_prebins < min_bins) {
+//    Rcpp::stop("max_n_prebins must be at least equal to min_bins.");
+//  }
+//  if (convergence_threshold <= 0) {
+//    Rcpp::stop("convergence_threshold must be positive.");
+//  }
+//  if (max_iterations <= 0) {
+//    Rcpp::stop("max_iterations must be positive.");
+//  }
 //  
-//  OptimalBinningNumericalOSLP binning(feature_vec, target_vec,
-//                                      min_bins, max_bins,
-//                                      bin_cutoff, max_n_prebins);
-//  binning.fit();
-//  
-//  Rcpp::List result = binning.transform();
-//  
-//  return result;
+//  try {
+//    std::vector<double> feature_vec(feature.begin(), feature.end());
+//    std::vector<double> target_vec(target.begin(), target.end());
+//    
+//    OptimalBinningNumericalOSLP binning(feature_vec, target_vec,
+//                                        min_bins, max_bins,
+//                                        bin_cutoff, max_n_prebins,
+//                                        convergence_threshold, max_iterations);
+//    
+//    Rcpp::List result = binning.fit();
+//    
+//    return result;
+//  } catch (const std::exception& e) {
+//    Rcpp::stop("Error in optimal_binning_numerical_oslp: " + std::string(e.what()));
+//  }
 // }
-

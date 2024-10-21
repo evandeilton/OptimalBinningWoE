@@ -34,7 +34,7 @@ optimal_binning_numerical_mob(
 }
 \value{
 A list containing the following elements:
-\item{bins}{A character vector of bin labels}
+\item{bin}{A character vector of bin labels}
 \item{woe}{A numeric vector of Weight of Evidence values for each bin}
 \item{iv}{A numeric vector of Information Value for each bin}
 \item{count}{An integer vector of total count of observations in each bin}

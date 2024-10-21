@@ -1332,7 +1332,7 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' 
 #' @return A list containing the following elements:
 #' \itemize{
-#'   \item bins: Character vector of bin ranges.
+#'   \item bin: Character vector of bin ranges.
 #'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
 #'   \item iv: Numeric vector of Information Value (IV) for each bin.
 #'   \item count: Integer vector of total observations in each bin.
@@ -1341,16 +1341,16 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #'   \item cutpoints: Numeric vector of cutpoints between bins.
 #'   \item converged: Logical indicating whether the algorithm converged.
 #'   \item iterations: Number of iterations run.
-#'   \item total_iv: Total Information Value (IV) for the feature.
 #' }
 #' 
 #' @details
 #' The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
-#' 1. Create initial bins using equal-frequency binning.
-#' 2. Merge low-frequency bins (those with a proportion less than \code{bin_cutoff}).
-#' 3. Ensure the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
-#' 4. Apply isotonic regression to smooth the positive rates across bins.
-#' 5. Calculate Weight of Evidence (WoE) and Information Value (IV) for each bin.
+#' 1. If the number of unique values in the feature is less than or equal to 2, the algorithm does not perform optimization or additional binning. It directly calculates the metrics based on the unique values.
+#' 2. Otherwise, it creates initial bins using equal-frequency binning.
+#' 3. Merges low-frequency bins (those with a proportion less than \code{bin_cutoff}).
+#' 4. Ensures the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
+#' 5. Applies isotonic regression to smooth the positive rates across bins.
+#' 6. Calculates Weight of Evidence (WoE) and Information Value (IV) for each bin.
 #' 
 #' @examples
 #' \dontrun{
@@ -1413,15 +1413,12 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' 6. Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.
 #'
 #' The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-#' to handle cases with zero counts:
-#'
+#' to handle cases with zero counts
 #' \deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
-#'
 #' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
 #' and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
 #'
 #' The Information Value (IV) for each bin is calculated as:
-#'
 #' \deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
 #'
 #' The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
@@ -1574,7 +1571,13 @@ optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_b
 #' \item{iterations}{Integer indicating the number of iterations the algorithm ran before convergence or stopping.}
 #'
 #' @examples
-#' # Example of usage with synthetic data
+#' # Example with exactly 2 unique values
+#' feature <- c(1, 1, 2, 2, 1, 2)
+#' target <- c(0, 1, 0, 1, 0, 1)
+#' result <- optimal_binning_numerical_mblp(target, feature)
+#' print(result)
+#'
+#' # Example with more unique values
 #' set.seed(123)
 #' feature <- rnorm(1000)
 #' target <- rbinom(1000, 1, 0.3)
@@ -1619,7 +1622,7 @@ optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_b
 #' @param max_iterations Maximum number of iterations for the binning process (default: 1000)
 #'
 #' @return A list containing the following elements:
-#'   \item{bins}{A character vector of bin labels}
+#'   \item{bin}{A character vector of bin labels}
 #'   \item{woe}{A numeric vector of Weight of Evidence values for each bin}
 #'   \item{iv}{A numeric vector of Information Value for each bin}
 #'   \item{count}{An integer vector of total count of observations in each bin}
@@ -1711,7 +1714,7 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' \item Zeng, Y. (2014). "Optimal Binning for Scoring Modeling." Computational Economics, 44(1), 137-149.
 #' }
 #'
-#' @author Lopes, J. E.
+#' @author Lopes, J.
 #'
 #' @export
 optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
@@ -1829,11 +1832,11 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 }
 
 #' Optimal Binning for Numerical Variables using Unsupervised Decision Trees
-#' 
-#' This function implements an optimal binning algorithm for numerical variables 
-#' using an Unsupervised Decision Tree (UDT) approach with Weight of Evidence (WoE) 
+#'
+#' This function implements an optimal binning algorithm for numerical variables
+#' using an Unsupervised Decision Tree (UDT) approach with Weight of Evidence (WoE)
 #' and Information Value (IV) criteria.
-#' 
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -1842,7 +1845,7 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #' @param max_n_prebins Maximum number of pre-bins for initial quantile-based discretization (default: 20).
 #' @param convergence_threshold Threshold for convergence of the optimization process (default: 1e-6).
 #' @param max_iterations Maximum number of iterations for the optimization process (default: 1000).
-#' 
+#'
 #' @return A list containing binning details:
 #' \item{bins}{A character vector of bin intervals.}
 #' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
@@ -1853,19 +1856,19 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #' \item{cutpoints}{A numeric vector of cut points between bins.}
 #' \item{converged}{A logical value indicating whether the algorithm converged.}
 #' \item{iterations}{An integer value of the number of iterations run.}
-#' 
+#'
 #' @details
-#' The optimal binning algorithm for numerical variables uses an Unsupervised Decision Tree 
-#' approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that 
+#' The optimal binning algorithm for numerical variables uses an Unsupervised Decision Tree
+#' approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that
 #' maximize the predictive power of the feature while maintaining interpretability.
-#' 
+#'
 #' The algorithm follows these steps:
 #' 1. Initial discretization using quantile-based binning
 #' 2. Merging of rare bins based on the bin_cutoff parameter
 #' 3. Bin optimization using IV and WoE criteria
 #' 4. Enforcement of monotonicity in WoE across bins
 #' 5. Adjustment of the number of bins to be within the specified range
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Generate sample data
@@ -1873,14 +1876,14 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #' n <- 10000
 #' feature <- rnorm(n)
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#' 
+#'
 #' # Apply optimal binning
 #' result <- optimal_binning_numerical_udt(target, feature, min_bins = 3, max_bins = 5)
-#' 
+#'
 #' # View binning results
 #' print(result)
 #' }
-#' 
+#'
 #' @export
 optimal_binning_numerical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
