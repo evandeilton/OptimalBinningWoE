@@ -10,7 +10,7 @@ obwoe(
   features = NULL,
   min_bins = 3,
   max_bins = 4,
-  method = "fetb",
+  method = "jedi",
   positive = "bad|1",
   preprocess = TRUE,
   progress = TRUE,

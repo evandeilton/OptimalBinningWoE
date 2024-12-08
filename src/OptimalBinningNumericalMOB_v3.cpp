@@ -432,8 +432,10 @@ private:
 };
 
 
+//' @title 
 //' Perform Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)
 //'
+//' @description
 //' This function implements the Monotonic Optimal Binning algorithm for numerical features.
 //' It creates optimal bins while maintaining monotonicity in the Weight of Evidence (WoE) values.
 //'

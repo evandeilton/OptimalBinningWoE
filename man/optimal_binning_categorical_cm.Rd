@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_cm}
 \alias{optimal_binning_categorical_cm}
-\title{Optimal Binning for Categorical Variables (Refined)}
+\title{Optimal Binning for Categorical Variables by Chi-Merge}
 \usage{
 optimal_binning_categorical_cm(
   target,
@@ -17,58 +17,73 @@ optimal_binning_categorical_cm(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro com valores binários (0 ou 1) da variável resposta.}
+\item{target}{Integer vector of binary target values (0 or 1).}
 
-\item{feature}{Vetor de caracteres com valores categóricos da variável explicativa.}
+\item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para um bin separado (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes do merging (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{bin_separator}{Separador para concatenar nomes de categorias em cada bin (default: "\%;\%").}
+\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite para convergência da diferença de Qui-quadrado (default: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence in Chi-square difference (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações para mesclagem de bins (default: 1000).}
+\item{max_iterations}{Maximum number of iterations for bin merging (default: 1000).}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bin: Vetor com os nomes dos bins (categorias concatenadas).
-\item woe: Vetor com os valores de Weight of Evidence de cada bin.
-\item iv: Vetor com os valores de Information Value de cada bin.
-\item count: Vetor com as contagens totais de cada bin.
-\item count_pos: Vetor com as contagens de casos positivos (target=1) em cada bin.
-\item count_neg: Vetor com as contagens de casos negativos (target=0) em cada bin.
-\item converged: Booleano indicando se o algoritmo convergiu.
-\item iterations: Número de iterações executadas.
+\item bin: Vector of bin names (concatenated categories).
+\item woe: Vector of Weight of Evidence values for each bin.
+\item iv: Vector of Information Value for each bin.
+\item count: Vector of total counts for each bin.
+\item count_pos: Vector of positive class counts for each bin.
+\item count_neg: Vector of negative class counts for each bin.
+\item converged: Boolean indicating whether the algorithm converged.
+\item iterations: Number of iterations run.
 }
 }
 \description{
-Implementa binning ótimo para variáveis categóricas utilizando o algoritmo Chi-Merge,
-calculando WoE (Weight of Evidence) e IV (Information Value) para os bins resultantes.
-Este código foi aprimorado para melhor legibilidade, eficiência e robustez, mantendo a
-compatibilidade de tipos e nomes de entrada/saída.
+Implements optimal binning for categorical variables using the Chi-Merge algorithm,
+calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
 }
 \details{
-O algoritmo utiliza estatísticas de Qui-quadrado para mesclar bins adjacentes até atingir
-max_bins ou não haver mais merges vantajosos. Após mesclar categorias raras, pré-binagem,
-e assegurar min_bins, o código aplica monotonicidade no WoE, ajustando os bins conforme necessário.
+The algorithm uses Chi-square statistics to merge adjacent bins:
 
-Fórmulas:
 \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-\deqn{IV = (P(X|Y=1)-P(X|Y=0))*WoE}
+
+where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+for bin i and class j.
+
+Weight of Evidence (WoE) for each bin:
+
+\deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
+
+Information Value (IV) for each bin:
+
+\deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+
+The algorithm initializes bins for each category, merges rare categories based on
+bin_cutoff, and then iteratively merges bins with the lowest chi-square
+until max_bins is reached or no further merging is possible. It determines the
+direction of monotonicity based on the initial trend and enforces it, allowing
+deviations if min_bins constraints are triggered.
 }
 \examples{
 \dontrun{
+# Example data
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+
+# Run optimal binning
 result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
+
+# View results
 print(result)
 }
 

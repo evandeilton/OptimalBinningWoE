@@ -16,35 +16,91 @@ optimal_binning_numerical_lpdb(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1).}
+\item{target}{An integer binary vector (0 or 1) representing the response variable.}
 
-\item{feature}{Vetor numérico a ser binned.}
+\item{feature}{A numeric vector representing the feature to be binned.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins to be created (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins allowed (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima por bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency proportion for retaining a bin (default: 0.05).}
 
-\item{max_n_prebins}{Máximo de pré-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
-\item{convergence_threshold}{Limite de convergência (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
 
-\item{max_iterations}{Máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations allowed for optimization (default: 1000).}
 }
 \value{
-Uma lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
+A list containing the following elements:
+\itemize{
+\item \code{bin}: A vector of bin intervals in the format "[lower;upper)".
+\item \code{woe}: A numeric vector of WoE values for each bin.
+\item \code{iv}: A numeric vector of IV contributions for each bin.
+\item \code{count}: An integer vector of the total number of observations per bin.
+\item \code{count_pos}: An integer vector of the number of positive cases per bin.
+\item \code{count_neg}: An integer vector of the number of negative cases per bin.
+\item \code{cutpoints}: A numeric vector of the cutpoints defining the bin edges.
+\item \code{converged}: A boolean indicating whether the algorithm converged.
+\item \code{iterations}: An integer indicating the number of iterations executed.
+}
 }
 \description{
-Implementa o algoritmo Local Polynomial Density Binning (LPDB) para binning ótimo de variáveis numéricas.
+Implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
+The method creates bins that maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE).
+It handles rare bins, ensures numerical stability, and provides flexibility through various customizable parameters.
+}
+\details{
+\subsection{Key Steps:}{
+\enumerate{
+\item \strong{Input Validation}: Ensures the \code{feature} and \code{target} vectors are valid, checks binary nature of the \code{target} vector,
+and removes missing values (\code{NA}).
+\item \strong{Pre-Binning}: Divides the feature into preliminary bins using quantile-based partitioning or unique values.
+\item \strong{Calculation of WoE and IV}: Computes the WoE and Information Value (IV) for each bin based on the target distribution.
+\item \strong{Monotonicity Enforcement}: Adjusts bins iteratively to ensure monotonicity in WoE values, either increasing or decreasing.
+\item \strong{Rare Bin Merging}: Merges bins with frequencies below the \code{bin_cutoff} threshold to ensure statistical stability.
+\item \strong{Validation}: Ensures bins are non-overlapping, cover the entire range of the feature, and are consistent with constraints on \code{min_bins} and \code{max_bins}.
+}
+}
+
+\subsection{Mathematical Framework:}{
+\itemize{
+\item \strong{Weight of Evidence (WoE)}: For a bin \( i \):
+\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+\item \strong{Information Value (IV)}: Aggregates the predictive power across all bins:
+\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+}
+}
+
+\subsection{Features:}{
+\itemize{
+\item \strong{Monotonicity}: Ensures the WoE values are either strictly increasing or decreasing across bins.
+\item \strong{Rare Bin Handling}: Merges bins with low frequencies to maintain statistical reliability.
+\item \strong{Numerical Stability}: Incorporates small constants to avoid division by zero or undefined logarithms.
+\item \strong{Flexibility}: Supports custom definitions for minimum and maximum bins, convergence thresholds, and iteration limits.
+\item \strong{Output Metadata}: Provides detailed bin information, including WoE, IV, and cutpoints for interpretability and downstream analysis.
+}
+}
+
+\subsection{Parameters:}{
+\itemize{
+\item \code{min_bins}: Minimum number of bins to be created (default: 3).
+\item \code{max_bins}: Maximum number of bins allowed (default: 5).
+\item \code{bin_cutoff}: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
+\item \code{max_n_prebins}: Maximum number of pre-bins before optimization (default: 20).
+\item \code{convergence_threshold}: Threshold for determining convergence in terms of IV changes (default: 1e-6).
+\item \code{max_iterations}: Maximum number of iterations allowed for binning optimization (default: 1000).
+}
+}
 }
 \examples{
 \dontrun{
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
-result <- optimal_binning_numerical_lpdb(target, feature)
-print(result$bins)
+result <- optimal_binning_numerical_lpdb(target, feature, min_bins = 3, max_bins = 6)
+print(result$bin)
 print(result$woe)
 print(result$iv)
 }

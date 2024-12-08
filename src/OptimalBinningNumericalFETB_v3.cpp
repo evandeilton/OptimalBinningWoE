@@ -418,7 +418,9 @@ List OptimalBinningNumericalFETB::performBinning() {
 //' @title Optimal Binning for Numerical Variables using Fisher's Exact Test (FETB)
 //'
 //' @description
-//' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It attempts to create an optimal set of bins for a given numerical feature based on its relationship with a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
+//' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. 
+//' It attempts to create an optimal set of bins for a given numerical feature based on its relationship with 
+//' a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
 //'
 //' @param target A numeric vector of binary target values (0 or 1).
 //' @param feature A numeric vector of feature values to be binned.

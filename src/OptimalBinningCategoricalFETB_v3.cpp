@@ -380,8 +380,9 @@ public:
 };
 
 
-//' Categorical Optimal Binning with Fisher's Exact Test
+//' @title Categorical Optimal Binning with Fisher's Exact Test
 //'
+//' @description
 //' Implements optimal binning for categorical variables using Fisher's Exact Test,
 //' calculating Weight of Evidence (WoE) and Information Value (IV).
 //'

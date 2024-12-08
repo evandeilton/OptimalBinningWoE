@@ -17,29 +17,65 @@ optimal_binning_numerical_bb(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{An integer binary vector (0 or 1) representing the target variable.}
 
-\item{feature}{A numeric vector of feature values.}
+\item{feature}{A numeric vector of feature values to be binned.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Minimum number of bins to generate (default: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Maximum number of bins to generate (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency cutoff for each bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency fraction for each bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins generated before optimization (default: 20).}
 
-\item{is_monotonic}{Whether to enforce monotonic WoE (default: TRUE).}
+\item{is_monotonic}{Logical value indicating whether to enforce monotonicity in WoE (default: TRUE).}
 
-\item{convergence_threshold}{Convergence threshold for IV (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for total Information Value (IV) change (default: 1e-6).}
 
-\item{max_iterations}{Maximum iterations (default: 1000).}
+\item{max_iterations}{Maximum number of iterations allowed for the optimization process (default: 1000).}
 }
 \value{
-A list with binning details and statistics.
+A list containing:
+\item{bin}{Character vector with the intervals of each bin (e.g., \verb{(-Inf; 0]}, \verb{(0; +Inf)}).}
+\item{woe}{Numeric vector with the WoE values for each bin.}
+\item{iv}{Numeric vector with the IV values for each bin.}
+\item{count}{Integer vector with the total number of observations in each bin.}
+\item{count_pos}{Integer vector with the number of positive observations in each bin.}
+\item{count_neg}{Integer vector with the number of negative observations in each bin.}
+\item{cutpoints}{Numeric vector of cut points between bins (excluding infinity).}
+\item{converged}{Logical value indicating whether the algorithm converged.}
+\item{iterations}{Number of iterations executed by the optimization algorithm.}
 }
 \description{
-This function optimizes numerical variable binning using a Branch and Bound approach, ensuring stable and high-quality bins for predictive modeling.
+Performs optimal binning for numerical variables using a Branch and Bound approach.
+This method generates stable, high-quality bins while balancing interpretability and predictive power.
+It ensures monotonicity in the Weight of Evidence (WoE), if requested, and guarantees that bins meet
+user-defined constraints, such as minimum frequency and number of bins.
+}
+\details{
+The algorithm executes the following steps:
+\enumerate{
+\item \strong{Input Validation}: Ensures that inputs meet the requirements, such as compatible vector lengths
+and valid parameter ranges.
+\item \strong{Pre-Binning}:
+\itemize{
+\item If the feature has 2 or fewer unique values, assigns them directly to bins.
+\item Otherwise, generates quantile-based pre-bins, ensuring sufficient granularity.
+}
+\item \strong{Rare Bin Merging}: Combines bins with frequencies below \code{bin_cutoff} with neighboring bins to
+ensure robustness and statistical reliability.
+\item \strong{WoE and IV Calculation}:
+\itemize{
+\item Weight of Evidence (WoE): \eqn{\log(\text{Dist}_{\text{pos}} / \text{Dist}_{\text{neg}})}
+\item Information Value (IV): \eqn{\sum (\text{Dist}_{\text{pos}} - \text{Dist}_{\text{neg}}) \times \text{WoE}}
+}
+\item \strong{Monotonicity Enforcement (Optional)}: Merges bins iteratively to ensure that WoE values follow a
+consistent increasing or decreasing trend, if \code{is_monotonic = TRUE}.
+\item \strong{Branch and Bound Optimization}: Iteratively merges bins with the smallest IV until the number of
+bins meets the \code{max_bins} constraint or IV change falls below \code{convergence_threshold}.
+\item \strong{Convergence Check}: Stops the process when the algorithm converges or reaches \code{max_iterations}.
+}
 }
 \examples{
 \dontrun{
@@ -47,6 +83,7 @@ set.seed(123)
 n <- 10000
 feature <- rnorm(n)
 target <- rbinom(n, 1, plogis(0.5 * feature))
+
 result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
 print(result)
 }

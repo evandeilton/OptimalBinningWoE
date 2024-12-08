@@ -17,57 +17,57 @@ optimal_binning_categorical_sblp(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) representando a variável resposta.}
+\item{target}{Integer binary vector (0 or 1) representing the response variable.}
 
-\item{feature}{Vetor de caracteres com as categorias da variável explicativa.}
+\item{feature}{Character vector with the categories of the explanatory variable.}
 
-\item{min_bins}{Número mínimo de bins (padrão: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (padrão: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Proporção mínima de frequência para que uma categoria seja considerada um bin separado (padrão: 0.05).}
+\item{bin_cutoff}{Minimum frequency proportion for a category to be considered as a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes do processo de partição (padrão: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before the partitioning process (default: 20).}
 
-\item{convergence_threshold}{Limite para convergência do algoritmo (padrão: 1e-6).}
+\item{convergence_threshold}{Threshold for algorithm convergence (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações do algoritmo (padrão: 1000).}
+\item{max_iterations}{Maximum number of iterations of the algorithm (default: 1000).}
 
-\item{bin_separator}{Separador utilizado para concatenar nomes de categorias nos bins (padrão: ";").}
+\item{bin_separator}{Separator used to concatenate category names within bins (default: ";").}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bin: Vetor de strings com os nomes dos bins (categorias concatenadas).
-\item woe: Vetor numérico com os valores de Weight of Evidence (WoE) para cada bin.
-\item iv: Vetor numérico com os valores de Information Value (IV) para cada bin.
-\item count: Vetor inteiro com a contagem total de observações em cada bin.
-\item count_pos: Vetor inteiro com a contagem de casos positivos (target=1) em cada bin.
-\item count_neg: Vetor inteiro com a contagem de casos negativos (target=0) em cada bin.
-\item converged: Valor lógico indicando se o algoritmo convergiu.
-\item iterations: Número inteiro com a quantidade de iterações executadas.
+\item bin: String vector with the names of the bins (concatenated categories).
+\item woe: Numeric vector with the Weight of Evidence (WoE) values for each bin.
+\item iv: Numeric vector with the Information Value (IV) values for each bin.
+\item count: Integer vector with the total count of observations in each bin.
+\item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
+\item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+\item converged: Logical value indicating whether the algorithm converged.
+\item iterations: Integer value indicating the number of iterations executed.
 }
 }
 \description{
-Esta função realiza um binning ótimo para variáveis categóricas utilizando uma abordagem de Similarity-Based Logistic Partitioning (SBLP).
-O objetivo é produzir bins que maximizem o Information Value (IV) e forneçam Weight of Evidence (WOE) consistentes, considerando taxas alvo
-(target rates) e garantindo qualidade através de merges baseados em similaridade.
-Foi feita uma revisão para melhorar legibilidade, eficiência, robustez e manutenção da compatibilidade
-de nomes e tipos dos parâmetros de entrada/saída.
+This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach.
+The goal is to produce bins that maximize the Information Value (IV) and provide consistent Weight of Evidence (WoE), considering target rates
+and ensuring quality through similarity-based merges.
+The implementation has been revised to improve readability, efficiency, robustness, and to maintain compatibility
+with the names and types of input/output parameters.
 }
 \details{
-Passos do algoritmo SBLP:
+Steps of the SBLP algorithm:
 \enumerate{
-\item Validação de entrada e cálculo das contagens iniciais por categoria.
-\item Tratamento de categorias raras, unindo-as com outras similares em termos de taxa alvo.
-\item Garantia de número máximo de pré-bins, unindo bins pouco informativos.
-\item Ordenação das categorias pela taxa alvo.
-\item Aplicação de programação dinâmica para determinação da partição ótima, considerando min_bins e max_bins.
-\item Ajuste da monotonicidade do WoE, se necessário, desde que o número de bins seja maior que min_bins.
-\item Cálculo final do WoE e IV de cada bin, retornando o resultado.
+\item Validate input and calculate initial counts by category.
+\item Handle rare categories by merging them with other similar ones in terms of target rate.
+\item Ensure the maximum number of pre-bins by merging uninformative bins.
+\item Sort categories by target rate.
+\item Apply dynamic programming to determine the optimal partition, considering min_bins and max_bins.
+\item Adjust WoE monotonicity, if necessary, provided the number of bins is greater than min_bins.
+\item Perform final calculation of WoE and IV for each bin and return the result.
 }
 
-Fórmulas-chave:
+Key formulas:
 \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
 \deqn{IV = \sum_{bins} (P(X|Y=1) - P(X|Y=0)) \times WoE}
 }

@@ -16,34 +16,90 @@ optimal_binning_numerical_mblp(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1).}
+\item{target}{An integer binary vector (0 or 1) representing the target variable.}
 
-\item{feature}{Vetor numérico da feature.}
+\item{feature}{A numeric vector representing the feature to bin.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Limite para mesclar bins raros (freq < bin_cutoff).}
+\item{bin_cutoff}{Minimum frequency proportion for retaining bins (default: 0.05).}
 
-\item{max_n_prebins}{Máximo de pré-bins antes da otimização (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
-\item{convergence_threshold}{Limite para convergência do IV (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
 
-\item{max_iterations}{Máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
-Lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
+A list with the following components:
+\itemize{
+\item \code{bin}: A character vector of bin intervals in the format "[lower;upper)".
+\item \code{woe}: A numeric vector of WoE values for each bin.
+\item \code{iv}: A numeric vector of IV contributions for each bin.
+\item \code{count}: An integer vector of total observations per bin.
+\item \code{count_pos}: An integer vector of positive cases per bin.
+\item \code{count_neg}: An integer vector of negative cases per bin.
+\item \code{cutpoints}: A numeric vector of cutpoints defining the bin edges.
+\item \code{converged}: A boolean indicating whether the algorithm converged.
+\item \code{iterations}: An integer indicating the number of iterations executed.
+}
 }
 \description{
-Este método realiza um binning ótimo de variáveis numéricas, garantindo monotonicidade no WoE entre os bins,
-respeitando as restrições de min/max bins e fusão de bins raros. Retorna bins, WoE, IV, contagens e metadados.
+This method performs optimal binning for numerical features, ensuring monotonicity in the Weight of Evidence (WoE) across bins.
+It adheres to constraints on the minimum and maximum number of bins, merges rare bins, and handles edge cases like identical values.
+The algorithm returns bins, WoE, Information Value (IV), counts, cutpoints, and metadata such as convergence status and iterations run.
+}
+\details{
+\subsection{Key Steps:}{
+\enumerate{
+\item \strong{Input Validation}: Ensures proper formatting and constraints for \code{feature}, \code{target}, and algorithm parameters.
+\item \strong{Pre-Binning}: Creates preliminary bins based on quantiles or unique values in the feature.
+\item \strong{Rare Bin Merging}: Combines bins with frequencies below \code{bin_cutoff} to maintain statistical stability.
+\item \strong{Optimization}: Adjusts bins iteratively to maximize IV, enforce monotonicity, and adhere to bin constraints (\code{min_bins} and \code{max_bins}).
+\item \strong{Monotonicity Enforcement}: Ensures WoE values are either strictly increasing or decreasing across bins.
+\item \strong{Validation}: Verifies bin structure for consistency, preventing gaps or overlapping intervals.
+}
+}
+
+\subsection{Mathematical Framework:}{
+\itemize{
+\item \strong{Weight of Evidence (WoE)}: For a bin \( i \):
+\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+\item \strong{Information Value (IV)}: Aggregates predictive power across all bins:
+\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+}
+}
+
+\subsection{Features:}{
+\itemize{
+\item Monotonic WoE ensures interpretability in logistic regression and credit scoring models.
+\item Dynamically adjusts binning to maximize IV and improve model predictive power.
+\item Handles rare categories and missing values by merging and imputation.
+\item Supports large datasets with efficient pre-binning and convergence checks.
+\item Validates results to prevent invalid bin configurations (e.g., gaps, overlaps).
+}
+}
+
+\subsection{Algorithm Parameters:}{
+\itemize{
+\item \code{min_bins}: Minimum number of bins (default: 3).
+\item \code{max_bins}: Maximum number of bins (default: 5).
+\item \code{bin_cutoff}: Minimum frequency proportion required to retain a bin as standalone (default: 0.05).
+\item \code{max_n_prebins}: Maximum number of preliminary bins before optimization (default: 20).
+\item \code{convergence_threshold}: Threshold for convergence in IV optimization (default: 1e-6).
+\item \code{max_iterations}: Maximum number of iterations allowed for optimization (default: 1000).
+}
+}
 }
 \examples{
+\dontrun{
 set.seed(123)
 feature <- rnorm(1000)
 target <- rbinom(1000, 1, 0.3)
 result <- optimal_binning_numerical_mblp(target, feature, min_bins = 3, max_bins = 6)
 print(result)
+}
 
 }

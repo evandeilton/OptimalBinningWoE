@@ -443,26 +443,71 @@ private:
 //' @title Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming (MBLP)
 //'
 //' @description
-//' Este método realiza um binning ótimo de variáveis numéricas, garantindo monotonicidade no WoE entre os bins, 
-//' respeitando as restrições de min/max bins e fusão de bins raros. Retorna bins, WoE, IV, contagens e metadados.
+//' This method performs optimal binning for numerical features, ensuring monotonicity in the Weight of Evidence (WoE) across bins.
+//' It adheres to constraints on the minimum and maximum number of bins, merges rare bins, and handles edge cases like identical values.
+//' The algorithm returns bins, WoE, Information Value (IV), counts, cutpoints, and metadata such as convergence status and iterations run.
 //'
-//' @param target Vetor inteiro binário (0 ou 1).
-//' @param feature Vetor numérico da feature.
-//' @param min_bins Número mínimo de bins (default: 3).
-//' @param max_bins Número máximo de bins (default: 5).
-//' @param bin_cutoff Limite para mesclar bins raros (freq < bin_cutoff).
-//' @param max_n_prebins Máximo de pré-bins antes da otimização (default: 20).
-//' @param convergence_threshold Limite para convergência do IV (default: 1e-6).
-//' @param max_iterations Máximo de iterações (default: 1000).
+//' @details
+//' ### Key Steps:
+//' 1. **Input Validation**: Ensures proper formatting and constraints for `feature`, `target`, and algorithm parameters.
+//' 2. **Pre-Binning**: Creates preliminary bins based on quantiles or unique values in the feature.
+//' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` to maintain statistical stability.
+//' 4. **Optimization**: Adjusts bins iteratively to maximize IV, enforce monotonicity, and adhere to bin constraints (`min_bins` and `max_bins`).
+//' 5. **Monotonicity Enforcement**: Ensures WoE values are either strictly increasing or decreasing across bins.
+//' 6. **Validation**: Verifies bin structure for consistency, preventing gaps or overlapping intervals.
 //'
-//' @return Lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
+//' ### Mathematical Framework:
+//' - **Weight of Evidence (WoE)**: For a bin \( i \):
+//'   \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+//'
+//' - **Information Value (IV)**: Aggregates predictive power across all bins:
+//'   \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+//'
+//' ### Features:
+//' - Monotonic WoE ensures interpretability in logistic regression and credit scoring models.
+//' - Dynamically adjusts binning to maximize IV and improve model predictive power.
+//' - Handles rare categories and missing values by merging and imputation.
+//' - Supports large datasets with efficient pre-binning and convergence checks.
+//' - Validates results to prevent invalid bin configurations (e.g., gaps, overlaps).
+//'
+//' ### Algorithm Parameters:
+//' - `min_bins`: Minimum number of bins (default: 3).
+//' - `max_bins`: Maximum number of bins (default: 5).
+//' - `bin_cutoff`: Minimum frequency proportion required to retain a bin as standalone (default: 0.05).
+//' - `max_n_prebins`: Maximum number of preliminary bins before optimization (default: 20).
+//' - `convergence_threshold`: Threshold for convergence in IV optimization (default: 1e-6).
+//' - `max_iterations`: Maximum number of iterations allowed for optimization (default: 1000).
+//'
+//' @param target An integer binary vector (0 or 1) representing the target variable.
+//' @param feature A numeric vector representing the feature to bin.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency proportion for retaining bins (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+//' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
+//' @param max_iterations Maximum number of iterations allowed (default: 1000).
+//'
+//' @return A list with the following components:
+//' \itemize{
+//'   \item `bin`: A character vector of bin intervals in the format "[lower;upper)".
+//'   \item `woe`: A numeric vector of WoE values for each bin.
+//'   \item `iv`: A numeric vector of IV contributions for each bin.
+//'   \item `count`: An integer vector of total observations per bin.
+//'   \item `count_pos`: An integer vector of positive cases per bin.
+//'   \item `count_neg`: An integer vector of negative cases per bin.
+//'   \item `cutpoints`: A numeric vector of cutpoints defining the bin edges.
+//'   \item `converged`: A boolean indicating whether the algorithm converged.
+//'   \item `iterations`: An integer indicating the number of iterations executed.
+//' }
 //'
 //' @examples
+//' \dontrun{
 //' set.seed(123)
 //' feature <- rnorm(1000)
 //' target <- rbinom(1000, 1, 0.3)
 //' result <- optimal_binning_numerical_mblp(target, feature, min_bins = 3, max_bins = 6)
 //' print(result)
+//' }
 //'
 //' @export
 // [[Rcpp::export]]

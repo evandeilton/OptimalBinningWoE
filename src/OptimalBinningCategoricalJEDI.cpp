@@ -12,93 +12,93 @@
 
 using namespace Rcpp;
 
-//' @title Binning Ótimo Categórico JEDI (Discretização Conjunta Guiada por Entropia)
+//' @title Optimal Categorical Binning JEDI (Entropy-Guided Joint Discretization)
 //'
 //' @description
-//' Um algoritmo robusto de binning categórico que otimiza o valor de informação (IV) mantendo
-//' relações monotônicas de weight of evidence (WoE). Implementa uma estratégia adaptativa de 
-//' fusão com proteções de estabilidade numérica e controle sofisticado do número de bins.
+//' A robust categorical binning algorithm that optimizes the Information Value (IV) while maintaining
+//' monotonic Weight of Evidence (WoE) relationships. Implements an adaptive merging strategy with 
+//' numerical stability protections and sophisticated control of the number of bins.
 //'
 //' @details
-//' O algoritmo emprega uma abordagem de otimização em múltiplas fases:
+//' The algorithm employs a multi-phase optimization approach:
 //' 
-//' Framework Matemático:
-//' Para um bin i, o WoE é calculado como:
+//' Mathematical Framework:
+//' For a bin i, the WoE is calculated as:
 //' \deqn{WoE_i = ln(\frac{p_i + \epsilon}{n_i + \epsilon})}
-//' onde:
+//' where:
 //' \itemize{
-//'   \item \eqn{p_i} é a proporção de casos positivos no bin i relativo ao total de positivos
-//'   \item \eqn{n_i} é a proporção de casos negativos no bin i relativo ao total de negativos
-//'   \item \eqn{\epsilon} é uma pequena constante (1e-10) para prevenir logaritmos indefinidos
+//'   \item \eqn{p_i} is the proportion of positive cases in bin i relative to the total positives
+//'   \item \eqn{n_i} is the proportion of negative cases in bin i relative to the total negatives
+//'   \item \eqn{\epsilon} is a small constant (1e-10) to prevent undefined logarithms
 //' }
 //'
-//' O IV para cada bin é calculado como:
+//' The IV for each bin is calculated as:
 //' \deqn{IV_i = (p_i - n_i) \times WoE_i}
 //'
-//' E o IV total é:
+//' And the total IV is:
 //' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
 //'
-//' Fases:
-//' 1. Binning Inicial: Cria bins individuais para categorias únicas com validação de frequência
-//' 2. Tratamento de Baixa Frequência: Combina categorias raras (< bin_cutoff) para garantir estabilidade estatística
-//' 3. Otimização: Combina bins iterativamente usando minimização de perda de IV mantendo monotonicidade de WoE
-//' 4. Ajuste Final: Garante restrições de contagem de bins (min_bins <= bins <= max_bins) quando possível
+//' Phases:
+//' 1. Initial Binning: Creates individual bins for unique categories with frequency validation
+//' 2. Low-Frequency Treatment: Combines rare categories (< bin_cutoff) to ensure statistical stability
+//' 3. Optimization: Iteratively merges bins using IV loss minimization while maintaining WoE monotonicity
+//' 4. Final Adjustment: Ensures bin count constraints (min_bins <= bins <= max_bins) when feasible
 //'
-//' Características Principais:
-//' - Cálculos de WoE protegidos por epsilon para estabilidade numérica
-//' - Estratégia adaptativa de fusão que minimiza perda de informação
-//' - Tratamento robusto de casos extremos e violações de restrições
-//' - Sem criação artificial de categorias, garantindo resultados interpretáveis
+//' Key Features:
+//' - WoE calculations protected by epsilon for numerical stability
+//' - Adaptive merging strategy that minimizes information loss
+//' - Robust handling of edge cases and constraint violations
+//' - No artificial category creation, ensuring interpretable results
 //'
-//' Controle de Quantidade de Bins:
-//' - Se bins > max_bins: Continua fusões usando minimização de perda de IV
-//' - Se bins < min_bins: Retorna melhor solução disponível em vez de criar divisões artificiais
+//' Bin Count Control:
+//' - If bins > max_bins: Continue merges using IV loss minimization
+//' - If bins < min_bins: Return the best available solution instead of creating artificial splits
 //'
-//' @param target Vetor inteiro binário (0 ou 1) representando a variável resposta
-//' @param feature Vetor de caracteres dos valores categóricos preditores
-//' @param min_bins Número mínimo de bins de saída (padrão: 3). Ajustado se categorias únicas < min_bins
-//' @param max_bins Número máximo de bins de saída (padrão: 5). Deve ser >= min_bins
-//' @param bin_cutoff Limite mínimo de frequência relativa para bins individuais (padrão: 0.05)
-//' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20)
-//' @param bin_separator Delimitador para nomes de categorias combinadas (padrão: "%;%")
-//' @param convergence_threshold Limite de diferença de IV para convergência (padrão: 1e-6)
-//' @param max_iterations Máximo de iterações de otimização (padrão: 1000)
+//' @param target Integer binary vector (0 or 1) representing the response variable
+//' @param feature Character vector of categorical predictor values
+//' @param min_bins Minimum number of output bins (default: 3). Adjusted if unique categories < min_bins
+//' @param max_bins Maximum number of output bins (default: 5). Must be >= min_bins
+//' @param bin_cutoff Minimum relative frequency threshold for individual bins (default: 0.05)
+//' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20)
+//' @param bin_separator Delimiter for names of combined categories (default: "%;%")
+//' @param convergence_threshold IV difference threshold for convergence (default: 1e-6)
+//' @param max_iterations Maximum number of optimization iterations (default: 1000)
 //'
-//' @return Uma lista contendo:
+//' @return A list containing:
 //' \itemize{
-//'   \item bin: Vetor de caracteres com nomes dos bins (categorias concatenadas)
-//'   \item woe: Vetor numérico com valores de Weight of Evidence
-//'   \item iv: Vetor numérico com valores de Information Value por bin
-//'   \item count: Vetor inteiro com contagens de observações por bin
-//'   \item count_pos: Vetor inteiro com contagens da classe positiva por bin
-//'   \item count_neg: Vetor inteiro com contagens da classe negativa por bin
-//'   \item converged: Lógico indicando se o algoritmo convergiu
-//'   \item iterations: Contagem inteira de iterações de otimização realizadas
+//'   \item bin: Character vector with bin names (concatenated categories)
+//'   \item woe: Numeric vector with Weight of Evidence values
+//'   \item iv: Numeric vector with Information Value per bin
+//'   \item count: Integer vector with observation counts per bin
+//'   \item count_pos: Integer vector with positive class counts per bin
+//'   \item count_neg: Integer vector with negative class counts per bin
+//'   \item converged: Logical indicating whether the algorithm converged
+//'   \item iterations: Integer count of optimization iterations performed
 //' }
 //'
 //' @references
 //' \itemize{
-//'   \item Framework de Binning Ótimo (Beltrami et al., 2021)
-//'   \item Teoria do Valor da Informação em Gestão de Risco (Thomas et al., 2002)
-//'   \item Algoritmos de Binning Monotônico em Credit Scoring (Mironchyk & Tchistiakov, 2017)
+//'   \item Optimal Binning Framework (Beltrami et al., 2021)
+//'   \item Information Value Theory in Risk Management (Thomas et al., 2002)
+//'   \item Monotonic Binning Algorithms in Credit Scoring (Mironchyk & Tchistiakov, 2017)
 //' }
 //'
 //' @examples
 //' \dontrun{
-//' # Uso básico
-//' resultado <- optimal_binning_categorical_jedi(
+//' # Basic usage
+//' result <- optimal_binning_categorical_jedi(
 //'   target = c(1,0,1,1,0),
 //'   feature = c("A","B","A","C","B"),
 //'   min_bins = 2,
 //'   max_bins = 3
 //' )
 //'
-//' # Tratamento de categorias raras
-//' resultado <- optimal_binning_categorical_jedi(
-//'   target = vetor_target,
-//'   feature = vetor_feature,
-//'   bin_cutoff = 0.03,  # Tratamento mais agressivo de categorias raras
-//'   max_n_prebins = 15  # Limite de bins iniciais
+//' # Rare category handling
+//' result <- optimal_binning_categorical_jedi(
+//'   target = target_vector,
+//'   feature = feature_vector,
+//'   bin_cutoff = 0.03,  # More aggressive rare category treatment
+//'   max_n_prebins = 15  # Limit on initial bins
 //' )
 //' }
 //'

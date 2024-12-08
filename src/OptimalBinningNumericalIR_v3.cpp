@@ -436,18 +436,65 @@ private:
 //' @title Optimal Binning for Numerical Variables using Isotonic Regression
 //'
 //' @description
-//' Realiza binning ótimo para variáveis numéricas usando regressão isotônica, assegurando monotonicidade nas taxas e bins estáveis.
+//' Implements a sophisticated binning algorithm for numerical variables using isotonic regression. 
+//' Ensures monotonicity in bin rates and stable bin boundaries while optimizing information retention.
 //'
-//' @param target Vetor binário (0 ou 1).
-//' @param feature Vetor numérico.
-//' @param min_bins Inteiro, número mínimo de bins (default: 3).
-//' @param max_bins Inteiro, número máximo de bins (default: 5).
-//' @param bin_cutoff Fração mínima de observações por bin (default: 0.05).
-//' @param max_n_prebins Máximo de pré-bins (default: 20).
-//' @param convergence_threshold Limite para convergência (default: 1e-6).
-//' @param max_iterations Máximo de iterações (default: 1000).
+//' @details
+//' ### Algorithm Framework:
+//' The algorithm segments a numerical feature \eqn{X} into \eqn{K} bins based on its relationship with a binary 
+//' target \eqn{Y \in \{0,1\}}. Each bin \eqn{B_i = (c_{i-1}, c_i]} is defined to maximize information content 
+//' under the following constraints:
 //'
-//' @return Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
+//' \enumerate{
+//'   \item **Monotonicity**: Ensures non-decreasing (or non-increasing) trends in bin rates.
+//'   \item **Minimum Bin Size**: Each bin contains at least \eqn{\text{bin_cutoff} \times N} observations.
+//'   \item **Bin Count Bounds**: The number of bins satisfies \eqn{\text{min_bins} \leq K \leq \text{max_bins}}.
+//' }
+//'
+//' The algorithm is divided into the following phases:
+//' 1. **Pre-Binning**: Initial binning based on quantiles or unique feature values.
+//' 2. **Rare Bin Merging**: Merges bins with insufficient observations to ensure statistical stability.
+//' 3. **Monotonicity Enforcement**: Applies isotonic regression to enforce monotonic trends in bin rates.
+//' 4. **Bin Optimization**: Adjusts the number of bins to ensure adherence to \eqn{\text{min_bins}} and \eqn{\text{max_bins}}.
+//' 5. **Information Value Calculation**: Computes WoE and IV for each bin.
+//'
+//' ### Key Metrics:
+//' - **Weight of Evidence (WoE)** for bin \eqn{i}:
+//'   \deqn{WoE_i = \ln\left(\frac{\text{Pos}_i / \sum \text{Pos}_i}{\text{Neg}_i / \sum \text{Neg}_i}\right)}
+//'
+//' - **Information Value (IV)** per bin:
+//'   \deqn{IV_i = \left(\frac{\text{Pos}_i}{\sum \text{Pos}_i} - \frac{\text{Neg}_i}{\sum \text{Neg}_i}\right) \times WoE_i}
+//'
+//' - **Total IV**:
+//'   \deqn{IV_{\text{total}} = \sum_{i=1}^K IV_i}
+//'
+//' ### Features:
+//' - **Robustness**: Handles edge cases like unique feature values and extreme distributions.
+//' - **Monotonicity Enforcement**: Ensures trends in bin rates are consistent with the model's expected direction.
+//' - **Flexible Configuration**: User-defined parameters for bin count, cutoff, and convergence thresholds.
+//' - **Stable Computation**: Uses Laplace smoothing to avoid division by zero in WoE calculations.
+//'
+//' @param target Binary integer vector (0 or 1) representing the target variable.
+//' @param feature Numeric vector representing the continuous feature to be binned.
+//' @param min_bins Minimum number of bins to generate (default: 3).
+//' @param max_bins Maximum number of bins allowed (default: 5).
+//' @param bin_cutoff Minimum fraction of observations required in a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+//' @param convergence_threshold Threshold for IV stability to determine convergence (default: 1e-6).
+//' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+//'
+//' @return A list containing:
+//' \itemize{
+//'   \item `bin`: Character vector with the bin intervals.
+//'   \item `woe`: Numeric vector with Weight of Evidence values for each bin.
+//'   \item `iv`: Numeric vector with Information Value for each bin.
+//'   \item `count`: Integer vector with the number of observations in each bin.
+//'   \item `count_pos`: Integer vector with the positive class counts in each bin.
+//'   \item `count_neg`: Integer vector with the negative class counts in each bin.
+//'   \item `cutpoints`: Numeric vector with the bin cutpoints (excluding ±Inf).
+//'   \item `converged`: Logical value indicating whether the algorithm converged.
+//'   \item `iterations`: Integer with the number of optimization iterations performed.
+//' }
 //'
 //' @examples
 //' \dontrun{
@@ -460,7 +507,6 @@ private:
 //' }
 //'
 //' @export
-// [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target,
                                        Rcpp::NumericVector feature,
                                        int min_bins = 3,
@@ -482,6 +528,7 @@ Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target,
    Rcpp::stop("Error in optimal binning: " + std::string(e.what()));
  }
 }
+
 
 /*
 Melhorias:

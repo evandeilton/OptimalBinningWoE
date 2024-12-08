@@ -17,55 +17,55 @@ optimal_binning_categorical_udt(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) representando a variável resposta.}
+\item{target}{Integer binary vector (0 or 1) representing the response variable.}
 
-\item{feature}{Vetor de caracteres representando as categorias da variável explicativa.}
+\item{feature}{Character vector representing the categories of the explanatory variable.}
 
-\item{min_bins}{Número mínimo de bins desejado (padrão: 3).}
+\item{min_bins}{Minimum number of desired bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins desejado (padrão: 5).}
+\item{max_bins}{Maximum number of desired bins (default: 5).}
 
-\item{bin_cutoff}{Proporção mínima de observações para considerar uma categoria isolada como um bin separado (padrão: 0.05).}
+\item{bin_cutoff}{Minimum proportion of observations to consider an isolated category as a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes da etapa principal de binning (padrão: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before the main binning step (default: 20).}
 
-\item{bin_separator}{String usada para separar nomes de categorias unidas em um mesmo bin (padrão: "\%;\%").}
+\item{bin_separator}{String used to separate names of categories grouped in the same bin (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite para critério de parada baseado em convergência do IV (padrão: 1e-6).}
+\item{convergence_threshold}{Threshold for stopping criteria based on IV convergence (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações do processo (padrão: 1000).}
+\item{max_iterations}{Maximum number of iterations in the process (default: 1000).}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bins: Vetor de strings com nomes dos bins.
-\item woe: Vetor numérico com os valores de Weight of Evidence para cada bin.
-\item iv: Vetor numérico com os valores de Information Value para cada bin.
-\item count: Vetor inteiro com a contagem total de observações em cada bin.
-\item count_pos: Vetor inteiro com a contagem de casos positivos (target=1) em cada bin.
-\item count_neg: Vetor inteiro com a contagem de casos negativos (target=0) em cada bin.
-\item converged: Valor lógico indicando se o algoritmo convergiu.
-\item iterations: Número inteiro indicando quantas iterações foram executadas.
+\item bins: String vector with bin names.
+\item woe: Numeric vector with Weight of Evidence values for each bin.
+\item iv: Numeric vector with Information Value for each bin.
+\item count: Integer vector with the total count of observations in each bin.
+\item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
+\item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+\item converged: Logical value indicating if the algorithm converged.
+\item iterations: Integer value indicating the number of executed iterations.
 }
 }
 \description{
-Esta função realiza o binning de variáveis categóricas seguindo uma técnica personalizada (UDT).
-O objetivo é produzir bins com bom valor informativo (IV) e monotonicidade no WoE, evitando a criação de categorias artificiais.
-Caso a variável categórica tenha apenas 1 ou 2 níveis únicos, nenhuma otimização é feita, apenas as estatísticas são calculadas.
+This function performs binning for categorical variables using a user-defined technique (UDT).
+The goal is to produce bins with good informational value (IV) and monotonicity in WoE, avoiding the creation of artificial categories.
+If the categorical variable has only 1 or 2 unique levels, no optimization is performed, and only statistics are calculated.
 }
 \details{
-Passos do algoritmo (ajustado):
+Steps of the algorithm (refined):
 \enumerate{
-\item Validação da entrada e criação de bins iniciais, cada um correspondendo a uma categoria.
+\item Input validation and creation of initial bins, each corresponding to a category.
 \itemize{
-\item Se houver apenas 1 ou 2 níveis, não otimizar, apenas calcular estatísticas e retornar.
+\item If there are only 1 or 2 levels, do not optimize, just calculate statistics and return.
 }
-\item Agrupamento de categorias de baixa frequência em um bin "Others", se necessário.
-\item Cálculo do WoE e IV de cada bin.
-\item Fusões e divisões só acontecem se puderem manter coerência com as categorias originais. Não são criados nomes artificiais como "no_split".
-Caso não seja possível dividir coerentemente (por exemplo, um bin com apenas uma categoria), não dividir.
-\item Monotonicidade do WoE é assegurada ao final, ordenando-se os bins pelo WoE.
-\item O processo itera até convergência (diferença no IV < convergence_threshold) ou max_iterations.
+\item Group low-frequency categories into an "Others" bin, if necessary.
+\item Calculate WoE and IV for each bin.
+\item Mergers and splits only occur if they can maintain consistency with the original categories. Artificial names like "no_split" are not created.
+If it is not possible to split consistently (e.g., a bin with only one category), do not split.
+\item WoE monotonicity is ensured at the end by ordering the bins by WoE.
+\item The process iterates until convergence (difference in IV < convergence_threshold) or max_iterations.
 }
 }
 \examples{

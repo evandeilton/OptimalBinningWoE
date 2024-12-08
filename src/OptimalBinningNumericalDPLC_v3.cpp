@@ -419,7 +419,9 @@ private:
 //' @title Optimal Binning for Numerical Variables using Dynamic Programming with Local Constraints (DPLC)
 //'
 //' @description
-//' Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+//' Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach.
+//' It creates optimal bins for a numerical feature based on its relationship with a binary target variable, 
+//' maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
 //'
 //' @param target An integer vector of binary target values (0 or 1).
 //' @param feature A numeric vector of feature values.

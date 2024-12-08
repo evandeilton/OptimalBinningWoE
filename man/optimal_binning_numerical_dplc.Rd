@@ -45,7 +45,9 @@ A list containing the following elements:
 \item{iterations}{Integer number of iterations run by the algorithm.}
 }
 \description{
-Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach. It creates optimal bins for a numerical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
+Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach.
+It creates optimal bins for a numerical feature based on its relationship with a binary target variable,
+maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
 }
 \details{
 The Dynamic Programming with Local Constraints (DPLC) algorithm for numerical variables works as follows:

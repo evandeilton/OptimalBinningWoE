@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_mba}
 \alias{optimal_binning_categorical_mba}
-\title{Binning Ótimo para Variáveis Categóricas usando MBA (Versão Corrigida)}
+\title{Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)}
 \usage{
 optimal_binning_categorical_mba(
   target,
@@ -17,41 +17,69 @@ optimal_binning_categorical_mba(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) do target.}
+\item{target}{An integer vector of binary target values (0 or 1).}
 
-\item{feature}{Vetor de caracteres com valores categóricos da variável explicativa.}
+\item{feature}{A character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para considerar um bin separado (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Máximo de pré-bins antes da fusão (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{bin_separator}{Separador para nomes de categorias em bins mesclados (default: "\%;\%"),}
+\item{bin_separator}{String used to separate category names when merging bins (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite para detectar convergência do IV (default: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence in optimization (default: 1e-6).}
 
-\item{max_iterations}{Máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations for optimization (default: 1000).}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bin: Nomes dos bins.
-\item woe: WoE de cada bin.
-\item iv: IV de cada bin.
-\item count: Contagem total por bin.
-\item count_pos: Contagem de casos positivos por bin.
-\item count_neg: Contagem de casos negativos por bin.
-\item converged: Booleano indicando se o algoritmo convergiu.
-\item iterations: Número de iterações executadas.
+\item bins: A character vector of bin labels
+\item woe: A numeric vector of Weight of Evidence values for each bin
+\item iv: A numeric vector of Information Value for each bin
+\item count: An integer vector of total counts for each bin
+\item count_pos: An integer vector of positive target counts for each bin
+\item count_neg: An integer vector of negative target counts for each bin
+\item converged: A logical value indicating whether the algorithm converged
+\item iterations: An integer indicating the number of iterations run
 }
 }
 \description{
-Este código realiza o binning ótimo para variáveis categóricas utilizando um algoritmo "Monotonic Binning Algorithm (MBA)",
-garantindo que não reduza o número de bins abaixo de min_bins ao impor monotonicidade ou ao otimizar a quantidade de bins.
+This function performs optimal binning for categorical variables using a Monotonic Binning Algorithm (MBA) approach,
+which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
 }
-\references{
-Siddiqi, N. (2006). "Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring."
+\details{
+The algorithm performs the following steps:
+\enumerate{
+\item Input validation and preprocessing
+\item Initial pre-binning based on frequency
+\item Enforcing minimum bin size (bin_cutoff)
+\item Calculating initial Weight of Evidence (WOE) and Information Value (IV)
+\item Enforcing monotonicity of WOE across bins
+\item Optimizing the number of bins through iterative merging
+}
+
+The Weight of Evidence (WOE) is calculated as:
+\deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
+
+The Information Value (IV) for each bin is calculated as:
+\deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+}
+\examples{
+\dontrun{
+# Create sample data
+set.seed(123)
+target <- sample(0:1, 1000, replace = TRUE)
+feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+
+# Run optimal binning
+result <- optimal_binning_categorical_mba(feature, target)
+
+# View results
+print(result)
+}
 }

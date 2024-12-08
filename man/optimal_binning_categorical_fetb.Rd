@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_fetb}
 \alias{optimal_binning_categorical_fetb}
-\title{Binning Ótimo para Variáveis Categóricas utilizando Fisher's Exact Test (Versão Fortificada)}
+\title{Categorical Optimal Binning with Fisher's Exact Test}
 \usage{
 optimal_binning_categorical_fetb(
   target,
@@ -17,67 +17,51 @@ optimal_binning_categorical_fetb(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) do target.}
+\item{target}{Integer vector of binary target values (0 or 1).}
 
-\item{feature}{Vetor de strings categóricas da variável explicativa.}
+\item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para manter um bin separado (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Máximo de pré-bins antes da mesclagem (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{convergence_threshold}{Limite de convergência (default: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
 
-\item{max_iterations}{Máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations (default: 1000).}
 
-\item{bin_separator}{Separador para nomes de categorias (default: "\%;\%").}
+\item{bin_separator}{Separator for bin labels (default: "\%;\%").}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bin: Nomes dos bins.
-\item woe: Vetor numérico de WoE por bin.
-\item iv: Vetor numérico de IV por bin.
-\item count: Contagem total por bin.
-\item count_pos: Contagem de positivos por bin.
-\item count_neg: Contagem de negativos por bin.
-\item converged: Booleano indicando se houve convergência.
-\item iterations: Número de iterações executadas.
+\item bin: Character vector of bin labels (merged categories).
+\item woe: Numeric vector of Weight of Evidence values for each bin.
+\item iv: Numeric vector of Information Value for each bin.
+\item count: Integer vector of total count in each bin.
+\item count_pos: Integer vector of positive class count in each bin.
+\item count_neg: Integer vector of negative class count in each bin.
+\item converged: Logical indicating whether the algorithm converged.
+\item iterations: Integer indicating the number of iterations performed.
 }
 }
 \description{
-Este código implementa um binning ótimo para variáveis categóricas utilizando o teste exato de Fisher,
-calculando WoE (Weight of Evidence) e IV (Information Value). Além disso, foram adicionadas melhorias
-sugeridas por um especialista para garantir robustez, evitar problemas numéricos e tornar o código
-mais à prova de falhas.
-
-Melhorias sugeridas:
-\enumerate{
-\item Verificação adicional de condições limite, garantindo que o algoritmo não trave em cenários extremos.
-\item Cálculo mais robusto dos log-factoriais, evitando overflow e garantindo estabilidade numérica.
-\item Checagem de valores nulos e tratamento de distâncias zero no cálculo de WoE e IV.
-\item Manipulação cuidadosa de merges para evitar bins vazios ou degenerados.
-\item Comentários detalhados, passo a passo, para facilitar manutenção.
-\item Pré-alocação e uso criterioso de estruturas para evitar realocações excessivas.
-\item Tratamento explícito para casos de min_bins ou max_bins próximos ao número de categorias.
-\item Funções auxiliares inline para operações repetitivas, reduzindo risco de erros.
-\item Conservadorismo nos testes estatísticos: uso de EPSILON para evitar log de zero.
-}
+Implements optimal binning for categorical variables using Fisher's Exact Test,
+calculating Weight of Evidence (WoE) and Information Value (IV).
 }
 \details{
-O algoritmo utiliza o teste exato de Fisher para mesclar bins adjacentes, buscando maximizar a separação
-estatística. Ao final, assegura monotonicidade e respeita restrições de número mínimo e máximo de bins.
-Foram implementados cuidados extras para evitar overflows, problemas de ponto flutuante e falta de convergência.
+The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
+the statistical significance of the difference between adjacent bins. It ensures
+monotonicity in the resulting bins and respects the minimum number of bins specified.
 }
 \examples{
 \dontrun{
-set.seed(123)
-target <- sample(0:1, 1000, replace = TRUE)
-feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, 
+target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
+feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2,
 max_bins = 4, bin_separator = "|")
 print(result)
 }

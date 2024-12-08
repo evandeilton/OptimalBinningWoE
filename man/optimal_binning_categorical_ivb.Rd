@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_ivb}
 \alias{optimal_binning_categorical_ivb}
-\title{Binning Ótimo para Variáveis Categóricas usando IVB}
+\title{Optimal Binning for Categorical Variables using IVB}
 \usage{
 optimal_binning_categorical_ivb(
   target,
@@ -17,44 +17,44 @@ optimal_binning_categorical_ivb(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) da variável resposta.}
+\item{target}{Integer binary vector (0 or 1) representing the response variable.}
 
-\item{feature}{Vetor de caracteres ou fator com os valores categóricos da variável explicativa.}
+\item{feature}{Character vector or factor containing the categorical values of the explanatory variable.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para um bin separado (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Máximo de pré-bins antes da fusão (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{bin_separator}{Separador para nomes de categorias mescladas (default: "\%;\%").}
+\item{bin_separator}{Separator for merged category names (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite de convergência do IV (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for IV (default: 1e-6).}
 
-\item{max_iterations}{Máximo de iterações na busca da solução ótima (default: 1000).}
+\item{max_iterations}{Maximum number of iterations in the search for the optimal solution (default: 1000).}
 }
 \value{
-Uma lista contendo:
+A list containing:
 \itemize{
-\item bin: Vetor com os nomes dos bins formados.
-\item woe: Vetor numérico com WoE de cada bin.
-\item iv: Vetor numérico com IV de cada bin.
-\item count, count_pos, count_neg: Contagens total, positiva e negativa por bin.
-\item converged: Booleano indicando se o algoritmo convergiu.
-\item iterations: Número de iterações executadas.
+\item bin: Vector with the names of the formed bins.
+\item woe: Numeric vector with the WoE of each bin.
+\item iv: Numeric vector with the IV of each bin.
+\item count, count_pos, count_neg: Total, positive, and negative counts per bin.
+\item converged: Boolean indicating whether the algorithm converged.
+\item iterations: Number of iterations performed.
 }
 }
 \description{
-Este código implementa um binning ótimo para variáveis categóricas utilizando um approach baseado em Information Value (IV)
-com programação dinâmica. Foram adicionadas melhorias para garantir robustez, estabilidade numérica e melhor manutenibilidade:
+This code implements optimal binning for categorical variables using an Information Value (IV)-based approach
+with dynamic programming. Enhancements have been added to ensure robustness, numerical stability, and improved maintainability:
 \itemize{
-\item Verificações de input mais rigorosas.
-\item Uso de epsilon para evitar log(0).
-\item Controle sobre min_bins e max_bins com base no número de categorias.
-\item Tratamento de categorias raras e imposição de monotonicidade no WoE/Taxas de evento.
-\item Comentários mais detalhados, melhor estruturação de código e checagem de convergência.
+\item More rigorous input validation.
+\item Use of epsilon to avoid log(0).
+\item Control over min_bins and max_bins based on the number of categories.
+\item Handling of rare categories and imposition of monotonicity in WoE/Event Rates.
+\item Detailed comments, better code structure, and convergence checks.
 }
 }
 \examples{

@@ -456,90 +456,97 @@ private:
 };
 
 
-//' @title Binning Ótimo Numérico JEDI (Discretização por Intervalos Guiada por Entropia Conjunta)
+//' @title Optimal Numerical Binning JEDI (Joint Entropy-Driven Interval Discretization)
 //'
 //' @description
-//' Um algoritmo avançado de binning numérico que otimiza o valor de informação (IV) mantendo 
-//' relações monotônicas de weight of evidence (WoE). O algoritmo emprega pré-binning baseado em 
-//' quantis com estratégias adaptativas de fusão, garantindo tanto estabilidade estatística quanto 
-//' preservação ótima de informação.
+//' A sophisticated numerical binning algorithm designed to optimize the Information Value (IV) while ensuring 
+//' monotonic Weight of Evidence (WoE) relationships. The algorithm employs quantile-based pre-binning combined 
+//' with adaptive merging strategies, ensuring both statistical stability and optimal information retention.
 //'
 //' @details
-//' Framework Matemático:
-//' Para uma variável numérica \eqn{X} e alvo binário \eqn{Y \in \{0,1\}}, o algoritmo cria \eqn{K} bins 
-//' definidos por \eqn{K-1} pontos de corte onde cada bin \eqn{B_i = (c_{i-1}, c_i]} maximiza o conteúdo 
-//' de informação satisfazendo as restrições:
+//' ### Mathematical Framework:
+//' For a numerical variable \eqn{X} and a binary target \eqn{Y \in \{0,1\}}, the algorithm creates \eqn{K} bins 
+//' defined by \eqn{K-1} cutpoints where each bin \eqn{B_i = (c_{i-1}, c_i]} optimizes the information content, 
+//' satisfying the following constraints:
 //'
 //' \enumerate{
-//'   \item Monotonicidade WoE: \eqn{WoE_i \le WoE_{i+1}} (ou \eqn{\ge} para tendência decrescente)
-//'   \item Tamanho mínimo do bin: \eqn{contagem(B_i)/N \ge bin\_cutoff}
-//'   \item Limites de quantidade de bins: \eqn{min\_bins \le K \le max\_bins}
+//'   \item **Monotonic WoE**: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
+//'   \item **Minimum Bin Size**: \eqn{\text{count}(B_i)/N \ge \text{bin_cutoff}}.
+//'   \item **Bin Quantity Limits**: \eqn{\text{min_bins} \le K \le \text{max_bins}}.
 //' }
 //'
-//' O Weight of Evidence para bin \eqn{i} é definido como:
-//' \deqn{WoE_i = ln(\frac{Pos_i / \sum Pos_i}{Neg_i / \sum Neg_i})}
+//' **Weight of Evidence (WoE)** for bin \eqn{i}:
+//' \deqn{WoE_i = \ln\left(\frac{\text{Pos}_i / \sum \text{Pos}_i}{\text{Neg}_i / \sum \text{Neg}_i}\right)}
 //'
-//' E o Information Value por bin como:
-//' \deqn{IV_i = (Pos_i/\sum Pos_i - Neg_i/\sum Neg_i) \times WoE_i}
+//' **Information Value (IV)** per bin:
+//' \deqn{IV_i = \left(\frac{\text{Pos}_i}{\sum \text{Pos}_i} - \frac{\text{Neg}_i}{\sum \text{Neg}_i}\right) \times WoE_i}
 //'
-//' O IV total é dado por:
+//' **Total IV**:
 //' \deqn{IV_{total} = \sum_{i=1}^K IV_i}
 //'
-//' Fases do Algoritmo:
-//' 1. Pré-binning baseado em quantis com validação de frequência mínima
-//' 2. Tratamento de bins pequenos através de fusões minimizando perda de IV
-//' 3. Imposição de monotonicidade via fusão adaptativa de bins
-//' 4. Otimização da quantidade de bins através de divisões/fusões controladas
-//' 5. Monitoramento de convergência usando estabilidade do IV
+//' ### Algorithm Phases:
+//' 1. **Quantile-based Pre-Binning**: Initial segmentation with validation of minimum frequency.
+//' 2. **Rare Bin Merging**: Combines bins below the `bin_cutoff` to ensure statistical stability.
+//' 3. **Monotonicity Enforcement**: Adjusts bins to maintain monotonic WoE relationships.
+//' 4. **Bin Count Optimization**: Ensures the number of bins respects `min_bins` and `max_bins` constraints.
+//' 5. **Convergence Monitoring**: Tracks IV stability to identify convergence.
 //'
-//' Características Principais:
-//' - Cálculo de WoE protegido por epsilon para estabilidade numérica
-//' - Estratégia adaptativa de fusão minimizando perda de informação
-//' - Tratamento robusto de casos extremos e distribuições extremas
-//' - Busca binária eficiente para atribuição de bins
-//' - Detecção antecipada de convergência
+//' ### Key Features:
+//' - **Numerical Stability**: WoE calculation includes epsilon to avoid division by zero.
+//' - **Adaptive Merging Strategy**: Minimizes IV loss during bin merging.
+//' - **Robust Handling of Edge Cases**: Designed to handle extreme values and skewed distributions effectively.
+//' - **Efficient Binary Search**: Used for bin assignments during pre-binning.
+//' - **Early Convergence Detection**: Stops iterations when IV stabilizes within the threshold.
 //'
-//' @param target Vetor numérico (0,1) representando variável alvo binária
-//' @param feature Vetor numérico do preditor contínuo
-//' @param min_bins Número mínimo de bins de saída (padrão: 3, deve ser ≥2)
-//' @param max_bins Número máximo de bins de saída (padrão: 5, deve ser ≥ min_bins)
-//' @param bin_cutoff Frequência relativa mínima por bin (padrão: 0.05)
-//' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20)
-//' @param convergence_threshold Limite de diferença de IV para convergência (padrão: 1e-6)
-//' @param max_iterations Máximo de iterações de otimização (padrão: 1000)
+//' ### Parameters:
+//' - `min_bins`: Minimum number of bins to be created (default: 3, must be ≥2).
+//' - `max_bins`: Maximum number of bins allowed (default: 5, must be ≥ `min_bins`).
+//' - `bin_cutoff`: Minimum relative frequency required for a bin to remain standalone (default: 0.05).
+//' - `max_n_prebins`: Maximum number of pre-bins created before optimization (default: 20).
+//' - `convergence_threshold`: Threshold for IV change to determine convergence (default: 1e-6).
+//' - `max_iterations`: Maximum number of optimization iterations (default: 1000).
 //'
-//' @return Uma lista contendo:
+//' @param target Integer binary vector (0 or 1) representing the target variable.
+//' @param feature Numeric vector representing the continuous predictor.
+//' @param min_bins Minimum number of bins to create (default: 3).
+//' @param max_bins Maximum number of bins allowed (default: 5).
+//' @param bin_cutoff Minimum relative frequency per bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+//' @param convergence_threshold IV change threshold for convergence (default: 1e-6).
+//' @param max_iterations Maximum number of optimization iterations (default: 1000).
+//'
+//' @return A list containing the following elements:
 //' \itemize{
-//'   \item bin: Vetor de caracteres dos intervalos dos bins
-//'   \item woe: Vetor numérico dos valores de Weight of Evidence
-//'   \item iv: Vetor numérico dos valores de Information Value por bin
-//'   \item count: Vetor inteiro de contagens de observações por bin
-//'   \item count_pos: Vetor inteiro de contagens da classe positiva por bin
-//'   \item count_neg: Vetor inteiro de contagens da classe negativa por bin
-//'   \item cutpoints: Vetor numérico dos pontos de corte (excluindo ±Inf)
-//'   \item converged: Lógico indicando se o algoritmo convergiu
-//'   \item iterations: Contagem inteira de iterações de otimização realizadas
+//'   \item `bin`: Character vector with the intervals of the bins.
+//'   \item `woe`: Numeric vector with Weight of Evidence values.
+//'   \item `iv`: Numeric vector with Information Value per bin.
+//'   \item `count`: Integer vector with the observation counts per bin.
+//'   \item `count_pos`: Integer vector with the positive class counts per bin.
+//'   \item `count_neg`: Integer vector with the negative class counts per bin.
+//'   \item `cutpoints`: Numeric vector with the cutpoints (excluding ±Inf).
+//'   \item `converged`: Logical indicating whether the algorithm converged.
+//'   \item `iterations`: Integer with the number of iterations performed.
 //' }
 //'
 //' @references
 //' \itemize{
-//'   \item Teoria da Informação e Aprendizado Estatístico (Cover & Thomas, 2006)
-//'   \item Binning Ótimo para Modelos de Scoring (Mironchyk & Tchistiakov, 2017)
-//'   \item Binning e Scoring Monotônico (Beltrami & Bassani, 2021)
+//'   \item Information Theory and Statistical Learning (Cover & Thomas, 2006)
+//'   \item Optimal Binning for Scoring Models (Mironchyk & Tchistiakov, 2017)
+//'   \item Monotonic Scoring and Binning (Beltrami & Bassani, 2021)
 //' }
 //'
 //' @examples
 //' \dontrun{
-//' # Uso básico com parâmetros padrão
-//' resultado <- optimal_binning_numerical_jedi(
+//' # Basic usage with default parameters
+//' result <- optimal_binning_numerical_jedi(
 //'   target = c(1,0,1,0,1),
 //'   feature = c(1.2,3.4,2.1,4.5,2.8)
 //' )
 //'
-//' # Configuração personalizada para binning mais granular
-//' resultado <- optimal_binning_numerical_jedi(
-//'   target = vetor_target,
-//'   feature = vetor_feature,
+//' # Custom configuration for finer granularity
+//' result <- optimal_binning_numerical_jedi(
+//'   target = target_vector,
+//'   feature = feature_vector,
 //'   min_bins = 5,
 //'   max_bins = 10,
 //'   bin_cutoff = 0.03

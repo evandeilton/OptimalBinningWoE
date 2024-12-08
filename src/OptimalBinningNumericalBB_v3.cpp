@@ -396,23 +396,52 @@ public:
 };
 
 
-//' @title
-//' Optimal Binning for Numerical Variables using Branch and Bound
+//' @title Optimal Binning for Numerical Variables using Branch and Bound
 //'
 //' @description
-//' This function optimizes numerical variable binning using a Branch and Bound approach, ensuring stable and high-quality bins for predictive modeling.
+//' Performs optimal binning for numerical variables using a Branch and Bound approach. 
+//' This method generates stable, high-quality bins while balancing interpretability and predictive power. 
+//' It ensures monotonicity in the Weight of Evidence (WoE), if requested, and guarantees that bins meet 
+//' user-defined constraints, such as minimum frequency and number of bins.
 //'
-//' @param target An integer vector of binary target values (0 or 1).
-//' @param feature A numeric vector of feature values.
-//' @param min_bins Minimum number of bins (default: 3).
-//' @param max_bins Maximum number of bins (default: 5).
-//' @param bin_cutoff Minimum frequency cutoff for each bin (default: 0.05).
-//' @param max_n_prebins Maximum number of pre-bins (default: 20).
-//' @param is_monotonic Whether to enforce monotonic WoE (default: TRUE).
-//' @param convergence_threshold Convergence threshold for IV (default: 1e-6).
-//' @param max_iterations Maximum iterations (default: 1000).
+//' @param target An integer binary vector (0 or 1) representing the target variable.
+//' @param feature A numeric vector of feature values to be binned.
+//' @param min_bins Minimum number of bins to generate (default: 3).
+//' @param max_bins Maximum number of bins to generate (default: 5).
+//' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins generated before optimization (default: 20).
+//' @param is_monotonic Logical value indicating whether to enforce monotonicity in WoE (default: TRUE).
+//' @param convergence_threshold Convergence threshold for total Information Value (IV) change (default: 1e-6).
+//' @param max_iterations Maximum number of iterations allowed for the optimization process (default: 1000).
 //'
-//' @return A list with binning details and statistics.
+//' @return A list containing:
+//' \item{bin}{Character vector with the intervals of each bin (e.g., `(-Inf; 0]`, `(0; +Inf)`).}
+//' \item{woe}{Numeric vector with the WoE values for each bin.}
+//' \item{iv}{Numeric vector with the IV values for each bin.}
+//' \item{count}{Integer vector with the total number of observations in each bin.}
+//' \item{count_pos}{Integer vector with the number of positive observations in each bin.}
+//' \item{count_neg}{Integer vector with the number of negative observations in each bin.}
+//' \item{cutpoints}{Numeric vector of cut points between bins (excluding infinity).}
+//' \item{converged}{Logical value indicating whether the algorithm converged.}
+//' \item{iterations}{Number of iterations executed by the optimization algorithm.}
+//'
+//' @details
+//' The algorithm executes the following steps:
+//' 1. **Input Validation**: Ensures that inputs meet the requirements, such as compatible vector lengths 
+//'    and valid parameter ranges.
+//' 2. **Pre-Binning**: 
+//'    - If the feature has 2 or fewer unique values, assigns them directly to bins.
+//'    - Otherwise, generates quantile-based pre-bins, ensuring sufficient granularity.
+//' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` with neighboring bins to 
+//'    ensure robustness and statistical reliability.
+//' 4. **WoE and IV Calculation**:
+//'    - Weight of Evidence (WoE): \eqn{\log(\text{Dist}_{\text{pos}} / \text{Dist}_{\text{neg}})}
+//'    - Information Value (IV): \eqn{\sum (\text{Dist}_{\text{pos}} - \text{Dist}_{\text{neg}}) \times \text{WoE}}
+//' 5. **Monotonicity Enforcement (Optional)**: Merges bins iteratively to ensure that WoE values follow a 
+//'    consistent increasing or decreasing trend, if `is_monotonic = TRUE`.
+//' 6. **Branch and Bound Optimization**: Iteratively merges bins with the smallest IV until the number of 
+//'    bins meets the `max_bins` constraint or IV change falls below `convergence_threshold`.
+//' 7. **Convergence Check**: Stops the process when the algorithm converges or reaches `max_iterations`.
 //'
 //' @examples
 //' \dontrun{
@@ -420,6 +449,7 @@ public:
 //' n <- 10000
 //' feature <- rnorm(n)
 //' target <- rbinom(n, 1, plogis(0.5 * feature))
+//'
 //' result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
 //' print(result)
 //' }

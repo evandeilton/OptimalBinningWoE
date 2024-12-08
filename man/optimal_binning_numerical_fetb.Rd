@@ -45,7 +45,9 @@ A list containing:
 \item{iterations}{An integer indicating the number of iterations run.}
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It attempts to create an optimal set of bins for a given numerical feature based on its relationship with a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
+This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test.
+It attempts to create an optimal set of bins for a given numerical feature based on its relationship with
+a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
 }
 \details{
 The algorithm works as follows:

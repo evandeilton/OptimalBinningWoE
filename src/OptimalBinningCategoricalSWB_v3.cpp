@@ -382,45 +382,44 @@ public:
 };
 
 
-
-//' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB) (Refined)
+//' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)
 //'
 //' @description
-//' Esta função realiza um binning ótimo de variáveis categóricas utilizando uma abordagem de Sliding Window Binning (SWB).
-//' O objetivo é gerar bins com bom poder preditivo (IV) e monotonicidade no WoE, garantindo estabilidade, robustez,
-//' e mantendo compatibilidade de nomes e tipos de entrada e saída. Caso a variável categórica tenha apenas 1 ou 2 níveis,
-//' não será realizada a otimização, apenas o cálculo das estatísticas e retorno do resultado.
+//' This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach.
+//' The goal is to generate bins with good predictive power (IV) and WoE monotonicity, ensuring stability, robustness,
+//' and maintaining compatibility of input and output names and types. If the categorical variable has only 1 or 2 levels,
+//' no optimization is performed, and only the statistics are calculated and returned.
 //'
-//' @param target Vetor inteiro binário (0 ou 1) da variável resposta.
-//' @param feature Vetor de caracteres com as categorias da variável explicativa.
-//' @param min_bins Número mínimo de bins (padrão: 3).
-//' @param max_bins Número máximo de bins (padrão: 5).
-//' @param bin_cutoff Freqüência mínima para considerar uma categoria como bin separado (padrão: 0.05).
-//' @param max_n_prebins Número máximo de pré-bins antes da fusão (padrão: 20).
-//' @param bin_separator Separador usado ao concatenar nomes de categorias em cada bin (padrão: "%;%").
-//' @param convergence_threshold Limite para convergência do IV (padrão: 1e-6).
-//' @param max_iterations Número máximo de iterações para otimização (padrão: 1000).
+//' @param target Integer binary vector (0 or 1) representing the response variable.
+//' @param feature Character vector with the categories of the explanatory variable.
+//' @param min_bins Minimum number of bins (default: 3).
+//' @param max_bins Maximum number of bins (default: 5).
+//' @param bin_cutoff Minimum frequency to consider a category as a separate bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+//' @param bin_separator Separator used when concatenating category names in each bin (default: "%;%").
+//' @param convergence_threshold Threshold for IV convergence (default: 1e-6).
+//' @param max_iterations Maximum number of iterations for optimization (default: 1000).
 //'
-//' @return Uma lista contendo:
+//' @return A list containing:
 //' \itemize{
-//'   \item bin: Vetor de strings com os nomes dos bins.
-//'   \item woe: Vetor numérico com valores de WOE para cada bin.
-//'   \item iv: Vetor numérico com valores de IV para cada bin.
-//'   \item count: Vetor inteiro com a contagem total em cada bin.
-//'   \item count_pos: Vetor inteiro com a contagem de positivos (target=1) em cada bin.
-//'   \item count_neg: Vetor inteiro com a contagem de negativos (target=0) em cada bin.
-//'   \item converged: Valor lógico indicando se o algoritmo convergiu.
-//'   \item iterations: Número inteiro indicando quantas iterações foram executadas.
+//'   \item bin: String vector with the names of the bins.
+//'   \item woe: Numeric vector with WoE values for each bin.
+//'   \item iv: Numeric vector with IV values for each bin.
+//'   \item count: Integer vector with the total count in each bin.
+//'   \item count_pos: Integer vector with the count of positives (target=1) in each bin.
+//'   \item count_neg: Integer vector with the count of negatives (target=0) in each bin.
+//'   \item converged: Logical value indicating whether the algorithm converged.
+//'   \item iterations: Integer value indicating how many iterations were executed.
 //' }
 //'
 //' @details
-//' Passos do algoritmo SWB (ajustado):
-//' 1. Inicializa bins para cada categoria, unindo categorias raras (abaixo do bin_cutoff).
-//' 2. Se a variável tiver apenas 1 ou 2 níveis, não otimiza, apenas calcula o WoE/IV e retorna.
-//' 3. Caso contrário, ordena bins pelo valor do WoE, e funde bins adjacentes conforme necessário, respeitando min_bins e max_bins.
-//' 4. Otimiza o número de bins visando monotonicidade do WoE e maximização do IV, evitando travar em caso de poucas classes.
+//' Steps of the SWB algorithm (refined):
+//' 1. Initialize bins for each category, merging rare categories (below bin_cutoff).
+//' 2. If the variable has only 1 or 2 levels, do not optimize, simply calculate WoE/IV and return.
+//' 3. Otherwise, order bins by WoE values and merge adjacent bins as needed, respecting min_bins and max_bins.
+//' 4. Optimize the number of bins to ensure WoE monotonicity and maximize IV, avoiding issues with few classes.
 //'
-//' Fórmulas principais:
+//' Key formulas:
 //' \deqn{WOE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
 //' \deqn{IV = \sum (P(X|Y=1) - P(X|Y=0)) \times WOE}
 //'

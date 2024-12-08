@@ -645,10 +645,10 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   #   "auto", "cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt",
   #   "bb", "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd"
   # )
-  
-  # all_methods_char <- unique(c("auto", names(OptimalBinningGetAlgoName()$char)))
-  # all_methods_num  <- unique(c("auto", names(OptimalBinningGetAlgoName()$num)))
-  
+
+  all_methods_char <- unique(c("auto", names(OptimalBinningGetAlgoName()$char)))
+  all_methods_num <- unique(c("auto", names(OptimalBinningGetAlgoName()$num)))
+
   all_methods <- sort(unique(c(all_methods_char, all_methods_num)))
 
   # Check binning method

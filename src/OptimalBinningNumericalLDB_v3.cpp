@@ -469,25 +469,72 @@ Rcpp::List OptimalBinningNumericalLDB::transform() {
 
 //' @title Optimal Binning for Numerical Variables using Local Density Binning (LDB)
 //'
-//' @description Implementa o algoritmo Local Density Binning (LDB) para binning ótimo de variáveis numéricas.
+//' @description
+//' Implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables. 
+//' The method adjusts binning to maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE),
+//' handling rare bins, and ensuring numerical stability.
 //'
-//' @param target Vetor inteiro binário (0 ou 1).
-//' @param feature Vetor numérico a ser binned.
-//' @param min_bins Número mínimo de bins (default: 3).
-//' @param max_bins Número máximo de bins (default: 5).
-//' @param bin_cutoff Frequência mínima para um bin (default: 0.05).
-//' @param max_n_prebins Número máximo de pré-bins (default: 20).
-//' @param convergence_threshold Limite de convergência (default: 1e-6).
-//' @param max_iterations Máximo de iterações (default: 1000).
+//' @details
+//' ### Key Features:
+//' - **Weight of Evidence (WoE)**: Ensures interpretability by calculating the WoE for each bin, useful for logistic regression and risk models.
+//' - **Information Value (IV)**: Evaluates the predictive power of the binned feature.
+//' - **Monotonicity**: Ensures WoE values are either strictly increasing or decreasing across bins.
+//' - **Rare Bin Handling**: Merges bins with low frequencies to maintain statistical reliability.
+//' - **Numerical Stability**: Prevents log(0) issues through smoothing (Laplace adjustment).
+//' - **Dynamic Adjustments**: Supports constraints on minimum and maximum bins, convergence thresholds, and iteration limits.
 //'
-//' @return Uma lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
+//' ### Mathematical Framework:
+//' - **Weight of Evidence (WoE)**: For a bin \( i \):
+//'   \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+//'
+//' - **Information Value (IV)**: Aggregates predictive power across all bins:
+//'   \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+//'
+//' ### Algorithm Steps:
+//' 1. **Input Validation**: Ensures the feature and target vectors are valid and properly formatted.
+//' 2. **Pre-Binning**: Divides the feature into pre-bins based on quantile cuts or unique values.
+//' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` to maintain statistical stability.
+//' 4. **WoE and IV Calculation**: Computes the WoE and IV values for each bin based on the target distribution.
+//' 5. **Monotonicity Enforcement**: Adjusts bins to ensure WoE values are monotonic (either increasing or decreasing).
+//' 6. **Bin Optimization**: Iteratively merges bins to respect constraints on `min_bins` and `max_bins`.
+//' 7. **Result Validation**: Ensures bins cover the entire range of the feature without overlap and adhere to constraints.
+//'
+//' ### Parameters:
+//' - `min_bins`: Minimum number of bins to be created (default: 3).
+//' - `max_bins`: Maximum number of bins allowed (default: 5).
+//' - `bin_cutoff`: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
+//' - `max_n_prebins`: Maximum number of pre-bins before optimization (default: 20).
+//' - `convergence_threshold`: Threshold for determining convergence in terms of IV changes (default: 1e-6).
+//' - `max_iterations`: Maximum number of iterations allowed for optimization (default: 1000).
+//'
+//' @param target An integer binary vector (0 or 1) representing the response variable.
+//' @param feature A numeric vector representing the feature to be binned.
+//' @param min_bins Minimum number of bins to be created (default: 3).
+//' @param max_bins Maximum number of bins allowed (default: 5).
+//' @param bin_cutoff Minimum frequency proportion for retaining a bin (default: 0.05).
+//' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+//' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
+//' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+//'
+//' @return A list containing the following elements:
+//' \itemize{
+//'   \item `bins`: A vector of bin intervals in the format "[lower;upper)".
+//'   \item `woe`: A numeric vector of WoE values for each bin.
+//'   \item `iv`: A numeric vector of IV contributions for each bin.
+//'   \item `count`: An integer vector of the total number of observations per bin.
+//'   \item `count_pos`: An integer vector of the number of positive cases per bin.
+//'   \item `count_neg`: An integer vector of the number of negative cases per bin.
+//'   \item `cutpoints`: A numeric vector of the cutpoints defining the bin edges.
+//'   \item `converged`: A boolean indicating whether the algorithm converged.
+//'   \item `iterations`: An integer indicating the number of iterations executed.
+//' }
 //'
 //' @examples
 //' \dontrun{
 //' set.seed(123)
 //' target <- sample(0:1, 1000, replace = TRUE)
 //' feature <- rnorm(1000)
-//' result <- optimal_binning_numerical_ldb(target, feature)
+//' result <- optimal_binning_numerical_ldb(target, feature, min_bins = 3, max_bins = 6)
 //' print(result$bins)
 //' print(result$woe)
 //' print(result$iv)

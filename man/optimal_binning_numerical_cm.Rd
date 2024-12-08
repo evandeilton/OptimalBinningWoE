@@ -65,7 +65,8 @@ O algoritmo segue estes passos:
 Referências:
 \itemize{
 \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. AAAI Press.
-\item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+\item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring.
+Applied Mathematical Sciences, 8(65), 3229-3242.
 }
 }
 \examples{

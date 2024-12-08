@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_dplc}
 \alias{optimal_binning_categorical_dplc}
-\title{Binning Ótimo para Variáveis Categóricas usando Programação Dinâmica com Restrições Lineares (Versão Aprimorada)}
+\title{Optimal Binning for Categorical Variables using Dynamic Programming with Linear Constraints}
 \usage{
 optimal_binning_categorical_dplc(
   target,
@@ -17,55 +17,72 @@ optimal_binning_categorical_dplc(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1) do target.}
+\item{target}{An integer vector of binary target values (0 or 1).}
 
-\item{feature}{Vetor de strings categóricas.}
+\item{feature}{A character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Proporção mínima para um bin separado (default: 0.05).}
+\item{bin_cutoff}{Minimum proportion of total observations for a bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes da mesclagem (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{convergence_threshold}{Limite para convergência do algoritmo (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for the dynamic programming algorithm (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations for the dynamic programming algorithm (default: 1000).}
 
-\item{bin_separator}{Separador para concatenar nomes de categorias em cada bin (default: "\%;\%").}
+\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%").}
 }
 \value{
-Uma lista contendo bin, woe, iv, count, count_pos, count_neg, converged e iterations.
+A data frame containing binning information, including bin names, WOE, IV, and counts.
 }
 \description{
-Este código implementa o binning ótimo para variáveis categóricas utilizando programação dinâmica,
-impondo restrições lineares e buscando maximizar o IV (Information Value). O algoritmo:
+This function performs optimal binning for categorical variables using a dynamic programming approach with linear constraints. It aims to find the optimal grouping of categories that maximizes the Information Value (IV) while respecting user-defined constraints on the number of bins.
+}
+\details{
+The algorithm uses dynamic programming to find the optimal binning solution that maximizes the total Information Value (IV) while respecting the constraints on the number of bins. It follows these main steps:
+
 \enumerate{
-\item Pré-processa dados, unindo categorias raras.
-\item Ordena categorias por taxas de evento.
-\item Aplica programação dinâmica para encontrar a solução ótima em termos de IV.
-\item Impõe monotonicidade quando possível.
-\item Retorna bins finais com WoE e IV calculados.
+\item Preprocess the data by counting occurrences and merging rare categories.
+\item Sort categories based on their event rates.
+\item Use dynamic programming to find the optimal binning solution.
+\item Backtrack to determine the final bin edges.
+\item Calculate WOE and IV for each bin.
 }
 
-As melhorias incluem:
-\itemize{
-\item Organização e clareza do código.
-\item Comentários detalhados.
-\item Uso de funções inline e estruturas de dados eficientes.
-\item Redução de cópias desnecessárias.
-\item Maior robustez na validação e no tratamento de exceções.
-}
+The dynamic programming approach uses a recurrence relation to find the maximum total IV achievable for a given number of categories and bins.
+
+The Weight of Evidence (WOE) for each bin is calculated as:
+
+\deqn{WOE = \ln\left(\frac{\text{Distribution of Good}}{\text{Distribution of Bad}}\right)}
+
+And the Information Value (IV) for each bin is:
+
+\deqn{IV = (\text{Distribution of Good} - \text{Distribution of Bad}) \times WOE}
+
+The algorithm aims to find the binning solution that maximizes the total IV while respecting the constraints on the number of bins and ensuring monotonicity when possible.
 }
 \examples{
 \dontrun{
+# Create sample data
 set.seed(123)
 n <- 1000
 target <- sample(0:1, n, replace = TRUE)
 feature <- sample(c("A", "B", "C", "D", "E"), n, replace = TRUE)
+
+# Perform optimal binning
 result <- optimal_binning_categorical_dplc(target, feature, min_bins = 2, max_bins = 4)
+
+# View results
 print(result)
 }
 
+}
+\references{
+\itemize{
+\item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gómez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
+\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal.
+}
 }

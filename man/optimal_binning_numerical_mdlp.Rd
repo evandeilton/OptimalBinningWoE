@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_mdlp}
 \alias{optimal_binning_numerical_mdlp}
-\title{Optimal Binning for Numerical Features using MDLP}
+\title{Optimal Binning for Numerical Features using the Minimum Description Length Principle (MDLP)}
 \usage{
 optimal_binning_numerical_mdlp(
   target,
@@ -16,27 +16,97 @@ optimal_binning_numerical_mdlp(
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0 ou 1).}
+\item{target}{An integer binary vector (0 or 1) representing the target variable.}
 
-\item{feature}{Vetor numérico da feature.}
+\item{feature}{A numeric vector representing the feature to bin.}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Proporção mínima de registros por bin (default: 0.05).}
+\item{bin_cutoff}{Minimum proportion of records per bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{convergence_threshold}{Limite de convergência (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
-Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
+A list with the following components:
+\itemize{
+\item \code{bin}: A vector of bin names representing the intervals.
+\item \code{woe}: A numeric vector with the WoE values for each bin.
+\item \code{iv}: A numeric vector with the IV values for each bin.
+\item \code{count}: An integer vector with the total number of observations in each bin.
+\item \code{count_pos}: An integer vector with the count of positive cases in each bin.
+\item \code{count_neg}: An integer vector with the count of negative cases in each bin.
+\item \code{cutpoints}: A numeric vector of cut points defining the bins.
+\item \code{converged}: A boolean indicating whether the algorithm converged.
+\item \code{iterations}: An integer with the number of iterations performed.
+}
 }
 \description{
-Executa binning ótimo usando o Princípio do Comprimento Mínimo da Descrição (MDLP).
-Cria bins de modo a minimizar a perda de informação, mesclando bins adjacentes que reduzem o custo MDL,
-e assegurando monotonicidade no WoE. Ajusta o número de bins entre min_bins e max_bins, mesclando bins raros.
+This function performs optimal binning for numerical features using the Minimum Description Length Principle (MDLP).
+It minimizes information loss by merging adjacent bins that reduce the MDL cost, while ensuring monotonicity in the Weight of Evidence (WoE).
+The algorithm adjusts the number of bins between \code{min_bins} and \code{max_bins} and handles rare bins by merging them iteratively.
+Designed for robust and numerically stable calculations, it incorporates protections for extreme cases and convergence controls.
+}
+\details{
+\subsection{Core Steps:}{
+\enumerate{
+\item \strong{Input Validation}: Ensures feature and target are valid, numeric, and binary respectively. Validates consistency between \code{min_bins} and \code{max_bins}.
+\item \strong{Pre-Binning}: Creates pre-bins based on equal frequencies or unique values if there are few observations.
+\item \strong{MDL-Based Merging}: Iteratively merges bins to minimize the MDL cost, which combines model complexity and data fit quality.
+\item \strong{Rare Bin Handling}: Merges bins with frequencies below the \code{bin_cutoff} threshold to ensure statistical stability.
+\item \strong{Monotonicity Enforcement}: Adjusts bins to ensure that the WoE values are monotonically increasing or decreasing.
+\item \strong{Validation}: Validates the final bin structure for consistency and correctness.
+}
+}
+
+\subsection{Mathematical Framework:}{
+
+\strong{Entropy Calculation}: For a bin \( i \) with positive (\( p \)) and negative (\( n \)) counts:
+\deqn{Entropy = -p \log_2(p) - n \log_2(n)}
+
+\strong{MDL Cost}: Combines the cost of the model and data description. Lower MDL values indicate better binning.
+
+\strong{Weight of Evidence (WoE)}: For a bin \( i \):
+\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+
+\strong{Information Value (IV)}: Summarizes predictive power across all bins:
+\deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+}
+
+\subsection{Features:}{
+\itemize{
+\item Merges bins iteratively to minimize the MDL cost.
+\item Ensures monotonicity of WoE to improve model interpretability.
+\item Handles rare bins by merging categories with low frequencies.
+\item Stable against edge cases like all identical values or insufficient observations.
+\item Efficiently processes large datasets with iterative binning and convergence checks.
+}
+}
+
+\subsection{Algorithm Parameters:}{
+\itemize{
+\item \code{min_bins}: Minimum number of bins (default: 3).
+\item \code{max_bins}: Maximum number of bins (default: 5).
+\item \code{bin_cutoff}: Minimum proportion of records required in a bin (default: 0.05).
+\item \code{max_n_prebins}: Maximum number of pre-bins before merging (default: 20).
+\item \code{convergence_threshold}: Threshold for convergence in terms of IV changes (default: 1e-6).
+\item \code{max_iterations}: Maximum number of iterations for optimization (default: 1000).
+}
+}
+}
+\examples{
+\dontrun{
+# Example usage
+set.seed(123)
+target <- sample(0:1, 100, replace = TRUE)
+feature <- runif(100)
+result <- optimal_binning_numerical_mdlp(target, feature, min_bins = 3, max_bins = 5)
+print(result)
+}
+
 }
