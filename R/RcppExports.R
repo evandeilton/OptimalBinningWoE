@@ -1496,7 +1496,9 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' }
 #'
 #' @export
-NULL
+optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ir`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+}
 
 #' @title Optimal Numerical Binning JEDI (Joint Entropy-Driven Interval Discretization)
 #'
