@@ -8,8 +8,8 @@
 <title>Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling • OptimalBinningWoE</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
-<link href="deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling">
 <meta name="description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.">
 <meta property="og:description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.">
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -301,7 +301,7 @@
 <span></span>
 <span><span class="co"># Load the German Credit dataset</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">germancredit</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span></span>
+<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Process all features with Monotonic Binning via Linear Programming (MBLP) method</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
