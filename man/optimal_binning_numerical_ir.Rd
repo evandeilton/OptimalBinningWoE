@@ -16,51 +16,27 @@ optimal_binning_numerical_ir(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor binário (0 ou 1).}
 
-\item{feature}{A numeric vector of feature values.}
+\item{feature}{Vetor numérico.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Inteiro, número mínimo de bins (default: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Inteiro, número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).}
+\item{bin_cutoff}{Fração mínima de observações por bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before the optimization process (default: 20).}
+\item{max_n_prebins}{Máximo de pré-bins (default: 20).}
 
-\item{convergence_threshold}{Threshold for convergence in isotonic regression (default: 1e-6).}
+\item{convergence_threshold}{Limite para convergência (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations for isotonic regression (default: 1000).}
+\item{max_iterations}{Máximo de iterações (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\itemize{
-\item bin: Character vector of bin ranges.
-\item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
-\item iv: Numeric vector of Information Value (IV) for each bin.
-\item count: Integer vector of total observations in each bin.
-\item count_pos: Integer vector of positive target observations in each bin.
-\item count_neg: Integer vector of negative target observations in each bin.
-\item cutpoints: Numeric vector of cutpoints between bins.
-\item converged: Logical indicating whether the algorithm converged.
-\item iterations: Number of iterations run.
-}
+Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
 }
 \description{
-This function performs optimal binning for numerical variables using isotonic regression.
-It creates optimal bins for a numerical feature based on its relationship with a binary
-target variable, maximizing the predictive power while respecting user-defined constraints.
-}
-\details{
-The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
-\enumerate{
-\item If the number of unique values in the feature is less than or equal to 2, the algorithm does not perform optimization or additional binning. It directly calculates the metrics based on the unique values.
-\item Otherwise, it creates initial bins using equal-frequency binning.
-\item Merges low-frequency bins (those with a proportion less than \code{bin_cutoff}).
-\item Ensures the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
-\item Applies isotonic regression to smooth the positive rates across bins.
-\item Calculates Weight of Evidence (WoE) and Information Value (IV) for each bin.
-}
+Realiza binning ótimo para variáveis numéricas usando regressão isotônica, assegurando monotonicidade nas taxas e bins estáveis.
 }
 \examples{
 \dontrun{
@@ -72,12 +48,4 @@ result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins =
 print(result)
 }
 
-}
-\references{
-Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
-Statistical inference under order restrictions: The theory and application
-of isotonic regression. Wiley.
-
-Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
-for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
 }

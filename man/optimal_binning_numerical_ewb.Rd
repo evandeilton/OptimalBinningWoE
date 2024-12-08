@@ -16,49 +16,50 @@ optimal_binning_numerical_ewb(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1) representando a variável alvo.}
 
-\item{feature}{A numeric vector of feature values to be binned.}
+\item{feature}{Vetor numérico com os valores da feature a ser binned.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum fraction of total observations in each bin (default: 0.05).}
+\item{bin_cutoff}{Fração mínima de observações que cada bin deve conter (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins antes da otimização (padrão: 20).}
 
-\item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
+\item{convergence_threshold}{Limite de convergência (padrão: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
+\item{max_iterations}{Número máximo de iterações permitidas (padrão: 1000).}
 }
 \value{
-A list containing:
-\item{bins}{Character vector of bin ranges.}
-\item{woe}{Numeric vector of WoE values for each bin.}
-\item{iv}{Numeric vector of Information Value (IV) for each bin.}
-\item{count}{Numeric vector of total observations in each bin.}
-\item{count_pos}{Numeric vector of positive target observations in each bin.}
-\item{count_neg}{Numeric vector of negative target observations in each bin.}
-\item{cutpoints}{Numeric vector of cut points to generate the bins.}
-\item{converged}{Logical indicating if the algorithm converged.}
-\item{iterations}{Integer number of iterations run by the algorithm.}
+Uma lista com:
+\item{bins}{Vetor de caracteres com o intervalo de cada bin.}
+\item{woe}{Vetor numérico com os valores de WoE de cada bin.}
+\item{iv}{Vetor numérico com o valor de IV de cada bin.}
+\item{count}{Vetor numérico com o total de observações em cada bin.}
+\item{count_pos}{Vetor numérico com o total de observações positivas em cada bin.}
+\item{count_neg}{Vetor numérico com o total de observações negativas em cada bin.}
+\item{cutpoints}{Vetor numérico com os pontos de corte.}
+\item{converged}{Valor lógico indicando se o algoritmo convergiu.}
+\item{iterations}{Número de iterações executadas pelo algoritmo.}
 }
 \description{
-Performs optimal binning for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
+Realiza binning ótimo de variáveis numéricas por meio de intervalos de largura igual (Equal-Width Binning) com etapas subsequentes de mesclagem e ajuste. Este procedimento busca criar uma estratégia de binning interpretável e com bom poder preditivo, levando em conta monotonicidade e cortes mínimos nos bins.
 }
 \details{
-The optimal binning algorithm using Equal-Width Binning consists of several steps:
+O algoritmo consiste nos seguintes passos:
 \enumerate{
-\item Initial binning: The feature range is divided into \code{max_n_prebins} bins of equal width.
-\item Assign data to bins based on feature values.
-\item Merge rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-\item Enforce monotonicity of WoE values by merging adjacent non-monotonic bins.
-\item Adjust the number of bins to not exceed \code{max_bins} by merging bins with the smallest counts.
-\item Calculate WoE and IV for each bin.
+\item Criação de pré-bins de largura igual.
+\item Atribuição dos dados a esses pré-bins.
+\item Mesclagem de bins raros (com poucas observações).
+\item Cálculo do WoE e IV inicial.
+\item Garantia de monotonicidade do WoE por meio de mesclagem de bins não monotônicos.
+\item Ajuste para assegurar o número máximo de bins não exceda max_bins.
+\item Recalcular WoE e IV ao final.
 }
 
-The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+Este método visa fornecer bins que balanceiem interpretabilidade, monotonicidade e poder preditivo, útil em modelagem de risco e credit scoring.
 }
 \examples{
 set.seed(123)

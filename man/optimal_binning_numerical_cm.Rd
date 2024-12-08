@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_cm}
 \alias{optimal_binning_numerical_cm}
-\title{Optimal Binning for Numerical Variables using ChiMerge}
+\title{Binning Ótimo para Variáveis Numéricas usando ChiMerge (Versão Aprimorada)}
 \usage{
 optimal_binning_numerical_cm(
   target,
@@ -16,70 +16,66 @@ optimal_binning_numerical_cm(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0/1) do target.}
 
-\item{feature}{A numeric vector of feature values to be binned.}
+\item{feature}{Vetor numérico de valores da feature a ser binada.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (default: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency of observations in each bin (default: 0.05).}
+\item{bin_cutoff}{Frequência mínima (proporção) de observações em cada bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins for initial discretization (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins para discretização inicial (default: 20).}
 
-\item{convergence_threshold}{Threshold for convergence of the algorithm (default: 1e-6).}
+\item{convergence_threshold}{Limite de convergência do algoritmo (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
+\item{max_iterations}{Número máximo de iterações (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\item{bins}{A character vector of bin names.}
-\item{woe}{A numeric vector of Weight of Evidence values for each bin.}
-\item{iv}{A numeric vector of Information Value for each bin.}
-\item{count}{An integer vector of total counts for each bin.}
-\item{count_pos}{An integer vector of positive target counts for each bin.}
-\item{count_neg}{An integer vector of negative target counts for each bin.}
-\item{cutpoints}{A numeric vector of cutpoints used to create the bins.}
-\item{converged}{A logical value indicating whether the algorithm converged.}
-\item{iterations}{An integer value indicating the number of iterations run.}
+Uma lista com:
+\itemize{
+\item bins: Vetor de nomes dos bins.
+\item woe: Vetor de WoE por bin.
+\item iv: Vetor de IV por bin.
+\item count: Contagem total por bin.
+\item count_pos: Contagem de casos positivos (target=1) por bin.
+\item count_neg: Contagem de casos negativos (target=0) por bin.
+\item cutpoints: Pontos de corte utilizados para criar os bins.
+\item converged: Booleano indicando se o algoritmo convergiu.
+\item iterations: Número de iterações executadas.
+}
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+Implementa um algoritmo de binning ótimo para variáveis numéricas utilizando o método ChiMerge,
+calculando WoE (Weight of Evidence) e IV (Information Value). Este código foi otimizado
+em legibilidade, eficiência e robustez, mantendo compatibilidade de tipos e nomes.
 }
 \details{
-The optimal binning algorithm for numerical variables uses the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
-
-The algorithm follows these steps:
+O algoritmo segue estes passos:
 \enumerate{
-\item Initial discretization into max_n_prebins
-\item Iterative merging of adjacent bins based on chi-square statistic
-\item Merging of bins with zero counts in either class
-\item Merging of rare bins based on the bin_cutoff parameter
-\item Calculation of WoE and IV for each final bin
+\item Discretização inicial em max_n_prebins via quantis.
+\item Mesclagem iterativa de bins adjacentes com base na estatística Qui-quadrado.
+\item Mesclagem de bins com contagens zero em alguma classe.
+\item Mesclagem de bins raros (baseado em bin_cutoff).
+\item Cálculo de WoE e IV para cada bin final.
+\item Aplicação de monotonicidade (se possível).
 }
 
-The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
+Referências:
+\itemize{
+\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. AAAI Press.
+\item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
+}
 }
 \examples{
 \dontrun{
-# Generate sample data
 set.seed(123)
 n <- 10000
 feature <- rnorm(n)
 target <- rbinom(n, 1, plogis(0.5 * feature))
-
-# Apply optimal binning
 result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
-
-# View binning results
 print(result)
 }
 
-}
-\references{
-\itemize{
-\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
-\item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
-}
 }

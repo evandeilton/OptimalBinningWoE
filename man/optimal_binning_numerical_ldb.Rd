@@ -16,48 +16,34 @@ optimal_binning_numerical_ldb(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1).}
 
-\item{feature}{A numeric vector of feature values to be binned.}
+\item{feature}{Vetor numérico a ser binned.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (default: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a bin (default: 0.05).}
+\item{bin_cutoff}{Frequência mínima para um bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins (default: 20).}
 
-\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+\item{convergence_threshold}{Limite de convergência (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations (default: 1000).}
+\item{max_iterations}{Máximo de iterações (default: 1000).}
 }
 \value{
-A list containing:
-\item{bins}{A vector of bin labels}
-\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
-\item{iv}{A numeric vector of Information Value (IV) for each bin}
-\item{count}{Total count of observations in each bin}
-\item{count_pos}{Count of positive target observations in each bin}
-\item{count_neg}{Count of negative target observations in each bin}
-\item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
-\item{converged}{Logical value indicating if the algorithm converged}
-\item{iterations}{Number of iterations run by the algorithm}
+Uma lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
 }
 \description{
-This function implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables.
+Implementa o algoritmo Local Density Binning (LDB) para binning ótimo de variáveis numéricas.
 }
 \examples{
 \dontrun{
-# Create sample data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
-
-# Run optimal binning
 result <- optimal_binning_numerical_ldb(target, feature)
-
-# View results
 print(result$bins)
 print(result$woe)
 print(result$iv)

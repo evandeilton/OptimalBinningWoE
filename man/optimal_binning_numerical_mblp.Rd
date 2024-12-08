@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_mblp}
 \alias{optimal_binning_numerical_mblp}
-\title{Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming}
+\title{Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming (MBLP)}
 \usage{
 optimal_binning_numerical_mblp(
   target,
@@ -16,49 +16,30 @@ optimal_binning_numerical_mblp(
 )
 }
 \arguments{
-\item{target}{An integer vector representing the binary target variable (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1).}
 
-\item{feature}{A numeric vector representing the numerical feature to be binned.}
+\item{feature}{Vetor numérico da feature.}
 
-\item{min_bins}{An integer specifying the minimum number of bins. Default is 3.}
+\item{min_bins}{Número mínimo de bins (default: 3).}
 
-\item{max_bins}{An integer specifying the maximum number of bins. Default is 5. Must be greater than or equal to \code{min_bins}.}
+\item{max_bins}{Número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{A numeric value representing the cutoff for merging rare bins. Bins with a frequency lower than this threshold are merged. Default is 0.05.}
+\item{bin_cutoff}{Limite para mesclar bins raros (freq < bin_cutoff).}
 
-\item{max_n_prebins}{An integer specifying the maximum number of pre-bins before optimization. Default is 20.}
+\item{max_n_prebins}{Máximo de pré-bins antes da otimização (default: 20).}
 
-\item{convergence_threshold}{A numeric value specifying the threshold for convergence of the Information Value (IV). Default is 1e-6.}
+\item{convergence_threshold}{Limite para convergência do IV (default: 1e-6).}
 
-\item{max_iterations}{An integer specifying the maximum number of iterations allowed for binning optimization. Default is 1000.}
+\item{max_iterations}{Máximo de iterações (default: 1000).}
 }
 \value{
-A list with the following components:
-\item{bins}{Character vector of bin labels, defining the intervals of each bin.}
-\item{woe}{Numeric vector of WoE (Weight of Evidence) values for each bin.}
-\item{iv}{Numeric vector of IV (Information Value) values for each bin.}
-\item{count}{Integer vector representing the count of observations in each bin.}
-\item{count_pos}{Integer vector representing the count of positive (target == 1) observations in each bin.}
-\item{count_neg}{Integer vector representing the count of negative (target == 0) observations in each bin.}
-\item{cutpoints}{Numeric vector of cut points used to define the bins.}
-\item{converged}{Logical indicating whether the algorithm converged within the specified threshold and iterations.}
-\item{iterations}{Integer indicating the number of iterations the algorithm ran before convergence or stopping.}
+Lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
 }
 \description{
-This function performs optimal binning for numerical features, using a monotonic binning
-technique that ensures the WoE (Weight of Evidence) is monotonic across bins.
-The algorithm iteratively adjusts the bins to respect specified constraints (min and max bins)
-and ensures that rare bins are merged. The final result includes the optimal bins, WoE values,
-IV (Information Value), and additional metadata regarding convergence.
+Este método realiza um binning ótimo de variáveis numéricas, garantindo monotonicidade no WoE entre os bins,
+respeitando as restrições de min/max bins e fusão de bins raros. Retorna bins, WoE, IV, contagens e metadados.
 }
 \examples{
-# Example with exactly 2 unique values
-feature <- c(1, 1, 2, 2, 1, 2)
-target <- c(0, 1, 0, 1, 0, 1)
-result <- optimal_binning_numerical_mblp(target, feature)
-print(result)
-
-# Example with more unique values
 set.seed(123)
 feature <- rnorm(1000)
 target <- rbinom(1000, 1, 0.3)

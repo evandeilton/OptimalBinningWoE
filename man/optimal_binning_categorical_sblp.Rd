@@ -17,71 +17,66 @@ optimal_binning_categorical_sblp(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1) representando a variável resposta.}
 
-\item{feature}{A character vector of categorical feature values.}
+\item{feature}{Vetor de caracteres com as categorias da variável explicativa.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
+\item{bin_cutoff}{Proporção mínima de frequência para que uma categoria seja considerada um bin separado (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins antes do processo de partição (padrão: 20).}
 
-\item{convergence_threshold}{Threshold for convergence of the algorithm (default: 1e-6).}
+\item{convergence_threshold}{Limite para convergência do algoritmo (padrão: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
+\item{max_iterations}{Número máximo de iterações do algoritmo (padrão: 1000).}
 
-\item{bin_separator}{Separator used for merging category names (default: ";").}
+\item{bin_separator}{Separador utilizado para concatenar nomes de categorias nos bins (padrão: ";").}
 }
 \value{
-A list containing the following elements:
+Uma lista contendo:
 \itemize{
-\item bins: A character vector of bin labels
-\item woe: A numeric vector of Weight of Evidence values for each bin
-\item iv: A numeric vector of Information Values for each bin
-\item count: An integer vector of total counts for each bin
-\item count_pos: An integer vector of positive class counts for each bin
-\item count_neg: An integer vector of negative class counts for each bin
-\item converged: A logical value indicating whether the algorithm converged
-\item iterations: An integer value indicating the number of iterations performed
+\item bin: Vetor de strings com os nomes dos bins (categorias concatenadas).
+\item woe: Vetor numérico com os valores de Weight of Evidence (WoE) para cada bin.
+\item iv: Vetor numérico com os valores de Information Value (IV) para cada bin.
+\item count: Vetor inteiro com a contagem total de observações em cada bin.
+\item count_pos: Vetor inteiro com a contagem de casos positivos (target=1) em cada bin.
+\item count_neg: Vetor inteiro com a contagem de casos negativos (target=0) em cada bin.
+\item converged: Valor lógico indicando se o algoritmo convergiu.
+\item iterations: Número inteiro com a quantidade de iterações executadas.
 }
 }
 \description{
-This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach,
-which combines Weight of Evidence (WOE) and Information Value (IV) methods with a similarity-based merging strategy.
+Esta função realiza um binning ótimo para variáveis categóricas utilizando uma abordagem de Similarity-Based Logistic Partitioning (SBLP).
+O objetivo é produzir bins que maximizem o Information Value (IV) e forneçam Weight of Evidence (WOE) consistentes, considerando taxas alvo
+(target rates) e garantindo qualidade através de merges baseados em similaridade.
+Foi feita uma revisão para melhorar legibilidade, eficiência, robustez e manutenção da compatibilidade
+de nomes e tipos dos parâmetros de entrada/saída.
 }
 \details{
-The algorithm performs the following steps:
+Passos do algoritmo SBLP:
 \enumerate{
-\item Validate input parameters
-\item Compute initial counts and target rates for each category
-\item Handle rare categories by merging them based on similarity in target rates
-\item Ensure the number of pre-bins does not exceed max_n_prebins
-\item Sort categories based on their target rates
-\item Perform iterative binning using dynamic programming
-\item Enforce monotonicity in the final binning if possible
-\item Calculate final statistics for each bin
+\item Validação de entrada e cálculo das contagens iniciais por categoria.
+\item Tratamento de categorias raras, unindo-as com outras similares em termos de taxa alvo.
+\item Garantia de número máximo de pré-bins, unindo bins pouco informativos.
+\item Ordenação das categorias pela taxa alvo.
+\item Aplicação de programação dinâmica para determinação da partição ótima, considerando min_bins e max_bins.
+\item Ajuste da monotonicidade do WoE, se necessário, desde que o número de bins seja maior que min_bins.
+\item Cálculo final do WoE e IV de cada bin, retornando o resultado.
 }
 
-The Weight of Evidence (WOE) is calculated as:
-\deqn{WOE = \ln(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}})}
-
-The Information Value (IV) for each bin is calculated as:
-\deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+Fórmulas-chave:
+\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+\deqn{IV = \sum_{bins} (P(X|Y=1) - P(X|Y=0)) \times WoE}
 }
 \examples{
 \dontrun{
-# Create sample data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-
-# Run optimal binning
 result <- optimal_binning_categorical_sblp(target, feature)
-
-# View results
 print(result)
 }
 

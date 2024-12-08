@@ -16,25 +16,27 @@ optimal_binning_numerical_mdlp(
 )
 }
 \arguments{
-\item{target}{An integer vector containing binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1).}
 
-\item{feature}{A numeric vector containing the feature values to be binned.}
+\item{feature}{Vetor numérico da feature.}
 
-\item{min_bins}{The minimum number of bins to produce.}
+\item{min_bins}{Número mínimo de bins (default: 3).}
 
-\item{max_bins}{The maximum number of bins to produce.}
+\item{max_bins}{Número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{The minimum proportion of records allowed in a bin.}
+\item{bin_cutoff}{Proporção mínima de registros por bin (default: 0.05).}
 
-\item{max_n_prebins}{The maximum number of pre-bins to create.}
+\item{max_n_prebins}{Número máximo de pré-bins (default: 20).}
 
-\item{convergence_threshold}{The convergence threshold for the algorithm.}
+\item{convergence_threshold}{Limite de convergência (default: 1e-6).}
 
-\item{max_iterations}{The maximum number of iterations allowed.}
+\item{max_iterations}{Número máximo de iterações (default: 1000).}
 }
 \value{
-A list containing the binning results, including bins, WoE, IV, counts, cutpoints, convergence status, and iterations run.
+Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
 }
 \description{
-This function performs optimal binning on a numerical feature using the Minimum Description Length Principle (MDLP).
+Executa binning ótimo usando o Princípio do Comprimento Mínimo da Descrição (MDLP).
+Cria bins de modo a minimizar a perda de informação, mesclando bins adjacentes que reduzem o custo MDL,
+e assegurando monotonicidade no WoE. Ajusta o número de bins entre min_bins e max_bins, mesclando bins raros.
 }

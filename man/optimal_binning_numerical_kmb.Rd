@@ -34,7 +34,7 @@ optimal_binning_numerical_kmb(
 }
 \value{
 A list containing the following elements:
-\item{bins}{Character vector of bin ranges.}
+\item{bin}{Character vector of bin ranges.}
 \item{woe}{Numeric vector of WoE values for each bin.}
 \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 \item{count}{Integer vector of total observations in each bin.}

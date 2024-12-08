@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_fetb}
 \alias{optimal_binning_numerical_fetb}
-\title{Optimal Binning for Numerical Variables using Fisher's Exact Test}
+\title{Optimal Binning for Numerical Variables using Fisher's Exact Test (FETB)}
 \usage{
 optimal_binning_numerical_fetb(
   target,
@@ -26,35 +26,37 @@ optimal_binning_numerical_fetb(
 
 \item{bin_cutoff}{P-value threshold for merging bins (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before the merging process (default: 20).}
 
-\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+\item{convergence_threshold}{Threshold for algorithmic convergence (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations (default: 1000).}
+\item{max_iterations}{Maximum number of iterations allowed during merging and monotonicity enforcement (default: 1000).}
 }
 \value{
 A list containing:
-\item{bins}{A vector of bin labels}
-\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
-\item{iv}{A numeric vector of Information Value (IV) for each bin}
-\item{count}{Total count of observations in each bin}
-\item{count_pos}{Count of positive target observations in each bin}
-\item{count_neg}{Count of negative target observations in each bin}
-\item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
-\item{converged}{Logical value indicating if the algorithm converged}
-\item{iterations}{Number of iterations run by the algorithm}
+\item{bin}{A character vector of bin ranges.}
+\item{woe}{A numeric vector of WoE values for each bin.}
+\item{iv}{A numeric vector of IV for each bin.}
+\item{count}{A numeric vector of total observations in each bin.}
+\item{count_pos}{A numeric vector of positive target observations in each bin.}
+\item{count_neg}{A numeric vector of negative target observations in each bin.}
+\item{cutpoints}{A numeric vector of cut points used to generate the bins.}
+\item{converged}{A logical indicating if the algorithm converged.}
+\item{iterations}{An integer indicating the number of iterations run.}
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It aims to find the best binning strategy that maximizes the predictive power while ensuring statistical significance between adjacent bins.
+This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It attempts to create an optimal set of bins for a given numerical feature based on its relationship with a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
 }
 \details{
-The optimal binning algorithm using Fisher's Exact Test consists of several steps:
+The algorithm works as follows:
 \enumerate{
-\item Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-\item Bin merging: Adjacent bins are iteratively merged based on the p-value of Fisher's Exact Test.
-\item Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.
-\item WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.
+\item Pre-binning: Initially divides the feature into up to \code{max_n_prebins} bins based on sorted values.
+\item Fisher Merging: Adjacent bins are merged if the Fisher's Exact Test p-value exceeds \code{bin_cutoff}, indicating no statistically significant difference between them.
+\item Monotonicity Enforcement: Ensures the WoE values are monotonic by merging non-monotonic adjacent bins.
+\item Final WoE/IV Calculation: After achieving a stable set of bins (or reaching iteration limits), it calculates the final WoE and IV for each bin.
 }
+
+The method aims at providing statistically justifiable and monotonic binning, which is particularly useful for credit scoring and other risk modeling tasks.
 }
 \examples{
 \dontrun{

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_swb}
 \alias{optimal_binning_categorical_swb}
-\title{Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)}
+\title{Optimal Binning for Categorical Variables using Sliding Window Binning (SWB) (Refined)}
 \usage{
 optimal_binning_categorical_swb(
   target,
@@ -17,73 +17,63 @@ optimal_binning_categorical_swb(
 )
 }
 \arguments{
-\item{target}{An integer vector of binary target values (0 or 1).}
+\item{target}{Vetor inteiro binário (0 ou 1) da variável resposta.}
 
-\item{feature}{A character vector of categorical feature values.}
+\item{feature}{Vetor de caracteres com as categorias da variável explicativa.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Número mínimo de bins (padrão: 3).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Número máximo de bins (padrão: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a category to be considered as a separate bin (default: 0.05).}
+\item{bin_cutoff}{Freqüência mínima para considerar uma categoria como bin separado (padrão: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins antes da fusão (padrão: 20).}
 
-\item{bin_separator}{Separator used for merging category names (default: "\%;\%").}
+\item{bin_separator}{Separador usado ao concatenar nomes de categorias em cada bin (padrão: "\%;\%").}
 
-\item{convergence_threshold}{Threshold for convergence of IV (default: 1e-6).}
+\item{convergence_threshold}{Limite para convergência do IV (padrão: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations for optimization (default: 1000).}
+\item{max_iterations}{Número máximo de iterações para otimização (padrão: 1000).}
 }
 \value{
-A list containing the following elements:
-\item{bin}{A character vector of bin labels}
-\item{woe}{A numeric vector of WOE values for each bin}
-\item{iv}{A numeric vector of IV values for each bin}
-\item{count}{An integer vector of total counts for each bin}
-\item{count_pos}{An integer vector of positive class counts for each bin}
-\item{count_neg}{An integer vector of negative class counts for each bin}
-\item{converged}{A logical value indicating whether the algorithm converged}
-\item{iterations}{An integer value indicating the number of iterations run}
+Uma lista contendo:
+\itemize{
+\item bin: Vetor de strings com os nomes dos bins.
+\item woe: Vetor numérico com valores de WOE para cada bin.
+\item iv: Vetor numérico com valores de IV para cada bin.
+\item count: Vetor inteiro com a contagem total em cada bin.
+\item count_pos: Vetor inteiro com a contagem de positivos (target=1) em cada bin.
+\item count_neg: Vetor inteiro com a contagem de negativos (target=0) em cada bin.
+\item converged: Valor lógico indicando se o algoritmo convergiu.
+\item iterations: Número inteiro indicando quantas iterações foram executadas.
+}
 }
 \description{
-This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach,
-which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
+Esta função realiza um binning ótimo de variáveis categóricas utilizando uma abordagem de Sliding Window Binning (SWB).
+O objetivo é gerar bins com bom poder preditivo (IV) e monotonicidade no WoE, garantindo estabilidade, robustez,
+e mantendo compatibilidade de nomes e tipos de entrada e saída. Caso a variável categórica tenha apenas 1 ou 2 níveis,
+não será realizada a otimização, apenas o cálculo das estatísticas e retorno do resultado.
 }
 \details{
-The algorithm performs the following steps:
+Passos do algoritmo SWB (ajustado):
 \enumerate{
-\item Initialize bins for each unique category, merging low-frequency categories based on bin_cutoff
-\item Sort bins by their WOE values
-\item Merge adjacent bins iteratively, minimizing information loss
-\item Optimize the number of bins while maintaining monotonicity
-\item Calculate final WOE and IV values for each bin
+\item Inicializa bins para cada categoria, unindo categorias raras (abaixo do bin_cutoff).
+\item Se a variável tiver apenas 1 ou 2 níveis, não otimiza, apenas calcula o WoE/IV e retorna.
+\item Caso contrário, ordena bins pelo valor do WoE, e funde bins adjacentes conforme necessário, respeitando min_bins e max_bins.
+\item Otimiza o número de bins visando monotonicidade do WoE e maximização do IV, evitando travar em caso de poucas classes.
 }
 
-The Weight of Evidence (WOE) is calculated as:
-\deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
-
-The Information Value (IV) for each bin is calculated as:
-\deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+Fórmulas principais:
+\deqn{WOE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+\deqn{IV = \sum (P(X|Y=1) - P(X|Y=0)) \times WOE}
 }
 \examples{
 \dontrun{
-# Create sample data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-
-# Run optimal binning
 result <- optimal_binning_categorical_swb(target, feature)
-
-# View results
 print(result)
 }
 
-}
-\references{
-\itemize{
-\item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
-\item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
-}
 }

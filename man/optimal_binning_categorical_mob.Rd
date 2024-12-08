@@ -52,31 +52,17 @@ A list containing the following elements:
 This function performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
 }
 \details{
-This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
-The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.
+Este algoritmo aplica o Monotonic Optimal Binning (MOB) para variáveis categóricas.
+O processo visa maximizar o IV (Information Value) mantendo a monotonicidade no WoE (Weight of Evidence).
 
-The algorithm works as follows:
-
+Passos do algoritmo:
 \enumerate{
-\item \strong{Category Statistics Calculation}:
-For each category, calculate the total count, count of positive instances, and count of negative instances.
-
-\item \strong{Initial Binning}:
-Categories are sorted based on their initial Weight of Evidence (WoE).
-
-\item \strong{Monotonicity Enforcement}:
-The algorithm enforces decreasing monotonicity of WoE across bins.
-If this condition is violated, adjacent bins are merged.
-
-\item \strong{Bin Limiting}:
-The number of bins is limited to the specified \code{max_bins}.
-When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
-
-\item \strong{Information Value (IV) Computation}:
-For each bin, the IV is calculated, and the total IV is computed.
+\item Cálculo das estatísticas por categoria.
+\item Pré-binagem e ordenação por WoE.
+\item Aplicação da monotonicidade e ajuste de bins.
+\item Limitação do número de bins a max_bins.
+\item Cálculo dos valores finais de WoE e IV.
 }
-
-The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
 }
 \examples{
 \dontrun{

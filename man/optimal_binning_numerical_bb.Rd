@@ -19,84 +19,40 @@ optimal_binning_numerical_bb(
 \arguments{
 \item{target}{An integer vector of binary target values (0 or 1).}
 
-\item{feature}{A numeric vector of feature values to be binned.}
+\item{feature}{A numeric vector of feature values.}
 
 \item{min_bins}{Minimum number of bins (default: 3).}
 
 \item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency of observations in each bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency cutoff for each bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins for initial quantile-based discretization (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
 
-\item{is_monotonic}{Boolean indicating whether to enforce monotonicity of WoE across bins (default: TRUE).}
+\item{is_monotonic}{Whether to enforce monotonic WoE (default: TRUE).}
 
-\item{convergence_threshold}{Threshold for convergence of total IV (default: 1e-6).}
+\item{convergence_threshold}{Convergence threshold for IV (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations for the algorithm (default: 1000).}
+\item{max_iterations}{Maximum iterations (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\item{bins}{A character vector of bin labels.}
-\item{woe}{A numeric vector of Weight of Evidence values for each bin.}
-\item{iv}{A numeric vector of Information Value for each bin.}
-\item{count}{An integer vector of total count of observations in each bin.}
-\item{count_pos}{An integer vector of count of positive observations in each bin.}
-\item{count_neg}{An integer vector of count of negative observations in each bin.}
-\item{cutpoints}{A numeric vector of cutpoints for generating the bins.}
-\item{converged}{A boolean indicating whether the algorithm converged.}
-\item{iterations}{An integer indicating the number of iterations run.}
+A list with binning details and statistics.
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using a Branch and Bound approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
-}
-\details{
-The optimal binning algorithm for numerical variables uses a Branch and Bound approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
-
-The algorithm follows these steps:
-\enumerate{
-\item Initial discretization using quantile-based binning
-\item Merging of rare bins
-\item Calculation of WoE and IV for each bin
-\item Enforcing monotonicity of WoE across bins (if is_monotonic is TRUE)
-\item Adjusting the number of bins to be within the specified range using a Branch and Bound approach
-}
-
-Weight of Evidence (WoE) is calculated for each bin as:
-
-\deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-
-where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-
-Information Value (IV) for each bin is calculated as:
-
-\deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-
-The total IV for the feature is the sum of IVs across all bins:
-
-\deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-
-The Branch and Bound approach iteratively merges bins with the lowest IV contribution while respecting the constraints on the number of bins and minimum bin frequency. This process ensures that the resulting binning maximizes the total IV while maintaining the desired number of bins.
+This function optimizes numerical variable binning using a Branch and Bound approach, ensuring stable and high-quality bins for predictive modeling.
 }
 \examples{
 \dontrun{
-# Generate sample data
 set.seed(123)
 n <- 10000
 feature <- rnorm(n)
 target <- rbinom(n, 1, plogis(0.5 * feature))
-
-# Apply optimal binning
 result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
-
-# View binning results
 print(result)
 }
 
 }
 \references{
-\itemize{
-\item Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables in Credit Scoring. Journal of Risk Model Validation, 9(1), 1-21.
-\item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
-}
+Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables.
+Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey.
 }
