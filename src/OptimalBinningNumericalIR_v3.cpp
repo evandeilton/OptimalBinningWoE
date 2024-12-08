@@ -507,6 +507,7 @@ private:
 //' }
 //'
 //' @export
+// [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_ir(Rcpp::IntegerVector target,
                                        Rcpp::NumericVector feature,
                                        int min_bins = 3,
