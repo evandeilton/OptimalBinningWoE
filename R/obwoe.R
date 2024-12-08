@@ -203,7 +203,7 @@
 #' @importFrom utils modifyList setTxtProgressBar txtProgressBar
 #'
 #' @export
-obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, method = "fetb",
+obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, method = "jedi",
                   positive = "bad|1", preprocess = TRUE, progress = TRUE, trace = FALSE,
                   outputall = TRUE, control = list()) {
   # Step 1: Treatment of arguments and exceptions
@@ -645,8 +645,11 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   #   "auto", "cm", "dplc", "gmb", "ldb", "mba", "mblp", "milp", "mob", "obnp", "swb", "udt",
   #   "bb", "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd"
   # )
-
-  all_methods <- c("auto", sort(unique(unlist(unname(sapply(OptimalBinningGetAlgoName(), names))))))
+  
+  # all_methods_char <- unique(c("auto", names(OptimalBinningGetAlgoName()$char)))
+  # all_methods_num  <- unique(c("auto", names(OptimalBinningGetAlgoName()$num)))
+  
+  all_methods <- sort(unique(c(all_methods_char, all_methods_num)))
 
   # Check binning method
   if (!all(method %in% all_methods)) {
@@ -921,7 +924,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
 
     dt_feature <- data.table::data.table(target = dt[[target]], feature = dt[[feat]])
 
-    is_string <- is.character(dt_feature$feature) | is.factor(dt_feature$feature)
+    is_string <- is.character(dt_feature$feature) || is.factor(dt_feature$feature)
     methods_to_try <- if (is_string) categorical_methods else numerical_methods
 
     if (!is.null(method) && length(intersect("auto", as.character(method))) == 0) {
@@ -949,20 +952,6 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
               c(list(target = dt_feature$target, feature = dt_feature$feature), m$params)
             )
           ))
-
-          # if (is.null(binning_result)) {
-          #   # Relaxed parameters for binary or unary classes
-          #   relaxed_params <- utils::modifyList(m$params, list(
-          #     min_bins = 2,
-          #     max_bins = 2,
-          #     bin_cutoff = 0.001,
-          #     max_n_prebins = 5
-          #   ))
-          #
-          #   binning_result <- suppressWarnings(suppressMessages(
-          #     do.call(m$algorithm, c(list(target = dt_feature$target, feature = dt_feature$feature), relaxed_params))
-          #   ))
-          # }
 
           if (!is.null(binning_result)) {
             binning_result$algorithm <- m$algorithm

@@ -109,66 +109,51 @@ OptimalBinningApplyWoENum <- function(obresults, feature, include_upper_bound = 
     .Call(`_OptimalBinningWoE_OptimalBinningApplyWoENum`, obresults, feature, include_upper_bound)
 }
 
-#' @title Optimal Binning for Categorical Variables
+#' @title Optimal Binning for Categorical Variables (Refined)
 #'
 #' @description
-#' Implements optimal binning for categorical variables using the Chi-Merge algorithm,
-#' calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
+#' Implementa binning ótimo para variáveis categóricas utilizando o algoritmo Chi-Merge,
+#' calculando WoE (Weight of Evidence) e IV (Information Value) para os bins resultantes.
+#' Este código foi aprimorado para melhor legibilidade, eficiência e robustez, mantendo a
+#' compatibilidade de tipos e nomes de entrada/saída.
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator for concatenating category names in bins (default: "%;%").
-#' @param convergence_threshold Threshold for convergence in Chi-square difference (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for bin merging (default: 1000).
+#' @param target Vetor inteiro com valores binários (0 ou 1) da variável resposta.
+#' @param feature Vetor de caracteres com valores categóricos da variável explicativa.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para um bin separado (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes do merging (default: 20).
+#' @param bin_separator Separador para concatenar nomes de categorias em cada bin (default: "%;%").
+#' @param convergence_threshold Limite para convergência da diferença de Qui-quadrado (default: 1e-6).
+#' @param max_iterations Número máximo de iterações para mesclagem de bins (default: 1000).
 #'
-#' @return A list containing:
+#' @return Uma lista contendo:
 #' \itemize{
-#'   \item bins: Vector of bin names (concatenated categories).
-#'   \item woe: Vector of Weight of Evidence values for each bin.
-#'   \item iv: Vector of Information Value for each bin.
-#'   \item count: Vector of total counts for each bin.
-#'   \item count_pos: Vector of positive class counts for each bin.
-#'   \item count_neg: Vector of negative class counts for each bin.
-#'   \item converged: Boolean indicating whether the algorithm converged.
-#'   \item iterations: Number of iterations run.
+#'   \item bin: Vetor com os nomes dos bins (categorias concatenadas).
+#'   \item woe: Vetor com os valores de Weight of Evidence de cada bin.
+#'   \item iv: Vetor com os valores de Information Value de cada bin.
+#'   \item count: Vetor com as contagens totais de cada bin.
+#'   \item count_pos: Vetor com as contagens de casos positivos (target=1) em cada bin.
+#'   \item count_neg: Vetor com as contagens de casos negativos (target=0) em cada bin.
+#'   \item converged: Booleano indicando se o algoritmo convergiu.
+#'   \item iterations: Número de iterações executadas.
 #' }
 #'
 #' @details
-#' The algorithm uses Chi-square statistics to merge adjacent bins:
+#' O algoritmo utiliza estatísticas de Qui-quadrado para mesclar bins adjacentes até atingir
+#' max_bins ou não haver mais merges vantajosos. Após mesclar categorias raras, pré-binagem,
+#' e assegurar min_bins, o código aplica monotonicidade no WoE, ajustando os bins conforme necessário.
 #'
+#' Fórmulas:
 #' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
-#'
-#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
-#' for bin i and class j.
-#'
-#' Weight of Evidence (WoE) for each bin:
-#'
-#' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
-#'
-#' Information Value (IV) for each bin:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#'
-#' The algorithm initializes bins for each category, merges rare categories based on
-#' bin_cutoff, and then iteratively merges bins with the lowest chi-square
-#' until max_bins is reached or no further merging is possible. It determines the
-#' direction of monotonicity based on the initial trend and enforces it, allowing
-#' deviations if min_bins constraints are triggered.
+#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#' \deqn{IV = (P(X|Y=1)-P(X|Y=0))*WoE}
 #'
 #' @examples
 #' \dontrun{
-#' # Example data
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # View results
 #' print(result)
 #' }
 #'
@@ -177,65 +162,43 @@ optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title
-#' Optimal Binning for Categorical Variables using Dynamic Programming with Linear Constraints
+#' @title Binning Ótimo para Variáveis Categóricas usando Programação Dinâmica com Restrições Lineares (Versão Aprimorada)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a dynamic programming approach with linear constraints. It aims to find the optimal grouping of categories that maximizes the Information Value (IV) while respecting user-defined constraints on the number of bins.
+#' Este código implementa o binning ótimo para variáveis categóricas utilizando programação dinâmica,
+#' impondo restrições lineares e buscando maximizar o IV (Information Value). O algoritmo:
+#' 1. Pré-processa dados, unindo categorias raras.
+#' 2. Ordena categorias por taxas de evento.
+#' 3. Aplica programação dinâmica para encontrar a solução ótima em termos de IV.
+#' 4. Impõe monotonicidade quando possível.
+#' 5. Retorna bins finais com WoE e IV calculados.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param convergence_threshold Convergence threshold for the dynamic programming algorithm (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the dynamic programming algorithm (default: 1000).
-#' @param bin_separator Separator for concatenating category names in bins (default: "%;%").
+#' As melhorias incluem:
+#' - Organização e clareza do código.
+#' - Comentários detalhados.
+#' - Uso de funções inline e estruturas de dados eficientes.
+#' - Redução de cópias desnecessárias.
+#' - Maior robustez na validação e no tratamento de exceções.
 #'
-#' @return A data frame containing binning information, including bin names, WOE, IV, and counts.
+#' @param target Vetor inteiro binário (0 ou 1) do target.
+#' @param feature Vetor de strings categóricas.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Proporção mínima para um bin separado (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes da mesclagem (default: 20).
+#' @param convergence_threshold Limite para convergência do algoritmo (default: 1e-6).
+#' @param max_iterations Número máximo de iterações (default: 1000).
+#' @param bin_separator Separador para concatenar nomes de categorias em cada bin (default: "%;%").
 #'
-#' @details
-#' The algorithm uses dynamic programming to find the optimal binning solution that maximizes the total Information Value (IV) while respecting the constraints on the number of bins. It follows these main steps:
-#'
-#' \enumerate{
-#'   \item Preprocess the data by counting occurrences and merging rare categories.
-#'   \item Sort categories based on their event rates.
-#'   \item Use dynamic programming to find the optimal binning solution.
-#'   \item Backtrack to determine the final bin edges.
-#'   \item Calculate WOE and IV for each bin.
-#' }
-#'
-#' The dynamic programming approach uses a recurrence relation to find the maximum total IV achievable for a given number of categories and bins.
-#'
-#' The Weight of Evidence (WOE) for each bin is calculated as:
-#'
-#' \deqn{WOE = \ln\left(\frac{\text{Distribution of Good}}{\text{Distribution of Bad}}\right)}
-#'
-#' And the Information Value (IV) for each bin is:
-#'
-#' \deqn{IV = (\text{Distribution of Good} - \text{Distribution of Bad}) \times WOE}
-#'
-#' The algorithm aims to find the binning solution that maximizes the total IV while respecting the constraints on the number of bins and ensuring monotonicity when possible.
-#'
-#' @references
-#' \itemize{
-#'   \item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gómez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal.
-#' }
+#' @return Uma lista contendo bin, woe, iv, count, count_pos, count_neg, converged e iterations.
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- sample(c("A", "B", "C", "D", "E"), n, replace = TRUE)
-#'
-#' # Perform optimal binning
 #' result <- optimal_binning_categorical_dplc(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # View results
 #' print(result)
 #' }
 #'
@@ -244,42 +207,57 @@ optimal_binning_categorical_dplc <- function(target, feature, min_bins = 3L, max
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_dplc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
 }
 
-#' Categorical Optimal Binning with Fisher's Exact Test
+#' @title Binning Ótimo para Variáveis Categóricas utilizando Fisher's Exact Test (Versão Fortificada)
 #'
-#' Implements optimal binning for categorical variables using Fisher's Exact Test,
-#' calculating Weight of Evidence (WoE) and Information Value (IV).
+#' @description
+#' Este código implementa um binning ótimo para variáveis categóricas utilizando o teste exato de Fisher,
+#' calculando WoE (Weight of Evidence) e IV (Information Value). Além disso, foram adicionadas melhorias
+#' sugeridas por um especialista para garantir robustez, evitar problemas numéricos e tornar o código
+#' mais à prova de falhas.
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param convergence_threshold Threshold for convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations (default: 1000).
-#' @param bin_separator Separator for bin labels (default: "%;%").
+#' Melhorias sugeridas:
+#' 1. Verificação adicional de condições limite, garantindo que o algoritmo não trave em cenários extremos.
+#' 2. Cálculo mais robusto dos log-factoriais, evitando overflow e garantindo estabilidade numérica.
+#' 3. Checagem de valores nulos e tratamento de distâncias zero no cálculo de WoE e IV.
+#' 4. Manipulação cuidadosa de merges para evitar bins vazios ou degenerados.
+#' 5. Comentários detalhados, passo a passo, para facilitar manutenção.
+#' 6. Pré-alocação e uso criterioso de estruturas para evitar realocações excessivas.
+#' 7. Tratamento explícito para casos de min_bins ou max_bins próximos ao número de categorias.
+#' 8. Funções auxiliares inline para operações repetitivas, reduzindo risco de erros.
+#' 9. Conservadorismo nos testes estatísticos: uso de EPSILON para evitar log de zero.
 #'
-#' @return A list containing:
+#' @param target Vetor inteiro binário (0 ou 1) do target.
+#' @param feature Vetor de strings categóricas da variável explicativa.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para manter um bin separado (default: 0.05).
+#' @param max_n_prebins Máximo de pré-bins antes da mesclagem (default: 20).
+#' @param convergence_threshold Limite de convergência (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
+#' @param bin_separator Separador para nomes de categorias (default: "%;%").
+#'
+#' @return Uma lista contendo:
 #' \itemize{
-#'   \item bin: Character vector of bin labels (merged categories).
-#'   \item woe: Numeric vector of Weight of Evidence values for each bin.
-#'   \item iv: Numeric vector of Information Value for each bin.
-#'   \item count: Integer vector of total count in each bin.
-#'   \item count_pos: Integer vector of positive class count in each bin.
-#'   \item count_neg: Integer vector of negative class count in each bin.
-#'   \item converged: Logical indicating whether the algorithm converged.
-#'   \item iterations: Integer indicating the number of iterations performed.
+#'   \item bin: Nomes dos bins.
+#'   \item woe: Vetor numérico de WoE por bin.
+#'   \item iv: Vetor numérico de IV por bin.
+#'   \item count: Contagem total por bin.
+#'   \item count_pos: Contagem de positivos por bin.
+#'   \item count_neg: Contagem de negativos por bin.
+#'   \item converged: Booleano indicando se houve convergência.
+#'   \item iterations: Número de iterações executadas.
 #' }
 #'
 #' @details
-#' The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
-#' the statistical significance of the difference between adjacent bins. It ensures
-#' monotonicity in the resulting bins and respects the minimum number of bins specified.
+#' O algoritmo utiliza o teste exato de Fisher para mesclar bins adjacentes, buscando maximizar a separação
+#' estatística. Ao final, assegura monotonicidade e respeita restrições de número mínimo e máximo de bins.
+#' Foram implementados cuidados extras para evitar overflows, problemas de ponto flutuante e falta de convergência.
 #'
 #' @examples
 #' \dontrun{
-#' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-#' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+#' set.seed(123)
+#' target <- sample(0:1, 1000, replace = TRUE)
+#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 #' result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2, 
 #' max_bins = 4, bin_separator = "|")
 #' print(result)
@@ -290,121 +268,108 @@ optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_fetb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
 }
 
-#' @title Categorical Optimal Binning with Greedy Merge Binning
+#' @title Binning Ótimo para Variáveis Categóricas usando Abordagem Gulosa (Versão Aprimorada)
 #'
 #' @description
-#' Implements optimal binning for categorical variables using a Greedy Merge approach,
-#' calculating Weight of Evidence (WoE) and Information Value (IV).
+#' Este código implementa o binning ótimo para variáveis categóricas usando uma abordagem de mesclagem gulosa (Greedy Merge Binning), 
+#' calculando WoE e IV. Foi aperfeiçoado para maior robustez, estabilidade numérica e para lidar com casos extremos de forma mais consistente.
 #'
-#' @param target Integer vector of binary target values (0 ou 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Número mínimo de bins (padrão: 3).
-#' @param max_bins Número máximo de bins (padrão: 5).
-#' @param bin_cutoff Frequência mínima para um bin separado (padrão: 0.05).
-#' @param max_n_prebins Número máximo de pré-bins antes da fusão (padrão: 20).
-#' @param bin_separator Separador usado para mesclar nomes de categorias (padrão: "%;%").
-#' @param convergence_threshold Limite para convergência (padrão: 1e-6).
-#' @param max_iterations Número máximo de iterações (padrão: 1000).
+#' Melhorias sugeridas pelo "especialista jedi":
+#' 1. Tratamento mais rigoroso de inputs, incluindo checagem de valores ausentes.
+#' 2. Uso de epsilon e verificações para evitar log(0) e divisão por zero, garantindo maior estabilidade numérica.
+#' 3. Comentários adicionais e refatoração para tornar o código mais legível e de fácil manutenção.
+#' 4. Maior cuidado ao mesclar bins para evitar bins vazios ou malformados.
+#' 5. Mecanismos para detectar cenários de falha na convergência, avisando ao usuário.
+#' 6. Pré-alocação de vetores para evitar realocações frequentes, sempre que possível.
+#' 7. Log de progresso/erros (utilizando avisos do Rcpp::warning, caso seja necessário).
 #'
-#' @return Uma lista com os seguintes elementos:
+#' @param target Vetor inteiro binário (0 ou 1) da variável resposta.
+#' @param feature Vetor de caracteres com valores categóricos da variável explicativa.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para um bin separado (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes da fusão (default: 20).
+#' @param bin_separator Separador de categorias no nome do bin (default: "%;%").
+#' @param convergence_threshold Limite de convergência para a variação de IV (default: 1e-6).
+#' @param max_iterations Número máximo de iterações (default: 1000).
+#'
+#' @return Uma lista contendo:
 #' \itemize{
-#'   \item bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).
-#'   \item woe: Vetor numérico dos valores de Weight of Evidence para cada bin.
-#'   \item iv: Vetor numérico do Information Value para cada bin.
-#'   \item count: Vetor inteiro da contagem total para cada bin.
-#'   \item count_pos: Vetor inteiro da contagem da classe positiva para cada bin.
-#'   \item count_neg: Vetor inteiro da contagem da classe negativa para cada bin.
-#'   \item converged: Lógico indicando se o algoritmo convergiu.
-#'   \item iterations: Inteiro indicando o número de iterações realizadas.
+#'   \item bin: Vetor de strings com os nomes dos bins.
+#'   \item woe: Vetor numérico com o WoE de cada bin.
+#'   \item iv: Vetor numérico com o IV de cada bin.
+#'   \item count: Contagem total em cada bin.
+#'   \item count_pos: Contagem de casos positivos em cada bin.
+#'   \item count_neg: Contagem de casos negativos em cada bin.
+#'   \item converged: Booleano indicando se o algoritmo convergiu.
+#'   \item iterations: Número de iterações executadas.
 #' }
 #'
 #' @details
-#' O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
-#' Ele começa com cada categoria única como um bin separado e itera fusões de
-#' bins para maximizar o Information Value (IV) geral, respeitando as
-#' restrições no número de bins.
-#'
-#' O Weight of Evidence (WoE) para cada bin é calculado como:
-#'
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#'
-#' O Information Value (IV) para cada bin é calculado como:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#'
-#' O algoritmo inclui os seguintes passos principais:
+#' O algoritmo:
 #' \enumerate{
-#'   \item Inicializar bins com cada categoria única.
-#'   \item Mesclar categorias raras com base no bin_cutoff.
-#'   \item Iterativamente mesclar bins adjacentes que resultem no maior IV.
-#'   \item Parar de mesclar quando o número de bins atingir min_bins ou max_bins.
-#'   \item Garantir a monotonicidade dos valores de WoE através dos bins.
-#'   \item Calcular o WoE e IV final para cada bin.
+#'   \item Cria um bin para cada categoria única, classificando-os pelo ratio de positivos.
+#'   \item Mescla categorias raras (frequência < bin_cutoff) em um bin próprio para manter estabilidade.
+#'   \item Executa mesclas gulosas de bins adjacentes que maximizam o IV total.
+#'   \item Para quando atinge min_bins, max_bins ou convergência do IV.
+#'   \item Impõe monotonicidade do WoE, se necessário, fundindo bins violadores da monotonicidade.
 #' }
-#'
-#' O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
-#' logaritmos indefinidos e divisão por zero.
 #'
 #' @examples
 #' \dontrun{
-#' # Dados de exemplo
+#' # Exemplo
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-#'
-#' # Executar binning ótimo
 #' result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # Ver resultados
 #' print(result)
 #' }
 #'
-#' @author
-#' Lopes, J. E.
-#'
 #' @references
 #' \itemize{
-#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
-#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). "Monotonic Optimal Binning Algorithm for Credit Risk Modeling." Risks, 9(3), 58.
+#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley & Sons.
 #' }
-#' @export
 #'
+#' @export
 optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_gmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Categorical Variables using Information Value-based Binning (IVB)
+#' @title Binning Ótimo para Variáveis Categóricas usando IVB
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector or factor of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator for merged category names (default: "%;%").
-#' @param convergence_threshold Convergence threshold for optimization (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for optimization (default: 1000).
+#' @description
+#' Este código implementa um binning ótimo para variáveis categóricas utilizando um approach baseado em Information Value (IV)
+#' com programação dinâmica. Foram adicionadas melhorias para garantir robustez, estabilidade numérica e melhor manutenibilidade:
+#' - Verificações de input mais rigorosas.
+#' - Uso de epsilon para evitar log(0).
+#' - Controle sobre min_bins e max_bins com base no número de categorias.
+#' - Tratamento de categorias raras e imposição de monotonicidade no WoE/Taxas de evento.
+#' - Comentários mais detalhados, melhor estruturação de código e checagem de convergência.
 #'
-#' @return A list containing:
+#' @param target Vetor inteiro binário (0 ou 1) da variável resposta.
+#' @param feature Vetor de caracteres ou fator com os valores categóricos da variável explicativa.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para um bin separado (default: 0.05).
+#' @param max_n_prebins Máximo de pré-bins antes da fusão (default: 20).
+#' @param bin_separator Separador para nomes de categorias mescladas (default: "%;%").
+#' @param convergence_threshold Limite de convergência do IV (default: 1e-6).
+#' @param max_iterations Máximo de iterações na busca da solução ótima (default: 1000).
+#'
+#' @return Uma lista contendo:
 #' \itemize{
-#'   \item bins: Character vector of bin names.
-#'   \item iv: Numeric vector of Information Values for each bin.
-#'   \item count: Integer vector of total counts for each bin.
-#'   \item count_pos: Integer vector of positive target counts for each bin.
-#'   \item count_neg: Integer vector of negative target counts for each bin.
-#'   \item converged: Logical indicating whether the algorithm converged.
-#'   \item iterations: Integer indicating the number of iterations run.
+#'   \item bin: Vetor com os nomes dos bins formados.
+#'   \item woe: Vetor numérico com WoE de cada bin.
+#'   \item iv: Vetor numérico com IV de cada bin.
+#'   \item count, count_pos, count_neg: Contagens total, positiva e negativa por bin.
+#'   \item converged: Booleano indicando se o algoritmo convergiu.
+#'   \item iterations: Número de iterações executadas.
 #' }
-#'
-#' @details
-#' This function performs optimal binning for categorical variables using a dynamic
-#' programming approach. It aims to maximize the total Information Value while
-#' respecting the constraints on the number of bins. The algorithm handles rare
-#' categories, ensures monotonicity in event rates, and provides stable results.
 #'
 #' @examples
 #' \dontrun{
-#' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-#' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+#' target <- c(1,0,1,1,0,1,0,0,1,1)
+#' feature <- c("A","B","A","C","B","D","C","A","D","B")
 #' result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
 #' print(result)
 #' }
@@ -414,64 +379,132 @@ optimal_binning_categorical_ivb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_ivb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)
+#' @title Binning Ótimo Categórico JEDI (Discretização Conjunta Guiada por Entropia)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Monotonic Binning Algorithm (MBA) approach,
-#' which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
-#'
-#' @param feature A character vector of categorical feature values.
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator String used to separate category names when merging bins (default: "%;%").
-#' @param convergence_threshold Threshold for convergence in optimization (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for optimization (default: 1000).
-#'
-#' @return A list containing:
-#' \itemize{
-#'   \item bins: A character vector of bin labels
-#'   \item woe: A numeric vector of Weight of Evidence values for each bin
-#'   \item iv: A numeric vector of Information Value for each bin
-#'   \item count: An integer vector of total counts for each bin
-#'   \item count_pos: An integer vector of positive target counts for each bin
-#'   \item count_neg: An integer vector of negative target counts for each bin
-#'   \item converged: A logical value indicating whether the algorithm converged
-#'   \item iterations: An integer indicating the number of iterations run
-#' }
+#' Um algoritmo robusto de binning categórico que otimiza o valor de informação (IV) mantendo
+#' relações monotônicas de weight of evidence (WoE). Implementa uma estratégia adaptativa de 
+#' fusão com proteções de estabilidade numérica e controle sofisticado do número de bins.
 #'
 #' @details
-#' The algorithm performs the following steps:
-#' \enumerate{
-#'   \item Input validation and preprocessing
-#'   \item Initial pre-binning based on frequency
-#'   \item Enforcing minimum bin size (bin_cutoff)
-#'   \item Calculating initial Weight of Evidence (WOE) and Information Value (IV)
-#'   \item Enforcing monotonicity of WOE across bins
-#'   \item Optimizing the number of bins through iterative merging
+#' O algoritmo emprega uma abordagem de otimização em múltiplas fases:
+#' 
+#' Framework Matemático:
+#' Para um bin i, o WoE é calculado como:
+#' \deqn{WoE_i = ln(\frac{p_i + \epsilon}{n_i + \epsilon})}
+#' onde:
+#' \itemize{
+#'   \item \eqn{p_i} é a proporção de casos positivos no bin i relativo ao total de positivos
+#'   \item \eqn{n_i} é a proporção de casos negativos no bin i relativo ao total de negativos
+#'   \item \eqn{\epsilon} é uma pequena constante (1e-10) para prevenir logaritmos indefinidos
 #' }
 #'
-#' The Weight of Evidence (WOE) is calculated as:
-#' \deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
+#' O IV para cada bin é calculado como:
+#' \deqn{IV_i = (p_i - n_i) \times WoE_i}
 #'
-#' The Information Value (IV) for each bin is calculated as:
-#' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+#' E o IV total é:
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#'
+#' Fases:
+#' 1. Binning Inicial: Cria bins individuais para categorias únicas com validação de frequência
+#' 2. Tratamento de Baixa Frequência: Combina categorias raras (< bin_cutoff) para garantir estabilidade estatística
+#' 3. Otimização: Combina bins iterativamente usando minimização de perda de IV mantendo monotonicidade de WoE
+#' 4. Ajuste Final: Garante restrições de contagem de bins (min_bins <= bins <= max_bins) quando possível
+#'
+#' Características Principais:
+#' - Cálculos de WoE protegidos por epsilon para estabilidade numérica
+#' - Estratégia adaptativa de fusão que minimiza perda de informação
+#' - Tratamento robusto de casos extremos e violações de restrições
+#' - Sem criação artificial de categorias, garantindo resultados interpretáveis
+#'
+#' Controle de Quantidade de Bins:
+#' - Se bins > max_bins: Continua fusões usando minimização de perda de IV
+#' - Se bins < min_bins: Retorna melhor solução disponível em vez de criar divisões artificiais
+#'
+#' @param target Vetor inteiro binário (0 ou 1) representando a variável resposta
+#' @param feature Vetor de caracteres dos valores categóricos preditores
+#' @param min_bins Número mínimo de bins de saída (padrão: 3). Ajustado se categorias únicas < min_bins
+#' @param max_bins Número máximo de bins de saída (padrão: 5). Deve ser >= min_bins
+#' @param bin_cutoff Limite mínimo de frequência relativa para bins individuais (padrão: 0.05)
+#' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20)
+#' @param bin_separator Delimitador para nomes de categorias combinadas (padrão: "%;%")
+#' @param convergence_threshold Limite de diferença de IV para convergência (padrão: 1e-6)
+#' @param max_iterations Máximo de iterações de otimização (padrão: 1000)
+#'
+#' @return Uma lista contendo:
+#' \itemize{
+#'   \item bin: Vetor de caracteres com nomes dos bins (categorias concatenadas)
+#'   \item woe: Vetor numérico com valores de Weight of Evidence
+#'   \item iv: Vetor numérico com valores de Information Value por bin
+#'   \item count: Vetor inteiro com contagens de observações por bin
+#'   \item count_pos: Vetor inteiro com contagens da classe positiva por bin
+#'   \item count_neg: Vetor inteiro com contagens da classe negativa por bin
+#'   \item converged: Lógico indicando se o algoritmo convergiu
+#'   \item iterations: Contagem inteira de iterações de otimização realizadas
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Framework de Binning Ótimo (Beltrami et al., 2021)
+#'   \item Teoria do Valor da Informação em Gestão de Risco (Thomas et al., 2002)
+#'   \item Algoritmos de Binning Monotônico em Credit Scoring (Mironchyk & Tchistiakov, 2017)
+#' }
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
-#' set.seed(123)
-#' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+#' # Uso básico
+#' resultado <- optimal_binning_categorical_jedi(
+#'   target = c(1,0,1,1,0),
+#'   feature = c("A","B","A","C","B"),
+#'   min_bins = 2,
+#'   max_bins = 3
+#' )
 #'
-#' # Run optimal binning
-#' result <- optimal_binning_categorical_mba(feature, target)
-#'
-#' # View results
-#' print(result)
+#' # Tratamento de categorias raras
+#' resultado <- optimal_binning_categorical_jedi(
+#'   target = vetor_target,
+#'   feature = vetor_feature,
+#'   bin_cutoff = 0.03,  # Tratamento mais agressivo de categorias raras
+#'   max_n_prebins = 15  # Limite de bins iniciais
+#' )
 #' }
+#'
+#' @export
+optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
+}
+
+#' @title Binning Ótimo para Variáveis Categóricas usando MBA (Versão Corrigida)
+#'
+#' @description
+#' Este código realiza o binning ótimo para variáveis categóricas utilizando um algoritmo "Monotonic Binning Algorithm (MBA)",
+#' garantindo que não reduza o número de bins abaixo de min_bins ao impor monotonicidade ou ao otimizar a quantidade de bins.
+#'
+#' @param feature Vetor de caracteres com valores categóricos da variável explicativa.
+#' @param target Vetor inteiro binário (0 ou 1) do target.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para considerar um bin separado (default: 0.05).
+#' @param max_n_prebins Máximo de pré-bins antes da fusão (default: 20).
+#' @param bin_separator Separador para nomes de categorias em bins mesclados (default: "%;%"),
+#' @param convergence_threshold Limite para detectar convergência do IV (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
+#'
+#' @return Uma lista contendo:
+#' \itemize{
+#'   \item bin: Nomes dos bins.
+#'   \item woe: WoE de cada bin.
+#'   \item iv: IV de cada bin.
+#'   \item count: Contagem total por bin.
+#'   \item count_pos: Contagem de casos positivos por bin.
+#'   \item count_neg: Contagem de casos negativos por bin.
+#'   \item converged: Booleano indicando se o algoritmo convergiu.
+#'   \item iterations: Número de iterações executadas.
+#' }
+#'
+#' @references
+#' Siddiqi, N. (2006). "Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring."
+#'
 #' @export
 optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_mba`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
@@ -480,64 +513,27 @@ optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_
 #' @title Optimal Binning for Categorical Variables using MILP
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+#' This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A character vector of feature values.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#' @param bin_separator Separator used to join categories within a bin (default: "%;%").
-#' @param convergence_threshold Threshold for convergence of total Information Value (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the optimization process (default: 1000).
+#' @param bin_cutoff Minimum proportion of total observations for a bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins (default: 20).
+#' @param bin_separator Separator for categories within a bin (default: "%;%").
+#' @param convergence_threshold Threshold for IV convergence (default: 1e-6).
+#' @param max_iterations Maximum iterations (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \itemize{
-#'   \item bins: Character vector of bin categories.
-#'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
-#'   \item iv: Numeric vector of Information Value (IV) for each bin.
-#'   \item count: Integer vector of total observations in each bin.
-#'   \item count_pos: Integer vector of positive target observations in each bin.
-#'   \item count_neg: Integer vector of negative target observations in each bin.
-#'   \item converged: Logical indicating whether the algorithm converged.
-#'   \item iterations: Integer indicating the number of iterations run.
-#' }
-#'
-#' @details
-#' The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
-#' 1. Validate input and initialize bins for each unique category.
-#' 2. If the number of unique categories is less than or equal to max_bins, no optimization is performed.
-#' 3. Otherwise, merge bins iteratively based on the following criteria:
-#'    a. Merge bins with counts below the bin_cutoff.
-#'    b. Ensure the number of bins is between min_bins and max_bins.
-#'    c. Attempt to achieve monotonicity in Weight of Evidence (WoE) values.
-#' 4. The algorithm stops when convergence is reached or max_iterations is hit.
-#'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
-#'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
-#'
-#' @references
-#' \itemize{
-#'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
-#' }
-#'
+#' @return A list with binning results.
+#' 
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- sample(LETTERS[1:10], n, replace = TRUE)
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_categorical_milp(target, feature, min_bins = 2, max_bins = 4)
-#'
-#' # Print results
 #' print(result)
 #' }
 #'
@@ -546,8 +542,7 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_milp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title
-#' Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)
+#' @title Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)
 #'
 #' @description
 #' This function performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
@@ -589,31 +584,15 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #' }
 #'
 #' @details
-#' This algorithm performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
-#' The process aims to maximize the Information Value (IV) while maintaining monotonicity in the Weight of Evidence (WoE) across bins.
+#' Este algoritmo aplica o Monotonic Optimal Binning (MOB) para variáveis categóricas.
+#' O processo visa maximizar o IV (Information Value) mantendo a monotonicidade no WoE (Weight of Evidence).
 #'
-#' The algorithm works as follows:
-#'
-#' \enumerate{
-#'   \item **Category Statistics Calculation**:
-#'         For each category, calculate the total count, count of positive instances, and count of negative instances.
-#'
-#'   \item **Initial Binning**:
-#'         Categories are sorted based on their initial Weight of Evidence (WoE).
-#'
-#'   \item **Monotonicity Enforcement**:
-#'         The algorithm enforces decreasing monotonicity of WoE across bins.
-#'         If this condition is violated, adjacent bins are merged.
-#'
-#'   \item **Bin Limiting**:
-#'         The number of bins is limited to the specified `max_bins`.
-#'         When merging is necessary, the algorithm chooses the two adjacent bins with the smallest WoE difference.
-#'
-#'   \item **Information Value (IV) Computation**:
-#'         For each bin, the IV is calculated, and the total IV is computed.
-#' }
-#'
-#' The MOB approach ensures that the resulting bins have monotonic WoE values, which is often desirable in credit scoring and risk modeling applications.
+#' Passos do algoritmo:
+#' 1. Cálculo das estatísticas por categoria.
+#' 2. Pré-binagem e ordenação por WoE.
+#' 3. Aplicação da monotonicidade e ajuste de bins.
+#' 4. Limitação do número de bins a max_bins.
+#' 5. Cálculo dos valores finais de WoE e IV.
 #'
 #' @references
 #' \itemize{
@@ -688,130 +667,112 @@ optimal_binning_categorical_sab <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_sab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, initial_temperature, cooling_rate, max_iterations, convergence_threshold)
 }
 
-#' Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)
+#' @title Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach,
-#' which combines Weight of Evidence (WOE) and Information Value (IV) methods with a similarity-based merging strategy.
+#' Esta função realiza um binning ótimo para variáveis categóricas utilizando uma abordagem de Similarity-Based Logistic Partitioning (SBLP).
+#' O objetivo é produzir bins que maximizem o Information Value (IV) e forneçam Weight of Evidence (WOE) consistentes, considerando taxas alvo
+#' (target rates) e garantindo qualidade através de merges baseados em similaridade.
+#' Foi feita uma revisão para melhorar legibilidade, eficiência, robustez e manutenção da compatibilidade
+#' de nomes e tipos dos parâmetros de entrada/saída.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param convergence_threshold Threshold for convergence of the algorithm (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
-#' @param bin_separator Separator used for merging category names (default: ";").
+#' @param target Vetor inteiro binário (0 ou 1) representando a variável resposta.
+#' @param feature Vetor de caracteres com as categorias da variável explicativa.
+#' @param min_bins Número mínimo de bins (padrão: 3).
+#' @param max_bins Número máximo de bins (padrão: 5).
+#' @param bin_cutoff Proporção mínima de frequência para que uma categoria seja considerada um bin separado (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes do processo de partição (padrão: 20).
+#' @param convergence_threshold Limite para convergência do algoritmo (padrão: 1e-6).
+#' @param max_iterations Número máximo de iterações do algoritmo (padrão: 1000).
+#' @param bin_separator Separador utilizado para concatenar nomes de categorias nos bins (padrão: ";").
 #'
-#' @return A list containing the following elements:
+#' @return Uma lista contendo:
 #' \itemize{
-#'   \item bins: A character vector of bin labels
-#'   \item woe: A numeric vector of Weight of Evidence values for each bin
-#'   \item iv: A numeric vector of Information Values for each bin
-#'   \item count: An integer vector of total counts for each bin
-#'   \item count_pos: An integer vector of positive class counts for each bin
-#'   \item count_neg: An integer vector of negative class counts for each bin
-#'   \item converged: A logical value indicating whether the algorithm converged
-#'   \item iterations: An integer value indicating the number of iterations performed
+#'   \item bin: Vetor de strings com os nomes dos bins (categorias concatenadas).
+#'   \item woe: Vetor numérico com os valores de Weight of Evidence (WoE) para cada bin.
+#'   \item iv: Vetor numérico com os valores de Information Value (IV) para cada bin.
+#'   \item count: Vetor inteiro com a contagem total de observações em cada bin.
+#'   \item count_pos: Vetor inteiro com a contagem de casos positivos (target=1) em cada bin.
+#'   \item count_neg: Vetor inteiro com a contagem de casos negativos (target=0) em cada bin.
+#'   \item converged: Valor lógico indicando se o algoritmo convergiu.
+#'   \item iterations: Número inteiro com a quantidade de iterações executadas.
 #' }
 #'
 #' @details
-#' The algorithm performs the following steps:
-#' \enumerate{
-#'   \item Validate input parameters
-#'   \item Compute initial counts and target rates for each category
-#'   \item Handle rare categories by merging them based on similarity in target rates
-#'   \item Ensure the number of pre-bins does not exceed max_n_prebins
-#'   \item Sort categories based on their target rates
-#'   \item Perform iterative binning using dynamic programming
-#'   \item Enforce monotonicity in the final binning if possible
-#'   \item Calculate final statistics for each bin
-#' }
+#' Passos do algoritmo SBLP:
+#' 1. Validação de entrada e cálculo das contagens iniciais por categoria.
+#' 2. Tratamento de categorias raras, unindo-as com outras similares em termos de taxa alvo.
+#' 3. Garantia de número máximo de pré-bins, unindo bins pouco informativos.
+#' 4. Ordenação das categorias pela taxa alvo.
+#' 5. Aplicação de programação dinâmica para determinação da partição ótima, considerando min_bins e max_bins.
+#' 6. Ajuste da monotonicidade do WoE, se necessário, desde que o número de bins seja maior que min_bins.
+#' 7. Cálculo final do WoE e IV de cada bin, retornando o resultado.
 #'
-#' The Weight of Evidence (WOE) is calculated as:
-#' \deqn{WOE = \ln(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}})}
-#'
-#' The Information Value (IV) for each bin is calculated as:
-#' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
+#' Fórmulas-chave:
+#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#' \deqn{IV = \sum_{bins} (P(X|Y=1) - P(X|Y=0)) \times WoE}
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_categorical_sblp(target, feature)
-#'
-#' # View results
 #' print(result)
 #' }
 #'
+#' @export
 optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = ";") {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_sblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
 }
 
-#' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)
+#' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB) (Refined)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach,
-#' which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
+#' Esta função realiza um binning ótimo de variáveis categóricas utilizando uma abordagem de Sliding Window Binning (SWB).
+#' O objetivo é gerar bins com bom poder preditivo (IV) e monotonicidade no WoE, garantindo estabilidade, robustez,
+#' e mantendo compatibilidade de nomes e tipos de entrada e saída. Caso a variável categórica tenha apenas 1 ou 2 níveis,
+#' não será realizada a otimização, apenas o cálculo das estatísticas e retorno do resultado.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator used for merging category names (default: "%;%").
-#' @param convergence_threshold Threshold for convergence of IV (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for optimization (default: 1000).
+#' @param target Vetor inteiro binário (0 ou 1) da variável resposta.
+#' @param feature Vetor de caracteres com as categorias da variável explicativa.
+#' @param min_bins Número mínimo de bins (padrão: 3).
+#' @param max_bins Número máximo de bins (padrão: 5).
+#' @param bin_cutoff Freqüência mínima para considerar uma categoria como bin separado (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes da fusão (padrão: 20).
+#' @param bin_separator Separador usado ao concatenar nomes de categorias em cada bin (padrão: "%;%").
+#' @param convergence_threshold Limite para convergência do IV (padrão: 1e-6).
+#' @param max_iterations Número máximo de iterações para otimização (padrão: 1000).
 #'
-#' @return A list containing the following elements:
-#' \item{bin}{A character vector of bin labels}
-#' \item{woe}{A numeric vector of WOE values for each bin}
-#' \item{iv}{A numeric vector of IV values for each bin}
-#' \item{count}{An integer vector of total counts for each bin}
-#' \item{count_pos}{An integer vector of positive class counts for each bin}
-#' \item{count_neg}{An integer vector of negative class counts for each bin}
-#' \item{converged}{A logical value indicating whether the algorithm converged}
-#' \item{iterations}{An integer value indicating the number of iterations run}
+#' @return Uma lista contendo:
+#' \itemize{
+#'   \item bin: Vetor de strings com os nomes dos bins.
+#'   \item woe: Vetor numérico com valores de WOE para cada bin.
+#'   \item iv: Vetor numérico com valores de IV para cada bin.
+#'   \item count: Vetor inteiro com a contagem total em cada bin.
+#'   \item count_pos: Vetor inteiro com a contagem de positivos (target=1) em cada bin.
+#'   \item count_neg: Vetor inteiro com a contagem de negativos (target=0) em cada bin.
+#'   \item converged: Valor lógico indicando se o algoritmo convergiu.
+#'   \item iterations: Número inteiro indicando quantas iterações foram executadas.
+#' }
 #'
 #' @details
-#' The algorithm performs the following steps:
-#' \enumerate{
-#'   \item Initialize bins for each unique category, merging low-frequency categories based on bin_cutoff
-#'   \item Sort bins by their WOE values
-#'   \item Merge adjacent bins iteratively, minimizing information loss
-#'   \item Optimize the number of bins while maintaining monotonicity
-#'   \item Calculate final WOE and IV values for each bin
-#' }
+#' Passos do algoritmo SWB (ajustado):
+#' 1. Inicializa bins para cada categoria, unindo categorias raras (abaixo do bin_cutoff).
+#' 2. Se a variável tiver apenas 1 ou 2 níveis, não otimiza, apenas calcula o WoE/IV e retorna.
+#' 3. Caso contrário, ordena bins pelo valor do WoE, e funde bins adjacentes conforme necessário, respeitando min_bins e max_bins.
+#' 4. Otimiza o número de bins visando monotonicidade do WoE e maximização do IV, evitando travar em caso de poucas classes.
 #'
-#' The Weight of Evidence (WOE) is calculated as:
-#' \deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
-#'
-#' The Information Value (IV) for each bin is calculated as:
-#' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
-#'
-#' @references
-#' \itemize{
-#'   \item Saleem, S. M., & Jain, A. K. (2017). A comprehensive review of supervised binning techniques for credit scoring. Journal of Risk Model Validation, 11(3), 1-35.
-#'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit scoring and its applications. SIAM.
-#' }
+#' Fórmulas principais:
+#' \deqn{WOE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+#' \deqn{IV = \sum (P(X|Y=1) - P(X|Y=0)) \times WOE}
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_categorical_swb(target, feature)
-#'
-#' # View results
 #' print(result)
 #' }
 #'
@@ -820,6 +781,56 @@ optimal_binning_categorical_swb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_swb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
+#' @title Optimal Binning for Categorical Variables using a User-Defined Technique (UDT) (Refined)
+#'
+#' @description
+#' Esta função realiza o binning de variáveis categóricas seguindo uma técnica personalizada (UDT).
+#' O objetivo é produzir bins com bom valor informativo (IV) e monotonicidade no WoE, evitando a criação de categorias artificiais.
+#' Caso a variável categórica tenha apenas 1 ou 2 níveis únicos, nenhuma otimização é feita, apenas as estatísticas são calculadas.
+#'
+#' @param target Vetor inteiro binário (0 ou 1) representando a variável resposta.
+#' @param feature Vetor de caracteres representando as categorias da variável explicativa.
+#' @param min_bins Número mínimo de bins desejado (padrão: 3).
+#' @param max_bins Número máximo de bins desejado (padrão: 5).
+#' @param bin_cutoff Proporção mínima de observações para considerar uma categoria isolada como um bin separado (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes da etapa principal de binning (padrão: 20).
+#' @param bin_separator String usada para separar nomes de categorias unidas em um mesmo bin (padrão: "%;%").
+#' @param convergence_threshold Limite para critério de parada baseado em convergência do IV (padrão: 1e-6).
+#' @param max_iterations Número máximo de iterações do processo (padrão: 1000).
+#'
+#' @return Uma lista contendo:
+#' \itemize{
+#'   \item bins: Vetor de strings com nomes dos bins.
+#'   \item woe: Vetor numérico com os valores de Weight of Evidence para cada bin.
+#'   \item iv: Vetor numérico com os valores de Information Value para cada bin.
+#'   \item count: Vetor inteiro com a contagem total de observações em cada bin.
+#'   \item count_pos: Vetor inteiro com a contagem de casos positivos (target=1) em cada bin.
+#'   \item count_neg: Vetor inteiro com a contagem de casos negativos (target=0) em cada bin.
+#'   \item converged: Valor lógico indicando se o algoritmo convergiu.
+#'   \item iterations: Número inteiro indicando quantas iterações foram executadas.
+#' }
+#'
+#' @details
+#' Passos do algoritmo (ajustado):
+#' 1. Validação da entrada e criação de bins iniciais, cada um correspondendo a uma categoria.
+#'    - Se houver apenas 1 ou 2 níveis, não otimizar, apenas calcular estatísticas e retornar.
+#' 2. Agrupamento de categorias de baixa frequência em um bin "Others", se necessário.
+#' 3. Cálculo do WoE e IV de cada bin.
+#' 4. Fusões e divisões só acontecem se puderem manter coerência com as categorias originais. Não são criados nomes artificiais como "no_split".
+#'    Caso não seja possível dividir coerentemente (por exemplo, um bin com apenas uma categoria), não dividir.
+#' 5. Monotonicidade do WoE é assegurada ao final, ordenando-se os bins pelo WoE.
+#' 6. O processo itera até convergência (diferença no IV < convergence_threshold) ou max_iterations.
+#'
+#' @examples
+#' \dontrun{
+#' set.seed(123)
+#' target <- sample(0:1, 1000, replace = TRUE)
+#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+#' result <- optimal_binning_categorical_udt(target, feature)
+#' print(result)
+#' }
+#'
+#' @export
 optimal_binning_categorical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
@@ -1020,140 +1031,94 @@ fit_logistic_regression <- function(X_r, y_r, maxit = 300L, eps_f = 1e-8, eps_g 
 #' Optimal Binning for Numerical Variables using Branch and Bound
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using a Branch and Bound approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+#' This function optimizes numerical variable binning using a Branch and Bound approach, ensuring stable and high-quality bins for predictive modeling.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
+#' @param feature A numeric vector of feature values.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins for initial quantile-based discretization (default: 20).
-#' @param is_monotonic Boolean indicating whether to enforce monotonicity of WoE across bins (default: TRUE).
-#' @param convergence_threshold Threshold for convergence of total IV (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
+#' @param bin_cutoff Minimum frequency cutoff for each bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins (default: 20).
+#' @param is_monotonic Whether to enforce monotonic WoE (default: TRUE).
+#' @param convergence_threshold Convergence threshold for IV (default: 1e-6).
+#' @param max_iterations Maximum iterations (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \item{bins}{A character vector of bin labels.}
-#' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
-#' \item{iv}{A numeric vector of Information Value for each bin.}
-#' \item{count}{An integer vector of total count of observations in each bin.}
-#' \item{count_pos}{An integer vector of count of positive observations in each bin.}
-#' \item{count_neg}{An integer vector of count of negative observations in each bin.}
-#' \item{cutpoints}{A numeric vector of cutpoints for generating the bins.}
-#' \item{converged}{A boolean indicating whether the algorithm converged.}
-#' \item{iterations}{An integer indicating the number of iterations run.}
-#'
-#' @details
-#' The optimal binning algorithm for numerical variables uses a Branch and Bound approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
-#'
-#' The algorithm follows these steps:
-#' 1. Initial discretization using quantile-based binning
-#' 2. Merging of rare bins
-#' 3. Calculation of WoE and IV for each bin
-#' 4. Enforcing monotonicity of WoE across bins (if is_monotonic is TRUE)
-#' 5. Adjusting the number of bins to be within the specified range using a Branch and Bound approach
-#'
-#' Weight of Evidence (WoE) is calculated for each bin as:
-#'
-#' \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-#'
-#' where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and \eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-#'
-#' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-#'
-#' The total IV for the feature is the sum of IVs across all bins:
-#'
-#' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
-#'
-#' The Branch and Bound approach iteratively merges bins with the lowest IV contribution while respecting the constraints on the number of bins and minimum bin frequency. This process ensures that the resulting binning maximizes the total IV while maintaining the desired number of bins.
+#' @return A list with binning details and statistics.
 #'
 #' @examples
 #' \dontrun{
-#' # Generate sample data
 #' set.seed(123)
 #' n <- 10000
 #' feature <- rnorm(n)
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#'
-#' # Apply optimal binning
 #' result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
-#'
-#' # View binning results
 #' print(result)
 #' }
 #'
 #' @references
-#' \itemize{
-#'   \item Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables in Credit Scoring. Journal of Risk Model Validation, 9(1), 1-21.
-#'   \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
-#' }
+#' Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables.
+#' Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey.
 #'
 #' @export
 optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, is_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_bb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Numerical Variables using ChiMerge
+#' @title Binning Ótimo para Variáveis Numéricas usando ChiMerge (Versão Aprimorada)
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) criteria.
+#' Implementa um algoritmo de binning ótimo para variáveis numéricas utilizando o método ChiMerge,
+#' calculando WoE (Weight of Evidence) e IV (Information Value). Este código foi otimizado
+#' em legibilidade, eficiência e robustez, mantendo compatibilidade de tipos e nomes.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins for initial discretization (default: 20).
-#' @param convergence_threshold Threshold for convergence of the algorithm (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
+#' @param target Vetor inteiro binário (0/1) do target.
+#' @param feature Vetor numérico de valores da feature a ser binada.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima (proporção) de observações em cada bin (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins para discretização inicial (default: 20).
+#' @param convergence_threshold Limite de convergência do algoritmo (default: 1e-6).
+#' @param max_iterations Número máximo de iterações (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \item{bins}{A character vector of bin names.}
-#' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
-#' \item{iv}{A numeric vector of Information Value for each bin.}
-#' \item{count}{An integer vector of total counts for each bin.}
-#' \item{count_pos}{An integer vector of positive target counts for each bin.}
-#' \item{count_neg}{An integer vector of negative target counts for each bin.}
-#' \item{cutpoints}{A numeric vector of cutpoints used to create the bins.}
-#' \item{converged}{A logical value indicating whether the algorithm converged.}
-#' \item{iterations}{An integer value indicating the number of iterations run.}
+#' @return Uma lista com:
+#' \itemize{
+#'   \item bins: Vetor de nomes dos bins.
+#'   \item woe: Vetor de WoE por bin.
+#'   \item iv: Vetor de IV por bin.
+#'   \item count: Contagem total por bin.
+#'   \item count_pos: Contagem de casos positivos (target=1) por bin.
+#'   \item count_neg: Contagem de casos negativos (target=0) por bin.
+#'   \item cutpoints: Pontos de corte utilizados para criar os bins.
+#'   \item converged: Booleano indicando se o algoritmo convergiu.
+#'   \item iterations: Número de iterações executadas.
+#' }
 #'
 #' @details
-#' The optimal binning algorithm for numerical variables uses the ChiMerge approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that maximize the predictive power of the feature while maintaining interpretability.
+#' O algoritmo segue estes passos:
+#' 1. Discretização inicial em max_n_prebins via quantis.
+#' 2. Mesclagem iterativa de bins adjacentes com base na estatística Qui-quadrado.
+#' 3. Mesclagem de bins com contagens zero em alguma classe.
+#' 4. Mesclagem de bins raros (baseado em bin_cutoff).
+#' 5. Cálculo de WoE e IV para cada bin final.
+#' 6. Aplicação de monotonicidade (se possível).
 #'
-#' The algorithm follows these steps:
-#' 1. Initial discretization into max_n_prebins
-#' 2. Iterative merging of adjacent bins based on chi-square statistic
-#' 3. Merging of bins with zero counts in either class
-#' 4. Merging of rare bins based on the bin_cutoff parameter
-#' 5. Calculation of WoE and IV for each final bin
-#'
-#' The ChiMerge approach ensures that the resulting binning maximizes the separation between classes while maintaining the desired number of bins and respecting the minimum bin frequency constraint.
-#'
-#' @references
+#' Referências:
 #' \itemize{
-#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In Proceedings of the tenth national conference on Artificial intelligence (pp. 123-128). AAAI Press.
+#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. AAAI Press.
 #'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. Applied Mathematical Sciences, 8(65), 3229-3242.
 #' }
 #'
 #' @examples
 #' \dontrun{
-#' # Generate sample data
 #' set.seed(123)
 #' n <- 10000
 #' feature <- rnorm(n)
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#'
-#' # Apply optimal binning
 #' result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
-#'
-#' # View binning results
 #' print(result)
 #' }
 #'
-#' @export
+#' @export 
 optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
@@ -1173,7 +1138,7 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
 #'
 #' @return A list containing the following elements:
-#' \item{bins}{Character vector of bin ranges.}
+#' \item{bin}{Character vector of bin ranges.}
 #' \item{woe}{Numeric vector of WoE values for each bin.}
 #' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 #' \item{count}{Numeric vector of total observations in each bin.}
@@ -1222,38 +1187,39 @@ optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_b
 #' @title Optimal Binning for Numerical Variables using Equal-Width Binning
 #'
 #' @description
-#' Performs optimal binning for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
+#' Realiza binning ótimo de variáveis numéricas por meio de intervalos de largura igual (Equal-Width Binning) com etapas subsequentes de mesclagem e ajuste. Este procedimento busca criar uma estratégia de binning interpretável e com bom poder preditivo, levando em conta monotonicidade e cortes mínimos nos bins.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' @param convergence_threshold Convergence threshold for the algorithm (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed (default: 1000).
+#' @param target Vetor inteiro binário (0 ou 1) representando a variável alvo.
+#' @param feature Vetor numérico com os valores da feature a ser binned.
+#' @param min_bins Número mínimo de bins (padrão: 3).
+#' @param max_bins Número máximo de bins (padrão: 5).
+#' @param bin_cutoff Fração mínima de observações que cada bin deve conter (padrão: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20).
+#' @param convergence_threshold Limite de convergência (padrão: 1e-6).
+#' @param max_iterations Número máximo de iterações permitidas (padrão: 1000).
 #'
-#' @return A list containing:
-#' \item{bins}{Character vector of bin ranges.}
-#' \item{woe}{Numeric vector of WoE values for each bin.}
-#' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
-#' \item{count}{Numeric vector of total observations in each bin.}
-#' \item{count_pos}{Numeric vector of positive target observations in each bin.}
-#' \item{count_neg}{Numeric vector of negative target observations in each bin.}
-#' \item{cutpoints}{Numeric vector of cut points to generate the bins.}
-#' \item{converged}{Logical indicating if the algorithm converged.}
-#' \item{iterations}{Integer number of iterations run by the algorithm.}
+#' @return Uma lista com:
+#' \item{bins}{Vetor de caracteres com o intervalo de cada bin.}
+#' \item{woe}{Vetor numérico com os valores de WoE de cada bin.}
+#' \item{iv}{Vetor numérico com o valor de IV de cada bin.}
+#' \item{count}{Vetor numérico com o total de observações em cada bin.}
+#' \item{count_pos}{Vetor numérico com o total de observações positivas em cada bin.}
+#' \item{count_neg}{Vetor numérico com o total de observações negativas em cada bin.}
+#' \item{cutpoints}{Vetor numérico com os pontos de corte.}
+#' \item{converged}{Valor lógico indicando se o algoritmo convergiu.}
+#' \item{iterations}{Número de iterações executadas pelo algoritmo.}
 #'
 #' @details
-#' The optimal binning algorithm using Equal-Width Binning consists of several steps:
-#' 1. Initial binning: The feature range is divided into \code{max_n_prebins} bins of equal width.
-#' 2. Assign data to bins based on feature values.
-#' 3. Merge rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-#' 4. Enforce monotonicity of WoE values by merging adjacent non-monotonic bins.
-#' 5. Adjust the number of bins to not exceed \code{max_bins} by merging bins with the smallest counts.
-#' 6. Calculate WoE and IV for each bin.
+#' O algoritmo consiste nos seguintes passos:
+#' 1. Criação de pré-bins de largura igual.
+#' 2. Atribuição dos dados a esses pré-bins.
+#' 3. Mesclagem de bins raros (com poucas observações).
+#' 4. Cálculo do WoE e IV inicial.
+#' 5. Garantia de monotonicidade do WoE por meio de mesclagem de bins não monotônicos.
+#' 6. Ajuste para assegurar o número máximo de bins não exceda max_bins.
+#' 7. Recalcular WoE e IV ao final.
 #'
-#' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+#' Este método visa fornecer bins que balanceiem interpretabilidade, monotonicidade e poder preditivo, útil em modelagem de risco e credit scoring.
 #'
 #' @examples
 #' set.seed(123)
@@ -1267,37 +1233,39 @@ optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bi
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_ewb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Numerical Variables using Fisher's Exact Test
+#' @title Optimal Binning for Numerical Variables using Fisher's Exact Test (FETB)
 #'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It aims to find the best binning strategy that maximizes the predictive power while ensuring statistical significance between adjacent bins.
+#' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. It attempts to create an optimal set of bins for a given numerical feature based on its relationship with a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
 #'
 #' @param target A numeric vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff P-value threshold for merging bins (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' @param convergence_threshold Threshold for convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations (default: 1000).
+#' @param max_n_prebins Maximum number of pre-bins before the merging process (default: 20).
+#' @param convergence_threshold Threshold for algorithmic convergence (default: 1e-6).
+#' @param max_iterations Maximum number of iterations allowed during merging and monotonicity enforcement (default: 1000).
 #'
 #' @return A list containing:
-#' \item{bins}{A vector of bin labels}
-#' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
-#' \item{iv}{A numeric vector of Information Value (IV) for each bin}
-#' \item{count}{Total count of observations in each bin}
-#' \item{count_pos}{Count of positive target observations in each bin}
-#' \item{count_neg}{Count of negative target observations in each bin}
-#' \item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
-#' \item{converged}{Logical value indicating if the algorithm converged}
-#' \item{iterations}{Number of iterations run by the algorithm}
+#' \item{bin}{A character vector of bin ranges.}
+#' \item{woe}{A numeric vector of WoE values for each bin.}
+#' \item{iv}{A numeric vector of IV for each bin.}
+#' \item{count}{A numeric vector of total observations in each bin.}
+#' \item{count_pos}{A numeric vector of positive target observations in each bin.}
+#' \item{count_neg}{A numeric vector of negative target observations in each bin.}
+#' \item{cutpoints}{A numeric vector of cut points used to generate the bins.}
+#' \item{converged}{A logical indicating if the algorithm converged.}
+#' \item{iterations}{An integer indicating the number of iterations run.}
 #'
 #' @details
-#' The optimal binning algorithm using Fisher's Exact Test consists of several steps:
-#' 1. Pre-binning: The feature is initially divided into a maximum number of bins specified by \code{max_n_prebins}.
-#' 2. Bin merging: Adjacent bins are iteratively merged based on the p-value of Fisher's Exact Test.
-#' 3. Monotonicity enforcement: Ensures that the Weight of Evidence (WoE) values are monotonic across bins.
-#' 4. WoE and IV calculation: Calculates the Weight of Evidence and Information Value for each bin.
+#' The algorithm works as follows:
+#' 1. Pre-binning: Initially divides the feature into up to \code{max_n_prebins} bins based on sorted values.
+#' 2. Fisher Merging: Adjacent bins are merged if the Fisher's Exact Test p-value exceeds \code{bin_cutoff}, indicating no statistically significant difference between them.
+#' 3. Monotonicity Enforcement: Ensures the WoE values are monotonic by merging non-monotonic adjacent bins.
+#' 4. Final WoE/IV Calculation: After achieving a stable set of bins (or reaching iteration limits), it calculates the final WoE and IV for each bin.
+#'
+#' The method aims at providing statistically justifiable and monotonic binning, which is particularly useful for credit scoring and other risk modeling tasks.
 #'
 #' @examples
 #' \dontrun{
@@ -1315,43 +1283,22 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_fetb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
-#' Optimal Binning for Numerical Variables using Isotonic Regression
-#' 
-#' This function performs optimal binning for numerical variables using isotonic regression.
-#' It creates optimal bins for a numerical feature based on its relationship with a binary
-#' target variable, maximizing the predictive power while respecting user-defined constraints.
-#' 
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum proportion of total observations for a bin to avoid being merged (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
-#' @param convergence_threshold Threshold for convergence in isotonic regression (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for isotonic regression (default: 1000).
-#' 
-#' @return A list containing the following elements:
-#' \itemize{
-#'   \item bin: Character vector of bin ranges.
-#'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
-#'   \item iv: Numeric vector of Information Value (IV) for each bin.
-#'   \item count: Integer vector of total observations in each bin.
-#'   \item count_pos: Integer vector of positive target observations in each bin.
-#'   \item count_neg: Integer vector of negative target observations in each bin.
-#'   \item cutpoints: Numeric vector of cutpoints between bins.
-#'   \item converged: Logical indicating whether the algorithm converged.
-#'   \item iterations: Number of iterations run.
-#' }
-#' 
-#' @details
-#' The Optimal Binning algorithm for numerical variables using isotonic regression works as follows:
-#' 1. If the number of unique values in the feature is less than or equal to 2, the algorithm does not perform optimization or additional binning. It directly calculates the metrics based on the unique values.
-#' 2. Otherwise, it creates initial bins using equal-frequency binning.
-#' 3. Merges low-frequency bins (those with a proportion less than \code{bin_cutoff}).
-#' 4. Ensures the number of bins is between \code{min_bins} and \code{max_bins} by splitting or merging bins.
-#' 5. Applies isotonic regression to smooth the positive rates across bins.
-#' 6. Calculates Weight of Evidence (WoE) and Information Value (IV) for each bin.
-#' 
+#' @title Optimal Binning for Numerical Variables using Isotonic Regression
+#'
+#' @description
+#' Realiza binning ótimo para variáveis numéricas usando regressão isotônica, assegurando monotonicidade nas taxas e bins estáveis.
+#'
+#' @param target Vetor binário (0 ou 1).
+#' @param feature Vetor numérico.
+#' @param min_bins Inteiro, número mínimo de bins (default: 3).
+#' @param max_bins Inteiro, número máximo de bins (default: 5).
+#' @param bin_cutoff Fração mínima de observações por bin (default: 0.05).
+#' @param max_n_prebins Máximo de pré-bins (default: 20).
+#' @param convergence_threshold Limite para convergência (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
+#'
+#' @return Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
+#'
 #' @examples
 #' \dontrun{
 #' set.seed(123)
@@ -1361,18 +1308,105 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
 #' result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins = 4)
 #' print(result)
 #' }
-#' 
-#' @references
-#' Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
-#' Statistical inference under order restrictions: The theory and application
-#' of isotonic regression. Wiley.
-#' 
-#' Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
-#' for credit risk modeling. SSRN Electronic Journal. DOI: 10.2139/ssrn.2978774
-#' 
+#'
 #' @export
 optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_ir`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+}
+
+#' @title Binning Ótimo Numérico JEDI (Discretização por Intervalos Guiada por Entropia Conjunta)
+#'
+#' @description
+#' Um algoritmo avançado de binning numérico que otimiza o valor de informação (IV) mantendo 
+#' relações monotônicas de weight of evidence (WoE). O algoritmo emprega pré-binning baseado em 
+#' quantis com estratégias adaptativas de fusão, garantindo tanto estabilidade estatística quanto 
+#' preservação ótima de informação.
+#'
+#' @details
+#' Framework Matemático:
+#' Para uma variável numérica \eqn{X} e alvo binário \eqn{Y \in \{0,1\}}, o algoritmo cria \eqn{K} bins 
+#' definidos por \eqn{K-1} pontos de corte onde cada bin \eqn{B_i = (c_{i-1}, c_i]} maximiza o conteúdo 
+#' de informação satisfazendo as restrições:
+#'
+#' \enumerate{
+#'   \item Monotonicidade WoE: \eqn{WoE_i \le WoE_{i+1}} (ou \eqn{\ge} para tendência decrescente)
+#'   \item Tamanho mínimo do bin: \eqn{contagem(B_i)/N \ge bin\_cutoff}
+#'   \item Limites de quantidade de bins: \eqn{min\_bins \le K \le max\_bins}
+#' }
+#'
+#' O Weight of Evidence para bin \eqn{i} é definido como:
+#' \deqn{WoE_i = ln(\frac{Pos_i / \sum Pos_i}{Neg_i / \sum Neg_i})}
+#'
+#' E o Information Value por bin como:
+#' \deqn{IV_i = (Pos_i/\sum Pos_i - Neg_i/\sum Neg_i) \times WoE_i}
+#'
+#' O IV total é dado por:
+#' \deqn{IV_{total} = \sum_{i=1}^K IV_i}
+#'
+#' Fases do Algoritmo:
+#' 1. Pré-binning baseado em quantis com validação de frequência mínima
+#' 2. Tratamento de bins pequenos através de fusões minimizando perda de IV
+#' 3. Imposição de monotonicidade via fusão adaptativa de bins
+#' 4. Otimização da quantidade de bins através de divisões/fusões controladas
+#' 5. Monitoramento de convergência usando estabilidade do IV
+#'
+#' Características Principais:
+#' - Cálculo de WoE protegido por epsilon para estabilidade numérica
+#' - Estratégia adaptativa de fusão minimizando perda de informação
+#' - Tratamento robusto de casos extremos e distribuições extremas
+#' - Busca binária eficiente para atribuição de bins
+#' - Detecção antecipada de convergência
+#'
+#' @param target Vetor numérico (0,1) representando variável alvo binária
+#' @param feature Vetor numérico do preditor contínuo
+#' @param min_bins Número mínimo de bins de saída (padrão: 3, deve ser ≥2)
+#' @param max_bins Número máximo de bins de saída (padrão: 5, deve ser ≥ min_bins)
+#' @param bin_cutoff Frequência relativa mínima por bin (padrão: 0.05)
+#' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20)
+#' @param convergence_threshold Limite de diferença de IV para convergência (padrão: 1e-6)
+#' @param max_iterations Máximo de iterações de otimização (padrão: 1000)
+#'
+#' @return Uma lista contendo:
+#' \itemize{
+#'   \item bin: Vetor de caracteres dos intervalos dos bins
+#'   \item woe: Vetor numérico dos valores de Weight of Evidence
+#'   \item iv: Vetor numérico dos valores de Information Value por bin
+#'   \item count: Vetor inteiro de contagens de observações por bin
+#'   \item count_pos: Vetor inteiro de contagens da classe positiva por bin
+#'   \item count_neg: Vetor inteiro de contagens da classe negativa por bin
+#'   \item cutpoints: Vetor numérico dos pontos de corte (excluindo ±Inf)
+#'   \item converged: Lógico indicando se o algoritmo convergiu
+#'   \item iterations: Contagem inteira de iterações de otimização realizadas
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Teoria da Informação e Aprendizado Estatístico (Cover & Thomas, 2006)
+#'   \item Binning Ótimo para Modelos de Scoring (Mironchyk & Tchistiakov, 2017)
+#'   \item Binning e Scoring Monotônico (Beltrami & Bassani, 2021)
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Uso básico com parâmetros padrão
+#' resultado <- optimal_binning_numerical_jedi(
+#'   target = c(1,0,1,0,1),
+#'   feature = c(1.2,3.4,2.1,4.5,2.8)
+#' )
+#'
+#' # Configuração personalizada para binning mais granular
+#' resultado <- optimal_binning_numerical_jedi(
+#'   target = vetor_target,
+#'   feature = vetor_feature,
+#'   min_bins = 5,
+#'   max_bins = 10,
+#'   bin_cutoff = 0.03
+#' )
+#' }
+#'
+#' @export
+optimal_binning_numerical_jedi <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Variables using K-means Binning (KMB)
@@ -1389,7 +1423,7 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
 #'
 #' @return A list containing the following elements:
-#' \item{bins}{Character vector of bin ranges.}
+#' \item{bin}{Character vector of bin ranges.}
 #' \item{woe}{Numeric vector of WoE values for each bin.}
 #' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 #' \item{count}{Integer vector of total observations in each bin.}
@@ -1454,39 +1488,25 @@ optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bi
 
 #' @title Optimal Binning for Numerical Variables using Local Density Binning (LDB)
 #'
-#' @description This function implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables.
+#' @description Implementa o algoritmo Local Density Binning (LDB) para binning ótimo de variáveis numéricas.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' @param convergence_threshold Threshold for convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations (default: 1000).
+#' @param target Vetor inteiro binário (0 ou 1).
+#' @param feature Vetor numérico a ser binned.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima para um bin (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins (default: 20).
+#' @param convergence_threshold Limite de convergência (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
 #'
-#' @return A list containing:
-#' \item{bins}{A vector of bin labels}
-#' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
-#' \item{iv}{A numeric vector of Information Value (IV) for each bin}
-#' \item{count}{Total count of observations in each bin}
-#' \item{count_pos}{Count of positive target observations in each bin}
-#' \item{count_neg}{Count of negative target observations in each bin}
-#' \item{cutpoints}{Numeric vector of cutpoints used to generate the bins}
-#' \item{converged}{Logical value indicating if the algorithm converged}
-#' \item{iterations}{Number of iterations run by the algorithm}
+#' @return Uma lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_numerical_ldb(target, feature)
-#'
-#' # View results
 #' print(result$bins)
 #' print(result$woe)
 #' print(result$iv)
@@ -1499,39 +1519,26 @@ optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bi
 
 #' @title Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)
 #'
-#' @description This function implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
+#' @description
+#' Implementa o algoritmo Local Polynomial Density Binning (LPDB) para binning ótimo de variáveis numéricas.
 #'
-#' @param target An integer vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
-#' @param convergence_threshold Threshold for convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations (default: 1000).
+#' @param target Vetor inteiro binário (0 ou 1).
+#' @param feature Vetor numérico a ser binned.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Frequência mínima por bin (default: 0.05).
+#' @param max_n_prebins Máximo de pré-bins (default: 20).
+#' @param convergence_threshold Limite de convergência (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
 #'
-#' @return A list containing:
-#' \item{bins}{A vector of bin labels.}
-#' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin.}
-#' \item{iv}{A numeric vector of Information Value (IV) for each bin.}
-#' \item{count}{Total count of observations in each bin.}
-#' \item{count_pos}{Count of positive target observations in each bin.}
-#' \item{count_neg}{Count of negative target observations in each bin.}
-#' \item{cutpoints}{Numeric vector of cutpoints used to generate the bins.}
-#' \item{converged}{Logical value indicating if the algorithm converged.}
-#' \item{iterations}{Number of iterations run by the algorithm.}
+#' @return Uma lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
 #'
 #' @examples
 #' \dontrun{
-#' # Create sample data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#'
-#' # Run optimal binning
 #' result <- optimal_binning_numerical_lpdb(target, feature)
-#'
-#' # View results
 #' print(result$bins)
 #' print(result$woe)
 #' print(result$iv)
@@ -1542,42 +1549,24 @@ optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_lpdb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
-#' Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming
+#' @title Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming (MBLP)
 #'
-#' This function performs optimal binning for numerical features, using a monotonic binning
-#' technique that ensures the WoE (Weight of Evidence) is monotonic across bins.
-#' The algorithm iteratively adjusts the bins to respect specified constraints (min and max bins) 
-#' and ensures that rare bins are merged. The final result includes the optimal bins, WoE values, 
-#' IV (Information Value), and additional metadata regarding convergence.
-#' 
-#' @param target An integer vector representing the binary target variable (0 or 1).
-#' @param feature A numeric vector representing the numerical feature to be binned.
-#' @param min_bins An integer specifying the minimum number of bins. Default is 3.
-#' @param max_bins An integer specifying the maximum number of bins. Default is 5. Must be greater than or equal to `min_bins`.
-#' @param bin_cutoff A numeric value representing the cutoff for merging rare bins. Bins with a frequency lower than this threshold are merged. Default is 0.05.
-#' @param max_n_prebins An integer specifying the maximum number of pre-bins before optimization. Default is 20.
-#' @param convergence_threshold A numeric value specifying the threshold for convergence of the Information Value (IV). Default is 1e-6.
-#' @param max_iterations An integer specifying the maximum number of iterations allowed for binning optimization. Default is 1000.
+#' @description
+#' Este método realiza um binning ótimo de variáveis numéricas, garantindo monotonicidade no WoE entre os bins, 
+#' respeitando as restrições de min/max bins e fusão de bins raros. Retorna bins, WoE, IV, contagens e metadados.
 #'
-#' @return A list with the following components:
-#' \item{bins}{Character vector of bin labels, defining the intervals of each bin.}
-#' \item{woe}{Numeric vector of WoE (Weight of Evidence) values for each bin.}
-#' \item{iv}{Numeric vector of IV (Information Value) values for each bin.}
-#' \item{count}{Integer vector representing the count of observations in each bin.}
-#' \item{count_pos}{Integer vector representing the count of positive (target == 1) observations in each bin.}
-#' \item{count_neg}{Integer vector representing the count of negative (target == 0) observations in each bin.}
-#' \item{cutpoints}{Numeric vector of cut points used to define the bins.}
-#' \item{converged}{Logical indicating whether the algorithm converged within the specified threshold and iterations.}
-#' \item{iterations}{Integer indicating the number of iterations the algorithm ran before convergence or stopping.}
+#' @param target Vetor inteiro binário (0 ou 1).
+#' @param feature Vetor numérico da feature.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Limite para mesclar bins raros (freq < bin_cutoff).
+#' @param max_n_prebins Máximo de pré-bins antes da otimização (default: 20).
+#' @param convergence_threshold Limite para convergência do IV (default: 1e-6).
+#' @param max_iterations Máximo de iterações (default: 1000).
+#'
+#' @return Lista com bins, woe, iv, contagens, cutpoints, converged e iterations.
 #'
 #' @examples
-#' # Example with exactly 2 unique values
-#' feature <- c(1, 1, 2, 2, 1, 2)
-#' target <- c(0, 1, 0, 1, 0, 1)
-#' result <- optimal_binning_numerical_mblp(target, feature)
-#' print(result)
-#'
-#' # Example with more unique values
 #' set.seed(123)
 #' feature <- rnorm(1000)
 #' target <- rbinom(1000, 1, 0.3)
@@ -1589,19 +1578,24 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
-#' Optimal Binning for Numerical Features using MDLP
+#' @title Optimal Binning for Numerical Features using MDLP
 #'
-#' This function performs optimal binning on a numerical feature using the Minimum Description Length Principle (MDLP).
+#' @description
+#' Executa binning ótimo usando o Princípio do Comprimento Mínimo da Descrição (MDLP). 
+#' Cria bins de modo a minimizar a perda de informação, mesclando bins adjacentes que reduzem o custo MDL, 
+#' e assegurando monotonicidade no WoE. Ajusta o número de bins entre min_bins e max_bins, mesclando bins raros.
 #'
-#' @param target An integer vector containing binary target values (0 or 1).
-#' @param feature A numeric vector containing the feature values to be binned.
-#' @param min_bins The minimum number of bins to produce.
-#' @param max_bins The maximum number of bins to produce.
-#' @param bin_cutoff The minimum proportion of records allowed in a bin.
-#' @param max_n_prebins The maximum number of pre-bins to create.
-#' @param convergence_threshold The convergence threshold for the algorithm.
-#' @param max_iterations The maximum number of iterations allowed.
-#' @return A list containing the binning results, including bins, WoE, IV, counts, cutpoints, convergence status, and iterations run.
+#' @param target Vetor inteiro binário (0 ou 1).
+#' @param feature Vetor numérico da feature.
+#' @param min_bins Número mínimo de bins (default: 3).
+#' @param max_bins Número máximo de bins (default: 5).
+#' @param bin_cutoff Proporção mínima de registros por bin (default: 0.05).
+#' @param max_n_prebins Número máximo de pré-bins (default: 20).
+#' @param convergence_threshold Limite de convergência (default: 1e-6).
+#' @param max_iterations Número máximo de iterações (default: 1000).
+#'
+#' @return Uma lista com bins, woe, iv, contagens, cutpoints, convergência e iterações.
+#'
 #' @export
 optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mdlp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
@@ -1770,12 +1764,12 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 }
 
 #' @title Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation
-#' 
+#'
 #' @description
-#' This function implements an optimal binning algorithm for numerical variables using an 
-#' Unsupervised Binning approach based on Standard Deviation (UBSD) with Weight of Evidence (WoE) 
+#' This function implements an optimal binning algorithm for numerical variables using an
+#' Unsupervised Binning approach based on Standard Deviation (UBSD) with Weight of Evidence (WoE)
 #' and Information Value (IV) criteria.
-#' 
+#'
 #' @param target A numeric vector of binary target values (should contain exactly two unique values: 0 and 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
@@ -1784,7 +1778,7 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' @param max_n_prebins Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).
 #' @param convergence_threshold Threshold for convergence of the total IV (default: 1e-6).
 #' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
-#' 
+#'
 #' @return A list containing the following elements:
 #' \item{bins}{A character vector of bin names.}
 #' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
@@ -1795,12 +1789,12 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' \item{cutpoints}{A numeric vector of cut points used to generate the bins.}
 #' \item{converged}{A logical value indicating whether the algorithm converged.}
 #' \item{iterations}{An integer value indicating the number of iterations run.}
-#' 
+#'
 #' @details
-#' The optimal binning algorithm for numerical variables uses an Unsupervised Binning approach 
-#' based on Standard Deviation (UBSD) with Weight of Evidence (WoE) and Information Value (IV) 
+#' The optimal binning algorithm for numerical variables uses an Unsupervised Binning approach
+#' based on Standard Deviation (UBSD) with Weight of Evidence (WoE) and Information Value (IV)
 #' to create bins that maximize the predictive power of the feature while maintaining interpretability.
-#' 
+#'
 #' The algorithm follows these steps:
 #' 1. Initial binning based on standard deviations around the mean
 #' 2. Assignment of data points to bins
@@ -1808,9 +1802,9 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' 4. Calculation of WoE and IV for each bin
 #' 5. Enforcement of monotonicity in WoE across bins
 #' 6. Further merging of bins to ensure the number of bins is within the specified range
-#' 
+#'
 #' The algorithm iterates until convergence is reached or the maximum number of iterations is hit.
-#' 
+#'
 #' @examples
 #' \dontrun{
 #' # Generate sample data
@@ -1818,21 +1812,22 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' n <- 10000
 #' feature <- rnorm(n)
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#' 
+#'
 #' # Apply optimal binning
 #' result <- optimal_binning_numerical_ubsd(target, feature, min_bins = 3, max_bins = 5)
-#' 
+#'
 #' # View binning results
 #' print(result)
 #' }
-#' 
+#'
 #' @export
 optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_ubsd`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
-#' Optimal Binning for Numerical Variables using Unsupervised Decision Trees
+#' @title Optimal Binning for Numerical Variables using Unsupervised Decision Trees
 #'
+#' @description 
 #' This function implements an optimal binning algorithm for numerical variables
 #' using an Unsupervised Decision Tree (UDT) approach with Weight of Evidence (WoE)
 #' and Information Value (IV) criteria.

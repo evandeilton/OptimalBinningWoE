@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_gmb}
 \alias{optimal_binning_categorical_gmb}
-\title{Categorical Optimal Binning with Greedy Merge Binning}
+\title{Binning Ótimo para Variáveis Categóricas usando Abordagem Gulosa (Versão Aprimorada)}
 \usage{
 optimal_binning_categorical_gmb(
   target,
@@ -17,88 +17,75 @@ optimal_binning_categorical_gmb(
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 ou 1).}
+\item{target}{Vetor inteiro binário (0 ou 1) da variável resposta.}
 
-\item{feature}{Character vector of categorical feature values.}
+\item{feature}{Vetor de caracteres com valores categóricos da variável explicativa.}
 
-\item{min_bins}{Número mínimo de bins (padrão: 3).}
+\item{min_bins}{Número mínimo de bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (padrão: 5).}
+\item{max_bins}{Número máximo de bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para um bin separado (padrão: 0.05).}
+\item{bin_cutoff}{Frequência mínima para um bin separado (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes da fusão (padrão: 20).}
+\item{max_n_prebins}{Número máximo de pré-bins antes da fusão (default: 20).}
 
-\item{bin_separator}{Separador usado para mesclar nomes de categorias (padrão: "\%;\%").}
+\item{bin_separator}{Separador de categorias no nome do bin (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite para convergência (padrão: 1e-6).}
+\item{convergence_threshold}{Limite de convergência para a variação de IV (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações (padrão: 1000).}
+\item{max_iterations}{Número máximo de iterações (default: 1000).}
 }
 \value{
-Uma lista com os seguintes elementos:
+Uma lista contendo:
 \itemize{
-\item bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).
-\item woe: Vetor numérico dos valores de Weight of Evidence para cada bin.
-\item iv: Vetor numérico do Information Value para cada bin.
-\item count: Vetor inteiro da contagem total para cada bin.
-\item count_pos: Vetor inteiro da contagem da classe positiva para cada bin.
-\item count_neg: Vetor inteiro da contagem da classe negativa para cada bin.
-\item converged: Lógico indicando se o algoritmo convergiu.
-\item iterations: Inteiro indicando o número de iterações realizadas.
+\item bin: Vetor de strings com os nomes dos bins.
+\item woe: Vetor numérico com o WoE de cada bin.
+\item iv: Vetor numérico com o IV de cada bin.
+\item count: Contagem total em cada bin.
+\item count_pos: Contagem de casos positivos em cada bin.
+\item count_neg: Contagem de casos negativos em cada bin.
+\item converged: Booleano indicando se o algoritmo convergiu.
+\item iterations: Número de iterações executadas.
 }
 }
 \description{
-Implements optimal binning for categorical variables using a Greedy Merge approach,
-calculating Weight of Evidence (WoE) and Information Value (IV).
+Este código implementa o binning ótimo para variáveis categóricas usando uma abordagem de mesclagem gulosa (Greedy Merge Binning),
+calculando WoE e IV. Foi aperfeiçoado para maior robustez, estabilidade numérica e para lidar com casos extremos de forma mais consistente.
+
+Melhorias sugeridas pelo "especialista jedi":
+\enumerate{
+\item Tratamento mais rigoroso de inputs, incluindo checagem de valores ausentes.
+\item Uso de epsilon e verificações para evitar log(0) e divisão por zero, garantindo maior estabilidade numérica.
+\item Comentários adicionais e refatoração para tornar o código mais legível e de fácil manutenção.
+\item Maior cuidado ao mesclar bins para evitar bins vazios ou malformados.
+\item Mecanismos para detectar cenários de falha na convergência, avisando ao usuário.
+\item Pré-alocação de vetores para evitar realocações frequentes, sempre que possível.
+\item Log de progresso/erros (utilizando avisos do Rcpp::warning, caso seja necessário).
+}
 }
 \details{
-O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
-Ele começa com cada categoria única como um bin separado e itera fusões de
-bins para maximizar o Information Value (IV) geral, respeitando as
-restrições no número de bins.
-
-O Weight of Evidence (WoE) para cada bin é calculado como:
-
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-
-O Information Value (IV) para cada bin é calculado como:
-
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-
-O algoritmo inclui os seguintes passos principais:
+O algoritmo:
 \enumerate{
-\item Inicializar bins com cada categoria única.
-\item Mesclar categorias raras com base no bin_cutoff.
-\item Iterativamente mesclar bins adjacentes que resultem no maior IV.
-\item Parar de mesclar quando o número de bins atingir min_bins ou max_bins.
-\item Garantir a monotonicidade dos valores de WoE através dos bins.
-\item Calcular o WoE e IV final para cada bin.
+\item Cria um bin para cada categoria única, classificando-os pelo ratio de positivos.
+\item Mescla categorias raras (frequência < bin_cutoff) em um bin próprio para manter estabilidade.
+\item Executa mesclas gulosas de bins adjacentes que maximizam o IV total.
+\item Para quando atinge min_bins, max_bins ou convergência do IV.
+\item Impõe monotonicidade do WoE, se necessário, fundindo bins violadores da monotonicidade.
 }
-
-O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
-logaritmos indefinidos e divisão por zero.
 }
 \examples{
 \dontrun{
-# Dados de exemplo
+# Exemplo
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-
-# Executar binning ótimo
 result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
-
-# Ver resultados
 print(result)
 }
 
 }
 \references{
 \itemize{
-\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
-\item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). "Monotonic Optimal Binning Algorithm for Credit Risk Modeling." Risks, 9(3), 58.
+\item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring. John Wiley & Sons.
 }
-}
-\author{
-Lopes, J. E.
 }
