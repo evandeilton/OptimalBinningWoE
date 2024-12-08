@@ -1,3 +1,4 @@
+#' @title
 #' Optimal Binning and Weight of Evidence Calculation
 #'
 #' @description
@@ -18,36 +19,96 @@
 #'
 #' For Categorical Variables:
 #' \itemize{
-#'   \item FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning
-#'   \item CM (ChiMerge): Merges categories based on chi-square statistic
-#'   \item UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning
-#'   \item IVB (Information Value Binning): Bins based on information value
-#'   \item GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories
-#'   \item SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables
-#'   \item DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints
-#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories
-#'   \item MBA (Modified Binning Algorithm): A modified approach for categorical variable binning
-#'   \item MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning
-#'   \item SAB (Simulated Annealing Binning): Uses simulated annealing for optimal binning
+#'   \item CM (ChiMerge): Implements optimal binning using the Chi-Merge algorithm,
+#'         calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
+#'
+#'   \item DPLC (Dynamic Programming with Local Constraints): Performs optimal binning
+#'         using dynamic programming with linear constraints, maximizing Information
+#'         Value (IV) while respecting user-defined constraints on bin numbers.
+#'
+#'   \item FETB (Fisher's Exact Test Binning): Implements binning using Fisher's
+#'         Exact Test, calculating WoE and IV for statistical significance.
+#'
+#'   \item GMB (Greedy Merge): Uses a Greedy Merge approach for optimal binning,
+#'         calculating WoE and IV metrics.
+#'
+#'   \item IVB (Information Value Binning): Implements IV-based binning with dynamic
+#'         programming, featuring enhanced robustness, numerical stability, and improved
+#'         maintainability.
+#'
+#'   \item JEDI: A robust algorithm optimizing IV while maintaining monotonic WoE
+#'         relationships, using adaptive merging with numerical stability protections.
+#'
+#'   \item MBA (Monotonic Binning Algorithm): Combines WoE and IV methods with
+#'         monotonicity constraints.
+#'
+#'   \item MILP (Mixed Integer Linear Programming): Creates optimal bins maximizing
+#'         predictive power while respecting user-defined constraints.
+#'
+#'   \item MOB (Monotonic Optimal Binning): Specialized implementation focusing on
+#'         monotonicity preservation.
+#'
+#'   \item SAB (Simulated Annealing): Maximizes IV while maintaining monotonicity
+#'         using simulated annealing optimization.
+#'
+#'   \item SBLP (Similarity-Based Logistic Partitioning): Produces bins maximizing
+#'         IV with consistent WoE, considering target rates and similarity-based merges.
+#'
+#'   \item SWB (Sliding Window Binning): Generates bins with good predictive power
+#'         and WoE monotonicity, ensuring stability and robustness.
+#'
+#'   \item UDT (User-Defined Technique): Flexible binning approach producing bins
+#'         with good IV and WoE monotonicity.
 #' }
 #'
 #' For Numerical Variables:
 #' \itemize{
-#'   \item UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning
-#'   \item MDLP (Minimum Description Length Principle): Uses the MDLP criterion for binning
-#'   \item MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins
-#'   \item MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning
-#'   \item DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints
-#'   \item LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation
-#'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning
-#'   \item FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables
-#'   \item EWB (Equal Width Binning): Creates bins of equal width across the range of the variable
-#'   \item KMB (K-means Binning): Applies k-means clustering for binning
-#'   \item OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning
-#'   \item MRBLP (Monotonic Regression-Based Linear Programming): Combines monotonic regression with linear programming
-#'   \item IR (Isotonic Regression): Uses isotonic regression for binning
-#'   \item BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning
-#'   \item LDB (Local Density Binning): Uses local density estimation for binning
+#'   \item BB (Branch and Bound): Generates stable, high-quality bins balancing
+#'         interpretability and predictive power, with optional WoE monotonicity.
+#'
+#'   \item CM (ChiMerge): Implementa binning ótimo usando ChiMerge, calculando
+#'         WoE e IV com foco em eficiência e robustez.
+#'
+#'   \item DPLC (Dynamic Programming with Local Constraints): Creates optimal bins
+#'         maximizing predictive power while enforcing monotonicity and constraints.
+#'
+#'   \item EWB (Equal-Width Binning): Uses equal-width intervals with merging and
+#'         adjustment steps for interpretable binning.
+#'
+#'   \item FETB (Fisher's Exact Test): Creates optimal bins ensuring statistical
+#'         significance and WoE monotonicity.
+#'
+#'   \item JEDI: Sophisticated algorithm optimizing IV with monotonic WoE relationships,
+#'         using quantile-based pre-binning and adaptive merging.
+#'
+#'   \item KMB (K-means Binning): Implements K-means clustering for optimal binning.
+#'
+#'   \item LDB (Local Density Binning): Adjusts binning to maximize predictive power
+#'         while maintaining WoE monotonicity.
+#'
+#'   \item LPDB (Local Polynomial Density Binning): Creates bins maximizing predictive
+#'         power with WoE monotonicity using polynomial density estimation.
+#'
+#'   \item MBLP (Monotonic Binning with Linear Programming): Ensures WoE monotonicity
+#'         with constraints on bin numbers and rare bin handling.
+#'
+#'   \item MDLP (Minimum Description Length Principle): Minimizes information loss
+#'         while ensuring WoE monotonicity using MDL principle.
+#'
+#'   \item MOB (Monotonic Optimal Binning): Creates optimal bins maintaining WoE
+#'         monotonicity.
+#'
+#'   \item MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning):
+#'         Preserves monotonic relationships while maximizing predictive power.
+#'
+#'   \item OSLP (Optimal Supervised Learning Partitioning): Specialized supervised
+#'         learning approach for optimal binning.
+#'
+#'   \item UBSD (Unsupervised Binning with Standard Deviation): Uses standard
+#'         deviation-based approach with WoE and IV criteria.
+#'
+#'   \item UDT (Unsupervised Decision Tree): Implements binning using decision
+#'         tree approach with WoE and IV criteria.
 #' }
 #'
 #' Key Concepts:
@@ -67,7 +128,7 @@
 #' @param dt A data.table containing the dataset.
 #' @param target The name of the target variable (must be binary).
 #' @param features Vector of feature names to process. If NULL, all features except the target will be processed.
-#' @param method The binning method to use. Can be "auto" or one of the methods listed in the details section.
+#' @param method The binning method to use. Can be "auto" or one of the methods listed in the details section. Default 'jedi'
 #' @param preprocess Logical. Whether to preprocess the data before binning (default: TRUE).
 #' @param outputall Logical. If TRUE, returns only the optimal binning gains table. If FALSE, returns a list with data, gains table, and reports (default: TRUE).
 #' @param min_bins Minimum number of bins (default: 3).
