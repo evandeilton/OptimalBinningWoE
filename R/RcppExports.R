@@ -421,12 +421,12 @@ optimal_binning_categorical_ivb <- function(target, feature, min_bins = 3L, max_
 #'
 #' @description
 #' A robust categorical binning algorithm that optimizes the Information Value (IV) while maintaining
-#' monotonic Weight of Evidence (WoE) relationships. Implements an adaptive merging strategy with 
+#' monotonic Weight of Evidence (WoE) relationships. Implements an adaptive merging strategy with
 #' numerical stability protections and sophisticated control of the number of bins.
 #'
 #' @details
 #' The algorithm employs a multi-phase optimization approach:
-#' 
+#'
 #' Mathematical Framework:
 #' For a bin i, the WoE is calculated as:
 #' \deqn{WoE_i = ln(\frac{p_i + \epsilon}{n_i + \epsilon})}
