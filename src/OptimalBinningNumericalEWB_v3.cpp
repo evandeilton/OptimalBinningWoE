@@ -1,3 +1,6 @@
+// [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::depends(Rcpp)]]
+
 #include <Rcpp.h>
 #include <vector>
 #include <algorithm>
@@ -42,14 +45,15 @@ private:
   
   std::vector<Bin> bins;
   
-  // Total positives and negatives in the dataset
+  // Total positives and negatives
   int total_pos;
   int total_neg;
   
   // Number of unique feature values
   int unique_count;
   
-  // Helper function to convert double to string with proper formatting
+  static constexpr double EPSILON = 1e-10;
+  
   std::string double_to_string(double value) const {
     if (std::isinf(value)) {
       return value > 0 ? "+Inf" : "-Inf";
@@ -59,22 +63,21 @@ private:
     return ss.str();
   }
   
-  // Calculate Weight of Evidence (WoE)
   double calculate_woe(int pos, int neg) const {
-    const double EPSILON = 1e-10;
-    double pos_rate = (pos > 0) ? static_cast<double>(pos) / total_pos : EPSILON / total_pos;
-    double neg_rate = (neg > 0) ? static_cast<double>(neg) / total_neg : EPSILON / total_neg;
+    double pos_rate = (pos > 0) ? (static_cast<double>(pos) / total_pos) : (EPSILON / (total_pos + EPSILON));
+    double neg_rate = (neg > 0) ? (static_cast<double>(neg) / total_neg) : (EPSILON / (total_neg + EPSILON));
+    // Avoid division by zero or log of zero by adding EPSILON
+    pos_rate = std::max(pos_rate, EPSILON);
+    neg_rate = std::max(neg_rate, EPSILON);
     return std::log(pos_rate / neg_rate);
   }
   
-  // Calculate Information Value (IV)
   double calculate_iv(double woe, int pos, int neg) const {
-    double pos_rate = static_cast<double>(pos) / total_pos;
-    double neg_rate = static_cast<double>(neg) / total_neg;
-    return (pos_rate - neg_rate) * woe;
+    double p_rate = (total_pos > 0) ? (static_cast<double>(pos) / total_pos) : EPSILON;
+    double n_rate = (total_neg > 0) ? (static_cast<double>(neg) / total_neg) : EPSILON;
+    return (p_rate - n_rate) * woe;
   }
   
-  // Validate input parameters and data
   void validate_inputs() {
     if (feature.empty()) {
       Rcpp::stop("Feature vector is empty.");
@@ -83,16 +86,14 @@ private:
       Rcpp::stop("Feature and target vectors must have the same length.");
     }
     
-    // Check target values
     for (const auto& t : target) {
       if (t != 0 && t != 1) {
         Rcpp::stop("Target vector must contain only 0 and 1.");
       }
     }
     
-    // Determine unique feature values
     std::unordered_set<double> unique_values(feature.begin(), feature.end());
-    unique_count = unique_values.size();
+    unique_count = static_cast<int>(unique_values.size());
     
     if (unique_count <= 1) {
       Rcpp::stop("Feature vector must contain at least two unique values.");
@@ -115,12 +116,10 @@ private:
     }
   }
   
-  // Create bins based on unique values (for unique_count <= 2)
   void create_unique_bins() {
     bins.clear();
-    bins.reserve(unique_count);
+    bins.reserve(static_cast<size_t>(unique_count));
     
-    // Collect unique values and sort them
     std::vector<double> unique_values(feature);
     std::sort(unique_values.begin(), unique_values.end());
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
@@ -129,13 +128,12 @@ private:
       bins.emplace_back(val, val, 0, 0, 0);
     }
     
-    // Assign data to bins
     for (size_t i = 0; i < feature.size(); ++i) {
       double value = feature[i];
       int target_value = target[i];
-      // Find the bin with exact match
+      // Exact bin match since lower=upper for unique bins
       for (auto& bin : bins) {
-        if (value == bin.lower) { // Since lower == upper for unique bins
+        if (std::fabs(value - bin.lower) < EPSILON) {
           bin.count++;
           if (target_value == 1) {
             bin.count_pos++;
@@ -148,84 +146,100 @@ private:
     }
   }
   
-  // Create initial equal-width pre-bins
   void create_prebins() {
     double min_value = *std::min_element(feature.begin(), feature.end());
     double max_value = *std::max_element(feature.begin(), feature.end());
     
-    // Handle case where all feature values are the same
-    if (min_value == max_value) {
-      bins.emplace_back(min_value, max_value, feature.size(),
-                        std::count(target.begin(), target.end(), 1),
-                        std::count(target.begin(), target.end(), 0));
+    if (std::fabs(min_value - max_value) < EPSILON) {
+      // All values are approximately the same, single bin
+      int total_c = static_cast<int>(feature.size());
+      int pos_c = std::count(target.begin(), target.end(), 1);
+      int neg_c = total_c - pos_c;
+      bins.emplace_back(min_value, max_value, total_c, pos_c, neg_c);
       return;
     }
     
     int n_prebins = std::min(max_n_prebins, static_cast<int>(feature.size()));
-    double bin_width = (max_value - min_value) / n_prebins;
+    // Avoid division by zero
+    double range = max_value - min_value;
+    if (range < EPSILON) {
+      range = EPSILON;
+    }
+    double bin_width = range / n_prebins;
     
     bins.clear();
-    bins.reserve(n_prebins);
+    bins.reserve(static_cast<size_t>(n_prebins));
     
     for (int i = 0; i < n_prebins; ++i) {
       double lower = min_value + i * bin_width;
-      double upper = (i == n_prebins - 1) ? max_value : min_value + (i + 1) * bin_width;
+      double upper = (i == n_prebins - 1) ? max_value : (min_value + (i + 1) * bin_width);
+      // Ensure upper >= lower
+      if (upper < lower) {
+        upper = lower;
+      }
       bins.emplace_back(lower, upper, 0, 0, 0);
     }
   }
   
-  // Assign data to bins
   void assign_data_to_bins() {
+    // Assign each observation to a bin
     for (size_t i = 0; i < feature.size(); ++i) {
       double value = feature[i];
       int target_value = target[i];
-      int bin_index = -1;
-      
-      // Find the appropriate bin
-      for (size_t b = 0; b < bins.size(); ++b) {
-        if (value >= bins[b].lower && value <= bins[b].upper) {
-          bin_index = b;
-          break;
-        }
-      }
-      if (bin_index == -1) {
+      int bin_index = find_bin(value);
+      if (bin_index < 0) {
+        // Should not happen if bins cover the range correctly
+        // Fall back to closest bin if needed
         if (value < bins.front().lower) {
           bin_index = 0;
         } else if (value > bins.back().upper) {
-          bin_index = bins.size() - 1;
+          bin_index = static_cast<int>(bins.size()) - 1;
         } else {
           Rcpp::stop("Value does not fit into any bin.");
         }
       }
-      bins[bin_index].count++;
+      bins[static_cast<size_t>(bin_index)].count++;
       if (target_value == 1) {
-        bins[bin_index].count_pos++;
+        bins[static_cast<size_t>(bin_index)].count_pos++;
       } else {
-        bins[bin_index].count_neg++;
+        bins[static_cast<size_t>(bin_index)].count_neg++;
       }
     }
   }
   
-  // Merge bins that are below the bin_cutoff threshold
+  int find_bin(double value) const {
+    // Since bins are in ascending order, we can find via linear search or binary search.
+    // Here linear is used. For large data, binary search could be considered.
+    for (size_t b = 0; b < bins.size(); ++b) {
+      if (value >= bins[b].lower && value <= bins[b].upper) {
+        return static_cast<int>(b);
+      }
+    }
+    return -1;
+  }
+  
   void merge_rare_bins() {
     int total_count = std::accumulate(bins.begin(), bins.end(), 0,
                                       [](int sum, const Bin& bin) { return sum + bin.count; });
     double cutoff_count = bin_cutoff * total_count;
     int iterations = 0;
-    converged = true;
     
     while (iterations < max_iterations) {
       bool merged = false;
+      // Avoid merging below min_bins
+      if (static_cast<int>(bins.size()) <= min_bins) {
+        break;
+      }
       for (size_t i = 0; i < bins.size(); ++i) {
         if (bins[i].count < cutoff_count && static_cast<int>(bins.size()) > min_bins) {
-          if (i == 0) {
+          if (i == 0 && bins.size() > 1) {
             // Merge with next bin
-            bins[i].upper = bins[i + 1].upper;
-            bins[i].count += bins[i + 1].count;
-            bins[i].count_pos += bins[i + 1].count_pos;
-            bins[i].count_neg += bins[i + 1].count_neg;
-            bins.erase(bins.begin() + i + 1);
-          } else {
+            bins[0].upper = bins[1].upper;
+            bins[0].count += bins[1].count;
+            bins[0].count_pos += bins[1].count_pos;
+            bins[0].count_neg += bins[1].count_neg;
+            bins.erase(bins.begin() + 1);
+          } else if (i > 0) {
             // Merge with previous bin
             bins[i - 1].upper = bins[i].upper;
             bins[i - 1].count += bins[i].count;
@@ -248,11 +262,12 @@ private:
     }
   }
   
-  // Ensure the number of bins does not exceed max_bins by merging the smallest bins
   void ensure_max_bins() {
     int iterations = 0;
+    // Merge until bins.size() <= max_bins
     while (static_cast<int>(bins.size()) > max_bins && iterations < max_iterations) {
-      // Find the pair of adjacent bins with the smallest count
+      // Find pair of adjacent bins with smallest combined count
+      if (bins.size() <= 1) break;
       size_t min_index = 0;
       int min_count = bins[0].count + bins[1].count;
       for (size_t i = 1; i < bins.size() - 1; ++i) {
@@ -263,11 +278,13 @@ private:
         }
       }
       // Merge bins[min_index] and bins[min_index + 1]
-      bins[min_index].upper = bins[min_index + 1].upper;
-      bins[min_index].count += bins[min_index + 1].count;
-      bins[min_index].count_pos += bins[min_index + 1].count_pos;
-      bins[min_index].count_neg += bins[min_index + 1].count_neg;
-      bins.erase(bins.begin() + min_index + 1);
+      if (min_index < bins.size() - 1) {
+        bins[min_index].upper = bins[min_index + 1].upper;
+        bins[min_index].count += bins[min_index + 1].count;
+        bins[min_index].count_pos += bins[min_index + 1].count_pos;
+        bins[min_index].count_neg += bins[min_index + 1].count_neg;
+        bins.erase(bins.begin() + (min_index + 1));
+      }
       iterations++;
     }
     iterations_run += iterations;
@@ -276,37 +293,38 @@ private:
     }
   }
   
-  // Enforce monotonicity of WoE values
   void enforce_monotonicity() {
     if (bins.size() <= 2) {
-      // If feature has two or fewer bins, ignore monotonicity enforcement
       return;
     }
+    
     int iterations = 0;
     bool is_monotonic = false;
     bool increasing = true;
     if (bins.size() >= 2) {
       increasing = (bins[1].woe >= bins[0].woe);
     }
+    
     while (!is_monotonic && static_cast<int>(bins.size()) > min_bins && iterations < max_iterations) {
       is_monotonic = true;
       for (size_t i = 1; i < bins.size(); ++i) {
         if ((increasing && bins[i].woe < bins[i - 1].woe) ||
             (!increasing && bins[i].woe > bins[i - 1].woe)) {
           // Merge bins[i - 1] and bins[i]
-          bins[i - 1].upper = bins[i].upper;
-          bins[i - 1].count += bins[i].count;
-          bins[i - 1].count_pos += bins[i].count_pos;
-          bins[i - 1].count_neg += bins[i].count_neg;
-          bins.erase(bins.begin() + i);
-          calculate_woe_iv();
-          is_monotonic = false;
-          break;
+          if (i < bins.size()) {
+            bins[i - 1].upper = bins[i].upper;
+            bins[i - 1].count += bins[i].count;
+            bins[i - 1].count_pos += bins[i].count_pos;
+            bins[i - 1].count_neg += bins[i].count_neg;
+            bins.erase(bins.begin() + i);
+            calculate_woe_iv();
+            is_monotonic = false;
+            break;
+          }
         }
       }
       iterations++;
       if (static_cast<int>(bins.size()) == min_bins) {
-        // min_bins reached, stop merging even if monotonicity is not achieved
         break;
       }
     }
@@ -316,7 +334,6 @@ private:
     }
   }
   
-  // Calculate WoE and IV for each bin
   void calculate_woe_iv() {
     for (auto& bin : bins) {
       bin.woe = calculate_woe(bin.count_pos, bin.count_neg);
@@ -336,16 +353,16 @@ public:
   void fit() {
     validate_inputs();
     
-    // Calculate total positives and negatives
+    // Compute totals
     total_pos = std::accumulate(target.begin(), target.end(), 0);
-    total_neg = target.size() - total_pos;
+    total_neg = static_cast<int>(target.size()) - total_pos;
     
     if (total_pos == 0 || total_neg == 0) {
-      Rcpp::stop("Target vector must contain at least one positive and one negative case.");
+      Rcpp::stop("Target must contain at least one positive and one negative case.");
     }
     
     if (unique_count <= 2) {
-      // If unique values are 1 or 2, create bins based on unique values without optimization
+      // If 2 or fewer unique values, simple bin creation
       create_unique_bins();
       calculate_woe_iv();
       converged = true;
@@ -353,27 +370,26 @@ public:
       return;
     }
     
-    // Create initial pre-bins
+    // Create and assign to prebins
     create_prebins();
     assign_data_to_bins();
     
     // Merge rare bins
     merge_rare_bins();
     
-    // Calculate WoE and IV
+    // Calculate initial WoE/IV
     calculate_woe_iv();
     
     // Enforce monotonicity
     enforce_monotonicity();
     
-    // Ensure the number of bins does not exceed max_bins
+    // Ensure max_bins
     ensure_max_bins();
     
-    // Recalculate WoE and IV after merging
+    // Recalculate WoE/IV
     calculate_woe_iv();
   }
   
-  // Get binning results
   List get_results() const {
     std::vector<std::string> bin_labels;
     std::vector<double> woe_values;
@@ -382,6 +398,14 @@ public:
     std::vector<int> counts_pos;
     std::vector<int> counts_neg;
     std::vector<double> cutpoints;
+    
+    bin_labels.reserve(bins.size());
+    woe_values.reserve(bins.size());
+    iv_values.reserve(bins.size());
+    counts.reserve(bins.size());
+    counts_pos.reserve(bins.size());
+    counts_neg.reserve(bins.size());
+    cutpoints.reserve(bins.size() > 0 ? bins.size() - 1 : 0);
     
     for (size_t i = 0; i < bins.size(); ++i) {
       const auto& bin = bins[i];
@@ -392,6 +416,7 @@ public:
       counts.push_back(bin.count);
       counts_pos.push_back(bin.count_pos);
       counts_neg.push_back(bin.count_neg);
+      // Cutpoints exclude last bin upper
       if (i < bins.size() - 1) {
         cutpoints.push_back(bin.upper);
       }
@@ -411,41 +436,43 @@ public:
   }
 };
 
+
 //' @title Optimal Binning for Numerical Variables using Equal-Width Binning
 //'
 //' @description
-//' Performs optimal binning for numerical variables using an Equal-Width Binning approach with subsequent merging and adjustment. It aims to find a good binning strategy that balances interpretability and predictive power.
+//' Realiza binning ótimo de variáveis numéricas por meio de intervalos de largura igual (Equal-Width Binning) com etapas subsequentes de mesclagem e ajuste. Este procedimento busca criar uma estratégia de binning interpretável e com bom poder preditivo, levando em conta monotonicidade e cortes mínimos nos bins.
 //'
-//' @param target An integer vector of binary target values (0 or 1).
-//' @param feature A numeric vector of feature values to be binned.
-//' @param min_bins Minimum number of bins (default: 3).
-//' @param max_bins Maximum number of bins (default: 5).
-//' @param bin_cutoff Minimum fraction of total observations in each bin (default: 0.05).
-//' @param max_n_prebins Maximum number of pre-bins (default: 20).
-//' @param convergence_threshold Convergence threshold for the algorithm (default: 1e-6).
-//' @param max_iterations Maximum number of iterations allowed (default: 1000).
+//' @param target Vetor inteiro binário (0 ou 1) representando a variável alvo.
+//' @param feature Vetor numérico com os valores da feature a ser binned.
+//' @param min_bins Número mínimo de bins (padrão: 3).
+//' @param max_bins Número máximo de bins (padrão: 5).
+//' @param bin_cutoff Fração mínima de observações que cada bin deve conter (padrão: 0.05).
+//' @param max_n_prebins Número máximo de pré-bins antes da otimização (padrão: 20).
+//' @param convergence_threshold Limite de convergência (padrão: 1e-6).
+//' @param max_iterations Número máximo de iterações permitidas (padrão: 1000).
 //'
-//' @return A list containing:
-//' \item{bins}{Character vector of bin ranges.}
-//' \item{woe}{Numeric vector of WoE values for each bin.}
-//' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
-//' \item{count}{Numeric vector of total observations in each bin.}
-//' \item{count_pos}{Numeric vector of positive target observations in each bin.}
-//' \item{count_neg}{Numeric vector of negative target observations in each bin.}
-//' \item{cutpoints}{Numeric vector of cut points to generate the bins.}
-//' \item{converged}{Logical indicating if the algorithm converged.}
-//' \item{iterations}{Integer number of iterations run by the algorithm.}
+//' @return Uma lista com:
+//' \item{bins}{Vetor de caracteres com o intervalo de cada bin.}
+//' \item{woe}{Vetor numérico com os valores de WoE de cada bin.}
+//' \item{iv}{Vetor numérico com o valor de IV de cada bin.}
+//' \item{count}{Vetor numérico com o total de observações em cada bin.}
+//' \item{count_pos}{Vetor numérico com o total de observações positivas em cada bin.}
+//' \item{count_neg}{Vetor numérico com o total de observações negativas em cada bin.}
+//' \item{cutpoints}{Vetor numérico com os pontos de corte.}
+//' \item{converged}{Valor lógico indicando se o algoritmo convergiu.}
+//' \item{iterations}{Número de iterações executadas pelo algoritmo.}
 //'
 //' @details
-//' The optimal binning algorithm using Equal-Width Binning consists of several steps:
-//' 1. Initial binning: The feature range is divided into \code{max_n_prebins} bins of equal width.
-//' 2. Assign data to bins based on feature values.
-//' 3. Merge rare bins: Bins with a fraction of observations less than \code{bin_cutoff} are merged with adjacent bins.
-//' 4. Enforce monotonicity of WoE values by merging adjacent non-monotonic bins.
-//' 5. Adjust the number of bins to not exceed \code{max_bins} by merging bins with the smallest counts.
-//' 6. Calculate WoE and IV for each bin.
+//' O algoritmo consiste nos seguintes passos:
+//' 1. Criação de pré-bins de largura igual.
+//' 2. Atribuição dos dados a esses pré-bins.
+//' 3. Mesclagem de bins raros (com poucas observações).
+//' 4. Cálculo do WoE e IV inicial.
+//' 5. Garantia de monotonicidade do WoE por meio de mesclagem de bins não monotônicos.
+//' 6. Ajuste para assegurar o número máximo de bins não exceda max_bins.
+//' 7. Recalcular WoE e IV ao final.
 //'
-//' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+//' Este método visa fornecer bins que balanceiem interpretabilidade, monotonicidade e poder preditivo, útil em modelagem de risco e credit scoring.
 //'
 //' @examples
 //' set.seed(123)
@@ -460,26 +487,25 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
                                          int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05,
                                          int max_n_prebins = 20,
                                          double convergence_threshold = 1e-6, int max_iterations = 1000) {
-  // Convert R vectors to C++ vectors
   std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
   std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
   
-  // Initialize the binning class
   OptimalBinningNumericalEWB binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
                                     convergence_threshold, max_iterations);
-  
-  // Fit the binning
   binner.fit();
-  
-  // Get binning results
-  List binning_results = binner.get_results();
-  
-  return binning_results;
+  return binner.get_results();
 }
 
-
-
-
+/*
+ Melhorias Implementadas:
+ - Adicionada verificação robusta contra loops infinitos, limitando iterações em cada etapa.
+ - Adicionada proteção para casos de taxas zero, usando EPSILON para evitar log(0).
+ - Verificação de índices antes de mesclar bins para evitar acessos fora do limite do vetor.
+ - Garantia de que sempre que bins forem mesclados, WOE e IV sejam recalculados.
+ - Manutenção dos nomes e estruturas de entrada/saída.
+ - Comentários em inglês e lógica interna mais robusta e estável.
+ - Ajustes na lógica de busca de bins e merges, evitando travamentos ou situações inesperadas.
+*/
 
 
 
@@ -531,6 +557,9 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //   int total_pos;
 //   int total_neg;
 //   
+//   // Number of unique feature values
+//   int unique_count;
+//   
 //   // Helper function to convert double to string with proper formatting
 //   std::string double_to_string(double value) const {
 //     if (std::isinf(value)) {
@@ -574,12 +603,10 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     
 //     // Determine unique feature values
 //     std::unordered_set<double> unique_values(feature.begin(), feature.end());
-//     int unique_count = unique_values.size();
+//     unique_count = unique_values.size();
 //     
-//     if (unique_count <= min_bins) {
-//       // No need to optimize; adjust min_bins and max_bins
-//       min_bins = unique_count;
-//       max_bins = unique_count;
+//     if (unique_count <= 1) {
+//       Rcpp::stop("Feature vector must contain at least two unique values.");
 //     }
 //     
 //     if (min_bins < 2) {
@@ -596,6 +623,39 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     }
 //     if (max_iterations <= 0) {
 //       Rcpp::stop("max_iterations must be positive.");
+//     }
+//   }
+//   
+//   // Create bins based on unique values (for unique_count <= 2)
+//   void create_unique_bins() {
+//     bins.clear();
+//     bins.reserve(unique_count);
+//     
+//     // Collect unique values and sort them
+//     std::vector<double> unique_values(feature);
+//     std::sort(unique_values.begin(), unique_values.end());
+//     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
+//     
+//     for (const auto& val : unique_values) {
+//       bins.emplace_back(val, val, 0, 0, 0);
+//     }
+//     
+//     // Assign data to bins
+//     for (size_t i = 0; i < feature.size(); ++i) {
+//       double value = feature[i];
+//       int target_value = target[i];
+//       // Find the bin with exact match
+//       for (auto& bin : bins) {
+//         if (value == bin.lower) { // Since lower == upper for unique bins
+//           bin.count++;
+//           if (target_value == 1) {
+//             bin.count_pos++;
+//           } else {
+//             bin.count_neg++;
+//           }
+//           break;
+//         }
+//       }
 //     }
 //   }
 //   
@@ -668,7 +728,7 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     while (iterations < max_iterations) {
 //       bool merged = false;
 //       for (size_t i = 0; i < bins.size(); ++i) {
-//         if (bins[i].count < cutoff_count && bins.size() > min_bins) {
+//         if (bins[i].count < cutoff_count && static_cast<int>(bins.size()) > min_bins) {
 //           if (i == 0) {
 //             // Merge with next bin
 //             bins[i].upper = bins[i + 1].upper;
@@ -699,8 +759,8 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     }
 //   }
 //   
-//   // Ensure minimum number of bins by merging the smallest bins
-//   void ensure_min_bins() {
+//   // Ensure the number of bins does not exceed max_bins by merging the smallest bins
+//   void ensure_max_bins() {
 //     int iterations = 0;
 //     while (static_cast<int>(bins.size()) > max_bins && iterations < max_iterations) {
 //       // Find the pair of adjacent bins with the smallest count
@@ -739,7 +799,7 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     if (bins.size() >= 2) {
 //       increasing = (bins[1].woe >= bins[0].woe);
 //     }
-//     while (!is_monotonic && bins.size() > min_bins && iterations < max_iterations) {
+//     while (!is_monotonic && static_cast<int>(bins.size()) > min_bins && iterations < max_iterations) {
 //       is_monotonic = true;
 //       for (size_t i = 1; i < bins.size(); ++i) {
 //         if ((increasing && bins[i].woe < bins[i - 1].woe) ||
@@ -756,7 +816,7 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //         }
 //       }
 //       iterations++;
-//       if (bins.size() == min_bins) {
+//       if (static_cast<int>(bins.size()) == min_bins) {
 //         // min_bins reached, stop merging even if monotonicity is not achieved
 //         break;
 //       }
@@ -782,7 +842,7 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     : feature(feature_), target(target_), min_bins(min_bins_), max_bins(max_bins_),
 //       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
 //       convergence_threshold(convergence_threshold_), max_iterations(max_iterations_),
-//       converged(true), iterations_run(0), total_pos(0), total_neg(0) {}
+//       converged(true), iterations_run(0), total_pos(0), total_neg(0), unique_count(0) {}
 //   
 //   void fit() {
 //     validate_inputs();
@@ -793,6 +853,15 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     
 //     if (total_pos == 0 || total_neg == 0) {
 //       Rcpp::stop("Target vector must contain at least one positive and one negative case.");
+//     }
+//     
+//     if (unique_count <= 2) {
+//       // If unique values are 1 or 2, create bins based on unique values without optimization
+//       create_unique_bins();
+//       calculate_woe_iv();
+//       converged = true;
+//       iterations_run = 0;
+//       return;
 //     }
 //     
 //     // Create initial pre-bins
@@ -809,7 +878,7 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 //     enforce_monotonicity();
 //     
 //     // Ensure the number of bins does not exceed max_bins
-//     ensure_min_bins();
+//     ensure_max_bins();
 //     
 //     // Recalculate WoE and IV after merging
 //     calculate_woe_iv();
@@ -899,22 +968,22 @@ Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::Numer
 // //' @export
 // // [[Rcpp::export]]
 // Rcpp::List optimal_binning_numerical_ewb(Rcpp::IntegerVector target, Rcpp::NumericVector feature,
-//                                         int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05,
-//                                         int max_n_prebins = 20,
-//                                         double convergence_threshold = 1e-6, int max_iterations = 1000) {
-//  // Convert R vectors to C++ vectors
-//  std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
-//  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-//  
-//  // Initialize the binning class
-//  OptimalBinningNumericalEWB binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
-//                                    convergence_threshold, max_iterations);
-//  
-//  // Fit the binning
-//  binner.fit();
-//  
-//  // Get binning results
-//  List binning_results = binner.get_results();
-//  
-//  return binning_results;
+//                                          int min_bins = 3, int max_bins = 5, double bin_cutoff = 0.05,
+//                                          int max_n_prebins = 20,
+//                                          double convergence_threshold = 1e-6, int max_iterations = 1000) {
+//   // Convert R vectors to C++ vectors
+//   std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
+//   std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
+//   
+//   // Initialize the binning class
+//   OptimalBinningNumericalEWB binner(feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
+//                                     convergence_threshold, max_iterations);
+//   
+//   // Fit the binning
+//   binner.fit();
+//   
+//   // Get binning results
+//   List binning_results = binner.get_results();
+//   
+//   return binning_results;
 // }

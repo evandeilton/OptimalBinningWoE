@@ -1,3 +1,5 @@
+// [[Rcpp::plugins(cpp11)]]
+
 #include <Rcpp.h>
 #include <algorithm>
 #include <vector>
@@ -7,7 +9,6 @@
 #include <sstream>
 #include <unordered_set>
 
-// [[Rcpp::plugins(cpp11)]]
 using namespace Rcpp;
 
 // Class for Optimal Binning using K-means Binning (KMB)
@@ -60,16 +61,16 @@ private:
     std::sort(unique_values.begin(), unique_values.end());
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
     
-    int num_unique_values = unique_values.size();
+    int num_unique_values = (int)unique_values.size();
     
     if (num_unique_values <= 2) {
       // Do not optimize or create extra bins; create bins based on unique values
       is_unique_two_or_less = true;
       bins.clear();
-      bins.reserve(num_unique_values);
+      bins.reserve((size_t)num_unique_values);
       for (int i = 0; i < num_unique_values; ++i) {
-        double lower = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i - 1];
-        double upper = unique_values[i];
+        double lower = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[(size_t)i - 1];
+        double upper = unique_values[(size_t)i];
         bins.push_back(Bin{lower, upper, 0, 0, 0, 0.0, 0.0});
       }
       bins.back().upper_bound = std::numeric_limits<double>::infinity();
@@ -85,15 +86,15 @@ private:
       std::vector<double> boundaries;
       for (int i = 1; i < n_bins; ++i) {
         int index = i * (num_unique_values) / n_bins;
-        boundaries.push_back(unique_values[index]);
+        boundaries.push_back(unique_values[(size_t)index]);
       }
       
       // Initialize bins
       bins.clear();
-      bins.reserve(n_bins);
+      bins.reserve((size_t)n_bins);
       double lower = -std::numeric_limits<double>::infinity();
-      for (size_t i = 0; i <= static_cast<size_t>(boundaries.size()); ++i) {
-        double upper = (i == static_cast<size_t>(boundaries.size())) ? std::numeric_limits<double>::infinity() : boundaries[i];
+      for (size_t i = 0; i <= boundaries.size(); ++i) {
+        double upper = (i == boundaries.size()) ? std::numeric_limits<double>::infinity() : boundaries[i];
         bins.push_back(Bin{lower, upper, 0, 0, 0, 0.0, 0.0});
         lower = upper;
       }
@@ -141,14 +142,14 @@ private:
   
   // Merge bins with low frequency based on bin_cutoff
   void mergeLowFrequencyBins() {
-    int total_count = feature.size();
+    int total_count = (int)feature.size();
     double cutoff_count = bin_cutoff * total_count;
     
     int iterations = 0;
     while (iterations < max_iterations) {
       bool merged = false;
       for (size_t i = 0; i < bins.size(); ++i) {
-        if (bins[i].count < cutoff_count && static_cast<int>(bins.size()) > min_bins) {
+        if (bins[i].count < cutoff_count && (int)bins.size() > min_bins) {
           if (i == 0) {
             // Merge with next bin
             bins[i].upper_bound = bins[i + 1].upper_bound;
@@ -192,7 +193,7 @@ private:
     if (bins.size() >= 2) {
       increasing = (bins[1].woe >= bins[0].woe);
     }
-    while (!is_monotonic && static_cast<int>(bins.size()) > min_bins && iterations < max_iterations) {
+    while (!is_monotonic && (int)bins.size() > min_bins && iterations < max_iterations) {
       is_monotonic = true;
       for (size_t i = 1; i < bins.size(); ++i) {
         if ((increasing && bins[i].woe < bins[i - 1].woe) ||
@@ -223,7 +224,7 @@ private:
   // Adjust bin count to be within [min_bins, max_bins]
   void adjustBinCount() {
     int iterations = 0;
-    while (static_cast<int>(bins.size()) > max_bins && iterations < max_iterations) {
+    while ((int)bins.size() > max_bins && iterations < max_iterations) {
       // Find the pair of adjacent bins with the smallest IV difference
       double min_iv_diff = std::numeric_limits<double>::max();
       int merge_index = -1;
@@ -231,7 +232,7 @@ private:
         double diff = std::abs(bins[i].iv - bins[i + 1].iv);
         if (diff < min_iv_diff) {
           min_iv_diff = diff;
-          merge_index = static_cast<int>(i);
+          merge_index = (int)i;
         }
       }
       if (merge_index != -1) {
@@ -436,6 +437,7 @@ public:
 };
 
 
+
 //' @title Optimal Binning for Numerical Variables using K-means Binning (KMB)
 //'
 //' @description This function implements the K-means Binning (KMB) algorithm for optimal binning of numerical variables.
@@ -450,7 +452,7 @@ public:
 //' @param max_iterations Maximum number of iterations allowed (default: 1000).
 //'
 //' @return A list containing the following elements:
-//' \item{bins}{Character vector of bin ranges.}
+//' \item{bin}{Character vector of bin ranges.}
 //' \item{woe}{Numeric vector of WoE values for each bin.}
 //' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 //' \item{count}{Integer vector of total observations in each bin.}
@@ -531,12 +533,6 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 
 
 
-
-
-
-
-
-
 // #include <Rcpp.h>
 // #include <algorithm>
 // #include <vector>
@@ -563,6 +559,8 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //   
 //   bool converged;
 //   int iterations_run;
+//   
+//   bool is_unique_two_or_less; // Flag to indicate if unique values <= 2
 //   
 //   struct Bin {
 //     double lower_bound;
@@ -599,8 +597,9 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //     
 //     int num_unique_values = unique_values.size();
 //     
-//     if (num_unique_values <= min_bins) {
-//       // No need to optimize; create bins based on unique values
+//     if (num_unique_values <= 2) {
+//       // Do not optimize or create extra bins; create bins based on unique values
+//       is_unique_two_or_less = true;
 //       bins.clear();
 //       bins.reserve(num_unique_values);
 //       for (int i = 0; i < num_unique_values; ++i) {
@@ -610,6 +609,8 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //       }
 //       bins.back().upper_bound = std::numeric_limits<double>::infinity();
 //     } else {
+//       // Proceed with existing binning logic
+//       is_unique_two_or_less = false;
 //       // Determine number of initial bins
 //       int n_bins = std::min(max_n_prebins, num_unique_values);
 //       n_bins = std::max(n_bins, min_bins);
@@ -834,7 +835,7 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //     : feature(feature_), target(target_), min_bins(min_bins_), max_bins(max_bins_),
 //       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
 //       convergence_threshold(convergence_threshold_), max_iterations(max_iterations_),
-//       converged(true), iterations_run(0) {}
+//       converged(true), iterations_run(0), is_unique_two_or_less(false) {}
 //   
 //   Rcpp::List fit() {
 //     // Input validation
@@ -878,6 +879,46 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //     // Assign data to bins
 //     assignDataToBins();
 //     
+//     if (is_unique_two_or_less) {
+//       // Calculate WoE and IV
+//       calculateBinStatistics();
+//       
+//       // Prepare output vectors
+//       std::vector<std::string> bin_labels;
+//       std::vector<double> woe_values;
+//       std::vector<double> iv_values;
+//       std::vector<int> counts;
+//       std::vector<int> counts_pos;
+//       std::vector<int> counts_neg;
+//       std::vector<double> cutpoints;
+//       
+//       for (size_t i = 0; i < bins.size(); ++i) {
+//         const auto& bin = bins[i];
+//         bin_labels.push_back(formatBinInterval(bin.lower_bound, bin.upper_bound));
+//         woe_values.push_back(bin.woe);
+//         iv_values.push_back(bin.iv);
+//         counts.push_back(bin.count);
+//         counts_pos.push_back(bin.count_pos);
+//         counts_neg.push_back(bin.count_neg);
+//         if (i < bins.size() - 1) {
+//           cutpoints.push_back(bin.upper_bound);
+//         }
+//       }
+//       
+//       return Rcpp::List::create(
+//         Rcpp::Named("bin") = bin_labels,
+//         Rcpp::Named("woe") = woe_values,
+//         Rcpp::Named("iv") = iv_values,
+//         Rcpp::Named("count") = counts,
+//         Rcpp::Named("count_pos") = counts_pos,
+//         Rcpp::Named("count_neg") = counts_neg,
+//         Rcpp::Named("cutpoints") = cutpoints,
+//         Rcpp::Named("converged") = converged,
+//         Rcpp::Named("iterations") = iterations_run
+//       );
+//     }
+//     
+//     // Continue with optimization steps
 //     // Calculate initial WoE and IV
 //     calculateBinStatistics();
 //     
@@ -968,15 +1009,12 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 // //' 6. Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.
 // //'
 // //' The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-// //' to handle cases with zero counts:
-// //'
+// //' to handle cases with zero counts
 // //' \deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
-// //'
 // //' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
 // //' and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
 // //'
 // //' The Information Value (IV) for each bin is calculated as:
-// //'
 // //' \deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
 // //'
 // //' The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
@@ -1025,4 +1063,3 @@ List optimal_binning_numerical_kmb(IntegerVector target,
 //  
 //  return result;
 // }
-// 
