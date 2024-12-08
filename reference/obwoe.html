@@ -102,7 +102,7 @@ information value optimization.</p>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>The binning method to use. Can be "auto" or one of the methods listed in the details section.</p></dd>
+<dd><p>The binning method to use. Can be "auto" or one of the methods listed in the details section. Default 'jedi'</p></dd>
 
 
 <dt id="arg-positive">positive<a class="anchor" aria-label="anchor" href="#arg-positive"></a></dt>
@@ -204,32 +204,65 @@ A list containing:</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Supported Algorithms:
 The function implements the following binning algorithms:</p>
-<p>For Categorical Variables:</p><ul><li><p>FETB (Fisher's Exact Test Binning): Uses Fisher's exact test for binning</p></li>
-<li><p>CM (ChiMerge): Merges categories based on chi-square statistic</p></li>
-<li><p>UDT (Unsupervised Decision Trees): Uses decision tree algorithms for categorical binning</p></li>
-<li><p>IVB (Information Value Binning): Bins based on information value</p></li>
-<li><p>GMB (Greedy Monotonic Binning): Uses a greedy approach to create monotonic bins for categories</p></li>
-<li><p>SWB (Sliding Window Binning): Adapts the sliding window approach for categorical variables</p></li>
-<li><p>DPLC (Dynamic Programming with Local Constraints): Applies dynamic programming with local constraints</p></li>
-<li><p>MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across categories</p></li>
-<li><p>MBA (Modified Binning Algorithm): A modified approach for categorical variable binning</p></li>
-<li><p>MILP (Mixed Integer Linear Programming): Applies mixed integer linear programming to categorical binning</p></li>
-<li><p>SAB (Simulated Annealing Binning): Uses simulated annealing for optimal binning</p></li>
-</ul><p>For Numerical Variables:</p><ul><li><p>UDT (Unsupervised Decision Trees): Applies decision tree algorithms in an unsupervised manner for binning</p></li>
-<li><p>MDLP (Minimum Description Length Principle): Uses the MDLP criterion for binning</p></li>
-<li><p>MOB (Monotonic Optimal Binning): Ensures monotonicity in Weight of Evidence across bins</p></li>
-<li><p>MBLP (Monotonic Binning via Linear Programming): Uses linear programming for monotonic binning</p></li>
-<li><p>DPLC (Dynamic Programming with Local Constraints): Uses dynamic programming with local constraints</p></li>
-<li><p>LPDB (Local Polynomial Density Binning): Employs local polynomial density estimation</p></li>
-<li><p>UBSD (Unsupervised Binning with Standard Deviation): Uses standard deviation in unsupervised binning</p></li>
-<li><p>FETB (Fisher's Exact Test Binning): Applies Fisher's exact test to numerical variables</p></li>
-<li><p>EWB (Equal Width Binning): Creates bins of equal width across the range of the variable</p></li>
-<li><p>KMB (K-means Binning): Applies k-means clustering for binning</p></li>
-<li><p>OSLP (Optimal Supervised Learning Path): Uses a supervised learning path for optimal binning</p></li>
-<li><p>MRBLP (Monotonic Regression-Based Linear Programming): Combines monotonic regression with linear programming</p></li>
-<li><p>IR (Isotonic Regression): Uses isotonic regression for binning</p></li>
-<li><p>BB (Branch and Bound): Uses a branch and bound algorithm for optimal binning</p></li>
-<li><p>LDB (Local Density Binning): Uses local density estimation for binning</p></li>
+<p>For Categorical Variables:</p><ul><li><p>CM (ChiMerge): Implements optimal binning using the Chi-Merge algorithm,
+calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.</p></li>
+<li><p>DPLC (Dynamic Programming with Local Constraints): Performs optimal binning
+using dynamic programming with linear constraints, maximizing Information
+Value (IV) while respecting user-defined constraints on bin numbers.</p></li>
+<li><p>FETB (Fisher's Exact Test Binning): Implements binning using Fisher's
+Exact Test, calculating WoE and IV for statistical significance.</p></li>
+<li><p>GMB (Greedy Merge): Uses a Greedy Merge approach for optimal binning,
+calculating WoE and IV metrics.</p></li>
+<li><p>IVB (Information Value Binning): Implements IV-based binning with dynamic
+programming, featuring enhanced robustness, numerical stability, and improved
+maintainability.</p></li>
+<li><p>JEDI: A robust algorithm optimizing IV while maintaining monotonic WoE
+relationships, using adaptive merging with numerical stability protections.</p></li>
+<li><p>MBA (Monotonic Binning Algorithm): Combines WoE and IV methods with
+monotonicity constraints.</p></li>
+<li><p>MILP (Mixed Integer Linear Programming): Creates optimal bins maximizing
+predictive power while respecting user-defined constraints.</p></li>
+<li><p>MOB (Monotonic Optimal Binning): Specialized implementation focusing on
+monotonicity preservation.</p></li>
+<li><p>SAB (Simulated Annealing): Maximizes IV while maintaining monotonicity
+using simulated annealing optimization.</p></li>
+<li><p>SBLP (Similarity-Based Logistic Partitioning): Produces bins maximizing
+IV with consistent WoE, considering target rates and similarity-based merges.</p></li>
+<li><p>SWB (Sliding Window Binning): Generates bins with good predictive power
+and WoE monotonicity, ensuring stability and robustness.</p></li>
+<li><p>UDT (User-Defined Technique): Flexible binning approach producing bins
+with good IV and WoE monotonicity.</p></li>
+</ul><p>For Numerical Variables:</p><ul><li><p>BB (Branch and Bound): Generates stable, high-quality bins balancing
+interpretability and predictive power, with optional WoE monotonicity.</p></li>
+<li><p>CM (ChiMerge): Implementa binning ótimo usando ChiMerge, calculando
+WoE e IV com foco em eficiência e robustez.</p></li>
+<li><p>DPLC (Dynamic Programming with Local Constraints): Creates optimal bins
+maximizing predictive power while enforcing monotonicity and constraints.</p></li>
+<li><p>EWB (Equal-Width Binning): Uses equal-width intervals with merging and
+adjustment steps for interpretable binning.</p></li>
+<li><p>FETB (Fisher's Exact Test): Creates optimal bins ensuring statistical
+significance and WoE monotonicity.</p></li>
+<li><p>JEDI: Sophisticated algorithm optimizing IV with monotonic WoE relationships,
+using quantile-based pre-binning and adaptive merging.</p></li>
+<li><p>KMB (K-means Binning): Implements K-means clustering for optimal binning.</p></li>
+<li><p>LDB (Local Density Binning): Adjusts binning to maximize predictive power
+while maintaining WoE monotonicity.</p></li>
+<li><p>LPDB (Local Polynomial Density Binning): Creates bins maximizing predictive
+power with WoE monotonicity using polynomial density estimation.</p></li>
+<li><p>MBLP (Monotonic Binning with Linear Programming): Ensures WoE monotonicity
+with constraints on bin numbers and rare bin handling.</p></li>
+<li><p>MDLP (Minimum Description Length Principle): Minimizes information loss
+while ensuring WoE monotonicity using MDL principle.</p></li>
+<li><p>MOB (Monotonic Optimal Binning): Creates optimal bins maintaining WoE
+monotonicity.</p></li>
+<li><p>MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning):
+Preserves monotonic relationships while maximizing predictive power.</p></li>
+<li><p>OSLP (Optimal Supervised Learning Partitioning): Specialized supervised
+learning approach for optimal binning.</p></li>
+<li><p>UBSD (Unsupervised Binning with Standard Deviation): Uses standard
+deviation-based approach with WoE and IV criteria.</p></li>
+<li><p>UDT (Unsupervised Decision Tree): Implements binning using decision
+tree approach with WoE and IV criteria.</p></li>
 </ul><p>Key Concepts:</p><ul><li><p>Weight of Evidence (WoE): $$WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)$$
 where \(P(X_i|Y=1)\) is the proportion of positive cases in bin i, and
 \(P(X_i|Y=0)\) is the proportion of negative cases in bin i.</p></li>
