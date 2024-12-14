@@ -1422,6 +1422,10 @@ optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_fetb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
+optimal_binning_numerical_fastMDLPM <- function(target, feature, min_bins = 2L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 100L, convergence_threshold = 1e-6, max_iterations = 1000L, force_monotonicity = TRUE) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_fastMDLPM`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, force_monotonicity)
+}
+
 #' @title Optimal Binning for Numerical Variables using Isotonic Regression
 #'
 #' @description
