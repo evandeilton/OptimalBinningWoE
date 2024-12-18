@@ -457,7 +457,14 @@ public:
       cneg_vals.push_back(b.count_neg);
     }
     
-    return List::create(
+    // Criar vetor de IDs com o mesmo tamanho de bins
+    Rcpp::NumericVector ids(bin_names.size());
+    for(int i = 0; i < bin_names.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+      Named("id") = ids,
       Named("bins") = bin_names,
       Named("woe") = woe_vals,
       Named("iv") = iv_vals,

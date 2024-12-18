@@ -505,7 +505,13 @@ List optimal_binning_numerical_mob(IntegerVector target, NumericVector feature,
    counts_neg.push_back(b.count_neg);
  }
  
- return List::create(
+ Rcpp::NumericVector ids(bin_labels.size());
+ for(int i = 0; i < bin_labels.size(); i++) {
+   ids[i] = i + 1;
+ }
+ 
+ return Rcpp::List::create(
+   Named("id") = ids,
    Named("bin") = bin_labels,
    Named("woe") = woe_values,
    Named("iv") = iv_values,

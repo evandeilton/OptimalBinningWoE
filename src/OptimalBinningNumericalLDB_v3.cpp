@@ -454,7 +454,13 @@ Rcpp::List OptimalBinningNumericalLDB::transform() {
     cutpoints.assign(bin_edges.begin() + 1, bin_edges.end() - 1);
   }
   
+  Rcpp::NumericVector ids(bin_labels.size());
+  for(int i = 0; i < bin_labels.size(); i++) {
+    ids[i] = i + 1;
+  }
+  
   return Rcpp::List::create(
+    Rcpp::Named("id") = ids,
     Rcpp::Named("bins") = bin_labels,
     Rcpp::Named("woe") = woe_values,
     Rcpp::Named("iv") = iv_values,

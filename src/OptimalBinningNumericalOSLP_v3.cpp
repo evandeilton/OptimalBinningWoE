@@ -313,7 +313,15 @@ private:
   
   Rcpp::List create_output() {
     std::vector<double> cutpoints(bin_edges.begin()+1, bin_edges.end()-1);
+    
+    // Criar vetor de IDs com o mesmo tamanho de bins
+    Rcpp::NumericVector ids(bin_labels.size());
+    for(int i = 0; i < bin_labels.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
     return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_labels,
       Named("woe") = woe_values,
       Named("iv") = iv_values,

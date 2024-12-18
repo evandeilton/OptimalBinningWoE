@@ -223,7 +223,13 @@ private:
  }
  
  Rcpp::List prepare_output_no_optimization() {
-   return Rcpp::List::create(
+    Rcpp::NumericVector ids(bin_names.size());
+    for(int i = 0; i < bin_names.size(); i++) {
+       ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+     Rcpp::Named("id") = ids,
      Rcpp::Named("bin") = bin_names,
      Rcpp::Named("woe") = bin_woe,
      Rcpp::Named("iv") = bin_iv,
@@ -475,7 +481,13 @@ private:
  }
  
  Rcpp::List prepare_output() const {
-   return Rcpp::List::create(
+    Rcpp::NumericVector ids(bin_names.size());
+    for(int i = 0; i < bin_names.size(); i++) {
+       ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+     Rcpp::Named("id") = ids,
      Rcpp::Named("bin") = bin_names,
      Rcpp::Named("woe") = bin_woe,
      Rcpp::Named("iv") = bin_iv,

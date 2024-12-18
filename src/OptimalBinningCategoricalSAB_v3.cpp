@@ -314,7 +314,13 @@ public:
      }
    }
    
-   return List::create(
+   Rcpp::NumericVector ids(bins.size());
+   for(int i = 0; i < bins.size(); i++) {
+      ids[i] = i + 1;
+   }
+   
+   return Rcpp::List::create(
+     Named("id") = ids,
      Named("bin") = bins,
      Named("woe") = woe,
      Named("iv") = iv,

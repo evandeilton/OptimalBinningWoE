@@ -155,7 +155,14 @@ public:
       }
     }
     
-    return List::create(
+    // Criar vetor de IDs com o mesmo tamanho de bins
+    Rcpp::NumericVector ids(bin_names.size());
+    for(int i = 0; i < bin_names.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_names,
       Named("woe") = bin_woe,
       Named("iv") = bin_iv,

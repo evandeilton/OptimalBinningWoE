@@ -425,7 +425,13 @@ private:
       bin_labels[i] = left + ";" + right;
     }
     
-    return List::create(
+    Rcpp::NumericVector ids(bin_labels.size());
+    for(int i = 0; i < bin_labels.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_labels,
       Named("woe") = bin_woe,
       Named("iv") = bin_iv,

@@ -368,7 +368,13 @@ public:
        counts_neg.push_back(bin.count_neg);
     }
     
+    Rcpp::NumericVector ids(bin_categories.size());
+    for(int i = 0; i < bin_categories.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
     return Rcpp::List::create(
+       Rcpp::Named("id") = ids,
        Rcpp::Named("bin") = bin_categories,
        Rcpp::Named("woe") = woes,
        Rcpp::Named("iv") = ivs,

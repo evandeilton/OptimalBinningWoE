@@ -362,7 +362,13 @@ List OptimalBinningCategoricalSBLP::prepare_output(const std::vector<std::vector
    bin_count_neg_vals.push_back(bin_neg_count);
  }
  
- return List::create(
+ Rcpp::NumericVector ids(bin_names.size());
+ for(int i = 0; i < bin_names.size(); i++) {
+    ids[i] = i + 1;
+ }
+ 
+ return Rcpp::List::create(
+   Named("id") = ids,
    Named("bin") = bin_names,
    Named("woe") = bin_woe,
    Named("iv") = bin_iv_vals,

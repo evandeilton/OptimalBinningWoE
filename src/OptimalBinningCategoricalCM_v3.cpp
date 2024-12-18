@@ -366,7 +366,14 @@ private:
      bin_count_neg.push_back(bin.count_neg);
    }
    
+   // Criar vetor de IDs com o mesmo tamanho de bin_names
+   Rcpp::NumericVector ids(bin_names.size());
+   for(int i = 0; i < bin_names.size(); i++) {
+      ids[i] = i + 1;  // Começa em 1 até size(bin_names)
+   }
+   
    return Rcpp::List::create(
+     Rcpp::Named("id") = ids,
      Rcpp::Named("bin") = bin_names,
      Rcpp::Named("woe") = bin_woe,
      Rcpp::Named("iv") = bin_iv,

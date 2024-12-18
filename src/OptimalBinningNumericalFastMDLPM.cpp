@@ -563,6 +563,7 @@ Rcpp::List optimal_binning_numerical_fastMDLPM(
   if (N == 0) {
     // Sem dados após remover NAs
     return Rcpp::List::create(
+      Rcpp::Named("id") = Rcpp::NumericVector(),
       Rcpp::Named("bin") = Rcpp::CharacterVector(),
       Rcpp::Named("woe") = Rcpp::NumericVector(),
       Rcpp::Named("iv") = Rcpp::NumericVector(),
@@ -646,7 +647,13 @@ Rcpp::List optimal_binning_numerical_fastMDLPM(
       double total_iv=0.0;
       for (auto &x: iv) total_iv+=x;
       
+      Rcpp::NumericVector ids(bin_names.size());
+      for(int i = 0; i < bin_names.size(); i++) {
+        ids[i] = i + 1;
+      }
+      
       return Rcpp::List::create(
+        Rcpp::Named("id") = ids,
         Rcpp::Named("bin")=bin_names,
         Rcpp::Named("woe")=Rcpp::wrap(woe),
         Rcpp::Named("iv")=Rcpp::wrap(iv),
@@ -728,7 +735,13 @@ Rcpp::List optimal_binning_numerical_fastMDLPM(
   double total_iv=0.0;
   for (auto &x: iv) total_iv+=x;
   
+  Rcpp::NumericVector ids(bin_names.size());
+  for(int i = 0; i < bin_names.size(); i++) {
+    ids[i] = i + 1;
+  }
+  
   return Rcpp::List::create(
+    Rcpp::Named("id") = ids,
     Rcpp::Named("bin")=bin_names,
     Rcpp::Named("woe")=Rcpp::wrap(woe),
     Rcpp::Named("iv")=Rcpp::wrap(iv),

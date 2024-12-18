@@ -326,7 +326,13 @@ List OptimalBinningNumericalFETB::performBinning() {
       cutpoints.push_back((unique_feature[0] + unique_feature[1]) / 2.0);
     }
     
-    return List::create(
+  Rcpp::NumericVector ids(bin_labels.size());
+  for(int i = 0; i < bin_labels.size(); i++) {
+    ids[i] = i + 1;
+  }
+  
+  return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_labels,
       Named("woe") = binWoE,
       Named("iv") = binIV,
@@ -367,7 +373,13 @@ List OptimalBinningNumericalFETB::performBinning() {
     
     std::vector<double> cutpoints(binEdges.begin() + 1, binEdges.end() - 1);
     
-    return List::create(
+    Rcpp::NumericVector ids(bin_labels.size());
+    for(int i = 0; i < bin_labels.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_labels,
       Named("woe") = binWoE,
       Named("iv") = binIV,
@@ -400,7 +412,14 @@ List OptimalBinningNumericalFETB::performBinning() {
     cutpoints.assign(binEdges.begin() + 1, binEdges.end() - 1);
   }
   
-  return List::create(
+  // Criar vetor de IDs com o mesmo tamanho de bins
+  Rcpp::NumericVector ids(bin_labels.size());
+  for(int i = 0; i < bin_labels.size(); i++) {
+    ids[i] = i + 1;
+  }
+  
+  return Rcpp::List::create(
+    Named("id") = ids,
     Named("bin") = bin_labels,
     Named("woe") = binWoE,
     Named("iv") = binIV,

@@ -390,7 +390,13 @@ public:
       counts_neg.push_back(b.count_neg);
     }
     
-    return List::create(
+    Rcpp::NumericVector ids(bin_names.size());
+    for(int i = 0; i < bin_names.size(); i++) {
+      ids[i] = i + 1;
+    }
+    
+    return Rcpp::List::create(
+      Named("id") = ids,
       Named("bin") = bin_names,
       Named("woe") = woes,
       Named("iv") = ivs,

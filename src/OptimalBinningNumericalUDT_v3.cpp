@@ -476,7 +476,14 @@ Rcpp::List handle_few_unique_values(
     }
   }
   
+  // Criar vetor de IDs com o mesmo tamanho de bins
+  Rcpp::NumericVector ids(bin_intervals.size());
+  for(int i = 0; i < bin_intervals.size(); i++) {
+    ids[i] = i + 1;
+  }
+  
   return Rcpp::List::create(
+    Rcpp::Named("id") = ids,
     Rcpp::Named("bin") = bin_intervals,
     Rcpp::Named("woe") = woe_values,
     Rcpp::Named("iv") = iv_values,
