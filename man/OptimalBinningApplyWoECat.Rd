@@ -7,29 +7,35 @@
 OptimalBinningApplyWoECat(obresults, feature, bin_separator = "\%;\%")
 }
 \arguments{
-\item{obresults}{A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:}
+\item{obresults}{A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:
+\itemize{
+\item \code{bin}: Character vector of merged categories for each optimal bin
+\item \code{woe}: Numeric vector of WoE values for each bin
+\item \code{id}: Numeric vector of bin IDs representing the optimal order
+}}
 
 \item{feature}{A character vector containing the original categorical feature data to which WoE values will be applied.}
 
 \item{bin_separator}{A string representing the separator used in \code{bins} to separate categories within merged bins (default: "\%;\%").}
 }
 \value{
-A data frame with three columns:
+A data frame with four columns:
 \itemize{
 \item \code{feature}: Original feature values.
 \item \code{bin}: Optimal merged bins to which each feature value belongs.
 \item \code{woe}: Optimal WoE values corresponding to each feature value.
+\item \code{idbin}: ID of the bin to which each feature value belongs.
 }
 }
 \description{
 This function applies optimal Weight of Evidence (WoE) values to an original categorical feature based on the results from an optimal binning algorithm. It assigns each category in the feature to its corresponding optimal bin and maps the associated WoE value.
 }
 \details{
-The function processes the \code{bin} from \code{obresults} by splitting each merged bin into individual categories using \code{bin_separator}. It then creates a mapping from each category to its corresponding bin index and WoE value.
+The function processes the \code{bin} from \code{obresults} by splitting each merged bin into individual categories using \code{bin_separator}. It then creates a mapping from each category to its corresponding bin index, WoE value, and bin ID.
 
-For each value in \code{feature}, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in \code{feature} is not found in any bin, \code{NA} is assigned to both \code{bin} and \code{woe}.
+For each value in \code{feature}, the function assigns the appropriate bin, WoE value, and bin ID based on the category-to-bin mapping. If a category in \code{feature} is not found in any bin, \code{NA} is assigned to \code{bin}, \code{woe}, and \code{idbin}.
 
-The function handles missing values (\code{NA}) in \code{feature} by assigning \code{NA} to both \code{bin} and \code{woe} for those entries.
+The function handles missing values (\code{NA}) in \code{feature} by assigning \code{NA} to \code{bin}, \code{woe}, and \code{idbin} for those entries.
 }
 \examples{
 \dontrun{
@@ -38,7 +44,8 @@ obresults <- list(
   bin = c("business;repairs;car (used);retraining",
            "car (new);furniture/equipment;domestic appliances;education;others",
            "radio/television"),
-  woe = c(-0.2000211, 0.2892885, -0.4100628)
+  woe = c(-0.2000211, 0.2892885, -0.4100628),
+  id = c(1, 2, 3)
 )
 feature <- c("business", "education", "radio/television", "unknown_category")
 result <- OptimalBinningApplyWoECat(obresults, feature, bin_separator = ";")

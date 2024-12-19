@@ -697,14 +697,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // OptimalBinningGainsTableFeature
-DataFrame OptimalBinningGainsTableFeature(CharacterVector binned_feature, NumericVector target);
-RcppExport SEXP _OptimalBinningWoE_OptimalBinningGainsTableFeature(SEXP binned_featureSEXP, SEXP targetSEXP) {
+DataFrame OptimalBinningGainsTableFeature(DataFrame binned_df, NumericVector target, std::string group_var);
+RcppExport SEXP _OptimalBinningWoE_OptimalBinningGainsTableFeature(SEXP binned_dfSEXP, SEXP targetSEXP, SEXP group_varSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< CharacterVector >::type binned_feature(binned_featureSEXP);
+    Rcpp::traits::input_parameter< DataFrame >::type binned_df(binned_dfSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type target(targetSEXP);
-    rcpp_result_gen = Rcpp::wrap(OptimalBinningGainsTableFeature(binned_feature, target));
+    Rcpp::traits::input_parameter< std::string >::type group_var(group_varSEXP);
+    rcpp_result_gen = Rcpp::wrap(OptimalBinningGainsTableFeature(binned_df, target, group_var));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -749,7 +750,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_numerical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_udt, 8},
     {"_OptimalBinningWoE_OptimalBinningDataPreprocessor", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningDataPreprocessor, 10},
     {"_OptimalBinningWoE_OptimalBinningGainsTable", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningGainsTable, 1},
-    {"_OptimalBinningWoE_OptimalBinningGainsTableFeature", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningGainsTableFeature, 2},
+    {"_OptimalBinningWoE_OptimalBinningGainsTableFeature", (DL_FUNC) &_OptimalBinningWoE_OptimalBinningGainsTableFeature, 3},
     {NULL, NULL, 0}
 };
 

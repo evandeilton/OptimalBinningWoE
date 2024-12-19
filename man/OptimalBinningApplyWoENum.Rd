@@ -11,6 +11,7 @@ OptimalBinningApplyWoENum(obresults, feature, include_upper_bound = TRUE)
 \itemize{
 \item \code{cutpoints}: A numeric vector of cutpoints used to define the bins.
 \item \code{woe}: A numeric vector of WoE values corresponding to each bin.
+\item \code{id}: A numeric vector of bin IDs indicating the optimal order of the bins.
 }}
 
 \item{feature}{A numeric vector containing the original feature data to which WoE values will be applied.}
@@ -18,11 +19,12 @@ OptimalBinningApplyWoENum(obresults, feature, include_upper_bound = TRUE)
 \item{include_upper_bound}{A logical value indicating whether the upper bound of the interval should be included (default is \code{TRUE}).}
 }
 \value{
-A data frame with three columns:
+A data frame with four columns:
 \itemize{
 \item \code{feature}: Original feature values.
-\item \code{featurebins}: Optimal bins represented as interval notation.
-\item \code{featurewoe}: Optimal WoE values corresponding to each feature value.
+\item \code{bin}: Optimal bins represented as interval notation.
+\item \code{woe}: Optimal WoE values corresponding to each feature value.
+\item \code{idbin}: ID of the bin to which each feature value belongs.
 }
 }
 \description{
@@ -62,7 +64,8 @@ The function uses efficient algorithms and data structures to handle large datas
 # Example usage with hypothetical obresults and feature vector
 obresults <- list(
   cutpoints = c(1.5, 3.0, 4.5),
-  woe = c(-0.2, 0.0, 0.2, 0.4)
+  woe = c(-0.2, 0.0, 0.2, 0.4),
+  id = c(1, 2, 3, 4)  # IDs for each bin
 )
 feature <- c(1.0, 2.0, 3.5, 5.0)
 result <- OptimalBinningApplyWoENum(obresults, feature, include_upper_bound = TRUE)

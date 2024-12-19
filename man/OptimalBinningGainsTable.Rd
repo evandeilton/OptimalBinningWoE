@@ -2,80 +2,67 @@
 % Please edit documentation in R/RcppExports.R
 \name{OptimalBinningGainsTable}
 \alias{OptimalBinningGainsTable}
-\title{Generates a Comprehensive Gains Table from Optimal Binning Results}
+\title{Generate a Detailed Gains Table from Optimal Binning Results}
 \usage{
 OptimalBinningGainsTable(binning_result)
 }
 \arguments{
-\item{binning_result}{A list containing the binning results, which must include a data frame with
-the following columns: "bin", "count", "count_pos", "count_neg", and "woe".}
+\item{binning_result}{A list containing the binning results, which must include
+a DataFrame with the following columns:
+\itemize{
+\item \code{id}: Numeric bin identifier.
+\item \code{bin}: Bin label where feature values were grouped.
+\item \code{count}: Total count of observations in the bin.
+\item \code{count_pos}: Count of positive cases (target=1) in the bin.
+\item \code{count_neg}: Count of negative cases (target=0) in the bin.
+}}
 }
 \value{
-A data frame containing the following columns for each bin:
+A DataFrame containing, for each bin, a detailed breakdown of metrics and characteristics.
+Columns include:
 \itemize{
-\item \code{bin}: The bin labels.
-\item \code{count}: Total count of observations in the bin.
-\item \code{pos}: Count of positive events in the bin.
-\item \code{neg}: Count of negative events in the bin.
-\item \code{woe}: Weight of Evidence (WoE) for the bin.
-\item \code{iv}: Information Value (IV) contribution for the bin.
-\item \code{total_iv}: Total Information Value (IV) across all bins.
-\item \code{cum_pos}: Cumulative count of positive events up to the current bin.
-\item \code{cum_neg}: Cumulative count of negative events up to the current bin.
-\item \code{pos_rate}: Rate of positive events within the bin.
-\item \code{neg_rate}: Rate of negative events within the bin.
-\item \code{pos_perc}: Percentage of positive events relative to the total positive events.
-\item \code{neg_perc}: Percentage of negative events relative to the total negative events.
-\item \code{count_perc}: Percentage of total observations in the bin.
-\item \code{cum_count_perc}: Cumulative percentage of observations up to the current bin.
-\item \code{cum_pos_perc}: Cumulative percentage of positive events up to the current bin.
-\item \code{cum_neg_perc}: Cumulative percentage of negative events up to the current bin.
-\item \code{cum_pos_perc_total}: Cumulative percentage of positive events relative to total observations.
-\item \code{cum_neg_perc_total}: Cumulative percentage of negative events relative to total observations.
-\item \code{odds_pos}: Odds of positive events in the bin.
-\item \code{odds_ratio}: Odds ratio of positive events compared to the total population.
-\item \code{lift}: Lift of the bin, calculated as the ratio of the positive rate in the bin to the overall positive rate.
-\item \code{ks}: Kolmogorov-Smirnov statistic, measuring the difference between cumulative positive and negative percentages.
-\item \code{gini_contribution}: Contribution to the Gini coefficient for each bin.
-\item \code{precision}: Precision of the bin.
-\item \code{recall}: Recall up to the current bin.
-\item \code{f1_score}: F1 score for the bin.
-\item \code{log_likelihood}: Log-likelihood of the bin.
-\item \code{kl_divergence}: Kullback-Leibler divergence for the bin.
-\item \code{js_divergence}: Jensen-Shannon divergence for the bin.
+\item \code{id}: Numeric identifier of the bin.
+\item \code{bin}: Label of the bin.
+\item \code{count}: Total observations in the bin.
+\item \code{pos}: Number of positive cases in the bin.
+\item \code{neg}: Number of negative cases in the bin.
+\item \code{woe}: Weight of Evidence (\eqn{WoE_i = \ln\frac{P(X_i|Y=1)}{P(X_i|Y=0)}}).
+\item \code{iv}: Information Value contribution for the bin (\eqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \cdot WoE_i}).
+\item \code{total_iv}: Total IV across all bins.
+\item \code{cum_pos}, \code{cum_neg}: Cumulative counts of positives and negatives up to the current bin.
+\item \code{pos_rate}, \code{neg_rate}: Positive and negative rates within the bin.
+\item \code{pos_perc}, \code{neg_perc}: Percentage of total positives/negatives represented by the bin.
+\item \code{count_perc}, \code{cum_count_perc}: Percentage of total observations and cumulative percentages.
+\item \code{cum_pos_perc}, \code{cum_neg_perc}: Cumulative percentages of positives and negatives relative to their totals.
+\item \code{cum_pos_perc_total}, \code{cum_neg_perc_total}: Cumulative percentages of positives and negatives relative to total observations.
+\item \code{odds_pos}: Odds of positives in the bin (\eqn{\frac{pos}{neg}}).
+\item \code{odds_ratio}: Ratio of bin odds to total odds (\eqn{OR_i = \frac{(P(Y=1|X_i)/P(Y=0|X_i))}{(P(Y=1)/P(Y=0))}}).
+\item \code{lift}: Lift of the bin (\eqn{Lift_i = \frac{P(Y=1|X_i)}{P(Y=1)}}).
+\item \code{ks}: Kolmogorov-Smirnov statistic (\eqn{KS_i = |F_1(i) - F_0(i)|}).
+\item \code{gini_contribution}: Contribution to the Gini index (\eqn{Gini_i = P(X_i|Y=1)F_0(i) - P(X_i|Y=0)F_1(i)}).
+\item \code{precision}: Precision for the bin (\eqn{Precision_i = \frac{TP}{TP + FP}}).
+\item \code{recall}: Recall for the bin (\eqn{Recall_i = \frac{\sum_{j=1}^i TP_j}{\sum_{j=1}^n TP_j}}).
+\item \code{f1_score}: F1 Score (\eqn{F1_i = 2 \cdot \frac{Precision_i \cdot Recall_i}{Precision_i + Recall_i}}).
+\item \code{log_likelihood}: Log-Likelihood (\eqn{LL_i = n_{1i}\ln(p_i) + n_{0i}\ln(1-p_i)}).
+\item \code{kl_divergence}: Kullback-Leibler divergence (\eqn{KL_i = p_i \ln\frac{p_i}{p} + (1-p_i)\ln\frac{1-p_i}{1-p}}).
+\item \code{js_divergence}: Jensen-Shannon divergence (\eqn{JS_i = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}).
 }
 }
 \description{
-This function takes the result of the optimal binning process and generates a detailed gains table.
-The table includes various metrics to assess the performance and characteristics of each bin.
+This function processes the results of optimal binning and generates a comprehensive gains table,
+including evaluation metrics and characteristics for each bin. It provides insights into the
+performance and information value of the binned feature within the context of binary classification models.
 }
 \details{
-The function calculates various metrics for each bin:
-
-\itemize{
-\item Weight of Evidence (WoE): \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-\item Information Value (IV): \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-\item Kolmogorov-Smirnov (KS) statistic: \deqn{KS_i = |F_1(i) - F_0(i)|}
-where \eqn{F_1(i)} and \eqn{F_0(i)} are the cumulative distribution functions for positive and negative classes.
-\item Odds Ratio: \deqn{OR_i = \frac{P(Y=1|X_i) / P(Y=0|X_i)}{P(Y=1) / P(Y=0)}}
-\item Lift: \deqn{Lift_i = \frac{P(Y=1|X_i)}{P(Y=1)}}
-\item Gini Contribution: \deqn{Gini_i = P(X_i|Y=1) \times F_0(i) - P(X_i|Y=0) \times F_1(i)}
-\item Precision: \deqn{Precision_i = \frac{TP_i}{TP_i + FP_i}}
-\item Recall: \deqn{Recall_i = \frac{\sum_{j=1}^i TP_j}{\sum_{j=1}^n TP_j}}
-\item F1 Score: \deqn{F1_i = 2 \times \frac{Precision_i \times Recall_i}{Precision_i + Recall_i}}
-\item Log-likelihood: \deqn{LL_i = n_{1i} \ln(p_i) + n_{0i} \ln(1-p_i)}
-where \eqn{n_{1i}} and \eqn{n_{0i}} are the counts of positive and negative cases in bin i,
-and \eqn{p_i} is the proportion of positive cases in bin i.
-\item Kullback-Leibler (KL) Divergence: \deqn{KL_i = p_i \ln\left(\frac{p_i}{p}\right) + (1-p_i) \ln\left(\frac{1-p_i}{1-p}\right)}
-where \eqn{p_i} is the proportion of positive cases in bin i and \eqn{p} is the overall proportion of positive cases.
-\item Jensen-Shannon (JS) Divergence: \deqn{JS_i = \frac{1}{2}KL(p_i || m) + \frac{1}{2}KL(q_i || m)}
-where \eqn{m = \frac{1}{2}(p_i + p)}, \eqn{p_i} is the proportion of positive cases in bin i,
-and \eqn{p} is the overall proportion of positive cases.
-}
+This function organizes the bins and computes essential metrics that help evaluate the quality of optimal binning
+applied to a binary classification problem. These metrics include measures of separation, information gain,
+and performance lift, aiding in model performance analysis.
 }
 \examples{
 \dontrun{
+# Generate optimal binning results
 binning_result <- OptimalBinning(target, feature)
+# Create a gains table
 gains_table <- OptimalBinningGainsTable(binning_result)
 print(gains_table)
 }

@@ -2,92 +2,71 @@
 % Please edit documentation in R/RcppExports.R
 \name{OptimalBinningGainsTableFeature}
 \alias{OptimalBinningGainsTableFeature}
-\title{Generates a Comprehensive Gains Table from Weight of Evidence (WoE) and Target Feature Data}
+\title{Generate Gains Table for a Binned Feature}
 \usage{
-OptimalBinningGainsTableFeature(binned_feature, target)
+OptimalBinningGainsTableFeature(binned_df, target, group_var = "bin")
 }
 \arguments{
-\item{binned_feature}{Numeric vector representing the Weight of Evidence (WoE) values for each observation or any categorical variable.}
+\item{binned_df}{A DataFrame containing the following columns, resulting from a binning process (e.g., using \code{OptimalBinningApplyWoENum} or \code{OptimalBinningApplyWoECat}):
+\itemize{
+\item \code{feature}: Original values of the variable.
+\item \code{bin}: Bin label where the feature value was classified.
+\item \code{woe}: Weight of Evidence associated with the bin.
+\item \code{idbin}: Numeric bin identifier used to optimally order the bins.
+}}
 
-\item{target}{Numeric vector representing the binary target variable, where 1 indicates a positive event (e.g., default) and 0 indicates a negative event (e.g., non-default).}
+\item{target}{A numeric binary vector (0 and 1) representing the target. It must have the same length as \code{binned_df}.}
+
+\item{group_var}{A string indicating which variable to use for grouping data and calculating metrics.
+Options: \code{"bin"}, \code{"woe"}, or \code{"idbin"}. Default: \code{"idbin"}.}
 }
 \value{
-A data frame containing the following columns for each unique WoE bin:
+A DataFrame containing, for each group (bin) defined by \code{group_var}, the following columns:
 \itemize{
-\item \code{bin}: The bin labels.
-\item \code{count}: Total count of observations in each bin.
-\item \code{pos}: Count of positive events in each bin.
-\item \code{neg}: Count of negative events in each bin.
-\item \code{woe}: Weight of Evidence (WoE) value for each bin.
-\item \code{iv}: Information Value (IV) contribution for each bin.
-\item \code{total_iv}: Total Information Value (IV) across all bins.
-\item \code{cum_pos}: Cumulative count of positive events up to the current bin.
-\item \code{cum_neg}: Cumulative count of negative events up to the current bin.
-\item \code{pos_rate}: Rate of positive events in each bin.
-\item \code{neg_rate}: Rate of negative events in each bin.
-\item \code{pos_perc}: Percentage of positive events relative to the total positive events.
-\item \code{neg_perc}: Percentage of negative events relative to the total negative events.
-\item \code{count_perc}: Percentage of total observations in each bin.
-\item \code{cum_count_perc}: Cumulative percentage of observations up to the current bin.
-\item \code{cum_pos_perc}: Cumulative percentage of positive events up to the current bin.
-\item \code{cum_neg_perc}: Cumulative percentage of negative events up to the current bin.
-\item \code{cum_pos_perc_total}: Cumulative percentage of positive events relative to the total observations.
-\item \code{cum_neg_perc_total}: Cumulative percentage of negative events relative to the total observations.
-\item \code{odds_pos}: Odds of positive events in each bin.
-\item \code{odds_ratio}: Odds ratio of positive events in the bin compared to the total population.
-\item \code{lift}: Lift of the bin, calculated as the ratio of the positive rate in the bin to the overall positive rate.
-\item \code{ks}: Kolmogorov-Smirnov statistic, measuring the difference between cumulative positive and negative percentages.
-\item \code{gini_contribution}: Contribution to the Gini coefficient for each bin.
-\item \code{precision}: Precision of the bin.
-\item \code{recall}: Recall up to the current bin.
-\item \code{f1_score}: F1 score for the bin.
-\item \code{log_likelihood}: Log-likelihood of the bin.
-\item \code{kl_divergence}: Kullback-Leibler divergence for the bin.
-\item \code{js_divergence}: Jensen-Shannon divergence for the bin.
+\item \code{group}: Name or value of the group selected by \code{group_var}.
+\item \code{id}: Numeric bin identifier, ordered.
+\item \code{count}: Total count of observations in the group.
+\item \code{pos}: Count of positive cases (target=1) in the group.
+\item \code{neg}: Count of negative cases (target=0) in the group.
+\item \code{woe}: Weight of Evidence for the group, calculated as \eqn{WoE = ln\frac{P(X|Y=1)}{P(X|Y=0)}}.
+\item \code{iv}: Contribution of the group to the Information Value: \eqn{IV = (P(X|Y=1)-P(X|Y=0))*WoE}.
+\item \code{total_iv}: Total IV value, sum of the IV from all groups.
+\item \code{cum_pos}, \code{cum_neg}: Cumulative counts of positive and negative cases up to the current group.
+\item \code{pos_rate}, \code{neg_rate}: Positive and negative rates within the group.
+\item \code{pos_perc}, \code{neg_perc}: Percentage of total positives/negatives represented by the group.
+\item \code{count_perc}, \code{cum_count_perc}: Percentage of total observations and their cumulative percentage.
+\item \code{cum_pos_perc}, \code{cum_neg_perc}: Cumulative percentage of positives/negatives relative to the total positives/negatives.
+\item \code{cum_pos_perc_total}, \code{cum_neg_perc_total}: Cumulative percentage of positives/negatives relative to total observations.
+\item \code{odds_pos}: Odds of positives in the group (\eqn{\frac{pos}{neg}}).
+\item \code{odds_ratio}: Ratio of group odds to overall odds (\eqn{odds_{group}/odds_{total}}).
+\item \code{lift}: \eqn{\frac{P(Y=1|X_{group})}{P(Y=1)}}.
+\item \code{ks}: Kolmogorov-Smirnov statistic at the group level: \eqn{|F_1(i)-F_0(i)|}.
+\item \code{gini_contribution}: Contribution of the bin to the Gini index, given by \eqn{P(X|Y=1)*F_0(i) - P(X|Y=0)*F_1(i)}.
+\item \code{precision}: Precision for the group (\eqn{\frac{TP}{TP+FP}}), where TP = pos, FP = neg, considering the bin as "positive".
+\item \code{recall}: \eqn{\frac{\sum_{j=1}^i TP_j}{\sum_{j=1}^n TP_j}}, cumulative percentage of true positives.
+\item \code{f1_score}: \eqn{2 * \frac{Precision * Recall}{Precision + Recall}}.
+\item \code{log_likelihood}: Log-likelihood for the group \eqn{LL = n_{pos} ln(p_i) + n_{neg} ln(1-p_i)}, with \eqn{p_i = pos_rate}.
+\item \code{kl_divergence}: Kullback-Leibler divergence between the group distribution and the global distribution of positives.
+\item \code{js_divergence}: Jensen-Shannon divergence between the group and global distributions, a symmetric and finite measure.
 }
 }
 \description{
-This function takes a numeric vector of Weight of Evidence (WoE) values and the corresponding binary target variable
-to generate a detailed gains table. The table includes various metrics to assess the performance and characteristics of each WoE bin.
+This function computes various statistical and performance metrics for a feature that has already been binned,
+considering a binary target (0/1). It is useful for evaluating the quality of bins generated by
+optimal binning methods. The calculated metrics include Weight of Evidence (WoE), Information Value (IV),
+accuracy rates, information divergences, Kolmogorov-Smirnov (KS), Lift, and others.
 }
 \details{
-The function performs the following steps:
-\enumerate{
-\item Checks if \code{feature_woe} and \code{target} have the same length.
-\item Verifies that \code{target} contains only binary values (0 and 1).
-\item Groups the target values by unique WoE values.
-\item Computes various metrics for each group, including counts, rates, percentages, and statistical measures.
-\item Handles cases where positive or negative classes have no instances by returning zero counts and appropriate NA values for derived metrics.
-}
-
-The function calculates the following key metrics:
-\itemize{
-\item Weight of Evidence (WoE): \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-\item Information Value (IV): \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-\item Kolmogorov-Smirnov (KS) statistic: \deqn{KS_i = |F_1(i) - F_0(i)|}
-where \eqn{F_1(i)} and \eqn{F_0(i)} are the cumulative distribution functions for positive and negative classes.
-\item Odds Ratio: \deqn{OR_i = \frac{P(Y=1|X_i) / P(Y=0|X_i)}{P(Y=1) / P(Y=0)}}
-\item Lift: \deqn{Lift_i = \frac{P(Y=1|X_i)}{P(Y=1)}}
-\item Gini Contribution: \deqn{Gini_i = P(X_i|Y=1) \times F_0(i) - P(X_i|Y=0) \times F_1(i)}
-\item Precision: \deqn{Precision_i = \frac{TP_i}{TP_i + FP_i}}
-\item Recall: \deqn{Recall_i = \frac{\sum_{j=1}^i TP_j}{\sum_{j=1}^n TP_j}}
-\item F1 Score: \deqn{F1_i = 2 \times \frac{Precision_i \times Recall_i}{Precision_i + Recall_i}}
-\item Log-likelihood: \deqn{LL_i = n_{1i} \ln(p_i) + n_{0i} \ln(1-p_i)}
-where \eqn{n_{1i}} and \eqn{n_{0i}} are the counts of positive and negative cases in bin i,
-and \eqn{p_i} is the proportion of positive cases in bin i.
-\item Kullback-Leibler (KL) Divergence: \deqn{KL_i = p_i \ln\left(\frac{p_i}{p}\right) + (1-p_i) \ln\left(\frac{1-p_i}{1-p}\right)}
-where \eqn{p_i} is the proportion of positive cases in bin i and \eqn{p} is the overall proportion of positive cases.
-\item Jensen-Shannon (JS) Divergence: \deqn{JS_i = \frac{1}{2}KL(p_i || m) + \frac{1}{2}KL(q_i || m)}
-where \eqn{m = \frac{1}{2}(p_i + p)}, \eqn{p_i} is the proportion of positive cases in bin i,
-and \eqn{p} is the overall proportion of positive cases.
-}
+The function organizes the bins defined by \code{group_var} and computes essential performance metrics
+for the applied binning in a binary classification model. These metrics assist in evaluating the
+bins' discrimination capability to separate positives from negatives and the information added by each bin to the model.
 }
 \examples{
 \dontrun{
-feature_woe <- c(-0.5, 0.2, 0.2, -0.5, 0.3)
-target <- c(1, 0, 1, 0, 1)
-gains_table <- OptimalBinningGainsTableFeature(feature_woe, target)
-print(gains_table)
+# Hypothetical example:
+# Assume binned_df is the result of OptimalBinningApplyWoENum(...) and target is a 0/1 vector.
+# gains_table <- OptimalBinningGainsTableFeature(binned_df, target, group_var = "idbin")
+# print(gains_table)
 }
 
 }

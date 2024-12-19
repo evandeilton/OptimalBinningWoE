@@ -1084,7 +1084,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
       OptimalBinningApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
     }
 
-    woebin <- OptimalBinningGainsTableFeature(binned_feature = woefeature$bin, dt_feature$target)
+    woebin <- OptimalBinningGainsTableFeature(woefeature, dt_feature$target)
 
     bestmethod <- best_model$algorithm
 
