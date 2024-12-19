@@ -45,7 +45,10 @@
 
 
 <dl><dt id="arg-obresults">obresults<a class="anchor" aria-label="anchor" href="#arg-obresults"></a></dt>
-<dd><p>A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:</p></dd>
+<dd><p>A list containing the output from an optimal binning algorithm for categorical variables. It must include at least the following elements:</p><ul><li><p><code>bin</code>: Character vector of merged categories for each optimal bin</p></li>
+<li><p><code>woe</code>: Numeric vector of WoE values for each bin</p></li>
+<li><p><code>id</code>: Numeric vector of bin IDs representing the optimal order</p></li>
+</ul></dd>
 
 
 <dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
@@ -58,15 +61,16 @@
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with three columns:</p><ul><li><p><code>feature</code>: Original feature values.</p></li>
+    <p>A data frame with four columns:</p><ul><li><p><code>feature</code>: Original feature values.</p></li>
 <li><p><code>bin</code>: Optimal merged bins to which each feature value belongs.</p></li>
 <li><p><code>woe</code>: Optimal WoE values corresponding to each feature value.</p></li>
+<li><p><code>idbin</code>: ID of the bin to which each feature value belongs.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The function processes the <code>bin</code> from <code>obresults</code> by splitting each merged bin into individual categories using <code>bin_separator</code>. It then creates a mapping from each category to its corresponding bin index and WoE value.</p>
-<p>For each value in <code>feature</code>, the function assigns the appropriate bin and WoE value based on the category-to-bin mapping. If a category in <code>feature</code> is not found in any bin, <code>NA</code> is assigned to both <code>bin</code> and <code>woe</code>.</p>
-<p>The function handles missing values (<code>NA</code>) in <code>feature</code> by assigning <code>NA</code> to both <code>bin</code> and <code>woe</code> for those entries.</p>
+    <p>The function processes the <code>bin</code> from <code>obresults</code> by splitting each merged bin into individual categories using <code>bin_separator</code>. It then creates a mapping from each category to its corresponding bin index, WoE value, and bin ID.</p>
+<p>For each value in <code>feature</code>, the function assigns the appropriate bin, WoE value, and bin ID based on the category-to-bin mapping. If a category in <code>feature</code> is not found in any bin, <code>NA</code> is assigned to <code>bin</code>, <code>woe</code>, and <code>idbin</code>.</p>
+<p>The function handles missing values (<code>NA</code>) in <code>feature</code> by assigning <code>NA</code> to <code>bin</code>, <code>woe</code>, and <code>idbin</code> for those entries.</p>
     </div>
 
     <div class="section level2">
@@ -77,7 +81,8 @@
 <span class="r-in"><span>  bin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"business;repairs;car (used);retraining"</span>,</span></span>
 <span class="r-in"><span>           <span class="st">"car (new);furniture/equipment;domestic appliances;education;others"</span>,</span></span>
 <span class="r-in"><span>           <span class="st">"radio/television"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  woe <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.2000211</span>, <span class="fl">0.2892885</span>, <span class="op">-</span><span class="fl">0.4100628</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  woe <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.2000211</span>, <span class="fl">0.2892885</span>, <span class="op">-</span><span class="fl">0.4100628</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"business"</span>, <span class="st">"education"</span>, <span class="st">"radio/television"</span>, <span class="st">"unknown_category"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">OptimalBinningApplyWoECat</span><span class="op">(</span><span class="va">obresults</span>, <span class="va">feature</span>, bin_separator <span class="op">=</span> <span class="st">";"</span><span class="op">)</span></span></span>
