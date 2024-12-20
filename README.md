@@ -37,9 +37,7 @@ bad cases across bins.
 
 For bin $i$:
 
-$$
-\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right)
-$$
+$$\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right)$$
 
 where: - $P(X_i | Y = 1)$ is the proportion of positive cases (e.g.,
 defaults) in bin $i$, - $P(X_i | Y = 0)$ is the proportion of negative
@@ -53,15 +51,11 @@ cases across all bins.
 
 For bin $i$:
 
-$$
-\text{IV}_i = \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i
-$$
+$$\text{IV}_i = \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i$$
 
 The total Information Value is:
 
-$$
-\text{IV}_{\text{total}} = \sum_{i=1}^{n} \text{IV}_i
-$$
+$$\text{IV}_{\text{total}} = \sum_{i=1}^{n} \text{IV}_i$$
 
 Interpretation of IV values:
 
