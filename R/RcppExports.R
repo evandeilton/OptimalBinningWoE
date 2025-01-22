@@ -523,6 +523,153 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
+#' @title Optimal Categorical Binning JEDI M-WOE (Multinomial Weight of Evidence)
+#'
+#' @description
+#' Implements an optimized categorical binning algorithm that extends the JEDI (Joint Entropy 
+#' Discretization and Integration) framework to handle multinomial response variables using 
+#' M-WOE (Multinomial Weight of Evidence). This implementation provides a robust solution for
+#' categorical feature discretization in multinomial classification problems while maintaining
+#' monotonic relationships and optimizing information value.
+#'
+#' @details
+#' The algorithm implements a sophisticated binning strategy based on information theory
+#' and extends the traditional binary WOE to handle multiple classes. 
+#'
+#' Mathematical Framework:
+#'
+#' 1. M-WOE Calculation:
+#' For each bin i and class k:
+#' \deqn{M-WOE_{i,k} = \ln(\frac{P(X = x_i|Y = k)}{P(X = x_i|Y \neq k)})}
+#' \deqn{= \ln(\frac{n_{k,i}/N_k}{\sum_{j \neq k} n_{j,i}/N_j})}
+#'
+#' where:
+#' \itemize{
+#'   \item \eqn{n_{k,i}} is the count of class k in bin i
+#'   \item \eqn{N_k} is the total count of class k
+#'   \item The denominator represents the proportion in all other classes
+#' }
+#'
+#' 2. Information Value:
+#' For each class k:
+#' \deqn{IV_k = \sum_{i=1}^{n} (P(X = x_i|Y = k) - P(X = x_i|Y \neq k)) \times M-WOE_{i,k}}
+#'
+#' 3. Optimization Objective:
+#' \deqn{maximize \sum_{k=1}^{K} IV_k}
+#' subject to:
+#' \itemize{
+#'   \item Monotonicity constraints for each class
+#'   \item Minimum bin size constraints
+#'   \item Number of bins constraints
+#' }
+#'
+#' Algorithm Phases:
+#' \enumerate{
+#'   \item Initial Binning: Creates individual bins for unique categories
+#'   \item Low Frequency Treatment: Merges rare categories based on bin_cutoff
+#'   \item Monotonicity Optimization: Iteratively merges bins while maintaining monotonicity
+#'   \item Final Adjustment: Ensures constraints on number of bins are met
+#' }
+#'
+#' Numerical Stability:
+#' \itemize{
+#'   \item Uses epsilon-based protection against zero probabilities
+#'   \item Implements log-sum-exp trick for numerical stability
+#'   \item Handles edge cases and infinity values
+#' }
+#'
+#' @param target Integer vector of class labels (0 to n_classes-1). Must be consecutive
+#'        integers starting from 0.
+#'
+#' @param feature Character vector of categorical values to be binned. Must have the
+#'        same length as target.
+#'
+#' @param min_bins Minimum number of bins in the output (default: 3). Will be 
+#'        automatically adjusted if number of unique categories is less than min_bins.
+#'        Value must be >= 2.
+#'
+#' @param max_bins Maximum number of bins allowed in the output (default: 5). Must be
+#'        >= min_bins. Algorithm will merge bins if necessary to meet this constraint.
+#'
+#' @param bin_cutoff Minimum relative frequency threshold for individual bins 
+#'        (default: 0.05). Categories with frequency below this threshold will be
+#'        candidates for merging. Value must be between 0 and 1.
+#'
+#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+#'        Controls initial complexity before optimization phase. Must be >= min_bins.
+#'
+#' @param bin_separator String separator used when combining category names 
+#'        (default: "%;%"). Used to create readable bin labels.
+#'
+#' @param convergence_threshold Convergence threshold for Information Value change
+#'        (default: 1e-6). Algorithm stops when IV change is below this value.
+#'
+#' @param max_iterations Maximum number of optimization iterations (default: 1000).
+#'        Prevents infinite loops in edge cases.
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item bin: Character vector of bin names (concatenated categories)
+#'   \item woe: Numeric matrix (n_bins × n_classes) of M-WOE values for each class
+#'   \item iv: Numeric matrix (n_bins × n_classes) of IV contributions for each class
+#'   \item count: Integer vector of total observation counts per bin
+#'   \item class_counts: Integer matrix (n_bins × n_classes) of counts per class per bin
+#'   \item converged: Logical indicating whether algorithm converged
+#'   \item iterations: Integer count of optimization iterations performed
+#'   \item n_classes: Integer indicating number of classes detected
+#' }
+#'
+#' @examples
+#' # Basic usage with 3 classes
+#' feature <- c("A", "B", "A", "C", "B", "D", "A")
+#' target <- c(0, 1, 2, 1, 0, 2, 1)
+#' result <- optimal_binning_categorical_jedi_mwoe(target, feature)
+#'
+#' # With custom parameters
+#' result <- optimal_binning_categorical_jedi_mwoe(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 4,
+#'   bin_cutoff = 0.1,
+#'   max_n_prebins = 15,
+#'   convergence_threshold = 1e-8
+#' )
+#'
+#' @references
+#' \itemize{
+#'   \item Beltrami, M. et al. (2021). JEDI: Joint Entropy Discretization and Integration
+#'   \item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios
+#'   \item Good, I.J. (1950). Probability and the Weighing of Evidence
+#'   \item Kullback, S. (1959). Information Theory and Statistics
+#' }
+#'
+#' @note
+#' Performance Considerations:
+#' \itemize{
+#'   \item Time complexity: O(n_classes * n_samples * log(n_samples))
+#'   \item Space complexity: O(n_classes * n_bins)
+#'   \item For large datasets, initial binning phase may be memory-intensive
+#' }
+#'
+#' Edge Cases:
+#' \itemize{
+#'   \item Single category: Returns original category as single bin
+#'   \item All samples in one class: Creates degenerate case with warning
+#'   \item Missing values: Should be treated as separate category before input
+#' }
+#'
+#' @seealso
+#' \itemize{
+#'   \item optimal_binning_categorical_jedi for binary classification
+#'   \item woe_transformation for applying WOE transformation
+#' }
+#'
+#' @export
+optimal_binning_categorical_jedi_mwoe <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi_mwoe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
+}
+
 #' @title Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)
 #'
 #' @description
@@ -1615,6 +1762,63 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' @export
 optimal_binning_numerical_jedi <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+}
+
+#' @title Optimal Numerical Binning JEDI M-WOE (Multinomial Weight of Evidence)
+#'
+#' @description
+#' Versão multinomial do binning numérico JEDI, que estende o WOE/IV tradicional (binário)
+#' para uma abordagem M-WOE, considerando várias classes simultaneamente.
+#'
+#' @param target IntegerVector de tamanho n, com valores de 0..(K-1) indicando a classe.
+#' @param feature NumericVector de tamanho n, com os valores contínuos da feature.
+#' @param min_bins Número mínimo de bins no resultado (>=2).
+#' @param max_bins Número máximo de bins no resultado (>= min_bins).
+#' @param bin_cutoff Frequência mínima relativa de um bin para não ser mesclado (0<bin_cutoff<1).
+#' @param max_n_prebins Número máximo de pré-bins (fase inicial via quantis).
+#' @param convergence_threshold Tolerância para parar iterações com base na variação do IV total.
+#' @param max_iterations Número máximo de iterações permitidas.
+#'
+#' @details
+#' Implementa a discretização de variáveis numéricas em múltiplas classes (K>2), calculando
+#' o M-WOE e o M-IV (Information Value Multinomial), e forçando monotonicidade para cada classe
+#' por mesclagem iterativa de bins adjacentes que violem a ordem (crescente ou decrescente) de WOE.
+#'
+#' Fórmulas de M-WOE e M-IV para cada classe k em um bin i:
+#' \deqn{M-WOE_{i,k} = \ln\left(\frac{ \frac{\text{count}_{i,k}}{ \text{Total}_k }}{ \frac{\sum_{j \neq k} \text{count}_{i,j}}{\sum_{j \neq k} \text{Total}_j}} \right)}
+#'
+#' \deqn{IV_{i,k} = \Bigl(\frac{\text{count}_{i,k}}{\text{Total}_k} - \frac{\sum_{j \neq k}\text{count}_{i,j}}{\sum_{j \neq k}\text{Total}_j}\Bigr) \times M-WOE_{i,k}}
+#'
+#' O IV total do bin i é \eqn{\sum_k IV_{i,k}} e o IV global é \eqn{\sum_i \sum_k IV_{i,k}}.
+#'
+#' @return Uma lista com:
+#' \itemize{
+#'   \item `bin`: vetor de rótulos dos bins (intervalos).
+#'   \item `woe`: matriz (n_bins x n_classes) de M-WOE para cada bin e classe.
+#'   \item `iv`: matriz (n_bins x n_classes) de IV por bin e classe.
+#'   \item `count`: vetor com contagem total por bin.
+#'   \item `class_counts`: matriz (n_bins x n_classes) com contagem por classe em cada bin.
+#'   \item `cutpoints`: pontos de corte (excluindo ±Inf).
+#'   \item `converged`: indica se houve convergência via `convergence_threshold`.
+#'   \item `iterations`: número de iterações realizadas.
+#'   \item `n_classes`: número de classes detectadas.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Exemplo com 3 classes: 0, 1 e 2
+#' target <- c(0,1,2,1,0,2,2,1,0,0,2)
+#' feature <- c(1.1,2.2,3.5,2.7,1.0,4.2,3.9,2.8,1.2,1.0,3.6)
+#' result <- optimal_binning_numerical_jedi_mwoe(target, feature,
+#'                min_bins = 3, max_bins = 6, bin_cutoff = 0.05,
+#'                max_n_prebins = 10, convergence_threshold = 1e-6,
+#'                max_iterations = 100)
+#' print(result)
+#' }
+#'
+#' @export
+optimal_binning_numerical_jedi_mwoe <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_jedi_mwoe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Variables using K-means Binning (KMB)
