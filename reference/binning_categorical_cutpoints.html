@@ -11,7 +11,7 @@ and transforms the feature accordingly."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -84,9 +84,9 @@ where the Positive Rate is the proportion of positive observations (target = 1) 
 <p>The Information Value (IV) measures the predictive power of the categorical feature and is calculated as:
 $$IV = \sum (\text{Positive Rate} - \text{Negative Rate}) \times \text{WoE}$$</p>
 <p>The IV metric provides insight into how well the binned feature predicts the target variable:</p><ul><li><p>IV &lt; 0.02: Not predictive</p></li>
-<li><p>0.02 ≤ IV &lt; 0.1: Weak predictive power</p></li>
-<li><p>0.1 ≤ IV &lt; 0.3: Medium predictive power</p></li>
-<li><p>IV ≥ 0.3: Strong predictive power</p></li>
+<li><p>0.02 &lt;= IV &lt; 0.1: Weak predictive power</p></li>
+<li><p>0.1 &lt;= IV &lt; 0.3: Medium predictive power</p></li>
+<li><p>IV &gt;= 0.3: Strong predictive power</p></li>
 </ul><p>WoE is used to transform the categorical variable into a continuous numeric variable, which can be used directly in logistic regression and other predictive models.</p>
     </div>
     <div class="section level2">

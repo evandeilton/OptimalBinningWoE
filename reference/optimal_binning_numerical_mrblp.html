@@ -13,7 +13,7 @@ with the target variable and maximizing the predictive power."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,7 +54,8 @@ with the target variable and maximizing the predictive power.</p>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  max_n_prebins <span class="op">=</span> <span class="fl">20L</span>,</span>
 <span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
-<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span></span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">1000L</span>,</span>
+<span>  laplace_smoothing <span class="op">=</span> <span class="fl">0.5</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,59 +94,90 @@ with the target variable and maximizing the predictive power.</p>
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
 <dd><p>Integer. The maximum number of iterations for the monotonic binning step (default: 1000).</p></dd>
 
+
+<dt id="arg-laplace-smoothing">laplace_smoothing<a class="anchor" aria-label="anchor" href="#arg-laplace-smoothing"></a></dt>
+<dd><p>Numeric. Smoothing parameter for WoE calculation (default: 0.5).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list containing the following elements:</p>
-<dl><dt>bins</dt>
-<dd><p>A character vector of bin ranges.</p></dd>
+<dl><dt>id</dt>
+<dd><p>Bin identifiers (1-based)</p></dd>
+
+<dt>bin</dt>
+<dd><p>A character vector of bin ranges</p></dd>
 
 <dt>woe</dt>
-<dd><p>A numeric vector of Weight of Evidence (WoE) values for each bin.</p></dd>
+<dd><p>A numeric vector of Weight of Evidence (WoE) values for each bin</p></dd>
 
 <dt>iv</dt>
-<dd><p>A numeric vector of Information Value (IV) for each bin.</p></dd>
+<dd><p>A numeric vector of Information Value (IV) for each bin</p></dd>
 
 <dt>count</dt>
-<dd><p>An integer vector of the total count of observations in each bin.</p></dd>
+<dd><p>An integer vector of the total count of observations in each bin</p></dd>
 
 <dt>count_pos</dt>
-<dd><p>An integer vector of the count of positive observations in each bin.</p></dd>
+<dd><p>An integer vector of the count of positive observations in each bin</p></dd>
 
 <dt>count_neg</dt>
-<dd><p>An integer vector of the count of negative observations in each bin.</p></dd>
+<dd><p>An integer vector of the count of negative observations in each bin</p></dd>
+
+<dt>event_rate</dt>
+<dd><p>A numeric vector with the proportion of positive cases in each bin</p></dd>
 
 <dt>cutpoints</dt>
-<dd><p>A numeric vector of cutpoints used to create the bins.</p></dd>
+<dd><p>A numeric vector of cutpoints used to create the bins</p></dd>
+
+<dt>total_iv</dt>
+<dd><p>The total Information Value of all bins combined</p></dd>
 
 <dt>converged</dt>
-<dd><p>A logical value indicating whether the algorithm converged.</p></dd>
+<dd><p>A logical value indicating whether the algorithm converged</p></dd>
 
 <dt>iterations</dt>
-<dd><p>An integer value indicating the number of iterations run.</p></dd>
+<dd><p>An integer value indicating the number of iterations run</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The MRBLP algorithm combines pre-binning, small bin merging, and monotonic binning to create an optimal binning solution for numerical variables. The process involves the following steps:</p><ol><li><p>Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning. The number of pre-bins is determined by the <code>max_n_prebins</code> parameter.</p></li>
-<li><p>Small bin merging: Bins with a proportion of observations less than <code>bin_cutoff</code> are merged with adjacent bins to ensure statistical significance.</p></li>
-<li><p>Monotonic binning: The algorithm enforces a monotonic relationship between the bin order and the Weight of Evidence (WoE) values. This step ensures that the binning preserves the original relationship between the feature and the target variable.</p></li>
-<li><p>Bin count adjustment: If the number of bins exceeds <code>max_bins</code>, the algorithm merges bins with the smallest difference in Information Value (IV). If the number of bins is less than <code>min_bins</code>, the largest bin is split.</p></li>
-</ol><p>The algorithm includes additional controls to prevent instability and ensure convergence:</p><ul><li><p>A convergence threshold is used to determine when the algorithm should stop iterating.</p></li>
-<li><p>A maximum number of iterations is set to prevent infinite loops.</p></li>
-<li><p>If convergence is not reached within the specified time and standards, the function returns the best result obtained up to the last iteration.</p></li>
-</ul></div>
+
+<div class="section">
+<h3 id="mathematical-framework-">Mathematical Framework:<a class="anchor" aria-label="anchor" href="#mathematical-framework-"></a></h3>
+
+
+<p><strong>Weight of Evidence (WoE)</strong>: For a bin <code>i</code> with Laplace smoothing <code>alpha</code>:
+$$WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)$$
+Where:</p><ul><li><p>\(n_{1i}\) is the count of positive cases in bin \(i\)</p></li>
+<li><p>\(n_{0i}\) is the count of negative cases in bin \(i\)</p></li>
+<li><p>\(n_{1}\) is the total count of positive cases</p></li>
+<li><p>\(n_{0}\) is the total count of negative cases</p></li>
+<li><p>\(m\) is the number of bins</p></li>
+<li><p>\(\alpha\) is the Laplace smoothing parameter</p></li>
+</ul><p><strong>Information Value (IV)</strong>: Summarizes predictive power across all bins:
+$$IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i$$</p>
+</div>
+
+<div class="section">
+<h3 id="algorithm-steps-">Algorithm Steps:<a class="anchor" aria-label="anchor" href="#algorithm-steps-"></a></h3>
+
+<ol><li><p><strong>Pre-binning</strong>: Initial bins are created using equal-frequency binning.</p></li>
+<li><p><strong>Merge Small Bins</strong>: Bins with frequency below the threshold are merged.</p></li>
+<li><p><strong>Enforce Monotonicity</strong>: Bins that violate monotonicity in WoE are merged.</p></li>
+<li><p><strong>Adjust Bin Count</strong>: Bins are merged/split to respect min_bins and max_bins.</p></li>
+<li><p><strong>Calculate Metrics</strong>: Final WoE and IV values are computed with Laplace smoothing.</p></li>
+</ol></div>
+
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
 
 <ul><li><p>Belcastro, L., Marozzo, F., Talia, D., &amp; Trunfio, P. (2020). "Big Data Analytics on Clouds."
 In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.</p></li>
 <li><p>Zeng, Y. (2014). "Optimal Binning for Scoring Modeling." Computational Economics, 44(1), 137-149.</p></li>
+<li><p>Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)</p></li>
 </ul></div>
-    <div class="section level2">
-    <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J.</p>
-    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -161,6 +193,11 @@ In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.</p></li>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View binning results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Plot Weight of Evidence against bins</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>, type <span class="op">=</span> <span class="st">"b"</span>, xlab <span class="op">=</span> <span class="st">"Bin"</span>, ylab <span class="op">=</span> <span class="st">"WoE"</span>,</span></span>
+<span class="r-in"><span>     main <span class="op">=</span> <span class="st">"Weight of Evidence by Bin"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/abline.html" class="external-link">abline</a></span><span class="op">(</span>h <span class="op">=</span> <span class="fl">0</span>, lty <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

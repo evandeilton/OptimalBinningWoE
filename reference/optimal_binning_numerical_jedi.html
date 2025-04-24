@@ -11,7 +11,7 @@ with adaptive merging strategies, ensuring both statistical stability and optima
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -114,8 +114,8 @@ with adaptive merging strategies, ensuring both statistical stability and optima
 defined by \(K-1\) cutpoints where each bin \(B_i = (c_{i-1}, c_i]\) optimizes the information content,
 satisfying the following constraints:</p>
 <ol><li><p><strong>Monotonic WoE</strong>: \(WoE_i \le WoE_{i+1}\) (or \(\ge\) for decreasing trends).</p></li>
-<li><p><strong>Minimum Bin Size</strong>: \(\text{count}(B_i)/N \ge \text{bin_cutoff}\).</p></li>
-<li><p><strong>Bin Quantity Limits</strong>: \(\text{min_bins} \le K \le \text{max_bins}\).</p></li>
+<li><p><strong>Minimum Bin Size</strong>: count\((B_i)/N \ge\) bin_cutoff.</p></li>
+<li><p><strong>Bin Quantity Limits</strong>: min_bins \(\le K \le\) max_bins.</p></li>
 </ol><p><strong>Weight of Evidence (WoE)</strong> for bin \(i\):
 $$WoE_i = \ln\left(\frac{\text{Pos}_i / \sum \text{Pos}_i}{\text{Neg}_i / \sum \text{Neg}_i}\right)$$</p>
 <p><strong>Information Value (IV)</strong> per bin:
@@ -147,8 +147,8 @@ $$IV_{total} = \sum_{i=1}^K IV_i$$</p>
 <div class="section">
 <h3 id="parameters-">Parameters:<a class="anchor" aria-label="anchor" href="#parameters-"></a></h3>
 
-<ul><li><p><code>min_bins</code>: Minimum number of bins to be created (default: 3, must be ≥2).</p></li>
-<li><p><code>max_bins</code>: Maximum number of bins allowed (default: 5, must be ≥ <code>min_bins</code>).</p></li>
+<ul><li><p><code>min_bins</code>: Minimum number of bins to be created (default: 3, must be &gt;= 2).</p></li>
+<li><p><code>max_bins</code>: Maximum number of bins allowed (default: 5, must be &gt;= <code>min_bins</code>).</p></li>
 <li><p><code>bin_cutoff</code>: Minimum relative frequency required for a bin to remain standalone (default: 0.05).</p></li>
 <li><p><code>max_n_prebins</code>: Maximum number of pre-bins created before optimization (default: 20).</p></li>
 <li><p><code>convergence_threshold</code>: Threshold for IV change to determine convergence (default: 1e-6).</p></li>
