@@ -11,98 +11,185 @@ optimal_binning_numerical_lpdb(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
+  polynomial_degree = 3L,
+  enforce_monotonic = TRUE,
   convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{An integer binary vector (0 or 1) representing the response variable.}
+\item{target}{A binary integer vector (0 or 1) representing the target variable.}
 
 \item{feature}{A numeric vector representing the feature to be binned.}
 
-\item{min_bins}{Minimum number of bins to be created (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Maximum number of bins allowed (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency proportion for retaining a bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency fraction for each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
-\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
+\item{polynomial_degree}{Degree of polynomial used for density estimation (default: 3).}
 
-\item{max_iterations}{Maximum number of iterations allowed for optimization (default: 1000).}
+\item{enforce_monotonic}{Whether to enforce monotonic relationship in WoE (default: TRUE).}
+
+\item{convergence_threshold}{Convergence threshold for optimization (default: 1e-6).}
+
+\item{max_iterations}{Maximum iterations allowed (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\itemize{
-\item \code{bin}: A vector of bin intervals in the format "[lower;upper)".
-\item \code{woe}: A numeric vector of WoE values for each bin.
-\item \code{iv}: A numeric vector of IV contributions for each bin.
-\item \code{count}: An integer vector of the total number of observations per bin.
-\item \code{count_pos}: An integer vector of the number of positive cases per bin.
-\item \code{count_neg}: An integer vector of the number of negative cases per bin.
-\item \code{cutpoints}: A numeric vector of the cutpoints defining the bin edges.
-\item \code{converged}: A boolean indicating whether the algorithm converged.
-\item \code{iterations}: An integer indicating the number of iterations executed.
-}
+A list containing:
+\item{id}{Numeric identifiers for each bin (1-based).}
+\item{bin}{Character vector with bin intervals.}
+\item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+\item{iv}{Numeric vector with Information Value contribution for each bin.}
+\item{count}{Integer vector with the total number of observations in each bin.}
+\item{count_pos}{Integer vector with the positive class count in each bin.}
+\item{count_neg}{Integer vector with the negative class count in each bin.}
+\item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+\item{centroids}{Numeric vector with the centroid (mean value) of each bin.}
+\item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+\item{converged}{Logical indicating whether the algorithm converged.}
+\item{iterations}{Integer count of iterations performed.}
+\item{total_iv}{Numeric total Information Value of the binning solution.}
+\item{monotonicity}{Character indicating monotonicity direction ("increasing", "decreasing", or "none").}
 }
 \description{
-Implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables.
-The method creates bins that maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE).
-It handles rare bins, ensures numerical stability, and provides flexibility through various customizable parameters.
+Implements an advanced binning algorithm for numerical variables that combines local polynomial
+density estimation with information-theoretic optimization. This method adapts bin boundaries
+to the natural structure of the data while maximizing predictive power for a binary target
+variable. LPDB is particularly effective for complex distributions with multiple modes or
+regions of varying density.
 }
 \details{
-\subsection{Key Steps:}{
+\subsection{Algorithm Overview}{
+
+The Local Polynomial Density Binning algorithm operates through several coordinated phases:
 \enumerate{
-\item \strong{Input Validation}: Ensures the \code{feature} and \code{target} vectors are valid, checks binary nature of the \code{target} vector,
-and removes missing values (\code{NA}).
-\item \strong{Pre-Binning}: Divides the feature into preliminary bins using quantile-based partitioning or unique values.
-\item \strong{Calculation of WoE and IV}: Computes the WoE and Information Value (IV) for each bin based on the target distribution.
-\item \strong{Monotonicity Enforcement}: Adjusts bins iteratively to ensure monotonicity in WoE values, either increasing or decreasing.
-\item \strong{Rare Bin Merging}: Merges bins with frequencies below the \code{bin_cutoff} threshold to ensure statistical stability.
-\item \strong{Validation}: Ensures bins are non-overlapping, cover the entire range of the feature, and are consistent with constraints on \code{min_bins} and \code{max_bins}.
+\item \strong{Density Analysis}: Uses polynomial regression techniques to estimate the local density
+structure of the feature distribution, identifying natural groupings in the data.
+\item \strong{Critical Point Detection}: Locates important points in the density curve (minima, maxima,
+and inflection points) as potential bin boundaries.
+\item \strong{Initial Binning}: Creates preliminary bins based on these critical points, ensuring they
+respect the natural structure of the data.
+\item \strong{Statistical Optimization}:
+\itemize{
+\item Merges bins with frequencies below threshold to ensure statistical reliability
+\item Enforces monotonicity in Weight of Evidence (optional)
+\item Adjusts bin count to meet minimum and maximum constraints
+}
+\item \strong{Information Value Calculation}: Computes predictive metrics for the final binning solution
 }
 }
 
-\subsection{Mathematical Framework:}{
+\subsection{Mathematical Foundation}{
+
+The algorithm employs several advanced statistical concepts:
+\subsection{1. Local Polynomial Density Estimation}{
+
+For density estimation at point \eqn{x}:
+
+\deqn{f_h(x) = \frac{1}{nh}\sum_{i=1}^{n}K\left(\frac{x-x_i}{h}\right)}
+
+Where:
 \itemize{
-\item \strong{Weight of Evidence (WoE)}: For a bin \( i \):
-\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-\item \strong{Information Value (IV)}: Aggregates the predictive power across all bins:
-\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+\item \eqn{K} is a kernel function (Gaussian kernel in this implementation)
+\item \eqn{h} is the bandwidth parameter (calculated using Silverman's rule)
+\item \eqn{n} is the number of observations
 }
 }
 
-\subsection{Features:}{
+\subsection{2. Critical Point Detection}{
+
+The algorithm identifies key points in the density curve:
 \itemize{
-\item \strong{Monotonicity}: Ensures the WoE values are either strictly increasing or decreasing across bins.
-\item \strong{Rare Bin Handling}: Merges bins with low frequencies to maintain statistical reliability.
-\item \strong{Numerical Stability}: Incorporates small constants to avoid division by zero or undefined logarithms.
-\item \strong{Flexibility}: Supports custom definitions for minimum and maximum bins, convergence thresholds, and iteration limits.
-\item \strong{Output Metadata}: Provides detailed bin information, including WoE, IV, and cutpoints for interpretability and downstream analysis.
+\item \strong{Local Minima}: Natural boundaries between clusters (density valleys)
+\item \strong{Inflection Points}: Regions where density curvature changes
+\item \strong{Local Maxima}: Centers of high-density regions
 }
 }
 
-\subsection{Parameters:}{
+\subsection{3. Weight of Evidence (WoE) Calculation}{
+
+For bin \eqn{i}, with Laplace smoothing:
+
+\deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+
+Where:
 \itemize{
-\item \code{min_bins}: Minimum number of bins to be created (default: 3).
-\item \code{max_bins}: Maximum number of bins allowed (default: 5).
-\item \code{bin_cutoff}: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
-\item \code{max_n_prebins}: Maximum number of pre-bins before optimization (default: 20).
-\item \code{convergence_threshold}: Threshold for determining convergence in terms of IV changes (default: 1e-6).
-\item \code{max_iterations}: Maximum number of iterations allowed for binning optimization (default: 1000).
+\item \eqn{p_i}: Number of positive cases in bin \eqn{i}
+\item \eqn{P}: Total number of positive cases
+\item \eqn{n_i}: Number of negative cases in bin \eqn{i}
+\item \eqn{N}: Total number of negative cases
+\item \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+\item \eqn{k}: Number of bins
+}
+}
+
+\subsection{4. Information Value (IV)}{
+
+Overall predictive power measure:
+
+\deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+
+\deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+}
+
+}
+
+\subsection{Advantages}{
+\itemize{
+\item \strong{Adaptive to Data Structure}: Places bin boundaries at natural density transitions
+\item \strong{Handles Complex Distributions}: Effective for multimodal or skewed features
+\item \strong{Information Preservation}: Optimizes binning for maximum predictive power
+\item \strong{Statistical Stability}: Ensures sufficient observations in each bin
+\item \strong{Interpretability}: Supports monotonic relationships between feature and target
 }
 }
 }
 \examples{
 \dontrun{
+# Generate synthetic data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
-result <- optimal_binning_numerical_lpdb(target, feature, min_bins = 3, max_bins = 6)
-print(result$bin)
-print(result$woe)
-print(result$iv)
+
+# Basic usage
+result <- optimal_binning_numerical_lpdb(target, feature)
+print(result)
+
+# Custom parameters
+result_custom <- optimal_binning_numerical_lpdb(
+  target = target,
+  feature = feature,
+  min_bins = 2,
+  max_bins = 8,
+  bin_cutoff = 0.03,
+  polynomial_degree = 5,
+  enforce_monotonic = TRUE
+)
+
+# Access specific components
+bins <- result$bin
+woe_values <- result$woe
+total_iv <- result$total_iv
 }
 
+}
+\references{
+Fan, J., & Gijbels, I. (1996). \emph{Local Polynomial Modelling and Its Applications}.
+Chapman and Hall.
+
+Loader, C. (1999). \emph{Local Regression and Likelihood}. Springer-Verlag.
+
+Hastie, T., & Tibshirani, R. (1990). \emph{Generalized Additive Models}. Chapman and Hall.
+
+Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data
+representation. \emph{Neural Computation}, 15(6), 1373-1396.
+
+Silverman, B. W. (1986). \emph{Density Estimation for Statistics and Data Analysis}. Chapman and Hall/CRC.
+
+Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring}.
+John Wiley & Sons.
 }

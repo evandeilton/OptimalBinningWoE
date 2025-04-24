@@ -12,7 +12,8 @@ optimal_binning_numerical_mdlp(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  laplace_smoothing = 0.5
 )
 }
 \arguments{
@@ -31,10 +32,13 @@ optimal_binning_numerical_mdlp(
 \item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
 
 \item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
+
+\item{laplace_smoothing}{Smoothing parameter for WoE calculation (default: 0.5).}
 }
 \value{
 A list with the following components:
 \itemize{
+\item \code{id}: A numeric vector with bin identifiers (1-based).
 \item \code{bin}: A vector of bin names representing the intervals.
 \item \code{woe}: A numeric vector with the WoE values for each bin.
 \item \code{iv}: A numeric vector with the IV values for each bin.
@@ -42,6 +46,7 @@ A list with the following components:
 \item \code{count_pos}: An integer vector with the count of positive cases in each bin.
 \item \code{count_neg}: An integer vector with the count of negative cases in each bin.
 \item \code{cutpoints}: A numeric vector of cut points defining the bins.
+\item \code{total_iv}: A numeric value representing the total information value of the binning.
 \item \code{converged}: A boolean indicating whether the algorithm converged.
 \item \code{iterations}: An integer with the number of iterations performed.
 }
@@ -69,10 +74,23 @@ Designed for robust and numerically stable calculations, it incorporates protect
 \strong{Entropy Calculation}: For a bin \( i \) with positive (\( p \)) and negative (\( n \)) counts:
 \deqn{Entropy = -p \log_2(p) - n \log_2(n)}
 
-\strong{MDL Cost}: Combines the cost of the model and data description. Lower MDL values indicate better binning.
+\strong{MDL Cost}: Combines the cost of the model and data description:
+\deqn{MDL\_Cost = Model\_Cost + Data\_Cost}
+Where:
+\deqn{Model\_Cost = \log_2(Number\_of\_bins - 1)}
+\deqn{Data\_Cost = Total\_Entropy - \sum_{i} Count_i \times Entropy_i}
 
-\strong{Weight of Evidence (WoE)}: For a bin \( i \):
-\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+\strong{Weight of Evidence (WoE)}: For a bin \( i \) with Laplace smoothing parameter:
+\deqn{WoE_i = \ln\left(\frac{n_{1i} + a}{n_{1} + ma} \cdot \frac{n_{0} + ma}{n_{0i} + a}\right)}
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+\item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+\item \eqn{n_{1}} is the total count of positive cases
+\item \eqn{n_{0}} is the total count of negative cases
+\item \eqn{m} is the number of bins
+\item a is the Laplace smoothing parameter
+}
 
 \strong{Information Value (IV)}: Summarizes predictive power across all bins:
 \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
@@ -85,17 +103,7 @@ Designed for robust and numerically stable calculations, it incorporates protect
 \item Handles rare bins by merging categories with low frequencies.
 \item Stable against edge cases like all identical values or insufficient observations.
 \item Efficiently processes large datasets with iterative binning and convergence checks.
-}
-}
-
-\subsection{Algorithm Parameters:}{
-\itemize{
-\item \code{min_bins}: Minimum number of bins (default: 3).
-\item \code{max_bins}: Maximum number of bins (default: 5).
-\item \code{bin_cutoff}: Minimum proportion of records required in a bin (default: 0.05).
-\item \code{max_n_prebins}: Maximum number of pre-bins before merging (default: 20).
-\item \code{convergence_threshold}: Threshold for convergence in terms of IV changes (default: 1e-6).
-\item \code{max_iterations}: Maximum number of iterations for optimization (default: 1000).
+\item Applies Laplace smoothing for robust WoE calculation in sparse bins.
 }
 }
 }
@@ -107,6 +115,30 @@ target <- sample(0:1, 100, replace = TRUE)
 feature <- runif(100)
 result <- optimal_binning_numerical_mdlp(target, feature, min_bins = 3, max_bins = 5)
 print(result)
+
+# With different parameters
+result2 <- optimal_binning_numerical_mdlp(
+  target, 
+  feature, 
+  min_bins = 2, 
+  max_bins = 10,
+  bin_cutoff = 0.03,
+  laplace_smoothing = 0.1
+)
+
+# Print summary statistics
+print(paste("Total Information Value:", round(result2$total_iv, 4)))
+print(paste("Number of bins created:", length(result2$bin)))
 }
 
+}
+\references{
+\itemize{
+\item Fayyad, U. & Irani, K. (1993). "Multi-interval discretization of continuous-valued
+attributes for classification learning." Proceedings of the International Joint
+Conference on Artificial Intelligence, 1022-1027.
+\item Rissanen, J. (1978). "Modeling by shortest data description." Automatica, 14(5), 465-471.
+\item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
+}
 }

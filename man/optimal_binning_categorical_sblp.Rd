@@ -13,7 +13,8 @@ optimal_binning_categorical_sblp(
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
   max_iterations = 1000L,
-  bin_separator = ";"
+  bin_separator = "\%;\%",
+  alpha = 0.5
 )
 }
 \arguments{
@@ -34,50 +35,137 @@ optimal_binning_categorical_sblp(
 \item{max_iterations}{Maximum number of iterations of the algorithm (default: 1000).}
 
 \item{bin_separator}{Separator used to concatenate category names within bins (default: ";").}
+
+\item{alpha}{Laplace smoothing parameter for WoE/IV calculation (default: 0.5).}
 }
 \value{
 A list containing:
 \itemize{
+\item id: Numeric vector with bin identifiers.
 \item bin: String vector with the names of the bins (concatenated categories).
 \item woe: Numeric vector with the Weight of Evidence (WoE) values for each bin.
 \item iv: Numeric vector with the Information Value (IV) values for each bin.
 \item count: Integer vector with the total count of observations in each bin.
 \item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
 \item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+\item rate: Numeric vector with the event rate for each bin.
+\item total_iv: Total Information Value (IV) of the binning solution.
 \item converged: Logical value indicating whether the algorithm converged.
 \item iterations: Integer value indicating the number of iterations executed.
 }
 }
 \description{
-This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach.
-The goal is to produce bins that maximize the Information Value (IV) and provide consistent Weight of Evidence (WoE), considering target rates
-and ensuring quality through similarity-based merges.
-The implementation has been revised to improve readability, efficiency, robustness, and to maintain compatibility
-with the names and types of input/output parameters.
+This function implements an advanced optimal binning algorithm for categorical variables using
+a Similarity-Based Logistic Partitioning (SBLP) approach. It groups categorical predictors into bins
+that maximize the Information Value (IV) while maintaining monotonicity with respect to target rates.
+The algorithm is designed to handle various edge cases including rare categories, missing values,
+and numerical stability issues.
 }
 \details{
-Steps of the SBLP algorithm:
+The SBLP algorithm operates in several phases:
 \enumerate{
-\item Validate input and calculate initial counts by category.
-\item Handle rare categories by merging them with other similar ones in terms of target rate.
-\item Ensure the maximum number of pre-bins by merging uninformative bins.
-\item Sort categories by target rate.
-\item Apply dynamic programming to determine the optimal partition, considering min_bins and max_bins.
-\item Adjust WoE monotonicity, if necessary, provided the number of bins is greater than min_bins.
-\item Perform final calculation of WoE and IV for each bin and return the result.
+\item \bold{Preprocessing Phase}:
+\itemize{
+\item Computes initial counts and target rates for each category
+\item Handles missing values by creating a special "MISSING" category
+\item Identifies and merges rare categories (frequency < bin_cutoff) based on similarity in target rates
+\item Ensures the number of pre-bins doesn't exceed max_n_prebins by merging similar categories
+\item Sorts categories by target rate for monotonic processing
+}
+\item \bold{Optimal Binning Phase}:
+\itemize{
+\item Uses dynamic programming to find the optimal partitioning that maximizes total IV
+\item The DP recurrence relation is: \eqn{DP[i,j] = \max_{s<i}(DP[s,j-1] + IV(\{s+1,...,i\}))}
+\item Efficiently implements the DP algorithm with O(nk) space complexity
+\item Ensures at least min_bins and at most max_bins through bin splitting/merging
+}
+\item \bold{Refinement Phase}:
+\itemize{
+\item Checks for monotonicity in WoE/target rates
+\item Adjusts binning if needed to ensure monotonicity while preserving min_bins
+\item Uses a two-attempt approach: first merges adjacent non-monotonic bins,
+then if still needed, resorts to force-sorting all categories by rate
+\item Iteratively refines the solution until convergence or max_iterations
+}
+\item \bold{Output Generation Phase}:
+\itemize{
+\item Applies Laplace smoothing to handle potential zero counts
+\item Calculates final WoE and IV values with enhanced numerical stability
+\item Builds output with comprehensive bin statistics
+}
 }
 
-Key formulas:
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-\deqn{IV = \sum_{bins} (P(X|Y=1) - P(X|Y=0)) \times WoE}
+\bold{Mathematical Formulation}:
+
+With Laplace smoothing, Weight of Evidence (WoE) is calculated as:
+\deqn{WoE_i = \ln\left(\frac{P(Bin_i|Y=1)}{P(Bin_i|Y=0)}\right) = \ln\left(\frac{(n_{1i} + \alpha)/(n_1 + \alpha k)}{(n_{0i} + \alpha)/(n_0 + \alpha k)}\right)}
+
+Information Value (IV) for a bin is calculated as:
+\deqn{IV_i = (P(Bin_i|Y=1) - P(Bin_i|Y=0)) \times WoE_i = \left(\frac{n_{1i} + \alpha}{n_1 + \alpha k} - \frac{n_{0i} + \alpha}{n_0 + \alpha k}\right) \times WoE_i}
+
+Total Information Value is the sum of IV for all bins:
+\deqn{IVtotal = \sum_{i=1}^{k} IV_i}
+
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the number of events (target=1) in bin i
+\item \eqn{n_{0i}} is the number of non-events (target=0) in bin i
+\item \eqn{n_1} is the total number of events
+\item \eqn{n_0} is the total number of non-events
+\item \eqn{\alpha} is the Laplace smoothing parameter
+\item \eqn{k} is the number of bins
+}
+
+The algorithm aims to maximize IVtotal while ensuring a monotonic relationship between bins and target rates.
+
+\bold{Edge Cases Handled}:
+\itemize{
+\item Empty or all-NA input data
+\item Single category features
+\item Highly imbalanced target distributions
+\item Features with many unique categories
+\item Categories with zero observations in one target class
+}
 }
 \examples{
 \dontrun{
+# Basic usage with default parameters
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
-feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+feature <- sample(LETTERS[1:10], 1000, replace = TRUE, 
+prob = c(0.3, 0.1, 0.1, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05, 0.1))
 result <- optimal_binning_categorical_sblp(target, feature)
 print(result)
+
+# Handling missing values
+feature_with_na <- feature
+feature_with_na[sample(1:1000, 50)] <- NA
+result_na <- optimal_binning_categorical_sblp(target, feature_with_na)
+
+# Custom parameters for more refined binning
+result2 <- optimal_binning_categorical_sblp(
+  target = target,
+  feature = feature,
+  min_bins = 4,
+  max_bins = 8,
+  bin_cutoff = 0.03,
+  max_n_prebins = 15,
+  alpha = 0.1
+)
+
+# Handling imbalanced data
+imbalanced_target <- sample(0:1, 1000, replace = TRUE, prob = c(0.9, 0.1))
+result3 <- optimal_binning_categorical_sblp(imbalanced_target, feature)
 }
 
+}
+\references{
+\itemize{
+\item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural Networks for Economic and Financial Modelling. International Thomson Computer Press.
+\item Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. Wiley.
+\item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios. Oxford University Press.
+\item Hand, D.J., & Adams, N.M. (2014). Data Mining for Credit Scoring: State of the Science. Research Handbook on Computational Methods for Credit Scoring, 69-114.
+\item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+\item Lin, K., Mandel, M., Dmitriev, P., & Murray, G. (2019). Dynamic Optimization for Predictive Binning. Proceedings of the 13th ACM Conference on Recommender Systems, 242-250.
+}
 }

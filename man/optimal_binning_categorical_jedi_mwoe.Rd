@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_jedi_mwoe}
 \alias{optimal_binning_categorical_jedi_mwoe}
-\title{Optimal Categorical Binning JEDI M-WOE (Multinomial Weight of Evidence)}
+\title{Optimal Binning for Categorical Variables with Multinomial Target using JEDI-MWoE}
 \usage{
 optimal_binning_categorical_jedi_mwoe(
   target,
@@ -25,7 +25,7 @@ same length as target.}
 
 \item{min_bins}{Minimum number of bins in the output (default: 3). Will be
 automatically adjusted if number of unique categories is less than min_bins.
-Value must be >= 2.}
+Value must be >= 1.}
 
 \item{max_bins}{Maximum number of bins allowed in the output (default: 5). Must be
 >= min_bins. Algorithm will merge bins if necessary to meet this constraint.}
@@ -49,14 +49,17 @@ Prevents infinite loops in edge cases.}
 \value{
 A list containing:
 \itemize{
-\item bin: Character vector of bin names (concatenated categories)
-\item woe: Numeric matrix (n_bins × n_classes) of M-WOE values for each class
-\item iv: Numeric matrix (n_bins × n_classes) of IV contributions for each class
-\item count: Integer vector of total observation counts per bin
-\item class_counts: Integer matrix (n_bins × n_classes) of counts per class per bin
-\item converged: Logical indicating whether algorithm converged
-\item iterations: Integer count of optimization iterations performed
-\item n_classes: Integer indicating number of classes detected
+\item id: Numeric identifiers for each bin.
+\item bin: Character vector of bin names (concatenated categories).
+\item woe: Numeric matrix (n_bins × n_classes) of M-WOE values for each class.
+\item iv: Numeric matrix (n_bins × n_classes) of IV contributions for each class.
+\item count: Integer vector of total observation counts per bin.
+\item class_counts: Integer matrix (n_bins × n_classes) of counts per class per bin.
+\item class_rates: Numeric matrix (n_bins × n_classes) of class rates per bin.
+\item converged: Logical indicating whether algorithm converged.
+\item iterations: Integer count of optimization iterations performed.
+\item n_classes: Integer indicating number of classes detected.
+\item total_iv: Numeric vector of total IV per class.
 }
 }
 \description{
@@ -69,25 +72,37 @@ monotonic relationships and optimizing information value.
 \details{
 The algorithm implements a sophisticated binning strategy based on information theory
 and extends the traditional binary WOE to handle multiple classes.
-
-Mathematical Framework:
+\subsection{Mathematical Framework}{
 \enumerate{
-\item M-WOE Calculation:
+\item M-WOE Calculation (with Laplace smoothing):
 For each bin i and class k:
-\deqn{M-WOE_{i,k} = \ln(\frac{P(X = x_i|Y = k)}{P(X = x_i|Y \neq k)})}
-\deqn{= \ln(\frac{n_{k,i}/N_k}{\sum_{j \neq k} n_{j,i}/N_j})}
+\deqn{M-WOE_{i,k} = \ln\left(\frac{P(X = x_i|Y = k)}{P(X = x_i|Y \neq k)}\right)}
+\deqn{= \ln\left(\frac{(n_{k,i} + \alpha)/(N_k + 2\alpha)}{(\sum_{j \neq k} n_{j,i} + \alpha)/(\sum_{j \neq k} N_j + 2\alpha)}\right)}
 }
 
 where:
 \itemize{
 \item \eqn{n_{k,i}} is the count of class k in bin i
 \item \eqn{N_k} is the total count of class k
-\item The denominator represents the proportion in all other classes
+\item \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
+\item The denominator represents the proportion in all other classes combined
 }
 \enumerate{
 \item Information Value:
 For each class k:
-\deqn{IV_k = \sum_{i=1}^{n} (P(X = x_i|Y = k) - P(X = x_i|Y \neq k)) \times M-WOE_{i,k}}
+\deqn{IV_k = \sum_{i=1}^{n} \left(P(X = x_i|Y = k) - P(X = x_i|Y \neq k)\right) \times M-WOE_{i,k}}
+\item Jensen-Shannon Divergence:
+For measuring statistical similarity between bins:
+\deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+}
+
+where:
+\itemize{
+\item \eqn{KL} is the Kullback-Leibler divergence
+\item \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+\item \eqn{P} and \eqn{Q} are the class distributions of two bins
+}
+\enumerate{
 \item Optimization Objective:
 \deqn{maximize \sum_{k=1}^{K} IV_k}
 subject to:
@@ -97,20 +112,34 @@ subject to:
 \item Number of bins constraints
 }
 }
+}
 
-Algorithm Phases:
+\subsection{Algorithm Phases}{
+
 \enumerate{
 \item Initial Binning: Creates individual bins for unique categories
 \item Low Frequency Treatment: Merges rare categories based on bin_cutoff
 \item Monotonicity Optimization: Iteratively merges bins while maintaining monotonicity
 \item Final Adjustment: Ensures constraints on number of bins are met
 }
+}
 
-Numerical Stability:
+\subsection{Merging Strategy}{
+
+The algorithm alternates between two merging strategies:
 \itemize{
-\item Uses epsilon-based protection against zero probabilities
-\item Implements log-sum-exp trick for numerical stability
-\item Handles edge cases and infinity values
+\item Statistical similarity-based merging using Jensen-Shannon divergence
+\item Information value-based merging that minimizes IV loss
+}
+}
+
+\subsection{Statistical Robustness}{
+
+\itemize{
+\item Employs Laplace smoothing for stable probability estimates
+\item Uses epsilon protection against numerical instability
+\item Detects and resolves monotonicity violations efficiently
+}
 }
 }
 \note{
@@ -125,7 +154,7 @@ Edge Cases:
 \itemize{
 \item Single category: Returns original category as single bin
 \item All samples in one class: Creates degenerate case with warning
-\item Missing values: Should be treated as separate category before input
+\item Missing values: Treated as a special category "\strong{MISSING}"
 }
 }
 \examples{
@@ -148,10 +177,11 @@ result <- optimal_binning_categorical_jedi_mwoe(
 }
 \references{
 \itemize{
-\item Beltrami, M. et al. (2021). JEDI: Joint Entropy Discretization and Integration
-\item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios
-\item Good, I.J. (1950). Probability and the Weighing of Evidence
-\item Kullback, S. (1959). Information Theory and Statistics
+\item Beltrami, M. et al. (2021). JEDI: Joint Entropy Discretization and Integration. arXiv preprint arXiv:2101.03228.
+\item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios. Oxford University Press.
+\item Good, I.J. (1950). Probability and the Weighing of Evidence. Charles Griffin & Company.
+\item Kullback, S. (1959). Information Theory and Statistics. John Wiley & Sons.
+\item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
 }
 }
 \seealso{

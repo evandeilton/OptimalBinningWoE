@@ -38,30 +38,71 @@ optimal_binning_categorical_mob(
 \value{
 A list containing the following elements:
 \itemize{
-\item bin: A character vector of bin names (merged categories)
-\item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
-\item iv: A numeric vector of Information Value (IV) for each bin
-\item count: An integer vector of total counts for each bin
-\item count_pos: An integer vector of positive target counts for each bin
-\item count_neg: An integer vector of negative target counts for each bin
-\item converged: A logical value indicating whether the algorithm converged
-\item iterations: An integer value indicating the number of iterations run
+\item id: Numeric vector of bin identifiers.
+\item bin: Character vector of bin names (merged categories).
+\item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
+\item iv: Numeric vector of Information Value (IV) for each bin.
+\item count: Integer vector of total counts for each bin.
+\item count_pos: Integer vector of positive target counts for each bin.
+\item count_neg: Integer vector of negative target counts for each bin.
+\item total_iv: Total Information Value of the binning.
+\item converged: Logical value indicating whether the algorithm converged.
+\item iterations: Integer value indicating the number of iterations run.
 }
 }
 \description{
-This function performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
+Performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB)
+approach with enhanced statistical robustness. This implementation includes Bayesian smoothing
+for better stability with small samples, adaptive monotonicity enforcement, and sophisticated
+bin merging strategies.
 }
 \details{
-Este algoritmo aplica o Monotonic Optimal Binning (MOB) para variáveis categóricas.
-O processo visa maximizar o IV (Information Value) mantendo a monotonicidade no WoE (Weight of Evidence).
+This enhanced version of the Monotonic Optimal Binning (MOB) algorithm implements several
+key improvements over traditional approaches:
 
-Passos do algoritmo:
+\strong{Mathematical Framework:}
+
+The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+
+\deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+
+where:
+\itemize{
+\item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of
+events in bin i
+\item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of
+non-events in bin i
+\item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall event rate
+\item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+\item \eqn{n_i^+} is the count of events in bin i
+\item \eqn{n_i^-} is the count of non-events in bin i
+\item \eqn{N^+} is the total number of events
+\item \eqn{N^-} is the total number of non-events
+}
+
+The Information Value (IV) for each bin is calculated as:
+
+\deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
+
+\strong{Algorithm Phases:}
 \enumerate{
-\item Cálculo das estatísticas por categoria.
-\item Pré-binagem e ordenação por WoE.
-\item Aplicação da monotonicidade e ajuste de bins.
-\item Limitação do número de bins a max_bins.
-\item Cálculo dos valores finais de WoE e IV.
+\item \strong{Initialization:} Calculate statistics for each category with Bayesian smoothing.
+\item \strong{Pre-binning:} Create initial bins sorted by WoE.
+\item \strong{Rare Category Handling:} Merge categories with frequency below bin_cutoff using a similarity-based approach.
+\item \strong{Monotonicity Enforcement:} Ensure monotonic WoE across bins using adaptive thresholds and severity-based prioritization.
+\item \strong{Bin Optimization:} Reduce number of bins to max_bins while maintaining monotonicity.
+\item \strong{Solution Tracking:} Maintain the best solution found during optimization.
+}
+
+\strong{Key Features:}
+\itemize{
+\item Bayesian smoothing for robust WoE estimation with small samples
+\item Similarity-based bin merging rather than just adjacent bins
+\item Adaptive monotonicity enforcement with violation severity prioritization
+\item Best solution tracking to ensure optimal results
+\item Efficient uniqueness handling for categories
+\item Comprehensive edge case handling
+\item Strict enforcement of max_bins parameter
 }
 }
 \examples{
@@ -76,6 +117,13 @@ result <- optimal_binning_categorical_mob(target, feature)
 
 # View results
 print(result)
+
+# Force exactly 2 bins
+result2 <- optimal_binning_categorical_mob(
+  target, feature, 
+  min_bins = 2, 
+  max_bins = 2
+)
 }
 
 }
@@ -85,5 +133,10 @@ print(result)
 \emph{Journal of the Operational Research Society}, 60(12), 1699-1707.
 \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
 \emph{arXiv preprint} arXiv:1711.05095.
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior
+distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary
+classification. arXiv preprint arXiv:2001.08025.
+\item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
 }
 }

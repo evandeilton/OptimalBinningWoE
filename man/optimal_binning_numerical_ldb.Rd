@@ -11,99 +11,168 @@ optimal_binning_numerical_ldb(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
+  enforce_monotonic = TRUE,
   convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{An integer binary vector (0 or 1) representing the response variable.}
+\item{target}{A binary integer vector (0 or 1) representing the target variable.}
 
 \item{feature}{A numeric vector representing the feature to be binned.}
 
-\item{min_bins}{Minimum number of bins to be created (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Maximum number of bins allowed (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency proportion for retaining a bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency fraction for each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
-\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
+\item{enforce_monotonic}{Whether to enforce monotonic WoE across bins (default: TRUE).}
 
-\item{max_iterations}{Maximum number of iterations allowed for optimization (default: 1000).}
+\item{convergence_threshold}{Convergence threshold for optimization (default: 1e-6).}
+
+\item{max_iterations}{Maximum iterations allowed (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\itemize{
-\item \code{bins}: A vector of bin intervals in the format "[lower;upper)".
-\item \code{woe}: A numeric vector of WoE values for each bin.
-\item \code{iv}: A numeric vector of IV contributions for each bin.
-\item \code{count}: An integer vector of the total number of observations per bin.
-\item \code{count_pos}: An integer vector of the number of positive cases per bin.
-\item \code{count_neg}: An integer vector of the number of negative cases per bin.
-\item \code{cutpoints}: A numeric vector of the cutpoints defining the bin edges.
-\item \code{converged}: A boolean indicating whether the algorithm converged.
-\item \code{iterations}: An integer indicating the number of iterations executed.
-}
+A list containing:
+\item{id}{Numeric identifiers for each bin (1-based).}
+\item{bin}{Character vector with bin intervals.}
+\item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+\item{iv}{Numeric vector with Information Value contribution for each bin.}
+\item{count}{Integer vector with the total number of observations in each bin.}
+\item{count_pos}{Integer vector with the positive class count in each bin.}
+\item{count_neg}{Integer vector with the negative class count in each bin.}
+\item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+\item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+\item{converged}{Logical indicating whether the algorithm converged.}
+\item{iterations}{Integer count of iterations performed.}
+\item{total_iv}{Numeric total Information Value of the binning solution.}
+\item{monotonicity}{Character indicating the monotonicity direction ("increasing", "decreasing", or "none").}
 }
 \description{
 Implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables.
-The method adjusts binning to maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE),
-handling rare bins, and ensuring numerical stability.
+This method adapts bin boundaries based on the local density structure of the data while
+maximizing the predictive relationship with a binary target variable. LDB is particularly
+effective for features with non-uniform distributions or multiple modes.
 }
 \details{
-\subsection{Key Features:}{
-\itemize{
-\item \strong{Weight of Evidence (WoE)}: Ensures interpretability by calculating the WoE for each bin, useful for logistic regression and risk models.
-\item \strong{Information Value (IV)}: Evaluates the predictive power of the binned feature.
-\item \strong{Monotonicity}: Ensures WoE values are either strictly increasing or decreasing across bins.
-\item \strong{Rare Bin Handling}: Merges bins with low frequencies to maintain statistical reliability.
-\item \strong{Numerical Stability}: Prevents log(0) issues through smoothing (Laplace adjustment).
-\item \strong{Dynamic Adjustments}: Supports constraints on minimum and maximum bins, convergence thresholds, and iteration limits.
-}
-}
+\subsection{Algorithm Overview}{
 
-\subsection{Mathematical Framework:}{
-\itemize{
-\item \strong{Weight of Evidence (WoE)}: For a bin \( i \):
-\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-\item \strong{Information Value (IV)}: Aggregates predictive power across all bins:
-\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
-}
-}
-
-\subsection{Algorithm Steps:}{
+The Local Density Binning algorithm operates in several phases:
 \enumerate{
-\item \strong{Input Validation}: Ensures the feature and target vectors are valid and properly formatted.
-\item \strong{Pre-Binning}: Divides the feature into pre-bins based on quantile cuts or unique values.
-\item \strong{Rare Bin Merging}: Combines bins with frequencies below \code{bin_cutoff} to maintain statistical stability.
-\item \strong{WoE and IV Calculation}: Computes the WoE and IV values for each bin based on the target distribution.
-\item \strong{Monotonicity Enforcement}: Adjusts bins to ensure WoE values are monotonic (either increasing or decreasing).
-\item \strong{Bin Optimization}: Iteratively merges bins to respect constraints on \code{min_bins} and \code{max_bins}.
-\item \strong{Result Validation}: Ensures bins cover the entire range of the feature without overlap and adhere to constraints.
+\item \strong{Density Analysis}: Analyzes the local density structure of the feature to identify
+regions of high and low density, placing bin boundaries preferentially at density minima.
+\item \strong{Initial Binning}: Creates initial bins based on density minima and/or quantiles.
+\item \strong{Statistical Optimization}:
+\itemize{
+\item Merges bins with frequencies below threshold for stability
+\item Enforces monotonicity in Weight of Evidence (optional)
+\item Adjusts to meet constraints on minimum and maximum bin count
+}
+\item \strong{Information Value Calculation}: Computes predictive metrics for each bin
 }
 }
 
-\subsection{Parameters:}{
+\subsection{Mathematical Foundation}{
+
+The algorithm employs several statistical concepts:
+\subsection{1. Kernel Density Estimation}{
+
+To identify the local density structure:
+
+\deqn{f_h(x) = \frac{1}{nh}\sum_{i=1}^{n}K\left(\frac{x-x_i}{h}\right)}
+
+Where:
 \itemize{
-\item \code{min_bins}: Minimum number of bins to be created (default: 3).
-\item \code{max_bins}: Maximum number of bins allowed (default: 5).
-\item \code{bin_cutoff}: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
-\item \code{max_n_prebins}: Maximum number of pre-bins before optimization (default: 20).
-\item \code{convergence_threshold}: Threshold for determining convergence in terms of IV changes (default: 1e-6).
-\item \code{max_iterations}: Maximum number of iterations allowed for optimization (default: 1000).
+\item \eqn{K} is a kernel function (Gaussian kernel in this implementation)
+\item \eqn{h} is the bandwidth parameter (selected using Silverman's rule of thumb)
+\item \eqn{n} is the number of observations
+}
+}
+
+\subsection{2. Weight of Evidence (WoE)}{
+
+For assessing the predictive power of each bin:
+
+\deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+
+Where:
+\itemize{
+\item \eqn{p_i}: Number of positive cases in bin \eqn{i}
+\item \eqn{P}: Total number of positive cases
+\item \eqn{n_i}: Number of negative cases in bin \eqn{i}
+\item \eqn{N}: Total number of negative cases
+\item \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+\item \eqn{k}: Number of bins
+}
+}
+
+\subsection{3. Information Value (IV)}{
+
+For quantifying overall predictive power:
+
+\deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+
+\deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+}
+
+}
+
+\subsection{Advantages of Local Density Binning}{
+\itemize{
+\item \strong{Respects Data Structure}: Places bin boundaries at natural gaps in the distribution
+\item \strong{Adapts to Multimodality}: Handles features with multiple modes effectively
+\item \strong{Maximizes Information}: Optimizes binning for predictive power
+\item \strong{Statistical Stability}: Ensures sufficient observations in each bin
+\item \strong{Interpretability}: Produces monotonic WoE patterns when requested
 }
 }
 }
 \examples{
 \dontrun{
+# Generate synthetic data
 set.seed(123)
 target <- sample(0:1, 1000, replace = TRUE)
 feature <- rnorm(1000)
-result <- optimal_binning_numerical_ldb(target, feature, min_bins = 3, max_bins = 6)
-print(result$bins)
-print(result$woe)
-print(result$iv)
+
+# Basic usage
+result <- optimal_binning_numerical_ldb(target, feature)
+print(result)
+
+# Custom parameters
+result_custom <- optimal_binning_numerical_ldb(
+  target = target,
+  feature = feature,
+  min_bins = 2,
+  max_bins = 8,
+  bin_cutoff = 0.03,
+  enforce_monotonic = TRUE
+)
+
+# Access specific components
+bins <- result$bin
+woe_values <- result$woe
+total_iv <- result$total_iv
+monotonicity <- result$monotonicity
 }
 
+}
+\references{
+Bin, Y., Liang, S., Chen, Z., Yang, S., & Zhang, L. (2019). Density-based supervised discretization
+for continuous feature. \emph{Knowledge-Based Systems}, 166, 1-17.
+
+Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data
+representation. \emph{Neural Computation}, 15(6), 1373-1396.
+
+Silverman, B. W. (1986). \emph{Density Estimation for Statistics and Data Analysis}. Chapman and Hall/CRC.
+
+Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of
+continuous features. \emph{Proceedings of the Twelfth International Conference on Machine Learning}, 194-202.
+
+Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring}.
+John Wiley & Sons.
+
+Thomas, L. C. (2009). \emph{Consumer Credit Models: Pricing, Profit and Portfolios}. Oxford University Press.
 }

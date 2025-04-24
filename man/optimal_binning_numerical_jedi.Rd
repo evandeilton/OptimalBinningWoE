@@ -60,8 +60,8 @@ satisfying the following constraints:
 
 \enumerate{
 \item \strong{Monotonic WoE}: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
-\item \strong{Minimum Bin Size}: \eqn{\text{count}(B_i)/N \ge \text{bin_cutoff}}.
-\item \strong{Bin Quantity Limits}: \eqn{\text{min_bins} \le K \le \text{max_bins}}.
+\item \strong{Minimum Bin Size}: count\eqn{(B_i)/N \ge} bin_cutoff.
+\item \strong{Bin Quantity Limits}: min_bins \eqn{\le K \le} max_bins.
 }
 
 \strong{Weight of Evidence (WoE)} for bin \eqn{i}:
@@ -96,8 +96,8 @@ satisfying the following constraints:
 
 \subsection{Parameters:}{
 \itemize{
-\item \code{min_bins}: Minimum number of bins to be created (default: 3, must be ≥2).
-\item \code{max_bins}: Maximum number of bins allowed (default: 5, must be ≥ \code{min_bins}).
+\item \code{min_bins}: Minimum number of bins to be created (default: 3, must be >= 2).
+\item \code{max_bins}: Maximum number of bins allowed (default: 5, must be >= \code{min_bins}).
 \item \code{bin_cutoff}: Minimum relative frequency required for a bin to remain standalone (default: 0.05).
 \item \code{max_n_prebins}: Maximum number of pre-bins created before optimization (default: 20).
 \item \code{convergence_threshold}: Threshold for IV change to determine convergence (default: 1e-6).

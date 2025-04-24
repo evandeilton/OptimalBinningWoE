@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_cm}
 \alias{optimal_binning_numerical_cm}
-\title{Binning Ótimo para Variáveis Numéricas usando ChiMerge (Versão Aprimorada)}
+\title{Optimal Binning for Numerical Variables using ChiMerge}
 \usage{
 optimal_binning_numerical_cm(
   target,
@@ -12,70 +12,123 @@ optimal_binning_numerical_cm(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  init_method = "equal_frequency",
+  chi_merge_threshold = 0.05,
+  use_chi2_algorithm = FALSE
 )
 }
 \arguments{
-\item{target}{Vetor inteiro binário (0/1) do target.}
+\item{target}{Integer vector of binary target values (0 or 1)}
 
-\item{feature}{Vetor numérico de valores da feature a ser binada.}
+\item{feature}{Numeric vector of feature values to bin}
 
-\item{min_bins}{Número mínimo de bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3)}
 
-\item{max_bins}{Número máximo de bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5)}
 
-\item{bin_cutoff}{Frequência mínima (proporção) de observações em cada bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a bin (default: 0.05)}
 
-\item{max_n_prebins}{Número máximo de pré-bins para discretização inicial (default: 20).}
+\item{max_n_prebins}{Maximum number of initial bins before merging (default: 20)}
 
-\item{convergence_threshold}{Limite de convergência do algoritmo (default: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence in IV difference (default: 1e-6)}
 
-\item{max_iterations}{Número máximo de iterações (default: 1000).}
+\item{max_iterations}{Maximum number of iterations (default: 1000)}
+
+\item{init_method}{Method for initial binning: "equal_width" or "equal_frequency" (default: "equal_frequency")}
+
+\item{chi_merge_threshold}{Significance level for chi-square test (default: 0.05)}
+
+\item{use_chi2_algorithm}{Whether to use the enhanced Chi2 algorithm (default: FALSE)}
 }
 \value{
-Uma lista com:
+A list containing:
 \itemize{
-\item bins: Vetor de nomes dos bins.
-\item woe: Vetor de WoE por bin.
-\item iv: Vetor de IV por bin.
-\item count: Contagem total por bin.
-\item count_pos: Contagem de casos positivos (target=1) por bin.
-\item count_neg: Contagem de casos negativos (target=0) por bin.
-\item cutpoints: Pontos de corte utilizados para criar os bins.
-\item converged: Booleano indicando se o algoritmo convergiu.
-\item iterations: Número de iterações executadas.
+\item id: Vector of numeric IDs for each bin
+\item bin: Vector of bin names (intervals)
+\item woe: Vector of Weight of Evidence values for each bin
+\item iv: Vector of Information Value for each bin
+\item count: Vector of total counts for each bin
+\item count_pos: Vector of positive class counts for each bin
+\item count_neg: Vector of negative class counts for each bin
+\item cutpoints: Vector of bin boundaries for prediction
+\item converged: Boolean indicating whether the algorithm converged
+\item iterations: Number of iterations run
+\item total_iv: Total Information Value of the feature
+\item monotonic: Boolean indicating if the bins have monotonic WoE
+\item algorithm: Which algorithm was used (ChiMerge or Chi2)
+\item requested_min_bins: Minimum bins requested in the function call
+\item requested_max_bins: Maximum bins requested in the function call
 }
 }
 \description{
-Implementa um algoritmo de binning ótimo para variáveis numéricas utilizando o método ChiMerge,
-calculando WoE (Weight of Evidence) e IV (Information Value). Este código foi otimizado
-em legibilidade, eficiência e robustez, mantendo compatibilidade de tipos e nomes.
+Implements optimal binning for numerical variables using the ChiMerge algorithm
+(Kerber, 1992) and Chi2 algorithm (Liu & Setiono, 1995), calculating Weight of
+Evidence (WoE) and Information Value (IV) for resulting bins.
 }
 \details{
-O algoritmo segue estes passos:
+The ChiMerge algorithm (Kerber, 1992) uses chi-square statistics to determine when to
+merge adjacent bins. The chi-square statistic is calculated as:
+
+\deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+
+where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+for bin i and class j.
+
+The Chi2 algorithm (Liu & Setiono, 1995) extends ChiMerge with automated threshold
+determination and feature selection capabilities.
+
+Weight of Evidence (WoE) is calculated as:
+
+\deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
+
+Information Value (IV) for each bin is calculated as:
+
+\deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+
+The algorithm works by:
 \enumerate{
-\item Discretização inicial em max_n_prebins via quantis.
-\item Mesclagem iterativa de bins adjacentes com base na estatística Qui-quadrado.
-\item Mesclagem de bins com contagens zero em alguma classe.
-\item Mesclagem de bins raros (baseado em bin_cutoff).
-\item Cálculo de WoE e IV para cada bin final.
-\item Aplicação de monotonicidade (se possível).
+\item Creating initial bins based on the specified method (equal frequency or equal width)
+\item Enforcing the maximum bin count constraint if needed
+\item Iteratively merging adjacent bins with the lowest chi-square statistic
+\item Merging bins with frequency below bin_cutoff
+\item Enforcing monotonicity of WoE across bins
+\item Final enforcement of bin count constraints
+\item Calculating WoE and IV for the final bins
 }
 
-Referências:
+The chi_merge_threshold parameter controls the statistical significance level for
+merging. A value of 0.05 corresponds to a 95\% confidence level.
+
+References:
 \itemize{
-\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. AAAI Press.
+\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes.
+In Proceedings of the Tenth National Conference on Artificial Intelligence,
+AAAI'92, pages 123-128.
+\item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization
+of Numeric Attributes. In Proceedings of the 7th IEEE International Conference
+on Tools with Artificial Intelligence, pages 388-391.
 \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring.
 Applied Mathematical Sciences, 8(65), 3229-3242.
 }
 }
 \examples{
 \dontrun{
+# Example data
 set.seed(123)
-n <- 10000
+n <- 1000
 feature <- rnorm(n)
+# Target with some relationship to feature
 target <- rbinom(n, 1, plogis(0.5 * feature))
-result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
+
+# Run optimal binning with ChiMerge
+result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 6)
+
+# Use Chi2 algorithm instead
+result_chi2 <- optimal_binning_numerical_cm(target, feature, min_bins = 3, 
+                                           max_bins = 6, use_chi2_algorithm = TRUE)
+
+# View results
 print(result)
 }
 

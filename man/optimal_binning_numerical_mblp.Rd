@@ -11,6 +11,7 @@ optimal_binning_numerical_mblp(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
+  force_monotonic_direction = 0L,
   convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
@@ -24,82 +25,162 @@ optimal_binning_numerical_mblp(
 
 \item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency proportion for retaining bins (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency fraction for each bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
-\item{convergence_threshold}{Convergence threshold for IV optimization (default: 1e-6).}
+\item{force_monotonic_direction}{Force specific monotonicity direction: 0=auto, 1=increasing, -1=decreasing (default: 0).}
 
-\item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
+\item{convergence_threshold}{Convergence threshold for optimization (default: 1e-6).}
+
+\item{max_iterations}{Maximum iterations allowed (default: 1000).}
 }
 \value{
-A list with the following components:
-\itemize{
-\item \code{bin}: A character vector of bin intervals in the format "[lower;upper)".
-\item \code{woe}: A numeric vector of WoE values for each bin.
-\item \code{iv}: A numeric vector of IV contributions for each bin.
-\item \code{count}: An integer vector of total observations per bin.
-\item \code{count_pos}: An integer vector of positive cases per bin.
-\item \code{count_neg}: An integer vector of negative cases per bin.
-\item \code{cutpoints}: A numeric vector of cutpoints defining the bin edges.
-\item \code{converged}: A boolean indicating whether the algorithm converged.
-\item \code{iterations}: An integer indicating the number of iterations executed.
-}
+A list containing:
+\item{id}{Numeric identifiers for each bin (1-based).}
+\item{bin}{Character vector with bin intervals.}
+\item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+\item{iv}{Numeric vector with Information Value contribution for each bin.}
+\item{count}{Integer vector with the total number of observations in each bin.}
+\item{count_pos}{Integer vector with the positive class count in each bin.}
+\item{count_neg}{Integer vector with the negative class count in each bin.}
+\item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+\item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+\item{converged}{Logical indicating whether the algorithm converged.}
+\item{iterations}{Integer count of iterations performed.}
+\item{total_iv}{Numeric total Information Value of the binning solution.}
+\item{monotonicity}{Character indicating monotonicity direction ("increasing", "decreasing", or "none").}
 }
 \description{
-This method performs optimal binning for numerical features, ensuring monotonicity in the Weight of Evidence (WoE) across bins.
-It adheres to constraints on the minimum and maximum number of bins, merges rare bins, and handles edge cases like identical values.
-The algorithm returns bins, WoE, Information Value (IV), counts, cutpoints, and metadata such as convergence status and iterations run.
+Implements an advanced binning algorithm for numerical features that ensures monotonicity in
+the Weight of Evidence (WoE) while maximizing predictive power. The method formulates the
+binning problem as an optimization task with monotonicity constraints and solves it through
+an iterative process that preserves information value.
 }
 \details{
-\subsection{Key Steps:}{
+\subsection{Algorithm Overview}{
+
+The Monotonic Binning via Linear Programming algorithm operates through several coordinated steps:
 \enumerate{
-\item \strong{Input Validation}: Ensures proper formatting and constraints for \code{feature}, \code{target}, and algorithm parameters.
-\item \strong{Pre-Binning}: Creates preliminary bins based on quantiles or unique values in the feature.
-\item \strong{Rare Bin Merging}: Combines bins with frequencies below \code{bin_cutoff} to maintain statistical stability.
-\item \strong{Optimization}: Adjusts bins iteratively to maximize IV, enforce monotonicity, and adhere to bin constraints (\code{min_bins} and \code{max_bins}).
-\item \strong{Monotonicity Enforcement}: Ensures WoE values are either strictly increasing or decreasing across bins.
-\item \strong{Validation}: Verifies bin structure for consistency, preventing gaps or overlapping intervals.
+\item \strong{Input Validation}: Ensures proper formatting and constraints for data and parameters.
+\item \strong{Pre-Binning}: Creates initial bins based on quantiles or handles special cases for few unique values.
+\item \strong{Statistical Optimization}:
+\itemize{
+\item Merges bins with frequencies below \code{bin_cutoff} to ensure statistical stability
+\item Enforces monotonicity in Weight of Evidence (WoE) values
+\item Optimizes bin count to satisfy the min_bins/max_bins constraints
+\item Iteratively improves binning to maximize Information Value (IV)
+}
+\item \strong{Monotonicity Analysis}: Automatically detects optimal monotonicity direction or applies
+a forced direction if specified.
 }
 }
 
-\subsection{Mathematical Framework:}{
+\subsection{Mathematical Foundation}{
+\subsection{Linear Programming Connection}{
+
+The binning optimization problem can be formulated as a constrained optimization problem:
+
+\deqn{\max_{b} \sum_{i=1}^{k} IV_i(b)}
+
+Subject to:
+\deqn{WoE_i \leq WoE_{i+1} \quad \text{or} \quad WoE_i \geq WoE_{i+1} \quad \forall i \in \{1, \ldots, k-1\}}
+\deqn{min\_bins \leq k \leq max\_bins}
+\deqn{count_i \geq bin\_cutoff \times N \quad \forall i \in \{1, \ldots, k\}}
+
+Where:
 \itemize{
-\item \strong{Weight of Evidence (WoE)}: For a bin \( i \):
-\deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-\item \strong{Information Value (IV)}: Aggregates predictive power across all bins:
-\deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+\item \eqn{b} is the set of bin boundaries
+\item \eqn{k} is the number of bins
+\item \eqn{IV_i(b)} is the Information Value of bin \eqn{i} given boundaries \eqn{b}
+\item \eqn{WoE_i} is the Weight of Evidence of bin \eqn{i}
 }
 }
 
-\subsection{Features:}{
+\subsection{Weight of Evidence (WoE)}{
+
+For bin \eqn{i}, with Laplace smoothing:
+
+\deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+
+Where:
 \itemize{
-\item Monotonic WoE ensures interpretability in logistic regression and credit scoring models.
-\item Dynamically adjusts binning to maximize IV and improve model predictive power.
-\item Handles rare categories and missing values by merging and imputation.
-\item Supports large datasets with efficient pre-binning and convergence checks.
-\item Validates results to prevent invalid bin configurations (e.g., gaps, overlaps).
+\item \eqn{p_i}: Number of positive cases in bin \eqn{i}
+\item \eqn{P}: Total number of positive cases
+\item \eqn{n_i}: Number of negative cases in bin \eqn{i}
+\item \eqn{N}: Total number of negative cases
+\item \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+\item \eqn{k}: Number of bins
 }
 }
 
-\subsection{Algorithm Parameters:}{
+\subsection{Information Value (IV)}{
+
+For bin \eqn{i}:
+
+\deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+
+Total Information Value:
+
+\deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+}
+
+}
+
+\subsection{Advantages}{
 \itemize{
-\item \code{min_bins}: Minimum number of bins (default: 3).
-\item \code{max_bins}: Maximum number of bins (default: 5).
-\item \code{bin_cutoff}: Minimum frequency proportion required to retain a bin as standalone (default: 0.05).
-\item \code{max_n_prebins}: Maximum number of preliminary bins before optimization (default: 20).
-\item \code{convergence_threshold}: Threshold for convergence in IV optimization (default: 1e-6).
-\item \code{max_iterations}: Maximum number of iterations allowed for optimization (default: 1000).
+\item \strong{Guaranteed Monotonicity}: Ensures monotonic relationship between binned variable and target
+\item \strong{Optimal Information Preservation}: Merges bins in a way that minimizes information loss
+\item \strong{Flexible Direction Control}: Automatically detects optimal monotonicity direction or allows
+forcing a specific direction
+\item \strong{Statistical Stability}: Ensures sufficient observations in each bin
+\item \strong{Efficient Implementation}: Uses binary search and optimized merge strategies
 }
 }
 }
 \examples{
 \dontrun{
+# Generate synthetic data
 set.seed(123)
 feature <- rnorm(1000)
 target <- rbinom(1000, 1, 0.3)
-result <- optimal_binning_numerical_mblp(target, feature, min_bins = 3, max_bins = 6)
+
+# Basic usage
+result <- optimal_binning_numerical_mblp(target, feature)
 print(result)
+
+# Custom parameters with forced increasing monotonicity
+result_custom <- optimal_binning_numerical_mblp(
+  target = target,
+  feature = feature,
+  min_bins = 3,
+  max_bins = 6,
+  force_monotonic_direction = 1  # Force increasing
+)
+
+# Access specific components
+bins <- result$bin
+woe_values <- result$woe
+total_iv <- result$total_iv
+monotonicity <- result$monotonicity
 }
 
+}
+\references{
+Zeng, Y. (2018). Discretization of Continuous Features by Weighs of Evidence with Isotonic Regression.
+\emph{arXiv preprint arXiv:1812.05089}.
+
+Barlow, R. E., & Brunk, H. D. (1972). The isotonic regression problem and its dual.
+\emph{Journal of the American Statistical Association}, 67(337), 140-147.
+
+Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data
+representation. \emph{Neural Computation}, 15(6), 1373-1396.
+
+Bertsimas, D., & Tsitsiklis, J. N. (1997). \emph{Introduction to Linear Optimization}. Athena Scientific.
+
+Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring}.
+John Wiley & Sons.
+
+Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). \emph{Credit Scoring and Its Applications}.
+Society for Industrial and Applied Mathematics.
 }

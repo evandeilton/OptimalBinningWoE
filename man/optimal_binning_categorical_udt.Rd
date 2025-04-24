@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_udt}
 \alias{optimal_binning_categorical_udt}
-\title{Optimal Binning for Categorical Variables using a User-Defined Technique (UDT) (Refined)}
+\title{Optimal Binning for Categorical Variables using a User-Defined Technique (UDT)}
 \usage{
 optimal_binning_categorical_udt(
   target,
@@ -25,7 +25,7 @@ optimal_binning_categorical_udt(
 
 \item{max_bins}{Maximum number of desired bins (default: 5).}
 
-\item{bin_cutoff}{Minimum proportion of observations to consider an isolated category as a separate bin (default: 0.05).}
+\item{bin_cutoff}{Minimum proportion of observations to consider a category as a separate bin (default: 0.05).}
 
 \item{max_n_prebins}{Maximum number of pre-bins before the main binning step (default: 20).}
 
@@ -33,39 +33,84 @@ optimal_binning_categorical_udt(
 
 \item{convergence_threshold}{Threshold for stopping criteria based on IV convergence (default: 1e-6).}
 
-\item{max_iterations}{Maximum number of iterations in the process (default: 1000).}
+\item{max_iterations}{Maximum number of iterations in the optimization process (default: 1000).}
 }
 \value{
 A list containing:
 \itemize{
-\item bins: String vector with bin names.
+\item id: Numeric identifiers for each bin.
+\item bin: String vector with bin names representing grouped categories.
 \item woe: Numeric vector with Weight of Evidence values for each bin.
 \item iv: Numeric vector with Information Value for each bin.
 \item count: Integer vector with the total count of observations in each bin.
 \item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
 \item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+\item event_rate: Numeric vector with the proportion of positive cases in each bin.
 \item converged: Logical value indicating if the algorithm converged.
-\item iterations: Integer value indicating the number of executed iterations.
+\item iterations: Integer value indicating the number of optimization iterations executed.
+\item total_iv: The total Information Value of the binning solution.
 }
 }
 \description{
 This function performs binning for categorical variables using a user-defined technique (UDT).
-The goal is to produce bins with good informational value (IV) and monotonicity in WoE, avoiding the creation of artificial categories.
-If the categorical variable has only 1 or 2 unique levels, no optimization is performed, and only statistics are calculated.
+The algorithm creates bins with optimal predictive power (measured by Information Value)
+while maintaining monotonicity of Weight of Evidence and avoiding the creation of artificial categories.
+Enhanced with statistical robustness features like Laplace smoothing and Jensen-Shannon divergence.
 }
 \details{
-Steps of the algorithm (refined):
-\enumerate{
-\item Input validation and creation of initial bins, each corresponding to a category.
+\subsection{Statistical Methodology}{
+
+The UDT algorithm optimizes binning based on statistical concepts of Weight of Evidence
+and Information Value with Laplace smoothing for robustness:
+
+Weight of Evidence measures the predictive power of a bin:
+\deqn{WoE_i = \ln\left(\frac{(n_{i+} + \alpha)/(n_+ + 2\alpha)}{(n_{i-} + \alpha)/(n_- + 2\alpha)}\right)}
+
+Where:
 \itemize{
-\item If there are only 1 or 2 levels, do not optimize, just calculate statistics and return.
+\item \eqn{n_{i+}} is the number of positive cases (target=1) in bin i
+\item \eqn{n_{i-}} is the number of negative cases (target=0) in bin i
+\item \eqn{n_+} is the total number of positive cases
+\item \eqn{n_-} is the total number of negative cases
+\item \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
 }
-\item Group low-frequency categories into an "Others" bin, if necessary.
-\item Calculate WoE and IV for each bin.
-\item Mergers and splits only occur if they can maintain consistency with the original categories. Artificial names like "no_split" are not created.
-If it is not possible to split consistently (e.g., a bin with only one category), do not split.
-\item WoE monotonicity is ensured at the end by ordering the bins by WoE.
-\item The process iterates until convergence (difference in IV < convergence_threshold) or max_iterations.
+
+Information Value measures the overall predictive power:
+\deqn{IV_i = \left(\frac{n_{i+}}{n_+} - \frac{n_{i-}}{n_-}\right) \times WoE_i}
+\deqn{IV_{total} = \sum_{i=1}^{k} |IV_i|}
+}
+
+\subsection{Algorithm Steps}{
+\enumerate{
+\item Input validation and creation of initial bins (one bin per unique category)
+\itemize{
+\item Special handling for variables with 1-2 unique levels
+}
+\item Merge low-frequency categories below the bin_cutoff threshold
+\item Calculate WoE and IV for each bin using Laplace smoothing
+\item Iteratively merge similar bins based on Jensen-Shannon divergence until constraints are satisfied
+\item Ensure WoE monotonicity across bins for better interpretability
+\item The process continues until convergence or max_iterations is reached
+}
+
+The algorithm uses Jensen-Shannon divergence to measure statistical similarity between bins:
+\deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+
+Where:
+\itemize{
+\item \eqn{KL} is the Kullback-Leibler divergence
+\item \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+\item \eqn{P} and \eqn{Q} are the event rate distributions of two bins
+}
+}
+
+\subsection{Important Notes}{
+\itemize{
+\item Missing values in the feature are handled as a special category
+\item The algorithm naturally handles sparse data through Laplace smoothing
+\item No splitting is performed to avoid creating artificial category names
+\item Uniqueness of categories within bins is guaranteed
+}
 }
 }
 \examples{
@@ -77,4 +122,10 @@ result <- optimal_binning_categorical_udt(target, feature)
 print(result)
 }
 
+}
+\references{
+\itemize{
+\item Beltrán, C., et al. (2022). Weight of Evidence (WoE) and Information Value (IV): A novel implementation for predictive modeling in credit scoring. Expert Systems with Applications, 183, 115351.
+\item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+}
 }

@@ -210,9 +210,9 @@ List binning_numerical_cutpoints(NumericVector feature, IntegerVector target,
 //' The IV metric provides insight into how well the binned feature predicts the target variable:
 //' \itemize{
 //'   \item IV < 0.02: Not predictive
-//'   \item 0.02 ≤ IV < 0.1: Weak predictive power
-//'   \item 0.1 ≤ IV < 0.3: Medium predictive power
-//'   \item IV ≥ 0.3: Strong predictive power
+//'   \item 0.02 <= IV < 0.1: Weak predictive power
+//'   \item 0.1 <= IV < 0.3: Medium predictive power
+//'   \item IV >= 0.3: Strong predictive power
 //' }
 //' 
 //' WoE is used to transform the categorical variable into a continuous numeric variable, which can be used directly in logistic regression and other predictive models.

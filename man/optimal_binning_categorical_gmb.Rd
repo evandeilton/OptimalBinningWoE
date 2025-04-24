@@ -17,35 +17,37 @@ optimal_binning_categorical_gmb(
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 ou 1).}
+\item{target}{Integer vector of binary target values (0 or 1).}
 
 \item{feature}{Character vector of categorical feature values.}
 
-\item{min_bins}{Número mínimo de bins (padrão: 3).}
+\item{min_bins}{Minimum number of bins (default: 3).}
 
-\item{max_bins}{Número máximo de bins (padrão: 5).}
+\item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Frequência mínima para um bin separado (padrão: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Número máximo de pré-bins antes da fusão (padrão: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
 
-\item{bin_separator}{Separador usado para mesclar nomes de categorias (padrão: "\%;\%").}
+\item{bin_separator}{Separator used for merging category names (default: "\%;\%").}
 
-\item{convergence_threshold}{Limite para convergência (padrão: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
 
-\item{max_iterations}{Número máximo de iterações (padrão: 1000).}
+\item{max_iterations}{Maximum number of iterations (default: 1000).}
 }
 \value{
-Uma lista com os seguintes elementos:
+A list with the following elements:
 \itemize{
-\item bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).
-\item woe: Vetor numérico dos valores de Weight of Evidence para cada bin.
-\item iv: Vetor numérico do Information Value para cada bin.
-\item count: Vetor inteiro da contagem total para cada bin.
-\item count_pos: Vetor inteiro da contagem da classe positiva para cada bin.
-\item count_neg: Vetor inteiro da contagem da classe negativa para cada bin.
-\item converged: Lógico indicando se o algoritmo convergiu.
-\item iterations: Inteiro indicando o número de iterações realizadas.
+\item id: Numeric vector of bin identifiers.
+\item bin: Character vector of bin names (merged categories).
+\item woe: Numeric vector of Weight of Evidence values for each bin.
+\item iv: Numeric vector of Information Value for each bin.
+\item count: Integer vector of total count for each bin.
+\item count_pos: Integer vector of positive class count for each bin.
+\item count_neg: Integer vector of negative class count for each bin.
+\item total_iv: Total Information Value of the binning.
+\item converged: Logical indicating whether the algorithm converged.
+\item iterations: Integer indicating the number of iterations performed.
 }
 }
 \description{
@@ -53,42 +55,64 @@ Implements optimal binning for categorical variables using a Greedy Merge approa
 calculating Weight of Evidence (WoE) and Information Value (IV).
 }
 \details{
-O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
-Ele começa com cada categoria única como um bin separado e itera fusões de
-bins para maximizar o Information Value (IV) geral, respeitando as
-restrições no número de bins.
+The Greedy Merge Binning (GMB) algorithm finds an optimal binning solution by iteratively
+merging adjacent bins to maximize Information Value (IV) while respecting constraints
+on the number of bins.
 
-O Weight of Evidence (WoE) para cada bin é calculado como:
+The Weight of Evidence (WoE) measures the predictive power of a bin and is defined as:
 
-\deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
+\deqn{WoE_i = \ln\left(\frac{n^+_i/N^+}{n^-_i/N^-}\right)}
 
-O Information Value (IV) para cada bin é calculado como:
-
-\deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-
-O algoritmo inclui os seguintes passos principais:
-\enumerate{
-\item Inicializar bins com cada categoria única.
-\item Mesclar categorias raras com base no bin_cutoff.
-\item Iterativamente mesclar bins adjacentes que resultem no maior IV.
-\item Parar de mesclar quando o número de bins atingir min_bins ou max_bins.
-\item Garantir a monotonicidade dos valores de WoE através dos bins.
-\item Calcular o WoE e IV final para cada bin.
+where:
+\itemize{
+\item \eqn{n^+_i} is the number of positive cases in bin i
+\item \eqn{n^-_i} is the number of negative cases in bin i
+\item \eqn{N^+} is the total number of positive cases
+\item \eqn{N^-} is the total number of negative cases
 }
 
-O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
-logaritmos indefinidos e divisão por zero.
+The Information Value (IV) quantifies the predictive power of the entire binning and is:
+
+\deqn{IV = \sum_{i=1}^{n} (p_i - q_i) \times WoE_i}
+
+where:
+\itemize{
+\item \eqn{p_i = n^+_i/N^+} is the proportion of positive cases in bin i
+\item \eqn{q_i = n^-_i/N^-} is the proportion of negative cases in bin i
+}
+
+This algorithm applies Bayesian smoothing to WoE calculations to improve stability, particularly
+with small sample sizes or rare categories. The smoothing applies pseudo-counts based on the
+overall population prevalence.
+
+The algorithm includes the following main steps:
+\enumerate{
+\item Initialize bins with each unique category.
+\item Merge rare categories based on the bin_cutoff.
+\item Iteratively merge adjacent bins that result in the highest IV.
+\item Stop merging when the number of bins reaches min_bins or max_bins.
+\item Ensure monotonicity of WoE values across bins.
+\item Calculate final WoE and IV for each bin.
+}
+
+Edge cases are handled as follows:
+\itemize{
+\item Empty strings in feature are rejected during input validation
+\item Extremely imbalanced datasets (< 5 samples in either class) produce a warning
+\item When merging bins, ties in IV improvement are resolved by preferring more balanced bins
+\item Monotonicity violations are addressed with an adaptive threshold based on average WoE gaps
+}
 }
 \examples{
 \dontrun{
-# Dados de exemplo
+# Example data
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Executar binning ótimo
+# Run optimal binning
 result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
 
-# Ver resultados
+# View results
 print(result)
 }
 
@@ -97,6 +121,10 @@ print(result)
 \itemize{
 \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
 \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+\item García-Magariño, I., Medrano, C., Lombas, A. S., & Barrasa, A. (2019). A hybrid approach with agent-based simulation and clustering for sociograms. Information Sciences, 499, 47-61.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+\item Lin, X., Wang, G., & Zhang, T. (2022). Efficient monotonic binning for predictive modeling in high-dimensional spaces. Knowledge-Based Systems, 235, 107629.
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
 }
 }
 \author{

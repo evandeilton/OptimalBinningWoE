@@ -2,73 +2,110 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_fetb}
 \alias{optimal_binning_numerical_fetb}
-\title{Optimal Binning for Numerical Variables using Fisher's Exact Test (FETB)}
+\title{Optimal Binning for Numerical Variables with Fisher’s Exact Test}
 \usage{
 optimal_binning_numerical_fetb(
   target,
   feature,
   min_bins = 3L,
   max_bins = 5L,
-  bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
 }
 \arguments{
-\item{target}{A numeric vector of binary target values (0 or 1).}
+\item{target}{Integer (0/1) vector, length \eqn{N}.}
 
-\item{feature}{A numeric vector of feature values to be binned.}
+\item{feature}{Numeric vector, length \eqn{N}.}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Minimum number of final bins (default \code{3}).}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Maximum number of final bins (default \code{5}).}
 
-\item{bin_cutoff}{P-value threshold for merging bins (default: 0.05).}
+\item{max_n_prebins}{Maximum number of pre‑bins created before optimisation
+(default \code{20}).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before the merging process (default: 20).}
+\item{convergence_threshold}{Absolute tolerance for change in total IV used
+as convergence criterion (default \code{1e-6}).}
 
-\item{convergence_threshold}{Threshold for algorithmic convergence (default: 1e-6).}
-
-\item{max_iterations}{Maximum number of iterations allowed during merging and monotonicity enforcement (default: 1000).}
+\item{max_iterations}{Safety cap for merge + monotonicity iterations
+(default \code{1000}).}
 }
 \value{
-A list containing:
-\item{bin}{A character vector of bin ranges.}
-\item{woe}{A numeric vector of WoE values for each bin.}
-\item{iv}{A numeric vector of IV for each bin.}
-\item{count}{A numeric vector of total observations in each bin.}
-\item{count_pos}{A numeric vector of positive target observations in each bin.}
-\item{count_neg}{A numeric vector of negative target observations in each bin.}
-\item{cutpoints}{A numeric vector of cut points used to generate the bins.}
-\item{converged}{A logical indicating if the algorithm converged.}
-\item{iterations}{An integer indicating the number of iterations run.}
+A named \code{list}:
+\describe{
+\item{id}{Bin index (1‑based).}
+\item{bin}{Character vector \code{"(lo; hi]"} describing intervals.}
+\item{woe, iv}{WoE and IV per bin.}
+\item{count, count_pos, count_neg}{Bin frequencies.}
+\item{cutpoints}{Numeric vector of internal cut‑points
+\eqn{c_1,\dots,c_{B-1}}.}
+\item{converged}{Logical flag.}
+\item{iterations}{Number of iterations executed.}
+}
 }
 \description{
-This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test.
-It attempts to create an optimal set of bins for a given numerical feature based on its relationship with
-a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
+Implements a \strong{supervised, monotonic, optimal} binning procedure for
+numeric predictors against a binary target.
+The algorithm iteratively merges the pair of \emph{adjacent} bins whose class
+composition is \emph{most similar} according to the two‑tailed
+Fisher’s Exact Test, and guarantees a monotone
+\emph{Weight of Evidence} (WoE) profile.
+Designed for scorecard development, churn modelling and any logistic
+application where robust, information‑preserving discretisation is required.
 }
 \details{
-The algorithm works as follows:
+\strong{Notation}\cr
+\eqn{(x_i,\,y_i),\; i=1,\dots,N} are observations with
+\eqn{y_i\in\{0,1\}}.  A cut‑point vector
+\eqn{c=(c_0=-\infty < c_1 < \dots < c_{B-1} < c_B=+\infty)}
+induces bins \eqn{I_b=(c_{b-1},c_b],\; b=1,\dots,B}.  For each bin collect
+contingency counts
+\deqn{(a_b,b_b)=\Bigl(\sum_{x_i\in I_b}y_i,\;\sum_{x_i\in I_b}(1-y_i)\Bigr).}
+
+\strong{Algorithm}\cr
 \enumerate{
-\item Pre-binning: Initially divides the feature into up to \code{max_n_prebins} bins based on sorted values.
-\item Fisher Merging: Adjacent bins are merged if the Fisher's Exact Test p-value exceeds \code{bin_cutoff}, indicating no statistically significant difference between them.
-\item Monotonicity Enforcement: Ensures the WoE values are monotonic by merging non-monotonic adjacent bins.
-\item Final WoE/IV Calculation: After achieving a stable set of bins (or reaching iteration limits), it calculates the final WoE and IV for each bin.
+\item \emph{Pre‑binning}.  Create up to \code{max_n_prebins} equal‑frequency
+bins from the ordered feature.  This bounds subsequent complexity.
+\item \emph{Fisher merge loop}.  While \eqn{B>}\code{max_bins},
+merge the adjacent pair \eqn{(I_j,I_{j+1})} maximising the
+point probability of the corresponding 2×2 table
+\eqn{p_j = P\{ \text{table }(a_j,b_j,c_j,d_j)\}}.
+\item \emph{Monotonicity}.  After every merge, if the WoE sequence
+\eqn{w_1,\dots,w_B} violates monotonicity
+(\eqn{\exists\,b:\,w_b>w_{b+1}} for ascending trend or vice‑versa)
+merge that offending pair and restart the check locally.
+\item \emph{Convergence}.  Stop when
+\eqn{|IV_{t+1}-IV_t|<}\code{convergence_threshold} or the iteration
+cap is reached.\cr
 }
 
-The method aims at providing statistically justifiable and monotonic binning, which is particularly useful for credit scoring and other risk modeling tasks.
-}
-\examples{
-\dontrun{
-set.seed(123)
-target <- sample(0:1, 1000, replace = TRUE)
-feature <- rnorm(1000)
-result <- optimal_binning_numerical_fetb(target, feature)
-print(result$bins)
-print(result$woe)
-print(result$iv)
+\strong{Complexity}\cr
+\itemize{
+\item Pre‑binning: \eqn{O(N\log N)} (sort) but done once.
+\item Merge loop: worst‑case \eqn{O(B^2)} with
+\eqn{B\le}\code{max_n_prebins}.
+\item Memory: \eqn{O(B)}.
 }
 
+\strong{Formulae}\cr
+\deqn{ \mathrm{WoE}_b = \log\!\left(
+        \frac{a_b / T_1}{\,b_b / T_0}\right)\!, \qquad
+       \mathrm{IV}   = \sum_{b=1}^{B}
+        \left(\frac{a_b}{T_1}-\frac{b_b}{T_0}\right)\mathrm{WoE}_b}
+where \eqn{T_1=\sum_b a_b},\ \eqn{T_0=\sum_b b_b}.
+}
+\references{
+Fisher, R. A. (1922) \emph{On the interpretation of \eqn{X^2} from contingency
+tables, and the calculation of P}. \emph{JRSS}, 85 (1), 87‑94.\cr
+Siddiqi, N. (2012) \emph{Credit Risk Scorecards}. Wiley.\cr
+Navas‑Palencia, G. (2019) \emph{optbinning} documentation – Numerical FETB.\cr
+Hand, D. J., & Adams, N. M. (2015) \emph{Supervised Classification in
+High Dimensions}. Springer (Ch. 4, discretisation).\cr
+Hosmer, D. W., Lemeshow, S., & Sturdivant, R. X. (2013)
+\emph{Applied Logistic Regression} (3rd ed.). Wiley.
+}
+\author{
+Lopes, J. E.
 }

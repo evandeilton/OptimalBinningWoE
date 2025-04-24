@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_fetb}
 \alias{optimal_binning_categorical_fetb}
-\title{Categorical Optimal Binning with Fisher's Exact Test}
+\title{Categorical Optimal Binning with Fisher’s Exact Test}
 \usage{
 optimal_binning_categorical_fetb(
   target,
@@ -17,53 +17,131 @@ optimal_binning_categorical_fetb(
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 or 1).}
+\item{target}{\code{integer} vector of 0/1 values (length \eqn{N}).}
 
-\item{feature}{Character vector of categorical feature values.}
+\item{feature}{\code{character} vector of categories (length \eqn{N}).}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Minimum number of final bins.  Default is \code{3}.}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Maximum number of final bins.  Default is \code{5}.}
 
-\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
+\item{bin_cutoff}{Relative frequency threshold below which categories
+are folded into the rare‑bin (default \code{0.05}).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Reserved for future use (ignored internally).}
 
-\item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
+\item{convergence_threshold}{Absolute tolerance for the change in total IV
+required to declare convergence (default \code{0.0000001}).}
 
-\item{max_iterations}{Maximum number of iterations (default: 1000).}
+\item{max_iterations}{Safety cap for merge iterations (default \code{1000}).}
 
-\item{bin_separator}{Separator for bin labels (default: "\%;\%").}
+\item{bin_separator}{String used to concatenate category labels in the output.}
 }
 \value{
-A list containing:
+A \code{list} with components
 \itemize{
-\item bin: Character vector of bin labels (merged categories).
-\item woe: Numeric vector of Weight of Evidence values for each bin.
-\item iv: Numeric vector of Information Value for each bin.
-\item count: Integer vector of total count in each bin.
-\item count_pos: Integer vector of positive class count in each bin.
-\item count_neg: Integer vector of negative class count in each bin.
-\item converged: Logical indicating whether the algorithm converged.
-\item iterations: Integer indicating the number of iterations performed.
+\item \code{id}           – numeric id of each resulting bin
+\item \code{bin}          – concatenated category labels
+\item \code{woe}, \code{iv} – WoE and IV per bin
+\item \code{count}, \code{count_pos}, \code{count_neg} – bin counts
+\item \code{converged}    – logical flag
+\item \code{iterations}   – number of merge iterations
 }
 }
 \description{
-Implements optimal binning for categorical variables using Fisher's Exact Test,
-calculating Weight of Evidence (WoE) and Information Value (IV).
+Performs supervised optimal binning of a \strong{categorical} predictor versus a
+\strong{binary} target by iteratively merging the \emph{most similar} adjacent bins
+according to Fisher’s Exact Test.  The routine returns monotonic
+\emph{Weight of Evidence} (WoE) values and the associated
+\emph{Information Value} (IV), both key metrics in credit‑scoring,
+churn prediction and other binary‑response models.
 }
 \details{
-The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
-the statistical significance of the difference between adjacent bins. It ensures
-monotonicity in the resulting bins and respects the minimum number of bins specified.
+\strong{Algorithm outline}\cr
+Let \eqn{X \in \{\mathcal{C}_1,\dots,\mathcal{C}_K\}} be a categorical
+feature and \eqn{Y\in\{0,1\}} the target.  For each category
+\eqn{\mathcal{C}_k} compute the contingency table
+\deqn{
+  \begin{array}{c|cc}
+     & Y=1 & Y=0 \\ \hline
+  X=\mathcal{C}_k & a_k & b_k
+  \end{array}}{}
+with \eqn{a_k+b_k=n_k}.  Rare categories where
+\eqn{n_k < \textrm{cutoff}\times N} are grouped into a ``rare'' bin.
+The remaining categories start as singleton bins ordered by their WoE:
+\deqn{\mathrm{WoE}_k = \log\left(\frac{a_k/T_1}{b_k/T_0}\right)}{}
+where \eqn{T_1=\sum_k a_k,\; T_0=\sum_k b_k}.  \cr\cr
+At every iteration the two adjacent bins \eqn{i,i+1} that maximise the
+two‑tail Fisher \emph{p‑value}
+\deqn{p_{i,i+1} = P\!\left(
+   \begin{array}{c|cc} & Y=1 & Y=0\\\hline
+   \text{bin }i & a_i & b_i\\
+   \text{bin }i+1 & a_{i+1}& b_{i+1}
+   \end{array}
+\right)}
+are merged.  The process stops when either
+\eqn{\#\text{bins}\le\texttt{max\_bins}} or the
+change in global IV,
+\deqn{\mathrm{IV}= \sum_{\text{bins}} (\tfrac{a}{T_1}-\tfrac{b}{T_0})
+                      \log\!\left(\tfrac{a\,T_0}{b\,T_1}\right)}{}
+is below \code{convergence_threshold}.  After each merge a local
+\emph{monotonicity enforcement} step guarantees
+\eqn{\mathrm{WoE}_1\le\cdots\le\mathrm{WoE}_m} (or the reverse).
+
+\strong{Complexity}\cr
+\itemize{
+\item Counting pass: \eqn{O(N)} time and \eqn{O(K)} memory.
+\item Merging loop: worst‑case \eqn{O(B^2)} time where
+\eqn{B\le K} is the initial number of bins;
+in practice \eqn{B\ll N} and the loop is very fast.
+}
+Overall complexity is \eqn{O(N + B^2)} time and \eqn{O(K)} memory.
+
+\strong{Statistical background}\cr
+The use of Fisher’s Exact Test provides an exact
+significance measure for 2×2 tables, ensuring the merged bins are those
+whose class proportions do not differ significantly.  Monotone WoE
+facilitates downstream monotonic logistic regression or scorecard
+scaling.
 }
 \examples{
-\dontrun{
-target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2,
-max_bins = 4, bin_separator = "|")
-print(result)
+\donttest{
+## simulated example -------------------------------------------------
+set.seed(42)
+n        <- 1000
+target   <- rbinom(n, 1, 0.3)                 # 30 \% positives
+cats     <- LETTERS[1:6]
+probs    <- c(0.25, 0.20, 0.18, 0.15, 0.12, 0.10)
+feature  <- sample(cats, n, TRUE, probs)      # imbalanced categories
+
+res <- optimal_binning_categorical_fetb(
+  target, feature,
+  min_bins = 2, max_bins = 4,
+  bin_cutoff = 0.02, bin_separator = "|"
+)
+
+str(res)
+
+## inspect WoE curve
+plot(res$woe, type = "b", pch = 19,
+     xlab = "Bin index", ylab = "Weight of Evidence")
 }
 
+}
+\references{
+Fisher, R. A. (1922). \emph{On the interpretation of \eqn{X^2} from contingency
+tables, and the calculation of P}. \emph{Journal of the Royal Statistical
+Society}, \strong{85}, 87‑94.\cr
+Hosmer, D. W., & Lemeshow, S. (2000).
+\emph{Applied Logistic Regression} (2nd ed.). Wiley.\cr
+Navas‑Palencia, G. (2019).
+\emph{optbinning: Optimal Binning in Python} – documentation v0.19.\cr
+Freeman, J. V., & Campbell, M. J. (2007).
+\emph{The analysis of categorical data: Fisher’s exact test}. \emph{Significance}.\cr
+Siddiqi, N. (2012).
+\emph{Credit Risk Scorecards: Developing and Implementing Intelligent Credit
+Scoring}. Wiley.
+}
+\author{
+Lopes, J. E.
 }

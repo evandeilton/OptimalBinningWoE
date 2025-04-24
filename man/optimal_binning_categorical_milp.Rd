@@ -38,36 +38,75 @@ optimal_binning_categorical_milp(
 \value{
 A list containing the following elements:
 \itemize{
-\item bins: Character vector of bin categories.
+\item id: Numeric vector of bin identifiers.
+\item bin: Character vector of bin categories.
 \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
 \item iv: Numeric vector of Information Value (IV) for each bin.
 \item count: Integer vector of total observations in each bin.
 \item count_pos: Integer vector of positive target observations in each bin.
 \item count_neg: Integer vector of negative target observations in each bin.
+\item total_iv: Total Information Value of the binning.
 \item converged: Logical indicating whether the algorithm converged.
 \item iterations: Integer indicating the number of iterations run.
 }
 }
 \description{
-This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+Performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP)
+inspired approach with enhanced statistical robustness. It creates optimal bins for a categorical
+feature based on its relationship with a binary target variable, maximizing the predictive power
+while respecting user-defined constraints. This implementation includes Bayesian smoothing for
+improved stability with small samples and sophisticated merging strategies.
 }
 \details{
-The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
-\enumerate{
-\item Validate input and initialize bins for each unique category.
-\item If the number of unique categories is less than or equal to max_bins, no optimization is performed.
-\item Otherwise, merge bins iteratively based on the following criteria:
-a. Merge bins with counts below the bin_cutoff.
-b. Ensure the number of bins is between min_bins and max_bins.
-c. Attempt to achieve monotonicity in Weight of Evidence (WoE) values.
-\item The algorithm stops when convergence is reached or max_iterations is hit.
+This enhanced version of the Optimal Binning algorithm for categorical variables implements
+several key improvements over traditional approaches:
+
+\strong{Mathematical Framework:}
+
+The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+
+\deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+
+where:
+\itemize{
+\item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of
+events in bin i
+\item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of
+non-events in bin i
+\item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall event rate
+\item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+\item \eqn{n_i^+} is the count of events in bin i
+\item \eqn{n_i^-} is the count of non-events in bin i
+\item \eqn{N^+} is the total number of events
+\item \eqn{N^-} is the total number of non-events
 }
 
-Weight of Evidence (WoE) is calculated as:
-\deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+The Information Value (IV) for each bin is calculated as:
 
-Information Value (IV) is calculated as:
-\deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+\deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
+
+The total IV is:
+
+\deqn{IV_{total} = \sum_{i=1}^{k} |IV_i|}
+
+\strong{Algorithm Phases:}
+\enumerate{
+\item \strong{Initialization:} Create bins for each unique category with comprehensive statistics.
+\item \strong{Pre-binning:} Reduce to max_n_prebins by merging similar bins based on event rates.
+\item \strong{Rare Category Merging:} Combine categories with frequency below bin_cutoff using similarity-based strategy.
+\item \strong{Monotonicity Enforcement:} Ensure monotonic relationship in WoE across bins using adaptive thresholds.
+\item \strong{Bin Optimization:} Iteratively merge bins to maximize IV while respecting constraints.
+\item \strong{Solution Tracking:} Maintain the best solution found during optimization.
+}
+
+\strong{Key Enhancements:}
+\itemize{
+\item Bayesian smoothing for robust estimation of WoE with small samples
+\item Similarity-based bin merging rather than just adjacent bins
+\item Adaptive monotonicity enforcement with violation severity prioritization
+\item Best solution tracking to ensure optimal results
+\item Comprehensive handling of edge cases and rare categories
+}
 }
 \examples{
 \dontrun{
@@ -82,6 +121,14 @@ result <- optimal_binning_categorical_milp(target, feature, min_bins = 2, max_bi
 
 # Print results
 print(result)
+
+# Handle rare categories with lower threshold
+result2 <- optimal_binning_categorical_milp(
+  target, feature, 
+  bin_cutoff = 0.02,
+  min_bins = 2, 
+  max_bins = 5
+)
 }
 
 }
@@ -89,5 +136,8 @@ print(result)
 \itemize{
 \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
 \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+\item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
 }
 }

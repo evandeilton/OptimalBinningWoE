@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_cm}
 \alias{optimal_binning_categorical_cm}
-\title{Optimal Binning for Categorical Variables by Chi-Merge}
+\title{Optimal Binning for Categorical Variables using ChiMerge}
 \usage{
 optimal_binning_categorical_cm(
   target,
@@ -13,66 +13,96 @@ optimal_binning_categorical_cm(
   max_n_prebins = 20L,
   bin_separator = "\%;\%",
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  chi_merge_threshold = 0.05,
+  use_chi2_algorithm = FALSE
 )
 }
 \arguments{
-\item{target}{Integer vector of binary target values (0 or 1).}
+\item{target}{Integer vector of binary target values (0 or 1)}
 
-\item{feature}{Character vector of categorical feature values.}
+\item{feature}{Character vector of categorical feature values}
 
-\item{min_bins}{Minimum number of bins (default: 3).}
+\item{min_bins}{Minimum number of bins (default: 3)}
 
-\item{max_bins}{Maximum number of bins (default: 5).}
+\item{max_bins}{Maximum number of bins (default: 5)}
 
-\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05)}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20)}
 
-\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%").}
+\item{bin_separator}{Separator for concatenating category names in bins (default: "\%;\%")}
 
-\item{convergence_threshold}{Threshold for convergence in Chi-square difference (default: 1e-6).}
+\item{convergence_threshold}{Threshold for convergence in Chi-square difference (default: 1e-6)}
 
-\item{max_iterations}{Maximum number of iterations for bin merging (default: 1000).}
+\item{max_iterations}{Maximum number of iterations for bin merging (default: 1000)}
+
+\item{chi_merge_threshold}{Significance level threshold for chi-square test (default: 0.05)}
+
+\item{use_chi2_algorithm}{Whether to use the enhanced Chi2 algorithm (default: FALSE)}
 }
 \value{
 A list containing:
 \itemize{
-\item bin: Vector of bin names (concatenated categories).
-\item woe: Vector of Weight of Evidence values for each bin.
-\item iv: Vector of Information Value for each bin.
-\item count: Vector of total counts for each bin.
-\item count_pos: Vector of positive class counts for each bin.
-\item count_neg: Vector of negative class counts for each bin.
-\item converged: Boolean indicating whether the algorithm converged.
-\item iterations: Number of iterations run.
+\item id: Vector of numeric IDs for each bin
+\item bin: Vector of bin names (concatenated categories)
+\item woe: Vector of Weight of Evidence values for each bin
+\item iv: Vector of Information Value for each bin
+\item count: Vector of total counts for each bin
+\item count_pos: Vector of positive class counts for each bin
+\item count_neg: Vector of negative class counts for each bin
+\item converged: Boolean indicating whether the algorithm converged
+\item iterations: Number of iterations run
+\item algorithm: Which algorithm was used (ChiMerge or Chi2)
 }
 }
 \description{
-Implements optimal binning for categorical variables using the Chi-Merge algorithm,
-calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
+Implements optimal binning for categorical variables using the ChiMerge algorithm
+(Kerber, 1992) and Chi2 algorithm (Liu & Setiono, 1995), calculating Weight of
+Evidence (WoE) and Information Value (IV) for the resulting bins.
 }
 \details{
-The algorithm uses Chi-square statistics to merge adjacent bins:
+The ChiMerge algorithm (Kerber, 1992) uses chi-square statistics to determine when to
+merge adjacent bins. The chi-square statistic is calculated as:
 
 \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
 
 where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
 for bin i and class j.
 
-Weight of Evidence (WoE) for each bin:
+The Chi2 algorithm (Liu & Setiono, 1995) extends ChiMerge with automated threshold
+determination and feature selection capabilities.
+
+Weight of Evidence (WoE) is calculated as:
 
 \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 
-Information Value (IV) for each bin:
+Information Value (IV) for each bin is calculated as:
 
 \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
 
-The algorithm initializes bins for each category, merges rare categories based on
-bin_cutoff, and then iteratively merges bins with the lowest chi-square
-until max_bins is reached or no further merging is possible. It determines the
-direction of monotonicity based on the initial trend and enforces it, allowing
-deviations if min_bins constraints are triggered.
+The algorithm works by:
+\enumerate{
+\item Initializing each category as a separate bin
+\item Merging rare categories based on bin_cutoff
+\item Limiting the number of pre-bins to max_n_prebins
+\item Iteratively merging bins with the lowest chi-square until max_bins is reached,
+or no further merging is possible based on the chi-square threshold
+\item Ensuring monotonicity of WoE across bins
+}
+
+The chi_merge_threshold parameter controls the statistical significance level for
+merging. A value of 0.05 corresponds to a 95\% confidence level.
+
+References:
+\itemize{
+\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes.
+In Proceedings of the Tenth National Conference on Artificial Intelligence,
+AAAI'92, pages 123-128.
+\item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization
+of Numeric Attributes. In Proceedings of the 7th IEEE International Conference
+on Tools with Artificial Intelligence, pages 388-391.
+}
 }
 \examples{
 \dontrun{
@@ -80,8 +110,12 @@ deviations if min_bins constraints are triggered.
 target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 
-# Run optimal binning
+# Run optimal binning with ChiMerge
 result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
+
+# Use the Chi2 algorithm instead
+result_chi2 <- optimal_binning_categorical_cm(target, feature, min_bins = 2, 
+                                             max_bins = 4, use_chi2_algorithm = TRUE)
 
 # View results
 print(result)

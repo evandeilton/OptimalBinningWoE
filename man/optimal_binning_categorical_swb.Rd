@@ -38,34 +38,75 @@ optimal_binning_categorical_swb(
 \value{
 A list containing:
 \itemize{
+\item id: Numeric identifiers for each bin.
 \item bin: String vector with the names of the bins.
 \item woe: Numeric vector with WoE values for each bin.
 \item iv: Numeric vector with IV values for each bin.
 \item count: Integer vector with the total count in each bin.
 \item count_pos: Integer vector with the count of positives (target=1) in each bin.
 \item count_neg: Integer vector with the count of negatives (target=0) in each bin.
+\item event_rate: Numeric vector with the event rate (proportion of target=1) in each bin.
 \item converged: Logical value indicating whether the algorithm converged.
 \item iterations: Integer value indicating how many iterations were executed.
+\item total_iv: Total Information Value across all bins.
 }
 }
 \description{
 This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach.
-The goal is to generate bins with good predictive power (IV) and WoE monotonicity, ensuring stability, robustness,
-and maintaining compatibility of input and output names and types. If the categorical variable has only 1 or 2 levels,
-no optimization is performed, and only the statistics are calculated and returned.
+The goal is to generate bins with good predictive power (IV) while maintaining monotonicity of Weight of Evidence (WoE).
+This implementation includes statistical robustness enhancements through Laplace smoothing and Jensen-Shannon divergence
+for bin similarity measurement.
 }
 \details{
-Steps of the SWB algorithm (refined):
-\enumerate{
-\item Initialize bins for each category, merging rare categories (below bin_cutoff).
-\item If the variable has only 1 or 2 levels, do not optimize, simply calculate WoE/IV and return.
-\item Otherwise, order bins by WoE values and merge adjacent bins as needed, respecting min_bins and max_bins.
-\item Optimize the number of bins to ensure WoE monotonicity and maximize IV, avoiding issues with few classes.
+\subsection{Statistical Methodology}{
+
+The Sliding Window Binning (SWB) algorithm for categorical variables optimizes binning based on
+the statistical concepts of Weight of Evidence (WoE) and Information Value (IV):
+
+Weight of Evidence measures the predictive power of a bin:
+\deqn{WoE_i = \ln\left(\frac{P(X \in Bin_i | Y = 1)}{P(X \in Bin_i | Y = 0)}\right)}
+
+With Laplace smoothing applied for robustness:
+\deqn{WoE_i = \ln\left(\frac{(n_{i+} + \alpha)/(n_{+} + 2\alpha)}{(n_{i-} + \alpha)/(n_{-} + 2\alpha)}\right)}
+
+Where:
+\itemize{
+\item \eqn{n_{i+}} is the number of positive cases (target=1) in bin i
+\item \eqn{n_{i-}} is the number of negative cases (target=0) in bin i
+\item \eqn{n_{+}} is the total number of positive cases
+\item \eqn{n_{-}} is the total number of negative cases
+\item \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
 }
 
-Key formulas:
-\deqn{WOE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-\deqn{IV = \sum (P(X|Y=1) - P(X|Y=0)) \times WOE}
+Information Value measures the overall predictive power:
+\deqn{IV_i = \left(P(X \in Bin_i | Y = 1) - P(X \in Bin_i | Y = 0)\right) \times WoE_i}
+\deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+}
+
+\subsection{Algorithm Steps}{
+\enumerate{
+\item Initialize bins for each category, grouping rare categories (below bin_cutoff).
+\item Special handling for variables with 1-2 levels: no optimization, just calculate metrics.
+\item For variables with more levels:
+a. Sort bins by WoE values
+b. Iteratively merge similar bins based on Jensen-Shannon divergence and IV loss
+c. Enforce monotonicity of WoE across bins
+d. Optimize until constraints (min_bins, max_bins) are satisfied
+}
+}
+
+\subsection{Bin Similarity Measurement}{
+
+Bins are merged based on statistical similarity measured using Jensen-Shannon divergence:
+\deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+
+Where:
+\itemize{
+\item \eqn{KL} is the Kullback-Leibler divergence
+\item \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+\item \eqn{P} and \eqn{Q} are the event rate distributions of two bins
+}
+}
 }
 \examples{
 \dontrun{
@@ -76,4 +117,11 @@ result <- optimal_binning_categorical_swb(target, feature)
 print(result)
 }
 
+}
+\references{
+\itemize{
+\item Beltrán, C., et al. (2022). Weight of Evidence (WoE) and Information Value (IV): A novel implementation for predictive modeling in credit scoring. Expert Systems with Applications, 183, 115351.
+\item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+\item Kullback, S., & Leibler, R. A. (1951). On information and sufficiency. The Annals of Mathematical Statistics, 22(1), 79-86.
+}
 }

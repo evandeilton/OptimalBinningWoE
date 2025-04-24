@@ -11,6 +11,7 @@ optimal_binning_numerical_kmb(
   max_bins = 5L,
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
+  enforce_monotonic = TRUE,
   convergence_threshold = 1e-06,
   max_iterations = 1000L
 )
@@ -24,77 +25,153 @@ optimal_binning_numerical_kmb(
 
 \item{max_bins}{Maximum number of bins (default: 5).}
 
-\item{bin_cutoff}{Minimum frequency for a bin (default: 0.05).}
+\item{bin_cutoff}{Minimum frequency fraction for each bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
+
+\item{enforce_monotonic}{Whether to enforce monotonicity in WoE values (default: TRUE).}
 
 \item{convergence_threshold}{Convergence threshold for the algorithm (default: 1e-6).}
 
 \item{max_iterations}{Maximum number of iterations allowed (default: 1000).}
 }
 \value{
-A list containing the following elements:
-\item{bin}{Character vector of bin ranges.}
-\item{woe}{Numeric vector of WoE values for each bin.}
-\item{iv}{Numeric vector of Information Value (IV) for each bin.}
+A list containing:
+\item{id}{Numeric identifiers for each bin (1-based).}
+\item{bin}{Character vector of bin intervals.}
+\item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
+\item{iv}{Numeric vector of Information Value (IV) contribution for each bin.}
 \item{count}{Integer vector of total observations in each bin.}
 \item{count_pos}{Integer vector of positive target observations in each bin.}
 \item{count_neg}{Integer vector of negative target observations in each bin.}
-\item{cutpoints}{Numeric vector of cut points to generate the bins.}
+\item{centroids}{Numeric vector of bin centroids (mean of feature values in each bin).}
+\item{cutpoints}{Numeric vector of cut points between bins (excluding infinity bounds).}
 \item{converged}{Logical indicating if the algorithm converged.}
-\item{iterations}{Integer number of iterations run by the algorithm.}
+\item{iterations}{Integer number of iterations performed by the algorithm.}
+\item{total_iv}{Total Information Value of the binning solution.}
 }
 \description{
-This function implements the K-means Binning (KMB) algorithm for optimal binning of numerical variables.
+Implements an advanced binning algorithm for numerical variables inspired by K-means clustering
+principles. This method transforms continuous features into optimal discrete bins that maximize
+predictive power while maintaining interpretability constraints. The algorithm is particularly
+valuable for risk modeling, credit scoring, and feature engineering in classification tasks.
 }
 \details{
-The K-means Binning (KMB) algorithm is an advanced method for optimal binning of numerical variables.
-It combines elements of k-means clustering with traditional binning techniques to create bins that maximize
-the predictive power of the feature while respecting user-defined constraints.
+\subsection{Algorithm Overview}{
 
-The algorithm works through several steps:
+The K-means Binning (KMB) algorithm transforms a continuous feature into discrete bins through
+several coordinated steps:
 \enumerate{
-\item Initial Binning: Creates initial bins based on the unique values of the feature, respecting the max_n_prebins constraint.
-\item Data Assignment: Assigns data points to the appropriate bins.
-\item Low Frequency Merging: Merges bins with frequencies below the bin_cutoff threshold.
-\item Enforce Monotonicity: Merges bins to ensure that the WoE values are monotonic.
-\item Bin Count Adjustment: Adjusts the number of bins to fall within the specified range (min_bins to max_bins).
-\item Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.
+\item \strong{Initialization}: Creates initial bins using a clustering-inspired approach, placing bin
+boundaries to create approximately equal-width bins or based on quantiles of the distribution.
+\item \strong{Data Assignment}: Assigns observations to appropriate bins and calculates statistics
+including positive/negative counts and event rates.
+\item \strong{Bin Optimization}:
+\itemize{
+\item Merges low-frequency bins to ensure statistical stability
+\item Enforces monotonicity in Weight of Evidence (WoE) values (optional)
+\item Adjusts the number of bins to fall within specified bounds
+}
+\item \strong{Metrics Calculation}: Computes WoE and Information Value (IV) for each bin
+}
 }
 
-The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-to handle cases with zero counts
-\deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
-where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
-and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
+\subsection{Mathematical Foundation}{
 
-The Information Value (IV) for each bin is calculated as:
-\deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
+The algorithm optimizes two key metrics from information theory:
+\enumerate{
+\item \strong{Weight of Evidence (WoE)} for bin \eqn{i}:
+\deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
 
-The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
-It uses a greedy approach to merge bins when necessary, choosing to merge bins with the smallest difference in IV.
+Where:
+\itemize{
+\item \eqn{p_i}: Number of positive cases in bin \eqn{i}
+\item \eqn{P}: Total number of positive cases
+\item \eqn{n_i}: Number of negative cases in bin \eqn{i}
+\item \eqn{N}: Total number of negative cases
+\item \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+\item \eqn{k}: Number of bins
+}
+\item \strong{Information Value (IV)} for bin \eqn{i}:
+\deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
 
-When adjusting the number of bins, the algorithm either merges bins with the most similar IVs (if there are too many bins)
-or stops merging when min_bins is reached, even if monotonicity is not achieved.
+The total Information Value is the sum across all bins:
+\deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+}
+}
+
+\subsection{K-means Connection}{
+
+The algorithm draws inspiration from K-means clustering in several ways:
+\itemize{
+\item Initial bin boundaries are positioned similar to how K-means initializes centroids
+\item Data points are assigned to the nearest bin, resembling the assignment step in K-means
+\item Bin statistics (like centroids) are updated based on the assigned observations
+\item The algorithm iteratively refines bins to optimize a global objective
+}
+
+While traditional K-means minimizes within-cluster variance, KMB optimizes predictive power
+through Information Value while respecting constraints on bin sizes and monotonicity.
+}
+
+\subsection{Handling Edge Cases}{
+
+The implementation includes special handling for:
+\itemize{
+\item Features with very few unique values
+\item Missing values (NaN)
+\item Extreme outliers and infinity values
+\item Empty or near-empty bins
+\item Imbalanced target distributions
+}
+}
 }
 \examples{
 \dontrun{
-  # Create sample data
-  set.seed(123)
-  target <- sample(0:1, 1000, replace = TRUE)
-  feature <- rnorm(1000)
+# Generate synthetic data
+set.seed(123)
+target <- sample(0:1, 1000, replace = TRUE)
+feature <- rnorm(1000)
 
-  # Run optimal binning
-  result <- optimal_binning_numerical_kmb(target, feature)
+# Basic usage
+result <- optimal_binning_numerical_kmb(target, feature)
+print(result)
 
-  # View results
-  print(result)
+# Custom parameters
+result_custom <- optimal_binning_numerical_kmb(
+  target = target,
+  feature = feature,
+  min_bins = 2,
+  max_bins = 8,
+  bin_cutoff = 0.03,
+  enforce_monotonic = TRUE
+)
+
+# Access specific components
+bins <- result$bin
+woe_values <- result$woe
+total_iv <- result$total_iv
 }
 
 }
 \references{
-\itemize{
-\item Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. In Proceedings of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
-\item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
-}
+Arthur, D., & Vassilvitskii, S. (2007). k-means++: The advantages of careful seeding.
+\emph{Proceedings of the eighteenth annual ACM-SIAM symposium on Discrete algorithms}, 1027-1035.
+
+Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued
+attributes for classification learning. \emph{Proceedings of the 13th International Joint
+Conference on Artificial Intelligence}, 1022-1027.
+
+Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing Intelligent
+Credit Scoring}. John Wiley & Sons.
+
+Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). \emph{Credit Scoring and Its Applications}.
+Society for Industrial and Applied Mathematics.
+
+García, S., Luengo, J., Sáez, J. A., López, V., & Herrera, F. (2013). A survey of
+discretization techniques: Taxonomy and empirical analysis in supervised learning.
+\emph{IEEE Transactions on Knowledge and Data Engineering}, 25(4), 734-750.
+
+Zhu, X., Zhu, Y., Wang, H., & Zeng, Y. (2020). Credit risk evaluation model with
+optimal discretization and feature selection. \emph{Mathematics}, 8(4), 638.
 }

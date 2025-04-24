@@ -12,7 +12,8 @@ optimal_binning_numerical_mrblp(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  laplace_smoothing = 0.5
 )
 }
 \arguments{
@@ -31,18 +32,23 @@ optimal_binning_numerical_mrblp(
 \item{convergence_threshold}{Numeric. The threshold for convergence in the monotonic binning step (default: 1e-6).}
 
 \item{max_iterations}{Integer. The maximum number of iterations for the monotonic binning step (default: 1000).}
+
+\item{laplace_smoothing}{Numeric. Smoothing parameter for WoE calculation (default: 0.5).}
 }
 \value{
 A list containing the following elements:
-\item{bins}{A character vector of bin ranges.}
-\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin.}
-\item{iv}{A numeric vector of Information Value (IV) for each bin.}
-\item{count}{An integer vector of the total count of observations in each bin.}
-\item{count_pos}{An integer vector of the count of positive observations in each bin.}
-\item{count_neg}{An integer vector of the count of negative observations in each bin.}
-\item{cutpoints}{A numeric vector of cutpoints used to create the bins.}
-\item{converged}{A logical value indicating whether the algorithm converged.}
-\item{iterations}{An integer value indicating the number of iterations run.}
+\item{id}{Bin identifiers (1-based)}
+\item{bin}{A character vector of bin ranges}
+\item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
+\item{iv}{A numeric vector of Information Value (IV) for each bin}
+\item{count}{An integer vector of the total count of observations in each bin}
+\item{count_pos}{An integer vector of the count of positive observations in each bin}
+\item{count_neg}{An integer vector of the count of negative observations in each bin}
+\item{event_rate}{A numeric vector with the proportion of positive cases in each bin}
+\item{cutpoints}{A numeric vector of cutpoints used to create the bins}
+\item{total_iv}{The total Information Value of all bins combined}
+\item{converged}{A logical value indicating whether the algorithm converged}
+\item{iterations}{An integer value indicating the number of iterations run}
 }
 \description{
 This function implements an optimal binning algorithm for numerical variables using
@@ -51,19 +57,32 @@ continuous feature into discrete bins while preserving the monotonic relationshi
 with the target variable and maximizing the predictive power.
 }
 \details{
-The MRBLP algorithm combines pre-binning, small bin merging, and monotonic binning to create an optimal binning solution for numerical variables. The process involves the following steps:
-\enumerate{
-\item Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning. The number of pre-bins is determined by the \code{max_n_prebins} parameter.
-\item Small bin merging: Bins with a proportion of observations less than \code{bin_cutoff} are merged with adjacent bins to ensure statistical significance.
-\item Monotonic binning: The algorithm enforces a monotonic relationship between the bin order and the Weight of Evidence (WoE) values. This step ensures that the binning preserves the original relationship between the feature and the target variable.
-\item Bin count adjustment: If the number of bins exceeds \code{max_bins}, the algorithm merges bins with the smallest difference in Information Value (IV). If the number of bins is less than \code{min_bins}, the largest bin is split.
+\subsection{Mathematical Framework:}{
+
+\strong{Weight of Evidence (WoE)}: For a bin \code{i} with Laplace smoothing \code{alpha}:
+\deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+\item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+\item \eqn{n_{1}} is the total count of positive cases
+\item \eqn{n_{0}} is the total count of negative cases
+\item \eqn{m} is the number of bins
+\item \eqn{\alpha} is the Laplace smoothing parameter
 }
 
-The algorithm includes additional controls to prevent instability and ensure convergence:
-\itemize{
-\item A convergence threshold is used to determine when the algorithm should stop iterating.
-\item A maximum number of iterations is set to prevent infinite loops.
-\item If convergence is not reached within the specified time and standards, the function returns the best result obtained up to the last iteration.
+\strong{Information Value (IV)}: Summarizes predictive power across all bins:
+\deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+}
+
+\subsection{Algorithm Steps:}{
+\enumerate{
+\item \strong{Pre-binning}: Initial bins are created using equal-frequency binning.
+\item \strong{Merge Small Bins}: Bins with frequency below the threshold are merged.
+\item \strong{Enforce Monotonicity}: Bins that violate monotonicity in WoE are merged.
+\item \strong{Adjust Bin Count}: Bins are merged/split to respect min_bins and max_bins.
+\item \strong{Calculate Metrics}: Final WoE and IV values are computed with Laplace smoothing.
+}
 }
 }
 \examples{
@@ -79,6 +98,11 @@ result <- optimal_binning_numerical_mrblp(target, feature)
 
 # View binning results
 print(result)
+
+# Plot Weight of Evidence against bins
+plot(result$woe, type = "b", xlab = "Bin", ylab = "WoE",
+     main = "Weight of Evidence by Bin")
+abline(h = 0, lty = 2)
 }
 
 }
@@ -87,8 +111,7 @@ print(result)
 \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics on Clouds."
 In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.
 \item Zeng, Y. (2014). "Optimal Binning for Scoring Modeling." Computational Economics, 44(1), 137-149.
+\item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
 }
-}
-\author{
-Lopes, J.
 }

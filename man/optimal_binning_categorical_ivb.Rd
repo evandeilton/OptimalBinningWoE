@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_ivb}
 \alias{optimal_binning_categorical_ivb}
-\title{Optimal Binning for Categorical Variables using IVB}
+\title{Optimal Binning for Categorical Variables using Information Value Dynamic Programming}
 \usage{
 optimal_binning_categorical_ivb(
   target,
@@ -27,7 +27,7 @@ optimal_binning_categorical_ivb(
 
 \item{bin_cutoff}{Minimum frequency for a separate bin (default: 0.05).}
 
-\item{max_n_prebins}{Maximum number of pre-bins before merging (default: 20).}
+\item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).}
 
 \item{bin_separator}{Separator for merged category names (default: "\%;\%").}
 
@@ -38,31 +38,102 @@ optimal_binning_categorical_ivb(
 \value{
 A list containing:
 \itemize{
-\item bin: Vector with the names of the formed bins.
-\item woe: Numeric vector with the WoE of each bin.
-\item iv: Numeric vector with the IV of each bin.
-\item count, count_pos, count_neg: Total, positive, and negative counts per bin.
+\item id: Numeric vector of bin identifiers.
+\item bin: Character vector with the names of the formed bins.
+\item woe: Numeric vector with the Weight of Evidence (WoE) of each bin.
+\item iv: Numeric vector with the Information Value (IV) of each bin.
+\item count: Total count per bin.
+\item count_pos: Positive class count per bin.
+\item count_neg: Negative class count per bin.
+\item total_iv: Total Information Value of the binning.
 \item converged: Boolean indicating whether the algorithm converged.
 \item iterations: Number of iterations performed.
 }
 }
 \description{
-This code implements optimal binning for categorical variables using an Information Value (IV)-based approach
-with dynamic programming. Enhancements have been added to ensure robustness, numerical stability, and improved maintainability:
+Implements optimal binning for categorical variables using a dynamic programming approach
+to maximize Information Value (IV). The algorithm finds the globally optimal binning
+solution within the constraints of minimum and maximum bin counts.
+}
+\details{
+This implementation uses dynamic programming to find the optimal set of bins that
+maximizes the total Information Value. The algorithm guarantees a global optimum
+within the constraints of minimum and maximum bin counts.
+
+The mathematical formulation of the dynamic programming algorithm is:
+
+\deqn{DP[i][k] = \max_{j<i} \{DP[j][k-1] + IV(j+1,i)\}}
+
+where:
 \itemize{
-\item More rigorous input validation.
-\item Use of epsilon to avoid log(0).
-\item Control over min_bins and max_bins based on the number of categories.
-\item Handling of rare categories and imposition of monotonicity in WoE/Event Rates.
-\item Detailed comments, better code structure, and convergence checks.
+\item \eqn{DP[i][k]} is the maximum IV achievable using k bins for the first i categories
+\item \eqn{IV(j+1,i)} is the IV of a bin containing categories from index j+1 to i
+}
+
+The Weight of Evidence (WoE) for a bin is defined as:
+
+\deqn{WoE_i = \ln\left(\frac{n^+_i/N^+}{n^-_i/N^-}\right)}
+
+where:
+\itemize{
+\item \eqn{n^+_i} is the number of positive cases in bin i
+\item \eqn{n^-_i} is the number of negative cases in bin i
+\item \eqn{N^+} is the total number of positive cases
+\item \eqn{N^-} is the total number of negative cases
+}
+
+The Information Value (IV) is:
+
+\deqn{IV = \sum_{i=1}^{n} (p_i - q_i) \times WoE_i}
+
+where:
+\itemize{
+\item \eqn{p_i = n^+_i/N^+} is the proportion of positive cases in bin i
+\item \eqn{q_i = n^-_i/N^-} is the proportion of negative cases in bin i
+}
+
+This algorithm employs Bayesian smoothing for improved stability with small sample sizes
+or rare categories. The smoothing applies pseudo-counts based on the overall class prevalence.
+
+The algorithm includes these main steps:
+\enumerate{
+\item Preprocess data and calculate category statistics
+\item Merge rare categories based on frequency threshold
+\item Sort categories by event rate for monotonicity
+\item Run dynamic programming to find optimal bin boundaries
+\item Apply post-processing to ensure monotonicity of WoE
+\item Calculate final WoE and IV values for each bin
+}
+
+Advantages over greedy approaches:
+\itemize{
+\item Guaranteed global optimum (within bin count constraints)
+\item Better handling of complex patterns in the data
+\item More stable results with small sample sizes
 }
 }
 \examples{
 \dontrun{
+# Example data
 target <- c(1,0,1,1,0,1,0,0,1,1)
 feature <- c("A","B","A","C","B","D","C","A","D","B")
+
+# Run optimal binning
 result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
+
+# View results
 print(result)
 }
 
+}
+\references{
+\itemize{
+\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+\item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+\item Lin, X., Wang, G., & Zhang, T. (2022). Efficient monotonic binning for predictive modeling in high-dimensional spaces. Knowledge-Based Systems, 235, 107629.
+\item Fisher, W. D. (1958). On grouping for maximum homogeneity. Journal of the American Statistical Association, 53(284), 789-798.
+\item Bellman, R. (1957). Dynamic Programming. Princeton University Press.
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+}
 }

@@ -12,7 +12,8 @@ optimal_binning_numerical_oslp(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  laplace_smoothing = 0.5
 )
 }
 \arguments{
@@ -33,22 +34,58 @@ to avoid being merged (default: 0.05, must be in (0, 1)).}
 \item{convergence_threshold}{Threshold for convergence (default: 1e-6).}
 
 \item{max_iterations}{Maximum number of iterations (default: 1000).}
+
+\item{laplace_smoothing}{Smoothing parameter for WoE calculation (default: 0.5).}
 }
 \value{
 A list containing:
-\item{bins}{Character vector of bin labels.}
+\item{id}{Numeric vector of bin identifiers (1-based).}
+\item{bin}{Character vector of bin labels.}
 \item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
 \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 \item{count}{Integer vector of total count of observations in each bin.}
 \item{count_pos}{Integer vector of positive class count in each bin.}
 \item{count_neg}{Integer vector of negative class count in each bin.}
+\item{event_rate}{Numeric vector of positive class rate in each bin.}
 \item{cutpoints}{Numeric vector of cutpoints used to create the bins.}
+\item{total_iv}{Numeric value of total Information Value across all bins.}
 \item{converged}{Logical value indicating whether the algorithm converged.}
 \item{iterations}{Integer value indicating the number of iterations run.}
 }
 \description{
 Performs optimal binning for numerical variables using the Optimal
-Supervised Learning Partitioning (OSLP) approach.
+Supervised Learning Partitioning (OSLP) approach. This advanced binning
+algorithm creates bins that maximize predictive power while preserving
+interpretability through monotonic Weight of Evidence (WoE) values.
+}
+\details{
+\subsection{Mathematical Framework:}{
+
+\strong{Weight of Evidence (WoE)}: For a bin \eqn{i} with Laplace smoothing \code{alpha}:
+\deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+\item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+\item \eqn{n_{1}} is the total count of positive cases
+\item \eqn{n_{0}} is the total count of negative cases
+\item \eqn{m} is the number of bins
+\item \eqn{\alpha} is the Laplace smoothing parameter
+}
+
+\strong{Information Value (IV)}: Summarizes predictive power across all bins:
+\deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+}
+
+\subsection{Algorithm Steps:}{
+\enumerate{
+\item \strong{Pre-binning}: Initial bins created using quantile-based approach
+\item \strong{Merge Small Bins}: Bins with frequency below threshold are merged
+\item \strong{Enforce Monotonicity}: Bins that violate monotonicity in WoE are merged
+\item \strong{Optimize Bin Count}: Bins are merged if exceeding max_bins
+\item \strong{Calculate Metrics}: Final WoE, IV, and event rates are computed
+}
+}
 }
 \examples{
 \dontrun{
@@ -58,11 +95,30 @@ n <- 1000
 target <- sample(0:1, n, replace = TRUE)
 feature <- rnorm(n)
 
-# Optimal binning
+# Perform optimal binning
 result <- optimal_binning_numerical_oslp(target, feature,
                                          min_bins = 2, max_bins = 4)
 
 # Print results
 print(result)
+
+# Visualize WoE against bins
+barplot(result$woe, names.arg = result$bin, las = 2,
+        main = "Weight of Evidence by Bin",
+        ylab = "WoE")
+abline(h = 0, lty = 2)
+}
+
+}
+\references{
+\itemize{
+\item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics."
+Handbook of Big Data Technologies. Springer.
+\item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone Optimal Binning Algorithm for Credit Risk Modeling."
+SSRN 2987720.
+\item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+Series B, 14, 107-114. (Origin of Laplace smoothing)
+\item Thomas, L.C. (2009). "Consumer Credit Models: Pricing, Profit, and Portfolios."
+Oxford University Press.
 }
 }

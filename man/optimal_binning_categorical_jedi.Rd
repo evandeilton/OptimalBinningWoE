@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_categorical_jedi}
 \alias{optimal_binning_categorical_jedi}
-\title{Optimal Categorical Binning JEDI (Entropy-Guided Joint Discretization)}
+\title{Optimal Categorical Binning JEDI (Joint Entropy-Driven Information Maximization)}
 \usage{
 optimal_binning_categorical_jedi(
   target,
@@ -38,60 +38,68 @@ optimal_binning_categorical_jedi(
 \value{
 A list containing:
 \itemize{
+\item id: Numeric vector with bin identifiers
 \item bin: Character vector with bin names (concatenated categories)
 \item woe: Numeric vector with Weight of Evidence values
 \item iv: Numeric vector with Information Value per bin
 \item count: Integer vector with observation counts per bin
 \item count_pos: Integer vector with positive class counts per bin
 \item count_neg: Integer vector with negative class counts per bin
+\item total_iv: Total Information Value of the binning
 \item converged: Logical indicating whether the algorithm converged
 \item iterations: Integer count of optimization iterations performed
 }
 }
 \description{
-A robust categorical binning algorithm that optimizes the Information Value (IV) while maintaining
-monotonic Weight of Evidence (WoE) relationships. Implements an adaptive merging strategy with
-numerical stability protections and sophisticated control of the number of bins.
+A robust categorical binning algorithm that optimizes Information Value (IV) while maintaining
+monotonic Weight of Evidence (WoE) relationships. This implementation employs Bayesian smoothing,
+adaptive monotonicity enforcement, and sophisticated information-theoretic optimization to create
+statistically stable and interpretable bins.
 }
 \details{
-The algorithm employs a multi-phase optimization approach:
+The algorithm employs a multi-phase optimization approach based on information theory principles:
 
-Mathematical Framework:
-For a bin i, the WoE is calculated as:
-\deqn{WoE_i = ln(\frac{p_i + \epsilon}{n_i + \epsilon})}
+\strong{Mathematical Framework:}
+
+For a bin i, the Weight of Evidence (WoE) is calculated with Bayesian smoothing as:
+
+\deqn{WoE_i = \ln\left(\frac{p_i^*}{n_i^*}\right)}
+
 where:
 \itemize{
-\item \eqn{p_i} is the proportion of positive cases in bin i relative to the total positives
-\item \eqn{n_i} is the proportion of negative cases in bin i relative to the total negatives
-\item \eqn{\epsilon} is a small constant (1e-10) to prevent undefined logarithms
+\item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of positive cases
+\item \eqn{n_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of negative cases
+\item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall positive rate
+\item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+\item \eqn{n_i^+} is the count of positive cases in bin i
+\item \eqn{n_i^-} is the count of negative cases in bin i
+\item \eqn{N^+} is the total number of positive cases
+\item \eqn{N^-} is the total number of negative cases
 }
 
-The IV for each bin is calculated as:
-\deqn{IV_i = (p_i - n_i) \times WoE_i}
+The Information Value (IV) for each bin is calculated as:
+
+\deqn{IV_i = (p_i^* - n_i^*) \times WoE_i}
 
 And the total IV is:
+
 \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
 
-Phases:
+\strong{Algorithm Phases:}
 \enumerate{
-\item Initial Binning: Creates individual bins for unique categories with frequency validation
-\item Low-Frequency Treatment: Combines rare categories (< bin_cutoff) to ensure statistical stability
-\item Optimization: Iteratively merges bins using IV loss minimization while maintaining WoE monotonicity
-\item Final Adjustment: Ensures bin count constraints (min_bins <= bins <= max_bins) when feasible
+\item \strong{Initial Binning:} Creates individual bins for unique categories with comprehensive statistics
+\item \strong{Low-Frequency Treatment:} Combines rare categories (< bin_cutoff) to ensure statistical stability
+\item \strong{Optimization:} Iteratively merges bins using adaptive IV loss minimization while ensuring WoE monotonicity
+\item \strong{Final Adjustment:} Ensures bin count constraints (min_bins <= bins <= max_bins) when feasible
 }
 
-Key Features:
+\strong{Key Features:}
 \itemize{
-\item WoE calculations protected by epsilon for numerical stability
-\item Adaptive merging strategy that minimizes information loss
-\item Robust handling of edge cases and constraint violations
-\item No artificial category creation, ensuring interpretable results
-}
-
-Bin Count Control:
-\itemize{
-\item If bins > max_bins: Continue merges using IV loss minimization
-\item If bins < min_bins: Return the best available solution instead of creating artificial splits
+\item Bayesian smoothing for robust WoE estimation with small samples
+\item Adaptive monotonicity enforcement with violation severity prioritization
+\item Information-theoretic merging strategy that minimizes information loss
+\item Handling of edge cases including imbalanced datasets and sparse categories
+\item Best-solution tracking to ensure optimal results even with early convergence
 }
 }
 \examples{
@@ -111,13 +119,28 @@ result <- optimal_binning_categorical_jedi(
   bin_cutoff = 0.03,  # More aggressive rare category treatment
   max_n_prebins = 15  # Limit on initial bins
 )
+
+# Working with more complex settings
+result <- optimal_binning_categorical_jedi(
+  target = target_vector,
+  feature = feature_vector,
+  min_bins = 3,
+  max_bins = 10,
+  bin_cutoff = 0.01,
+  convergence_threshold = 1e-8,  # Stricter convergence
+  max_iterations = 2000  # More iterations for complex problems
+)
 }
 
 }
 \references{
 \itemize{
-\item Optimal Binning Framework (Beltrami et al., 2021)
-\item Information Value Theory in Risk Management (Thomas et al., 2002)
-\item Monotonic Binning Algorithms in Credit Scoring (Mironchyk & Tchistiakov, 2017)
+\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+\item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone Optimal Binning Algorithm for Credit Risk Modeling. Working Paper.
+\item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+\item García-Magariño, I., Medrano, C., Lombas, A. S., & Barrasa, A. (2019). A hybrid approach with agent-based simulation and clustering for sociograms. Information Sciences, 499, 47-61.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
 }
 }

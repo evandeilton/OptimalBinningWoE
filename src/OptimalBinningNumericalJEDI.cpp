@@ -476,9 +476,9 @@ private:
 //' satisfying the following constraints:
 //'
 //' \enumerate{
-//'   \item **Monotonic WoE**: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
-//'   \item **Minimum Bin Size**: \eqn{\text{count}(B_i)/N \ge \text{bin_cutoff}}.
-//'   \item **Bin Quantity Limits**: \eqn{\text{min_bins} \le K \le \text{max_bins}}.
+//' \item **Monotonic WoE**: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
+//' \item **Minimum Bin Size**: count\eqn{(B_i)/N \ge} bin_cutoff.
+//' \item **Bin Quantity Limits**: min_bins \eqn{\le K \le} max_bins.
 //' }
 //'
 //' **Weight of Evidence (WoE)** for bin \eqn{i}:
@@ -505,8 +505,8 @@ private:
 //' - **Early Convergence Detection**: Stops iterations when IV stabilizes within the threshold.
 //'
 //' ### Parameters:
-//' - `min_bins`: Minimum number of bins to be created (default: 3, must be ≥2).
-//' - `max_bins`: Maximum number of bins allowed (default: 5, must be ≥ `min_bins`).
+//' - `min_bins`: Minimum number of bins to be created (default: 3, must be >= 2).
+//' - `max_bins`: Maximum number of bins allowed (default: 5, must be >= `min_bins`).
 //' - `bin_cutoff`: Minimum relative frequency required for a bin to remain standalone (default: 0.05).
 //' - `max_n_prebins`: Maximum number of pre-bins created before optimization (default: 20).
 //' - `convergence_threshold`: Threshold for IV change to determine convergence (default: 1e-6).

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{optimal_binning_numerical_mob}
 \alias{optimal_binning_numerical_mob}
-\title{Perform Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)}
+\title{Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)}
 \usage{
 optimal_binning_numerical_mob(
   target,
@@ -12,7 +12,8 @@ optimal_binning_numerical_mob(
   bin_cutoff = 0.05,
   max_n_prebins = 20L,
   convergence_threshold = 1e-06,
-  max_iterations = 1000L
+  max_iterations = 1000L,
+  laplace_smoothing = 0.5
 )
 }
 \arguments{
@@ -31,35 +32,98 @@ optimal_binning_numerical_mob(
 \item{convergence_threshold}{Threshold for convergence in the iterative process (default: 1e-6)}
 
 \item{max_iterations}{Maximum number of iterations for the binning process (default: 1000)}
+
+\item{laplace_smoothing}{Smoothing parameter for WoE calculation (default: 0.5)}
 }
 \value{
 A list containing the following elements:
-\item{bin}{A character vector of bin labels}
+\item{id}{Bin identifiers (1-based)}
+\item{bin}{A character vector of bin labels showing the intervals}
 \item{woe}{A numeric vector of Weight of Evidence values for each bin}
 \item{iv}{A numeric vector of Information Value for each bin}
 \item{count}{An integer vector of total count of observations in each bin}
 \item{count_pos}{An integer vector of count of positive class observations in each bin}
 \item{count_neg}{An integer vector of count of negative class observations in each bin}
+\item{event_rate}{A numeric vector with the proportion of positive cases in each bin}
 \item{cutpoints}{A numeric vector of cutpoints used to create the bins}
+\item{total_iv}{The total Information Value of all bins combined}
 \item{converged}{A logical value indicating whether the algorithm converged}
 \item{iterations}{An integer value indicating the number of iterations run}
 }
 \description{
-This function implements the Monotonic Optimal Binning algorithm for numerical features.
-It creates optimal bins while maintaining monotonicity in the Weight of Evidence (WoE) values.
+Implements the Monotonic Optimal Binning (MOB) algorithm for discretizing numerical features
+while maintaining monotonicity in the Weight of Evidence (WoE) values. This is particularly
+useful for credit scoring and risk modeling applications where monotonicity is often a
+desirable property for interpretability and regulatory compliance.
 }
 \details{
-The algorithm starts by creating initial bins and then iteratively merges them
-to achieve optimal binning while maintaining monotonicity in the WoE values.
-It respects the minimum and maximum number of bins specified.
+\subsection{Mathematical Framework:}{
+
+\strong{Weight of Evidence (WoE)}: For a bin \eqn{i} with Laplace smoothing \code{alpha}:
+\deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+\item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+\item \eqn{n_{1}} is the total count of positive cases
+\item \eqn{n_{0}} is the total count of negative cases
+\item \eqn{m} is the number of bins
+\item \eqn{\alpha} is the Laplace smoothing parameter
+}
+
+\strong{Information Value (IV)}: Summarizes predictive power across all bins:
+\deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+
+\strong{Monotonicity}: The algorithm ensures that WoE values either consistently increase or
+decrease as the feature value increases, which aligns with business expectations that
+risk should change monotonically with certain features.
+}
+
+\subsection{Algorithm Steps:}{
+\enumerate{
+\item \strong{Create Initial Pre-bins}: Divide the feature into equal-frequency bins
+\item \strong{Merge Rare Bins}: Combine bins with frequency below the threshold
+\item \strong{Enforce Monotonicity}: Identify and merge bins that violate monotonicity
+\item \strong{Optimize Bin Count}: Adjust number of bins to stay within min/max constraints
+\item \strong{Calculate Metrics}: Compute final WoE and IV values with Laplace smoothing
+}
+}
 }
 \examples{
 \dontrun{
+# Basic usage
 set.seed(42)
 feature <- rnorm(1000)
-target <- rbinom(1000, 1, 0.5)
+target <- rbinom(1000, 1, plogis(0.5 * feature))
 result <- optimal_binning_numerical_mob(target, feature)
 print(result)
+
+# Advanced usage with custom parameters
+result2 <- optimal_binning_numerical_mob(
+  target = target,
+  feature = feature,
+  min_bins = 2,
+  max_bins = 10,
+  bin_cutoff = 0.03,
+  laplace_smoothing = 0.1
+)
+
+# Plot Weight of Evidence by bin
+plot(result2$woe, type = "b", xlab = "Bin", ylab = "WoE",
+     main = "Weight of Evidence by Bin")
+abline(h = 0, lty = 2)
 }
 
+}
+\references{
+\itemize{
+\item Belotti, T. & Crook, J. (2009). "Credit Scoring with Macroeconomic Variables
+Using Survival Analysis." Journal of the Operational Research Society, 60(12), 1699-1707.
+\item Hand, D.J. & Adams, N.M. (2000). "Defining attributes for scorecard construction
+in credit scoring." Journal of Applied Statistics, 27(5), 527-540.
+\item Thomas, L.C. (2009). "Consumer Credit Models: Pricing, Profit, and Portfolios."
+Oxford University Press.
+\item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
+}
 }

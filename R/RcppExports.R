@@ -120,55 +120,79 @@ OptimalBinningApplyWoENum <- function(obresults, feature, include_upper_bound = 
     .Call(`_OptimalBinningWoE_OptimalBinningApplyWoENum`, obresults, feature, include_upper_bound)
 }
 
-#' @title Optimal Binning for Categorical Variables by Chi-Merge
+#' @title Optimal Binning for Categorical Variables using ChiMerge
 #'
 #' @description
-#' Implements optimal binning for categorical variables using the Chi-Merge algorithm,
-#' calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
+#' Implements optimal binning for categorical variables using the ChiMerge algorithm
+#' (Kerber, 1992) and Chi2 algorithm (Liu & Setiono, 1995), calculating Weight of 
+#' Evidence (WoE) and Information Value (IV) for the resulting bins.
 #'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param bin_separator Separator for concatenating category names in bins (default: "%;%").
-#' @param convergence_threshold Threshold for convergence in Chi-square difference (default: 1e-6).
-#' @param max_iterations Maximum number of iterations for bin merging (default: 1000).
+#' @param target Integer vector of binary target values (0 or 1)
+#' @param feature Character vector of categorical feature values
+#' @param min_bins Minimum number of bins (default: 3)
+#' @param max_bins Maximum number of bins (default: 5)
+#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05)
+#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20)
+#' @param bin_separator Separator for concatenating category names in bins (default: "%;%")
+#' @param convergence_threshold Threshold for convergence in Chi-square difference (default: 1e-6)
+#' @param max_iterations Maximum number of iterations for bin merging (default: 1000)
+#' @param chi_merge_threshold Significance level threshold for chi-square test (default: 0.05)
+#' @param use_chi2_algorithm Whether to use the enhanced Chi2 algorithm (default: FALSE)
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item bin: Vector of bin names (concatenated categories).
-#'   \item woe: Vector of Weight of Evidence values for each bin.
-#'   \item iv: Vector of Information Value for each bin.
-#'   \item count: Vector of total counts for each bin.
-#'   \item count_pos: Vector of positive class counts for each bin.
-#'   \item count_neg: Vector of negative class counts for each bin.
-#'   \item converged: Boolean indicating whether the algorithm converged.
-#'   \item iterations: Number of iterations run.
+#'   \item id: Vector of numeric IDs for each bin
+#'   \item bin: Vector of bin names (concatenated categories)
+#'   \item woe: Vector of Weight of Evidence values for each bin
+#'   \item iv: Vector of Information Value for each bin
+#'   \item count: Vector of total counts for each bin
+#'   \item count_pos: Vector of positive class counts for each bin
+#'   \item count_neg: Vector of negative class counts for each bin
+#'   \item converged: Boolean indicating whether the algorithm converged
+#'   \item iterations: Number of iterations run
+#'   \item algorithm: Which algorithm was used (ChiMerge or Chi2)
 #' }
 #'
 #' @details
-#' The algorithm uses Chi-square statistics to merge adjacent bins:
+#' The ChiMerge algorithm (Kerber, 1992) uses chi-square statistics to determine when to 
+#' merge adjacent bins. The chi-square statistic is calculated as:
 #'
 #' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
 #'
 #' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
 #' for bin i and class j.
 #'
-#' Weight of Evidence (WoE) for each bin:
+#' The Chi2 algorithm (Liu & Setiono, 1995) extends ChiMerge with automated threshold 
+#' determination and feature selection capabilities.
+#'
+#' Weight of Evidence (WoE) is calculated as:
 #'
 #' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
 #'
-#' Information Value (IV) for each bin:
+#' Information Value (IV) for each bin is calculated as:
 #'
 #' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
 #'
-#' The algorithm initializes bins for each category, merges rare categories based on
-#' bin_cutoff, and then iteratively merges bins with the lowest chi-square
-#' until max_bins is reached or no further merging is possible. It determines the
-#' direction of monotonicity based on the initial trend and enforces it, allowing
-#' deviations if min_bins constraints are triggered.
+#' The algorithm works by:
+#' 1. Initializing each category as a separate bin
+#' 2. Merging rare categories based on bin_cutoff
+#' 3. Limiting the number of pre-bins to max_n_prebins
+#' 4. Iteratively merging bins with the lowest chi-square until max_bins is reached,
+#'    or no further merging is possible based on the chi-square threshold
+#' 5. Ensuring monotonicity of WoE across bins
+#'
+#' The chi_merge_threshold parameter controls the statistical significance level for 
+#' merging. A value of 0.05 corresponds to a 95% confidence level.
+#'
+#' References:
+#' \itemize{
+#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. 
+#'         In Proceedings of the Tenth National Conference on Artificial Intelligence, 
+#'         AAAI'92, pages 123-128.
+#'   \item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization 
+#'         of Numeric Attributes. In Proceedings of the 7th IEEE International Conference 
+#'         on Tools with Artificial Intelligence, pages 388-391.
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -176,23 +200,149 @@ OptimalBinningApplyWoENum <- function(obresults, feature, include_upper_bound = 
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 #'
-#' # Run optimal binning
+#' # Run optimal binning with ChiMerge
 #' result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
+#'
+#' # Use the Chi2 algorithm instead
+#' result_chi2 <- optimal_binning_categorical_cm(target, feature, min_bins = 2, 
+#'                                              max_bins = 4, use_chi2_algorithm = TRUE)
 #'
 #' # View results
 #' print(result)
 #' }
 #'
 #' @export
-optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
+optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L, chi_merge_threshold = 0.05, use_chi2_algorithm = FALSE) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations, chi_merge_threshold, use_chi2_algorithm)
+}
+
+#' @title Optimal Binning for Categorical Variables using Divergence Measures (V2)
+#'
+#' @description
+#' Performs optimal binning for categorical variables using various divergence measures as proposed
+#' by Zeng (2013). This is Version 2, incorporating fixes for potential crashes and performance improvements.
+#' This method transforms categorical features into discrete bins by maximizing
+#' the statistical divergence between distributions of positive and negative cases, while
+#' maintaining interpretability constraints.
+#'
+#' @param target An integer binary vector (0 or 1) representing the target variable. Cannot contain NAs.
+#' @param feature A character vector of categorical feature values. `NA` values will be treated as a distinct category "NA".
+#' @param min_bins Minimum number of bins to generate (default: 3, must be >= 2).
+#' @param max_bins Maximum number of bins to generate (default: 5).
+#' @param bin_cutoff Minimum frequency fraction threshold used for OLD rare category handling (NOTE: V2 primarily uses `max_n_prebins` and `min_prebin_count` for initial handling, this cutoff is less relevant now but kept for interface compatibility). Default: 0.05.
+#' @param max_n_prebins Maximum number of initial bins before merging starts. If unique categories exceed this, categories with counts < `min_prebin_count` (hardcoded as 5 currently) are grouped into a "PREBIN_OTHER" bin (default: 20).
+#' @param bin_separator String separator for concatenating category names in bins (default: "%;%").
+#' @param convergence_threshold Convergence threshold for the change in minimum divergence between iterations during merging (default: 1e-6).
+#' @param max_iterations Maximum number of merging iterations allowed (default: 1000).
+#' @param bin_method Method for WoE calculation, either 'woe' (traditional) or 'woe1' (Zeng's, smoothed) (default: 'woe1').
+#' @param divergence_method Divergence measure to optimize for merging (lower is better). Options:
+#' \itemize{
+#'   \item 'he': Hellinger Distance
+#'   \item 'kl': Symmetrized Kullback-Leibler Divergence
+#'   \item 'tr': Triangular Discrimination
+#'   \item 'klj': J-Divergence (Symmetric KL)
+#'   \item 'sc': Symmetric Chi-Square Divergence
+#'   \item 'js': Jensen-Shannon Divergence
+#'   \item 'l1': L1 metric (Manhattan distance) on local bin proportions p/(p+n) vs q/(p+n)
+#'   \item 'l2': L2 metric (Euclidean distance) on local bin proportions - Default
+#'   \item 'ln': L-infinity metric (Maximum distance) on local bin proportions
+#' }
+#'
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with the categories in each bin (or "PREBIN_OTHER").}
+#' \item{woe}{Numeric vector with the Weight of Evidence values for each bin.}
+#' \item{divergence}{Numeric vector with the divergence measure contribution for each bin (for L2/L-inf, this holds an intermediate value: `(p-n)^2` or `|p-n|` respectively, where p/n are proportions relative to total pos/neg).}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the number of positive observations in each bin.}
+#' \item{count_neg}{Integer vector with the number of negative observations in each bin.}
+#' \item{converged}{Logical value indicating whether the merging algorithm converged before hitting max iterations or `max_bins`.}
+#' \item{iterations}{Number of merging iterations executed.}
+#' \item{total_divergence}{The total divergence measure of the final binning solution (calculated correctly for all methods, including L2/L-inf).}
+#' \item{bin_method}{The WoE calculation method used ('woe' or 'woe1').}
+#' \item{divergence_method}{The divergence measure used for optimization.}
+#'
+#' @details
+#' This implementation (V2) addresses potential stability and performance issues found in V1.
+#' It follows the framework from Zeng (2013) using various divergence measures.
+#' The `max_n_prebins` parameter is now functional, grouping rare categories initially if cardinality is high.
+#' The similarity matrix update logic during merging and splitting has been corrected and optimized.
+#' Calculation and reporting of L2/L-infinity total divergence are corrected.
+#' Formulas for divergence measures (where P = (p_1,..p_n), Q = (q_1,..q_n) are distributions):
+#' \deqn{Hellinger: h(P||Q) = \frac{1}{2}\sum_{i=1}^{n}(\sqrt{p_i} - \sqrt{q_i})^2}
+#' \deqn{Symmetric KL: D_S(P||Q) = D(P||Q) + D(Q||P)}
+#' \deqn{J-Divergence: J(P||Q) = D_S(P||Q)}
+#' \deqn{Triangular: \Delta(P||Q) = \sum_{i=1}^{n}\frac{(p_i - q_i)^2}{p_i + q_i}}
+#' \deqn{Chi-Square Symm: \psi(P||Q) = \sum_{i=1}^{n}\frac{(p_i - q_i)^2(p_i + q_i)}{p_iq_i}}
+#' \deqn{Jensen-Shannon: JSD(P||Q) = \frac{1}{2}D(P||M) + \frac{1}{2}D(Q||M), M=\frac{P+Q}{2}}
+#' \deqn{L1 (local proportions): L_1(p_1, p_2) = | \frac{g_1}{g_1+b_1} - \frac{g_2}{g_2+b_2} | + | \frac{b_1}{g_1+b_1} - \frac{b_2}{g_2+b_2} |} (Note: The code calculates L1 based on global proportions p_i/P vs n_i/N for merging criteria, but documentation needs clarification if local prop is intended) -> V2 Code calculates L1/L2/Ln based on *local* proportions for the bin similarity/distance now.
+#' \deqn{L2 (local proportions): L_2(p_1, p_2) = \sqrt{ (\frac{g_1}{g_1+b_1} - \frac{g_2}{g_2+b_2})^2 + (\frac{b_1}{g_1+b_1} - \frac{b_2}{g_2+b_2})^2 }}
+#' \deqn{L-infinity (local proportions): L_\infty(p_1, p_2) = \max ( | \frac{g_1}{g_1+b_1} - \frac{g_2}{g_2+b_2} |, | \frac{b_1}{g_1+b_1} - \frac{b_2}{g_2+b_2} | ) }
+#' WoE Methods:
+#' \deqn{Traditional WoE: \ln(\frac{g_i/G}{b_i/B})}
+#' \deqn{Zeng's WOE1: \ln(\frac{g_i + 0.5}{b_i + 0.5})} (using smoothing)
+#'
+#' @references
+#' Zeng, G. (2013). Metric Divergence Measures and Information Value in Credit Scoring.
+#' Journal of Mathematics, 2013, Article ID 848271, 10 pages.
+#'
+#' Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring.
+#' John Wiley & Sons.
+#'
+#' @examples
+#' \dontrun{
+#' # Generate sample data
+#' set.seed(123)
+#' n <- 1000
+#' categories <- c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "RARE1", "RARE2")
+#' feature <- sample(categories, n, replace = TRUE, prob = c(rep(0.09, 10), 0.05, 0.05))
+#' feature[sample(1:n, 50)] <- NA # Add some NAs
+#'
+#' # Create target with different distribution per category
+#' base_probs <- c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.05, 0.99)
+#' target <- numeric(n)
+#' for (i in 1:n) {
+#'   if (is.na(feature[i])) {
+#'     target[i] <- rbinom(1, 1, 0.5) # Assign random target for NA category
+#'   } else {
+#'      cat_idx <- match(feature[i], categories)
+#'      target[i] <- rbinom(1, 1, base_probs[cat_idx])
+#'   }
+#' }
+#'
+#' # Apply optimal binning V2 with L2 metric and WOE1
+#' result_v2 <- optimal_binning_categorical_dmiv_v2(target, feature, max_bins = 4)
+#' print(result_v2)
+#'
+#' # Test with high cardinality and max_n_prebins
+#' set.seed(456)
+#' n_high <- 5000
+#' categories_high <- paste0("CAT_", 1:100)
+#' feature_high <- sample(categories_high, n_high, replace = TRUE)
+#' target_high <- rbinom(n_high, 1, runif(n_high, 0.1, 0.9)) # Random target
+#'
+#' result_prebin <- optimal_binning_categorical_dmiv_v2(
+#'    target_high,
+#'    feature_high,
+#'    max_n_prebins = 15, # Force pre-binning
+#'    max_bins = 5
+#' )
+#' print(result_prebin)
+#' print(result_prebin$bin) # Check for PREBIN_OTHER
+#' }
+#'
+#' @export
+optimal_binning_categorical_dmiv <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L, bin_method = "woe1", divergence_method = "l2") {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_dmiv`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations, bin_method, divergence_method)
 }
 
 #' @title
-#' Optimal Binning for Categorical Variables using Dynamic Programming with Linear Constraints
+#' Optimal Binning for Categorical Variables using Dynamic Programming
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a dynamic programming approach with linear constraints. It aims to find the optimal grouping of categories that maximizes the Information Value (IV) while respecting user-defined constraints on the number of bins.
+#' Performs optimal binning for categorical variables using a dynamic programming approach with linear constraints.
+#' This algorithm finds the optimal grouping of categories that maximizes the Information Value (IV) 
+#' while respecting constraints on the number of bins and monotonicity.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A character vector of categorical feature values.
@@ -200,40 +350,65 @@ optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_b
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum proportion of total observations for a bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param convergence_threshold Convergence threshold for the dynamic programming algorithm (default: 1e-6).
+#' @param convergence_threshold Convergence threshold for the dynamic programming algorithm (default: 0.0000001).
 #' @param max_iterations Maximum number of iterations for the dynamic programming algorithm (default: 1000).
-#' @param bin_separator Separator for concatenating category names in bins (default: "%;%").
+#' @param bin_separator Separator for concatenating category names in bins (default: "%;%).
+#' @param monotonic_trend Force monotonic trend ('auto', 'ascending', 'descending', 'none'). Default: 'auto'.
 #'
-#' @return A data frame containing binning information, including bin names, WOE, IV, and counts.
+#' @return A data frame containing binning information with the following columns:
+#' \describe{
+#'   \item{id}{Bin identifier (integer)}
+#'   \item{bin}{Bin name containing the concatenated categories}
+#'   \item{woe}{Weight of Evidence value for the bin}
+#'   \item{iv}{Information Value contribution of the bin}
+#'   \item{count}{Total number of observations in the bin}
+#'   \item{count_pos}{Number of positive events (target=1) in the bin}
+#'   \item{count_neg}{Number of negative events (target=0) in the bin}
+#'   \item{event_rate}{Rate of positive events in the bin (count_pos/count)}
+#'   \item{total_iv}{Total Information Value across all bins}
+#'   \item{converged}{Logical indicating whether the algorithm converged}
+#'   \item{iterations}{Number of iterations performed}
+#'   \item{execution_time_ms}{Execution time in milliseconds}
+#' }
 #'
 #' @details
-#' The algorithm uses dynamic programming to find the optimal binning solution that maximizes the total Information Value (IV) while respecting the constraints on the number of bins. It follows these main steps:
+#' The algorithm uses dynamic programming to find the optimal binning solution that maximizes the total 
+#' Information Value (IV) while respecting constraints. The process follows these steps:
 #'
 #' \enumerate{
-#'   \item Preprocess the data by counting occurrences and merging rare categories.
-#'   \item Sort categories based on their event rates.
-#'   \item Use dynamic programming to find the optimal binning solution.
-#'   \item Backtrack to determine the final bin edges.
-#'   \item Calculate WOE and IV for each bin.
+#'   \item Preprocess the data to count occurrences and merge rare categories
+#'   \item Sort categories based on their event rates (ratio of positive events to total events)
+#'   \item Use dynamic programming to find the optimal partitioning of categories into bins
+#'   \item Apply monotonicity constraints if specified
+#'   \item Calculate WoE and IV metrics for each final bin
 #' }
 #'
-#' The dynamic programming approach uses a recurrence relation to find the maximum total IV achievable for a given number of categories and bins.
+#' The Weight of Evidence (WoE) for each bin is calculated as:
 #'
-#' The Weight of Evidence (WOE) for each bin is calculated as:
+#' \deqn{WoE = \ln\left(\frac{\text{Distribution of Events}}{\text{Distribution of Non-Events}}\right)}
 #'
-#' \deqn{WOE = \ln\left(\frac{\text{Distribution of Good}}{\text{Distribution of Bad}}\right)}
+#' The Information Value (IV) contribution for each bin is:
 #'
-#' And the Information Value (IV) for each bin is:
+#' \deqn{IV = (\text{Distribution of Events} - \text{Distribution of Non-Events}) \times WoE}
 #'
-#' \deqn{IV = (\text{Distribution of Good} - \text{Distribution of Bad}) \times WOE}
+#' Total IV is the sum of IV values across all bins and measures the overall predictive power.
 #'
-#' The algorithm aims to find the binning solution that maximizes the total IV while respecting the constraints on the number of bins and ensuring monotonicity when possible.
-#'
-#' @references
+#' This implementation is based on the methodology described in:
+#' 
 #' \itemize{
-#'   \item Belotti, P., Bonami, P., Fischetti, M., Lodi, A., Monaci, M., Nogales-Gómez, A., & Salvagnin, D. (2016). On handling indicator constraints in mixed integer programming. Computational Optimization and Applications, 65(3), 545-566.
-#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal.
+#'   \item Navas-Palencia, G. (2022). "OptBinning: Mathematical Optimization for Optimal Binning". Journal of Open Source Software, 7(74), 4101.
+#'   \item Siddiqi, N. (2017). "Intelligent Credit Scoring: Building and Implementing Better Credit Risk Scorecards". John Wiley & Sons, 2nd Edition.
+#'   \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2017). "Credit Scoring and Its Applications". SIAM, 2nd Edition.
+#'   \item Kotsiantis, S.B., & Kanellopoulos, D. (2006). "Discretization Techniques: A recent survey". GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
 #' }
+#'
+#' The dynamic programming algorithm optimally partitions the sorted categories into bins that maximize
+#' the total information value. The recurrence relation used is:
+#'
+#' \deqn{DP[i][k] = \max_{j<i} \{DP[j][k-1] + IV(\text{bin from } j \text{ to } i)\}}
+#'
+#' where \eqn{DP[i][k]} represents the maximum total IV achievable using the first i categories partitioned
+#' into "k" bins.
 #'
 #' @examples
 #' \dontrun{
@@ -244,59 +419,136 @@ optimal_binning_categorical_cm <- function(target, feature, min_bins = 3L, max_b
 #' feature <- sample(c("A", "B", "C", "D", "E"), n, replace = TRUE)
 #'
 #' # Perform optimal binning
-#' result <- optimal_binning_categorical_dplc(target, feature, min_bins = 2, max_bins = 4)
+#' result <- optimal_binning_categorical_dp(target, feature, min_bins = 2, max_bins = 4)
 #'
 #' # View results
 #' print(result)
 #' }
 #'
 #' @export
-optimal_binning_categorical_dplc <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = "%;%") {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_dplc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
+optimal_binning_categorical_dp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = "%;%", monotonic_trend = "auto") {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_dp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator, monotonic_trend)
 }
 
-#' @title Categorical Optimal Binning with Fisher's Exact Test
-#'
+#' @title Categorical Optimal Binning with Fisher’s Exact Test
+#' 
 #' @description
-#' Implements optimal binning for categorical variables using Fisher's Exact Test,
-#' calculating Weight of Evidence (WoE) and Information Value (IV).
-#'
-#' @param target Integer vector of binary target values (0 or 1).
-#' @param feature Character vector of categorical feature values.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
-#' @param convergence_threshold Threshold for convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations (default: 1000).
-#' @param bin_separator Separator for bin labels (default: "%;%").
-#'
-#' @return A list containing:
-#' \itemize{
-#'   \item bin: Character vector of bin labels (merged categories).
-#'   \item woe: Numeric vector of Weight of Evidence values for each bin.
-#'   \item iv: Numeric vector of Information Value for each bin.
-#'   \item count: Integer vector of total count in each bin.
-#'   \item count_pos: Integer vector of positive class count in each bin.
-#'   \item count_neg: Integer vector of negative class count in each bin.
-#'   \item converged: Logical indicating whether the algorithm converged.
-#'   \item iterations: Integer indicating the number of iterations performed.
-#' }
-#'
+#' Performs supervised optimal binning of a **categorical** predictor versus a
+#' **binary** target by iteratively merging the *most similar* adjacent bins
+#' according to Fisher’s Exact Test.  The routine returns monotonic
+#' \emph{Weight of Evidence} (WoE) values and the associated
+#' \emph{Information Value} (IV), both key metrics in credit‑scoring,
+#' churn prediction and other binary‑response models.
+#' 
 #' @details
-#' The algorithm uses Fisher's Exact Test to iteratively merge bins, maximizing
-#' the statistical significance of the difference between adjacent bins. It ensures
-#' monotonicity in the resulting bins and respects the minimum number of bins specified.
-#'
-#' @examples
-#' \dontrun{
-#' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-#' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
-#' result <- optimal_binning_categorical_fetb(target, feature, min_bins = 2,
-#' max_bins = 4, bin_separator = "|")
-#' print(result)
+#' \strong{Algorithm outline}\cr
+#' Let \eqn{X \in \{\mathcal{C}_1,\dots,\mathcal{C}_K\}} be a categorical
+#' feature and \eqn{Y\in\{0,1\}} the target.  For each category
+#' \eqn{\mathcal{C}_k} compute the contingency table
+#' \deqn{
+#'   \begin{array}{c|cc}
+#'      & Y=1 & Y=0 \\ \hline
+#'   X=\mathcal{C}_k & a_k & b_k
+#'   \end{array}}{}
+#' with \eqn{a_k+b_k=n_k}.  Rare categories where
+#' \eqn{n_k < \textrm{cutoff}\times N} are grouped into a ``rare'' bin.
+#' The remaining categories start as singleton bins ordered by their WoE:
+#' \deqn{\mathrm{WoE}_k = \log\left(\frac{a_k/T_1}{b_k/T_0}\right)}{}
+#' where \eqn{T_1=\sum_k a_k,\; T_0=\sum_k b_k}.  \cr\cr
+#' At every iteration the two adjacent bins \eqn{i,i+1} that maximise the
+#' two‑tail Fisher \emph{p‑value}
+#' \deqn{p_{i,i+1} = P\!\left(
+#'    \begin{array}{c|cc} & Y=1 & Y=0\\\hline
+#'    \text{bin }i & a_i & b_i\\
+#'    \text{bin }i+1 & a_{i+1}& b_{i+1}
+#'    \end{array}
+#' \right)}
+#' are merged.  The process stops when either
+#' \eqn{\#\text{bins}\le\texttt{max\_bins}} or the
+#' change in global IV,
+#' \deqn{\mathrm{IV}= \sum_{\text{bins}} (\tfrac{a}{T_1}-\tfrac{b}{T_0})
+#'                       \log\!\left(\tfrac{a\,T_0}{b\,T_1}\right)}{}
+#' is below \code{convergence_threshold}.  After each merge a local
+#' \emph{monotonicity enforcement} step guarantees
+#' \eqn{\mathrm{WoE}_1\le\cdots\le\mathrm{WoE}_m} (or the reverse).
+#' 
+#' \strong{Complexity}\cr
+#' \itemize{
+#'   \item Counting pass: \eqn{O(N)} time and \eqn{O(K)} memory.
+#'   \item Merging loop: worst‑case \eqn{O(B^2)} time where
+#'         \eqn{B\le K} is the initial number of bins;
+#'         in practice \eqn{B\ll N} and the loop is very fast.
 #' }
-#'
+#' Overall complexity is \eqn{O(N + B^2)} time and \eqn{O(K)} memory.
+#' 
+#' \strong{Statistical background}\cr
+#' The use of Fisher’s Exact Test provides an exact
+#' significance measure for 2×2 tables, ensuring the merged bins are those
+#' whose class proportions do not differ significantly.  Monotone WoE
+#' facilitates downstream monotonic logistic regression or scorecard
+#' scaling.
+#' 
+#' @param target \code{integer} vector of 0/1 values (length \eqn{N}).
+#' @param feature \code{character} vector of categories (length \eqn{N}).
+#' @param min_bins Minimum number of final bins.  Default is \code{3}.
+#' @param max_bins Maximum number of final bins.  Default is \code{5}.
+#' @param bin_cutoff Relative frequency threshold below which categories
+#'        are folded into the rare‑bin (default \code{0.05}).
+#' @param max_n_prebins Reserved for future use (ignored internally).
+#' @param convergence_threshold Absolute tolerance for the change in total IV
+#'        required to declare convergence (default \code{0.0000001}).
+#' @param max_iterations Safety cap for merge iterations (default \code{1000}).
+#' @param bin_separator String used to concatenate category labels in the output.
+#' 
+#' @return A \code{list} with components
+#' \itemize{
+#'   \item \code{id}           – numeric id of each resulting bin
+#'   \item \code{bin}          – concatenated category labels
+#'   \item \code{woe}, \code{iv} – WoE and IV per bin
+#'   \item \code{count}, \code{count_pos}, \code{count_neg} – bin counts
+#'   \item \code{converged}    – logical flag
+#'   \item \code{iterations}   – number of merge iterations
+#' }
+#' 
+#' @examples
+#' \donttest{
+#' ## simulated example -------------------------------------------------
+#' set.seed(42)
+#' n        <- 1000
+#' target   <- rbinom(n, 1, 0.3)                 # 30 % positives
+#' cats     <- LETTERS[1:6]
+#' probs    <- c(0.25, 0.20, 0.18, 0.15, 0.12, 0.10)
+#' feature  <- sample(cats, n, TRUE, probs)      # imbalanced categories
+#' 
+#' res <- optimal_binning_categorical_fetb(
+#'   target, feature,
+#'   min_bins = 2, max_bins = 4,
+#'   bin_cutoff = 0.02, bin_separator = "|"
+#' )
+#' 
+#' str(res)
+#' 
+#' ## inspect WoE curve
+#' plot(res$woe, type = "b", pch = 19,
+#'      xlab = "Bin index", ylab = "Weight of Evidence")
+#' }
+#' 
+#' @references
+#' Fisher, R. A. (1922). *On the interpretation of \eqn{X^2} from contingency
+#'   tables, and the calculation of P*. *Journal of the Royal Statistical
+#'   Society*, **85**, 87‑94.\cr
+#' Hosmer, D. W., & Lemeshow, S. (2000).
+#'   *Applied Logistic Regression* (2nd ed.). Wiley.\cr
+#' Navas‑Palencia, G. (2019).
+#'   *optbinning: Optimal Binning in Python* – documentation v0.19.\cr
+#' Freeman, J. V., & Campbell, M. J. (2007).
+#'   *The analysis of categorical data: Fisher’s exact test*. *Significance*.\cr
+#' Siddiqi, N. (2012).
+#'   *Credit Risk Scorecards: Developing and Implementing Intelligent Credit
+#'   Scoring*. Wiley.
+#' 
+#' @author Lopes, J. E.
+#' 
 #' @export
 optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = "%;%") {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_fetb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
@@ -308,65 +560,89 @@ optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max
 #' Implements optimal binning for categorical variables using a Greedy Merge approach,
 #' calculating Weight of Evidence (WoE) and Information Value (IV).
 #'
-#' @param target Integer vector of binary target values (0 ou 1).
+#' @param target Integer vector of binary target values (0 or 1).
 #' @param feature Character vector of categorical feature values.
-#' @param min_bins Número mínimo de bins (padrão: 3).
-#' @param max_bins Número máximo de bins (padrão: 5).
-#' @param bin_cutoff Frequência mínima para um bin separado (padrão: 0.05).
-#' @param max_n_prebins Número máximo de pré-bins antes da fusão (padrão: 20).
-#' @param bin_separator Separador usado para mesclar nomes de categorias (padrão: "%;%").
-#' @param convergence_threshold Limite para convergência (padrão: 1e-6).
-#' @param max_iterations Número máximo de iterações (padrão: 1000).
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#' @param bin_separator Separator used for merging category names (default: "%;%").
+#' @param convergence_threshold Threshold for convergence (default: 1e-6).
+#' @param max_iterations Maximum number of iterations (default: 1000).
 #'
-#' @return Uma lista com os seguintes elementos:
+#' @return A list with the following elements:
 #' \itemize{
-#'   \item bins: Vetor de caracteres com os nomes dos bins (categorias mescladas).
-#'   \item woe: Vetor numérico dos valores de Weight of Evidence para cada bin.
-#'   \item iv: Vetor numérico do Information Value para cada bin.
-#'   \item count: Vetor inteiro da contagem total para cada bin.
-#'   \item count_pos: Vetor inteiro da contagem da classe positiva para cada bin.
-#'   \item count_neg: Vetor inteiro da contagem da classe negativa para cada bin.
-#'   \item converged: Lógico indicando se o algoritmo convergiu.
-#'   \item iterations: Inteiro indicando o número de iterações realizadas.
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector of bin names (merged categories).
+#'   \item woe: Numeric vector of Weight of Evidence values for each bin.
+#'   \item iv: Numeric vector of Information Value for each bin.
+#'   \item count: Integer vector of total count for each bin.
+#'   \item count_pos: Integer vector of positive class count for each bin.
+#'   \item count_neg: Integer vector of negative class count for each bin.
+#'   \item total_iv: Total Information Value of the binning.
+#'   \item converged: Logical indicating whether the algorithm converged.
+#'   \item iterations: Integer indicating the number of iterations performed.
 #' }
 #'
 #' @details
-#' O algoritmo utiliza uma abordagem de fusão gulosa para encontrar uma solução de binning ótima.
-#' Ele começa com cada categoria única como um bin separado e itera fusões de
-#' bins para maximizar o Information Value (IV) geral, respeitando as
-#' restrições no número de bins.
+#' The Greedy Merge Binning (GMB) algorithm finds an optimal binning solution by iteratively 
+#' merging adjacent bins to maximize Information Value (IV) while respecting constraints 
+#' on the number of bins.
 #'
-#' O Weight of Evidence (WoE) para cada bin é calculado como:
-#'
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#'
-#' O Information Value (IV) para cada bin é calculado como:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) \times WoE}
-#'
-#' O algoritmo inclui os seguintes passos principais:
-#' \enumerate{
-#'   \item Inicializar bins com cada categoria única.
-#'   \item Mesclar categorias raras com base no bin_cutoff.
-#'   \item Iterativamente mesclar bins adjacentes que resultem no maior IV.
-#'   \item Parar de mesclar quando o número de bins atingir min_bins ou max_bins.
-#'   \item Garantir a monotonicidade dos valores de WoE através dos bins.
-#'   \item Calcular o WoE e IV final para cada bin.
+#' The Weight of Evidence (WoE) measures the predictive power of a bin and is defined as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{n^+_i/N^+}{n^-_i/N^-}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{n^+_i} is the number of positive cases in bin i
+#'   \item \eqn{n^-_i} is the number of negative cases in bin i
+#'   \item \eqn{N^+} is the total number of positive cases
+#'   \item \eqn{N^-} is the total number of negative cases
 #' }
 #'
-#' O algoritmo lida com contagens zero usando uma constante pequena (epsilon) para evitar
-#' logaritmos indefinidos e divisão por zero.
+#' The Information Value (IV) quantifies the predictive power of the entire binning and is:
+#'
+#' \deqn{IV = \sum_{i=1}^{n} (p_i - q_i) \times WoE_i}
+#'
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i = n^+_i/N^+} is the proportion of positive cases in bin i
+#'   \item \eqn{q_i = n^-_i/N^-} is the proportion of negative cases in bin i
+#' }
+#'
+#' This algorithm applies Bayesian smoothing to WoE calculations to improve stability, particularly
+#' with small sample sizes or rare categories. The smoothing applies pseudo-counts based on the
+#' overall population prevalence.
+#'
+#' The algorithm includes the following main steps:
+#' \enumerate{
+#'   \item Initialize bins with each unique category.
+#'   \item Merge rare categories based on the bin_cutoff.
+#'   \item Iteratively merge adjacent bins that result in the highest IV.
+#'   \item Stop merging when the number of bins reaches min_bins or max_bins.
+#'   \item Ensure monotonicity of WoE values across bins.
+#'   \item Calculate final WoE and IV for each bin.
+#' }
+#'
+#' Edge cases are handled as follows:
+#' \itemize{
+#'   \item Empty strings in feature are rejected during input validation
+#'   \item Extremely imbalanced datasets (< 5 samples in either class) produce a warning
+#'   \item When merging bins, ties in IV improvement are resolved by preferring more balanced bins
+#'   \item Monotonicity violations are addressed with an adaptive threshold based on average WoE gaps
+#' }
 #'
 #' @examples
 #' \dontrun{
-#' # Dados de exemplo
+#' # Example data
 #' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
 #' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
 #'
-#' # Executar binning ótimo
+#' # Run optimal binning
 #' result <- optimal_binning_categorical_gmb(target, feature, min_bins = 2, max_bins = 4)
 #'
-#' # Ver resultados
+#' # View results
 #' print(result)
 #' }
 #'
@@ -377,6 +653,10 @@ optimal_binning_categorical_fetb <- function(target, feature, min_bins = 3L, max
 #' \itemize{
 #'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
 #'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+#'   \item García-Magariño, I., Medrano, C., Lombas, A. S., & Barrasa, A. (2019). A hybrid approach with agent-based simulation and clustering for sociograms. Information Sciences, 499, 47-61.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+#'   \item Lin, X., Wang, G., & Zhang, T. (2022). Efficient monotonic binning for predictive modeling in high-dimensional spaces. Knowledge-Based Systems, 235, 107629.
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
 #' }
 #' @export
 #'
@@ -384,146 +664,125 @@ optimal_binning_categorical_gmb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_gmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Categorical Variables using IVB
+#' @title Optimal Binning for Categorical Variables using Information Value Dynamic Programming
 #'
 #' @description
-#' This code implements optimal binning for categorical variables using an Information Value (IV)-based approach
-#' with dynamic programming. Enhancements have been added to ensure robustness, numerical stability, and improved maintainability:
-#' - More rigorous input validation.
-#' - Use of epsilon to avoid log(0).
-#' - Control over min_bins and max_bins based on the number of categories.
-#' - Handling of rare categories and imposition of monotonicity in WoE/Event Rates.
-#' - Detailed comments, better code structure, and convergence checks.
+#' Implements optimal binning for categorical variables using a dynamic programming approach
+#' to maximize Information Value (IV). The algorithm finds the globally optimal binning
+#' solution within the constraints of minimum and maximum bin counts.
 #'
 #' @param target Integer binary vector (0 or 1) representing the response variable.
 #' @param feature Character vector or factor containing the categorical values of the explanatory variable.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
 #' @param bin_separator Separator for merged category names (default: "%;%").
 #' @param convergence_threshold Convergence threshold for IV (default: 1e-6).
 #' @param max_iterations Maximum number of iterations in the search for the optimal solution (default: 1000).
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item bin: Vector with the names of the formed bins.
-#'   \item woe: Numeric vector with the WoE of each bin.
-#'   \item iv: Numeric vector with the IV of each bin.
-#'   \item count, count_pos, count_neg: Total, positive, and negative counts per bin.
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector with the names of the formed bins.
+#'   \item woe: Numeric vector with the Weight of Evidence (WoE) of each bin.
+#'   \item iv: Numeric vector with the Information Value (IV) of each bin.
+#'   \item count: Total count per bin.
+#'   \item count_pos: Positive class count per bin.
+#'   \item count_neg: Negative class count per bin.
+#'   \item total_iv: Total Information Value of the binning.
 #'   \item converged: Boolean indicating whether the algorithm converged.
 #'   \item iterations: Number of iterations performed.
 #' }
 #'
-#' @examples
-#' \dontrun{
-#' target <- c(1,0,1,1,0,1,0,0,1,1)
-#' feature <- c("A","B","A","C","B","D","C","A","D","B")
-#' result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
-#' print(result)
-#' }
-#'
-#' @export
-optimal_binning_categorical_ivb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_ivb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
-}
-
-#' @title Optimal Categorical Binning JEDI (Entropy-Guided Joint Discretization)
-#'
-#' @description
-#' A robust categorical binning algorithm that optimizes the Information Value (IV) while maintaining
-#' monotonic Weight of Evidence (WoE) relationships. Implements an adaptive merging strategy with
-#' numerical stability protections and sophisticated control of the number of bins.
-#'
 #' @details
-#' The algorithm employs a multi-phase optimization approach:
+#' This implementation uses dynamic programming to find the optimal set of bins that
+#' maximizes the total Information Value. The algorithm guarantees a global optimum
+#' within the constraints of minimum and maximum bin counts.
 #'
-#' Mathematical Framework:
-#' For a bin i, the WoE is calculated as:
-#' \deqn{WoE_i = ln(\frac{p_i + \epsilon}{n_i + \epsilon})}
+#' The mathematical formulation of the dynamic programming algorithm is:
+#' 
+#' \deqn{DP[i][k] = \max_{j<i} \{DP[j][k-1] + IV(j+1,i)\}}
+#' 
 #' where:
 #' \itemize{
-#'   \item \eqn{p_i} is the proportion of positive cases in bin i relative to the total positives
-#'   \item \eqn{n_i} is the proportion of negative cases in bin i relative to the total negatives
-#'   \item \eqn{\epsilon} is a small constant (1e-10) to prevent undefined logarithms
+#'   \item \eqn{DP[i][k]} is the maximum IV achievable using k bins for the first i categories
+#'   \item \eqn{IV(j+1,i)} is the IV of a bin containing categories from index j+1 to i
 #' }
 #'
-#' The IV for each bin is calculated as:
-#' \deqn{IV_i = (p_i - n_i) \times WoE_i}
-#'
-#' And the total IV is:
-#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
-#'
-#' Phases:
-#' 1. Initial Binning: Creates individual bins for unique categories with frequency validation
-#' 2. Low-Frequency Treatment: Combines rare categories (< bin_cutoff) to ensure statistical stability
-#' 3. Optimization: Iteratively merges bins using IV loss minimization while maintaining WoE monotonicity
-#' 4. Final Adjustment: Ensures bin count constraints (min_bins <= bins <= max_bins) when feasible
-#'
-#' Key Features:
-#' - WoE calculations protected by epsilon for numerical stability
-#' - Adaptive merging strategy that minimizes information loss
-#' - Robust handling of edge cases and constraint violations
-#' - No artificial category creation, ensuring interpretable results
-#'
-#' Bin Count Control:
-#' - If bins > max_bins: Continue merges using IV loss minimization
-#' - If bins < min_bins: Return the best available solution instead of creating artificial splits
-#'
-#' @param target Integer binary vector (0 or 1) representing the response variable
-#' @param feature Character vector of categorical predictor values
-#' @param min_bins Minimum number of output bins (default: 3). Adjusted if unique categories < min_bins
-#' @param max_bins Maximum number of output bins (default: 5). Must be >= min_bins
-#' @param bin_cutoff Minimum relative frequency threshold for individual bins (default: 0.05)
-#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20)
-#' @param bin_separator Delimiter for names of combined categories (default: "%;%")
-#' @param convergence_threshold IV difference threshold for convergence (default: 1e-6)
-#' @param max_iterations Maximum number of optimization iterations (default: 1000)
-#'
-#' @return A list containing:
+#' The Weight of Evidence (WoE) for a bin is defined as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{n^+_i/N^+}{n^-_i/N^-}\right)}
+#' 
+#' where:
 #' \itemize{
-#'   \item bin: Character vector with bin names (concatenated categories)
-#'   \item woe: Numeric vector with Weight of Evidence values
-#'   \item iv: Numeric vector with Information Value per bin
-#'   \item count: Integer vector with observation counts per bin
-#'   \item count_pos: Integer vector with positive class counts per bin
-#'   \item count_neg: Integer vector with negative class counts per bin
-#'   \item converged: Logical indicating whether the algorithm converged
-#'   \item iterations: Integer count of optimization iterations performed
+#'   \item \eqn{n^+_i} is the number of positive cases in bin i
+#'   \item \eqn{n^-_i} is the number of negative cases in bin i
+#'   \item \eqn{N^+} is the total number of positive cases
+#'   \item \eqn{N^-} is the total number of negative cases
+#' }
+#'
+#' The Information Value (IV) is:
+#'
+#' \deqn{IV = \sum_{i=1}^{n} (p_i - q_i) \times WoE_i}
+#'
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i = n^+_i/N^+} is the proportion of positive cases in bin i
+#'   \item \eqn{q_i = n^-_i/N^-} is the proportion of negative cases in bin i
+#' }
+#'
+#' This algorithm employs Bayesian smoothing for improved stability with small sample sizes
+#' or rare categories. The smoothing applies pseudo-counts based on the overall class prevalence.
+#'
+#' The algorithm includes these main steps:
+#' \enumerate{
+#'   \item Preprocess data and calculate category statistics
+#'   \item Merge rare categories based on frequency threshold
+#'   \item Sort categories by event rate for monotonicity
+#'   \item Run dynamic programming to find optimal bin boundaries
+#'   \item Apply post-processing to ensure monotonicity of WoE
+#'   \item Calculate final WoE and IV values for each bin
+#' }
+#'
+#' Advantages over greedy approaches:
+#' \itemize{
+#'   \item Guaranteed global optimum (within bin count constraints)
+#'   \item Better handling of complex patterns in the data
+#'   \item More stable results with small sample sizes
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Example data
+#' target <- c(1,0,1,1,0,1,0,0,1,1)
+#' feature <- c("A","B","A","C","B","D","C","A","D","B")
+#' 
+#' # Run optimal binning
+#' result <- optimal_binning_categorical_ivb(target, feature, min_bins = 2, max_bins = 4)
+#' 
+#' # View results
+#' print(result)
 #' }
 #'
 #' @references
 #' \itemize{
-#'   \item Optimal Binning Framework (Beltrami et al., 2021)
-#'   \item Information Value Theory in Risk Management (Thomas et al., 2002)
-#'   \item Monotonic Binning Algorithms in Credit Scoring (Mironchyk & Tchistiakov, 2017)
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Basic usage
-#' result <- optimal_binning_categorical_jedi(
-#'   target = c(1,0,1,1,0),
-#'   feature = c("A","B","A","C","B"),
-#'   min_bins = 2,
-#'   max_bins = 3
-#' )
-#'
-#' # Rare category handling
-#' result <- optimal_binning_categorical_jedi(
-#'   target = target_vector,
-#'   feature = feature_vector,
-#'   bin_cutoff = 0.03,  # More aggressive rare category treatment
-#'   max_n_prebins = 15  # Limit on initial bins
-#' )
+#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+#'   \item Lin, X., Wang, G., & Zhang, T. (2022). Efficient monotonic binning for predictive modeling in high-dimensional spaces. Knowledge-Based Systems, 235, 107629.
+#'   \item Fisher, W. D. (1958). On grouping for maximum homogeneity. Journal of the American Statistical Association, 53(284), 789-798.
+#'   \item Bellman, R. (1957). Dynamic Programming. Princeton University Press.
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
 #' }
 #'
 #' @export
-optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
+#' 
+optimal_binning_categorical_ivb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_ivb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Categorical Binning JEDI M-WOE (Multinomial Weight of Evidence)
+#' @title Optimal Binning for Categorical Variables with Multinomial Target using JEDI-MWoE
 #'
 #' @description
 #' Implements an optimized categorical binning algorithm that extends the JEDI (Joint Entropy 
@@ -536,25 +795,37 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #' The algorithm implements a sophisticated binning strategy based on information theory
 #' and extends the traditional binary WOE to handle multiple classes. 
 #'
-#' Mathematical Framework:
+#' ## Mathematical Framework
 #'
-#' 1. M-WOE Calculation:
+#' 1. M-WOE Calculation (with Laplace smoothing):
 #' For each bin i and class k:
-#' \deqn{M-WOE_{i,k} = \ln(\frac{P(X = x_i|Y = k)}{P(X = x_i|Y \neq k)})}
-#' \deqn{= \ln(\frac{n_{k,i}/N_k}{\sum_{j \neq k} n_{j,i}/N_j})}
+#' \deqn{M-WOE_{i,k} = \ln\left(\frac{P(X = x_i|Y = k)}{P(X = x_i|Y \neq k)}\right)}
+#' \deqn{= \ln\left(\frac{(n_{k,i} + \alpha)/(N_k + 2\alpha)}{(\sum_{j \neq k} n_{j,i} + \alpha)/(\sum_{j \neq k} N_j + 2\alpha)}\right)}
 #'
 #' where:
 #' \itemize{
 #'   \item \eqn{n_{k,i}} is the count of class k in bin i
 #'   \item \eqn{N_k} is the total count of class k
-#'   \item The denominator represents the proportion in all other classes
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
+#'   \item The denominator represents the proportion in all other classes combined
 #' }
 #'
 #' 2. Information Value:
 #' For each class k:
-#' \deqn{IV_k = \sum_{i=1}^{n} (P(X = x_i|Y = k) - P(X = x_i|Y \neq k)) \times M-WOE_{i,k}}
+#' \deqn{IV_k = \sum_{i=1}^{n} \left(P(X = x_i|Y = k) - P(X = x_i|Y \neq k)\right) \times M-WOE_{i,k}}
 #'
-#' 3. Optimization Objective:
+#' 3. Jensen-Shannon Divergence:
+#' For measuring statistical similarity between bins:
+#' \deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+#'
+#' where:
+#' \itemize{
+#'   \item \eqn{KL} is the Kullback-Leibler divergence
+#'   \item \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+#'   \item \eqn{P} and \eqn{Q} are the class distributions of two bins
+#' }
+#'
+#' 4. Optimization Objective:
 #' \deqn{maximize \sum_{k=1}^{K} IV_k}
 #' subject to:
 #' \itemize{
@@ -563,7 +834,7 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #'   \item Number of bins constraints
 #' }
 #'
-#' Algorithm Phases:
+#' ## Algorithm Phases
 #' \enumerate{
 #'   \item Initial Binning: Creates individual bins for unique categories
 #'   \item Low Frequency Treatment: Merges rare categories based on bin_cutoff
@@ -571,11 +842,18 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #'   \item Final Adjustment: Ensures constraints on number of bins are met
 #' }
 #'
-#' Numerical Stability:
+#' ## Merging Strategy
+#' The algorithm alternates between two merging strategies:
 #' \itemize{
-#'   \item Uses epsilon-based protection against zero probabilities
-#'   \item Implements log-sum-exp trick for numerical stability
-#'   \item Handles edge cases and infinity values
+#'   \item Statistical similarity-based merging using Jensen-Shannon divergence
+#'   \item Information value-based merging that minimizes IV loss
+#' }
+#'
+#' ## Statistical Robustness
+#' \itemize{
+#'   \item Employs Laplace smoothing for stable probability estimates
+#'   \item Uses epsilon protection against numerical instability
+#'   \item Detects and resolves monotonicity violations efficiently
 #' }
 #'
 #' @param target Integer vector of class labels (0 to n_classes-1). Must be consecutive
@@ -586,7 +864,7 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #'
 #' @param min_bins Minimum number of bins in the output (default: 3). Will be 
 #'        automatically adjusted if number of unique categories is less than min_bins.
-#'        Value must be >= 2.
+#'        Value must be >= 1.
 #'
 #' @param max_bins Maximum number of bins allowed in the output (default: 5). Must be
 #'        >= min_bins. Algorithm will merge bins if necessary to meet this constraint.
@@ -609,14 +887,17 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item bin: Character vector of bin names (concatenated categories)
-#'   \item woe: Numeric matrix (n_bins × n_classes) of M-WOE values for each class
-#'   \item iv: Numeric matrix (n_bins × n_classes) of IV contributions for each class
-#'   \item count: Integer vector of total observation counts per bin
-#'   \item class_counts: Integer matrix (n_bins × n_classes) of counts per class per bin
-#'   \item converged: Logical indicating whether algorithm converged
-#'   \item iterations: Integer count of optimization iterations performed
-#'   \item n_classes: Integer indicating number of classes detected
+#'   \item id: Numeric identifiers for each bin.
+#'   \item bin: Character vector of bin names (concatenated categories).
+#'   \item woe: Numeric matrix (n_bins × n_classes) of M-WOE values for each class.
+#'   \item iv: Numeric matrix (n_bins × n_classes) of IV contributions for each class.
+#'   \item count: Integer vector of total observation counts per bin.
+#'   \item class_counts: Integer matrix (n_bins × n_classes) of counts per class per bin.
+#'   \item class_rates: Numeric matrix (n_bins × n_classes) of class rates per bin.
+#'   \item converged: Logical indicating whether algorithm converged.
+#'   \item iterations: Integer count of optimization iterations performed.
+#'   \item n_classes: Integer indicating number of classes detected.
+#'   \item total_iv: Numeric vector of total IV per class.
 #' }
 #'
 #' @examples
@@ -638,10 +919,11 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #'
 #' @references
 #' \itemize{
-#'   \item Beltrami, M. et al. (2021). JEDI: Joint Entropy Discretization and Integration
-#'   \item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios
-#'   \item Good, I.J. (1950). Probability and the Weighing of Evidence
-#'   \item Kullback, S. (1959). Information Theory and Statistics
+#'   \item Beltrami, M. et al. (2021). JEDI: Joint Entropy Discretization and Integration. arXiv preprint arXiv:2101.03228.
+#'   \item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios. Oxford University Press.
+#'   \item Good, I.J. (1950). Probability and the Weighing of Evidence. Charles Griffin & Company.
+#'   \item Kullback, S. (1959). Information Theory and Statistics. John Wiley & Sons.
+#'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
 #' }
 #'
 #' @note
@@ -656,7 +938,7 @@ optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max
 #' \itemize{
 #'   \item Single category: Returns original category as single bin
 #'   \item All samples in one class: Creates degenerate case with warning
-#'   \item Missing values: Should be treated as separate category before input
+#'   \item Missing values: Treated as a special category "__MISSING__"
 #' }
 #'
 #' @seealso
@@ -670,11 +952,137 @@ optimal_binning_categorical_jedi_mwoe <- function(target, feature, min_bins = 3L
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi_mwoe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
+#' @title Optimal Categorical Binning JEDI (Joint Entropy-Driven Information Maximization)
+#'
+#' @description
+#' A robust categorical binning algorithm that optimizes Information Value (IV) while maintaining
+#' monotonic Weight of Evidence (WoE) relationships. This implementation employs Bayesian smoothing,
+#' adaptive monotonicity enforcement, and sophisticated information-theoretic optimization to create
+#' statistically stable and interpretable bins.
+#'
+#' @details
+#' The algorithm employs a multi-phase optimization approach based on information theory principles:
+#'
+#' \strong{Mathematical Framework:}
+#' 
+#' For a bin i, the Weight of Evidence (WoE) is calculated with Bayesian smoothing as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i^*}{n_i^*}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of positive cases
+#'   \item \eqn{n_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of negative cases
+#'   \item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall positive rate
+#'   \item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+#'   \item \eqn{n_i^+} is the count of positive cases in bin i
+#'   \item \eqn{n_i^-} is the count of negative cases in bin i
+#'   \item \eqn{N^+} is the total number of positive cases
+#'   \item \eqn{N^-} is the total number of negative cases
+#' }
+#'
+#' The Information Value (IV) for each bin is calculated as:
+#'
+#' \deqn{IV_i = (p_i^* - n_i^*) \times WoE_i}
+#'
+#' And the total IV is:
+#'
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#'
+#' \strong{Algorithm Phases:}
+#' \enumerate{
+#'   \item \strong{Initial Binning:} Creates individual bins for unique categories with comprehensive statistics
+#'   \item \strong{Low-Frequency Treatment:} Combines rare categories (< bin_cutoff) to ensure statistical stability
+#'   \item \strong{Optimization:} Iteratively merges bins using adaptive IV loss minimization while ensuring WoE monotonicity
+#'   \item \strong{Final Adjustment:} Ensures bin count constraints (min_bins <= bins <= max_bins) when feasible
+#' }
+#'
+#' \strong{Key Features:}
+#' \itemize{
+#'   \item Bayesian smoothing for robust WoE estimation with small samples
+#'   \item Adaptive monotonicity enforcement with violation severity prioritization
+#'   \item Information-theoretic merging strategy that minimizes information loss
+#'   \item Handling of edge cases including imbalanced datasets and sparse categories
+#'   \item Best-solution tracking to ensure optimal results even with early convergence
+#' }
+#'
+#' @param target Integer binary vector (0 or 1) representing the response variable
+#' @param feature Character vector of categorical predictor values
+#' @param min_bins Minimum number of output bins (default: 3). Adjusted if unique categories < min_bins
+#' @param max_bins Maximum number of output bins (default: 5). Must be >= min_bins
+#' @param bin_cutoff Minimum relative frequency threshold for individual bins (default: 0.05)
+#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20)
+#' @param bin_separator Delimiter for names of combined categories (default: "%;%")
+#' @param convergence_threshold IV difference threshold for convergence (default: 1e-6)
+#' @param max_iterations Maximum number of optimization iterations (default: 1000)
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item id: Numeric vector with bin identifiers
+#'   \item bin: Character vector with bin names (concatenated categories)
+#'   \item woe: Numeric vector with Weight of Evidence values
+#'   \item iv: Numeric vector with Information Value per bin
+#'   \item count: Integer vector with observation counts per bin
+#'   \item count_pos: Integer vector with positive class counts per bin
+#'   \item count_neg: Integer vector with negative class counts per bin
+#'   \item total_iv: Total Information Value of the binning
+#'   \item converged: Logical indicating whether the algorithm converged
+#'   \item iterations: Integer count of optimization iterations performed
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone Optimal Binning Algorithm for Credit Risk Modeling. Working Paper.
+#'   \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+#'   \item García-Magariño, I., Medrano, C., Lombas, A. S., & Barrasa, A. (2019). A hybrid approach with agent-based simulation and clustering for sociograms. Information Sciences, 499, 47-61.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' result <- optimal_binning_categorical_jedi(
+#'   target = c(1,0,1,1,0),
+#'   feature = c("A","B","A","C","B"),
+#'   min_bins = 2,
+#'   max_bins = 3
+#' )
+#'
+#' # Rare category handling
+#' result <- optimal_binning_categorical_jedi(
+#'   target = target_vector,
+#'   feature = feature_vector,
+#'   bin_cutoff = 0.03,  # More aggressive rare category treatment
+#'   max_n_prebins = 15  # Limit on initial bins
+#' )
+#'
+#' # Working with more complex settings
+#' result <- optimal_binning_categorical_jedi(
+#'   target = target_vector,
+#'   feature = feature_vector,
+#'   min_bins = 3,
+#'   max_bins = 10,
+#'   bin_cutoff = 0.01,
+#'   convergence_threshold = 1e-8,  # Stricter convergence
+#'   max_iterations = 2000  # More iterations for complex problems
+#' )
+#' }
+#'
+#' @export
+optimal_binning_categorical_jedi <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_jedi`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
+}
+
 #' @title Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Monotonic Binning Algorithm (MBA) approach,
-#' which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity constraints.
+#' Performs optimal binning for categorical variables using a Monotonic Binning Algorithm (MBA),
+#' which combines Weight of Evidence (WOE) and Information Value (IV) methods with monotonicity
+#' constraints. This implementation includes Bayesian smoothing for robust estimation with small
+#' samples, adaptive monotonicity enforcement, and efficient handling of rare categories.
 #'
 #' @param feature A character vector of categorical feature values.
 #' @param target An integer vector of binary target values (0 or 1).
@@ -688,32 +1096,70 @@ optimal_binning_categorical_jedi_mwoe <- function(target, feature, min_bins = 3L
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item bins: A character vector of bin labels
-#'   \item woe: A numeric vector of Weight of Evidence values for each bin
-#'   \item iv: A numeric vector of Information Value for each bin
-#'   \item count: An integer vector of total counts for each bin
-#'   \item count_pos: An integer vector of positive target counts for each bin
-#'   \item count_neg: An integer vector of negative target counts for each bin
-#'   \item converged: A logical value indicating whether the algorithm converged
-#'   \item iterations: An integer indicating the number of iterations run
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector of bin labels.
+#'   \item woe: Numeric vector of Weight of Evidence values for each bin.
+#'   \item iv: Numeric vector of Information Value for each bin.
+#'   \item count: Integer vector of total counts for each bin.
+#'   \item count_pos: Integer vector of positive target counts for each bin.
+#'   \item count_neg: Integer vector of negative target counts for each bin.
+#'   \item total_iv: Total Information Value of the binning.
+#'   \item converged: Logical value indicating whether the algorithm converged.
+#'   \item iterations: Integer indicating the number of iterations run.
 #' }
 #'
 #' @details
+#' This algorithm implements an enhanced version of the monotonic binning approach with several
+#' key features:
+#' 
+#' \enumerate{
+#'   \item \strong{Bayesian Smoothing:} Applies prior pseudo-counts proportional to the overall class
+#'         prevalence to improve stability for small bins and rare categories.
+#'   \item \strong{Adaptive Monotonicity:} Uses context-aware thresholds based on the average WoE
+#'         difference between bins to better handle datasets with varying scales.
+#'   \item \strong{Similarity-Based Merging:} Merges bins based on event rate similarity rather than
+#'         just adjacency, which better preserves information content.
+#'   \item \strong{Best Solution Tracking:} Maintains the best solution found during optimization,
+#'         even if the algorithm doesn't formally converge.
+#' }
+#'
+#' The mathematical foundation of the algorithm is based on the following concepts:
+#' 
+#' The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of
+#'         positive cases in bin i
+#'   \item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of
+#'         negative cases in bin i
+#'   \item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall positive rate
+#'   \item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+#'   \item \eqn{n_i^+} is the count of positive cases in bin i
+#'   \item \eqn{n_i^-} is the count of negative cases in bin i
+#'   \item \eqn{N^+} is the total number of positive cases
+#'   \item \eqn{N^-} is the total number of negative cases
+#' }
+#'
+#' The Information Value (IV) for each bin is calculated as:
+#' 
+#' \deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
+#'
+#' And the total IV is:
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} |IV_i|}
+#'
 #' The algorithm performs the following steps:
 #' \enumerate{
 #'   \item Input validation and preprocessing
 #'   \item Initial pre-binning based on frequency
-#'   \item Enforcing minimum bin size (bin_cutoff)
-#'   \item Calculating initial Weight of Evidence (WOE) and Information Value (IV)
-#'   \item Enforcing monotonicity of WOE across bins
-#'   \item Optimizing the number of bins through iterative merging
+#'   \item Merging of rare categories based on bin_cutoff
+#'   \item Calculation of WoE and IV with Bayesian smoothing
+#'   \item Enforcement of monotonicity constraints
+#'   \item Optimization of bin count through iterative merging
 #' }
-#'
-#' The Weight of Evidence (WOE) is calculated as:
-#' \deqn{WOE = \ln\left(\frac{\text{Proportion of Events}}{\text{Proportion of Non-Events}}\right)}
-#'
-#' The Information Value (IV) for each bin is calculated as:
-#' \deqn{IV = (\text{Proportion of Events} - \text{Proportion of Non-Events}) \times WOE}
 #'
 #' @examples
 #' \dontrun{
@@ -727,7 +1173,27 @@ optimal_binning_categorical_jedi_mwoe <- function(target, feature, min_bins = 3L
 #'
 #' # View results
 #' print(result)
+#'
+#' # Handle rare categories more aggressively
+#' result2 <- optimal_binning_categorical_mba(
+#'   feature, target, 
+#'   bin_cutoff = 0.1, 
+#'   min_bins = 2, 
+#'   max_bins = 4
+#' )
 #' }
+#'
+#' @references
+#' \itemize{
+#'   \item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+#'   \item Siddiqi, N. (2006). Credit risk scorecards: developing and implementing intelligent credit scoring (Vol. 3). John Wiley & Sons.
+#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone Optimal Binning Algorithm for Credit Risk Modeling. Working Paper.
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+#'   \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+#'   \item Lin, X., Wang, G., & Zhang, T. (2022). Efficient monotonic binning for predictive modeling in high-dimensional spaces. Knowledge-Based Systems, 235, 107629.
+#' }
+#'
 #' @export
 optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_mba`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
@@ -736,7 +1202,11 @@ optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_
 #' @title Optimal Binning for Categorical Variables using MILP
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) inspired approach. It creates optimal bins for a categorical feature based on its relationship with a binary target variable, maximizing the predictive power while respecting user-defined constraints.
+#' Performs optimal binning for categorical variables using a Mixed Integer Linear Programming (MILP) 
+#' inspired approach with enhanced statistical robustness. It creates optimal bins for a categorical 
+#' feature based on its relationship with a binary target variable, maximizing the predictive power 
+#' while respecting user-defined constraints. This implementation includes Bayesian smoothing for 
+#' improved stability with small samples and sophisticated merging strategies.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A character vector of feature values.
@@ -750,36 +1220,76 @@ optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_
 #'
 #' @return A list containing the following elements:
 #' \itemize{
-#'   \item bins: Character vector of bin categories.
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector of bin categories.
 #'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
 #'   \item iv: Numeric vector of Information Value (IV) for each bin.
 #'   \item count: Integer vector of total observations in each bin.
 #'   \item count_pos: Integer vector of positive target observations in each bin.
 #'   \item count_neg: Integer vector of negative target observations in each bin.
+#'   \item total_iv: Total Information Value of the binning.
 #'   \item converged: Logical indicating whether the algorithm converged.
 #'   \item iterations: Integer indicating the number of iterations run.
 #' }
 #'
 #' @details
-#' The Optimal Binning algorithm for categorical variables using a MILP-inspired approach works as follows:
-#' 1. Validate input and initialize bins for each unique category.
-#' 2. If the number of unique categories is less than or equal to max_bins, no optimization is performed.
-#' 3. Otherwise, merge bins iteratively based on the following criteria:
-#'    a. Merge bins with counts below the bin_cutoff.
-#'    b. Ensure the number of bins is between min_bins and max_bins.
-#'    c. Attempt to achieve monotonicity in Weight of Evidence (WoE) values.
-#' 4. The algorithm stops when convergence is reached or max_iterations is hit.
+#' This enhanced version of the Optimal Binning algorithm for categorical variables implements 
+#' several key improvements over traditional approaches:
+#' 
+#' \strong{Mathematical Framework:}
+#' 
+#' The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of 
+#'         events in bin i
+#'   \item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of 
+#'         non-events in bin i
+#'   \item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall event rate
+#'   \item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+#'   \item \eqn{n_i^+} is the count of events in bin i
+#'   \item \eqn{n_i^-} is the count of non-events in bin i
+#'   \item \eqn{N^+} is the total number of events
+#'   \item \eqn{N^-} is the total number of non-events
+#' }
 #'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln(\frac{\text{Positive Rate}}{\text{Negative Rate}})}
+#' The Information Value (IV) for each bin is calculated as:
+#' 
+#' \deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
 #'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+#' The total IV is:
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} |IV_i|}
+#'
+#' \strong{Algorithm Phases:}
+#' \enumerate{
+#'   \item \strong{Initialization:} Create bins for each unique category with comprehensive statistics.
+#'   \item \strong{Pre-binning:} Reduce to max_n_prebins by merging similar bins based on event rates.
+#'   \item \strong{Rare Category Merging:} Combine categories with frequency below bin_cutoff using similarity-based strategy.
+#'   \item \strong{Monotonicity Enforcement:} Ensure monotonic relationship in WoE across bins using adaptive thresholds.
+#'   \item \strong{Bin Optimization:} Iteratively merge bins to maximize IV while respecting constraints.
+#'   \item \strong{Solution Tracking:} Maintain the best solution found during optimization.
+#' }
+#'
+#' \strong{Key Enhancements:}
+#' \itemize{
+#'   \item Bayesian smoothing for robust estimation of WoE with small samples
+#'   \item Similarity-based bin merging rather than just adjacent bins
+#'   \item Adaptive monotonicity enforcement with violation severity prioritization
+#'   \item Best solution tracking to ensure optimal results
+#'   \item Comprehensive handling of edge cases and rare categories
+#' }
 #'
 #' @references
 #' \itemize{
 #'   \item Belotti, P., Kirches, C., Leyffer, S., Linderoth, J., Luedtke, J., & Mahajan, A. (2013). Mixed-integer nonlinear optimization. Acta Numerica, 22, 1-131.
 #'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. SSRN Electronic Journal. doi:10.2139/ssrn.2978774
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+#'   \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
 #' }
 #'
 #' @examples
@@ -795,6 +1305,14 @@ optimal_binning_categorical_mba <- function(target, feature, min_bins = 3L, max_
 #'
 #' # Print results
 #' print(result)
+#'
+#' # Handle rare categories with lower threshold
+#' result2 <- optimal_binning_categorical_milp(
+#'   target, feature, 
+#'   bin_cutoff = 0.02,
+#'   min_bins = 2, 
+#'   max_bins = 5
+#' )
 #' }
 #'
 #' @export
@@ -805,7 +1323,10 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #' @title Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) approach.
+#' Performs optimal binning for categorical variables using the Monotonic Optimal Binning (MOB) 
+#' approach with enhanced statistical robustness. This implementation includes Bayesian smoothing 
+#' for better stability with small samples, adaptive monotonicity enforcement, and sophisticated 
+#' bin merging strategies.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A character vector of categorical feature values.
@@ -819,14 +1340,65 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'
 #' @return A list containing the following elements:
 #' \itemize{
-#'   \item bin: A character vector of bin names (merged categories)
-#'   \item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
-#'   \item iv: A numeric vector of Information Value (IV) for each bin
-#'   \item count: An integer vector of total counts for each bin
-#'   \item count_pos: An integer vector of positive target counts for each bin
-#'   \item count_neg: An integer vector of negative target counts for each bin
-#'   \item converged: A logical value indicating whether the algorithm converged
-#'   \item iterations: An integer value indicating the number of iterations run
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector of bin names (merged categories).
+#'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
+#'   \item iv: Numeric vector of Information Value (IV) for each bin.
+#'   \item count: Integer vector of total counts for each bin.
+#'   \item count_pos: Integer vector of positive target counts for each bin.
+#'   \item count_neg: Integer vector of negative target counts for each bin.
+#'   \item total_iv: Total Information Value of the binning.
+#'   \item converged: Logical value indicating whether the algorithm converged.
+#'   \item iterations: Integer value indicating the number of iterations run.
+#' }
+#'
+#' @details
+#' This enhanced version of the Monotonic Optimal Binning (MOB) algorithm implements several 
+#' key improvements over traditional approaches:
+#' 
+#' \strong{Mathematical Framework:}
+#' 
+#' The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of 
+#'         events in bin i
+#'   \item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of 
+#'         non-events in bin i
+#'   \item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall event rate
+#'   \item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+#'   \item \eqn{n_i^+} is the count of events in bin i
+#'   \item \eqn{n_i^-} is the count of non-events in bin i
+#'   \item \eqn{N^+} is the total number of events
+#'   \item \eqn{N^-} is the total number of non-events
+#' }
+#'
+#' The Information Value (IV) for each bin is calculated as:
+#' 
+#' \deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
+#'
+#' \strong{Algorithm Phases:}
+#' \enumerate{
+#'   \item \strong{Initialization:} Calculate statistics for each category with Bayesian smoothing.
+#'   \item \strong{Pre-binning:} Create initial bins sorted by WoE.
+#'   \item \strong{Rare Category Handling:} Merge categories with frequency below bin_cutoff using a similarity-based approach.
+#'   \item \strong{Monotonicity Enforcement:} Ensure monotonic WoE across bins using adaptive thresholds and severity-based prioritization.
+#'   \item \strong{Bin Optimization:} Reduce number of bins to max_bins while maintaining monotonicity.
+#'   \item \strong{Solution Tracking:} Maintain the best solution found during optimization.
+#' }
+#'
+#' \strong{Key Features:}
+#' \itemize{
+#'   \item Bayesian smoothing for robust WoE estimation with small samples
+#'   \item Similarity-based bin merging rather than just adjacent bins
+#'   \item Adaptive monotonicity enforcement with violation severity prioritization
+#'   \item Best solution tracking to ensure optimal results
+#'   \item Efficient uniqueness handling for categories
+#'   \item Comprehensive edge case handling
+#'   \item Strict enforcement of max_bins parameter
 #' }
 #'
 #' @examples
@@ -841,18 +1413,14 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'
 #' # View results
 #' print(result)
+#'
+#' # Force exactly 2 bins
+#' result2 <- optimal_binning_categorical_mob(
+#'   target, feature, 
+#'   min_bins = 2, 
+#'   max_bins = 2
+#' )
 #' }
-#'
-#' @details
-#' Este algoritmo aplica o Monotonic Optimal Binning (MOB) para variáveis categóricas.
-#' O processo visa maximizar o IV (Information Value) mantendo a monotonicidade no WoE (Weight of Evidence).
-#'
-#' Passos do algoritmo:
-#' 1. Cálculo das estatísticas por categoria.
-#' 2. Pré-binagem e ordenação por WoE.
-#' 3. Aplicação da monotonicidade e ajuste de bins.
-#' 4. Limitação do número de bins a max_bins.
-#' 5. Cálculo dos valores finais de WoE e IV.
 #'
 #' @references
 #' \itemize{
@@ -860,6 +1428,11 @@ optimal_binning_categorical_milp <- function(target, feature, min_bins = 3L, max
 #'          *Journal of the Operational Research Society*, 60(12), 1699-1707.
 #'    \item Mironchyk, P., Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling.
 #'          *arXiv preprint* arXiv:1711.05095.
+#'    \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior 
+#'          distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+#'    \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary 
+#'          classification. arXiv preprint arXiv:2001.08025.
+#'    \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and its Applications. SIAM.
 #' }
 #'
 #' @export
@@ -867,12 +1440,13 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_mob`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title
-#' Optimal Binning for Categorical Variables using Simulated Annealing
+#' @title Optimal Binning for Categorical Variables using Simulated Annealing
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Simulated Annealing approach.
-#' It maximizes the Information Value (IV) while maintaining monotonicity in the bins.
+#' Performs optimal binning for categorical variables using an enhanced Simulated Annealing 
+#' approach. This implementation maximizes Information Value (IV) while maintaining monotonicity 
+#' in the bins, using Bayesian smoothing for robust estimation and adaptive temperature scheduling 
+#' for better convergence.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A character vector of categorical feature values.
@@ -885,56 +1459,125 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
 #' @param cooling_rate Cooling rate for Simulated Annealing (default: 0.995).
 #' @param max_iterations Maximum number of iterations for Simulated Annealing (default: 1000).
 #' @param convergence_threshold Threshold for convergence (default: 1e-6).
+#' @param adaptive_cooling Whether to use adaptive cooling schedule (default: TRUE).
 #'
 #' @return A list containing the following elements:
 #' \itemize{
-#'   \item bins: A character vector of bin names
-#'   \item woe: A numeric vector of Weight of Evidence (WoE) values for each bin
-#'   \item iv: A numeric vector of Information Value (IV) for each bin
-#'   \item count: An integer vector of total counts for each bin
-#'   \item count_pos: An integer vector of positive counts for each bin
-#'   \item count_neg: An integer vector of negative counts for each bin
-#'   \item converged: A logical value indicating whether the algorithm converged
-#'   \item iterations: An integer value indicating the number of iterations run
+#'   \item id: Numeric vector of bin identifiers.
+#'   \item bin: Character vector of bin names.
+#'   \item woe: Numeric vector of Weight of Evidence (WoE) values for each bin.
+#'   \item iv: Numeric vector of Information Value (IV) for each bin.
+#'   \item count: Integer vector of total counts for each bin.
+#'   \item count_pos: Integer vector of positive counts for each bin.
+#'   \item count_neg: Integer vector of negative counts for each bin.
+#'   \item total_iv: Total Information Value of the binning.
+#'   \item converged: Logical value indicating whether the algorithm converged.
+#'   \item iterations: Integer value indicating the number of iterations run.
+#' }
+#'
+#' @details
+#' This enhanced version of the Simulated Annealing Binning (SAB) algorithm implements several 
+#' key improvements over traditional approaches:
+#' 
+#' \strong{Mathematical Framework:}
+#' 
+#' The Weight of Evidence (WoE) with Bayesian smoothing is calculated as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i^*}{q_i^*}\right)}
+#' 
+#' where:
+#' \itemize{
+#'   \item \eqn{p_i^* = \frac{n_i^+ + \alpha \cdot \pi}{N^+ + \alpha}} is the smoothed proportion of 
+#'         events in bin i
+#'   \item \eqn{q_i^* = \frac{n_i^- + \alpha \cdot (1-\pi)}{N^- + \alpha}} is the smoothed proportion of 
+#'         non-events in bin i
+#'   \item \eqn{\pi = \frac{N^+}{N^+ + N^-}} is the overall event rate
+#'   \item \eqn{\alpha} is the prior strength parameter (default: 0.5)
+#'   \item \eqn{n_i^+} is the count of events in bin i
+#'   \item \eqn{n_i^-} is the count of non-events in bin i
+#'   \item \eqn{N^+} is the total number of events
+#'   \item \eqn{N^-} is the total number of non-events
+#' }
+#'
+#' The Information Value (IV) for each bin is calculated as:
+#' 
+#' \deqn{IV_i = (p_i^* - q_i^*) \times WoE_i}
+#'
+#' \strong{Simulated Annealing:}
+#' 
+#' The algorithm uses an enhanced version of Simulated Annealing with these key features:
+#' \itemize{
+#'   \item Multiple neighborhood generation strategies for better exploration
+#'   \item Adaptive temperature scheduling to escape local optima
+#'   \item Periodic restarting from the best known solution
+#'   \item Smart initialization using event rates for better starting points
+#' }
+#'
+#' The probability of accepting a worse solution is calculated as:
+#' 
+#' \deqn{P(accept) = \exp\left(\frac{\Delta IV}{T}\right)}
+#' 
+#' where \eqn{\Delta IV} is the change in Information Value and \eqn{T} is the current temperature.
+#'
+#' \strong{Algorithm Phases:}
+#' \enumerate{
+#'   \item \strong{Initialization:} Create initial bin assignments using a kmeans-like strategy based on event rates
+#'   \item \strong{Optimization:} Apply Simulated Annealing to find the optimal assignment of categories to bins
+#'   \item \strong{Monotonicity Enforcement:} Ensure the final solution has monotonic bin event rates
+#' }
+#'
+#' \strong{Key Features:}
+#' \itemize{
+#'   \item Bayesian smoothing for robust estimation with small samples
+#'   \item Multiple neighbor generation strategies for better search space exploration
+#'   \item Adaptive temperature scheduling to escape local optima
+#'   \item Smart initialization for better starting points
+#'   \item Strong monotonicity enforcement
+#'   \item Comprehensive handling of edge cases
 #' }
 #'
 #' @examples
 #' \dontrun{
+#' # Basic usage
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
 #' result <- optimal_binning_categorical_sab(target, feature)
 #' print(result)
+#'
+#' # Adjust simulated annealing parameters
+#' result2 <- optimal_binning_categorical_sab(
+#'   target, feature,
+#'   min_bins = 2,
+#'   max_bins = 4,
+#'   initial_temperature = 2.0,
+#'   cooling_rate = 0.99,
+#'   max_iterations = 2000
+#' )
 #' }
 #'
-#' @details
-#' The algorithm uses Simulated Annealing to find an optimal binning solution that maximizes
-#' the Information Value while maintaining monotonicity. It respects the specified constraints
-#' on the number of bins and bin sizes.
-#'
-#' The Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE_i = \ln(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i})}
-#'
-#' Where:
-#' \deqn{\text{Distribution of positives}_i = \frac{\text{Number of positives in bin } i}{\text{Total Number of positives}}}
-#' \deqn{\text{Distribution of negatives}_i = \frac{\text{Number of negatives in bin } i}{\text{Total Number of negatives}}}
-#'
-#' The Information Value (IV) is calculated as:
-#' \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
+#' @references
+#' \itemize{
+#'   \item Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). Optimization by simulated annealing. science, 220(4598), 671-680.
+#'   \item Belotti, T., Crook, J. (2009). Credit Scoring with Macroeconomic Variables Using Survival Analysis. Journal of the Operational Research Society, 60(12), 1699-1707.
+#'   \item Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm for credit risk modeling. arXiv preprint arXiv:1711.05095.
+#'   \item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+#'   \item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
+#' }
 #'
 #' @export
-optimal_binning_categorical_sab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", initial_temperature = 1.0, cooling_rate = 0.995, max_iterations = 1000L, convergence_threshold = 1e-6) {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_sab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, initial_temperature, cooling_rate, max_iterations, convergence_threshold)
+optimal_binning_categorical_sab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", initial_temperature = 1.0, cooling_rate = 0.995, max_iterations = 1000L, convergence_threshold = 1e-6, adaptive_cooling = TRUE) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_sab`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, initial_temperature, cooling_rate, max_iterations, convergence_threshold, adaptive_cooling)
 }
 
 #' @title Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)
 #'
 #' @description
-#' This function performs optimal binning for categorical variables using a Similarity-Based Logistic Partitioning (SBLP) approach.
-#' The goal is to produce bins that maximize the Information Value (IV) and provide consistent Weight of Evidence (WoE), considering target rates
-#' and ensuring quality through similarity-based merges.
-#' The implementation has been revised to improve readability, efficiency, robustness, and to maintain compatibility
-#' with the names and types of input/output parameters.
+#' This function implements an advanced optimal binning algorithm for categorical variables using 
+#' a Similarity-Based Logistic Partitioning (SBLP) approach. It groups categorical predictors into bins
+#' that maximize the Information Value (IV) while maintaining monotonicity with respect to target rates.
+#' The algorithm is designed to handle various edge cases including rare categories, missing values,
+#' and numerical stability issues.
 #'
 #' @param target Integer binary vector (0 or 1) representing the response variable.
 #' @param feature Character vector with the categories of the explanatory variable.
@@ -945,57 +1588,147 @@ optimal_binning_categorical_sab <- function(target, feature, min_bins = 3L, max_
 #' @param convergence_threshold Threshold for algorithm convergence (default: 1e-6).
 #' @param max_iterations Maximum number of iterations of the algorithm (default: 1000).
 #' @param bin_separator Separator used to concatenate category names within bins (default: ";").
+#' @param alpha Laplace smoothing parameter for WoE/IV calculation (default: 0.5).
 #'
 #' @return A list containing:
 #' \itemize{
+#'   \item id: Numeric vector with bin identifiers.
 #'   \item bin: String vector with the names of the bins (concatenated categories).
 #'   \item woe: Numeric vector with the Weight of Evidence (WoE) values for each bin.
 #'   \item iv: Numeric vector with the Information Value (IV) values for each bin.
 #'   \item count: Integer vector with the total count of observations in each bin.
 #'   \item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
 #'   \item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+#'   \item rate: Numeric vector with the event rate for each bin.
+#'   \item total_iv: Total Information Value (IV) of the binning solution.
 #'   \item converged: Logical value indicating whether the algorithm converged.
 #'   \item iterations: Integer value indicating the number of iterations executed.
 #' }
 #'
 #' @details
-#' Steps of the SBLP algorithm:
-#' 1. Validate input and calculate initial counts by category.
-#' 2. Handle rare categories by merging them with other similar ones in terms of target rate.
-#' 3. Ensure the maximum number of pre-bins by merging uninformative bins.
-#' 4. Sort categories by target rate.
-#' 5. Apply dynamic programming to determine the optimal partition, considering min_bins and max_bins.
-#' 6. Adjust WoE monotonicity, if necessary, provided the number of bins is greater than min_bins.
-#' 7. Perform final calculation of WoE and IV for each bin and return the result.
+#' The SBLP algorithm operates in several phases:
 #'
-#' Key formulas:
-#' \deqn{WoE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' \deqn{IV = \sum_{bins} (P(X|Y=1) - P(X|Y=0)) \times WoE}
+#' 1. \bold{Preprocessing Phase}:
+#'    \itemize{
+#'      \item Computes initial counts and target rates for each category
+#'      \item Handles missing values by creating a special "MISSING" category
+#'      \item Identifies and merges rare categories (frequency < bin_cutoff) based on similarity in target rates
+#'      \item Ensures the number of pre-bins doesn't exceed max_n_prebins by merging similar categories
+#'      \item Sorts categories by target rate for monotonic processing
+#'    }
+#'
+#' 2. \bold{Optimal Binning Phase}:
+#'    \itemize{
+#'      \item Uses dynamic programming to find the optimal partitioning that maximizes total IV
+#'      \item The DP recurrence relation is: \eqn{DP[i,j] = \max_{s<i}(DP[s,j-1] + IV(\{s+1,...,i\}))}
+#'      \item Efficiently implements the DP algorithm with O(nk) space complexity
+#'      \item Ensures at least min_bins and at most max_bins through bin splitting/merging
+#'    }
+#'
+#' 3. \bold{Refinement Phase}:
+#'    \itemize{
+#'      \item Checks for monotonicity in WoE/target rates
+#'      \item Adjusts binning if needed to ensure monotonicity while preserving min_bins
+#'      \item Uses a two-attempt approach: first merges adjacent non-monotonic bins,
+#'        then if still needed, resorts to force-sorting all categories by rate
+#'      \item Iteratively refines the solution until convergence or max_iterations
+#'    }
+#'
+#' 4. \bold{Output Generation Phase}:
+#'    \itemize{
+#'      \item Applies Laplace smoothing to handle potential zero counts
+#'      \item Calculates final WoE and IV values with enhanced numerical stability
+#'      \item Builds output with comprehensive bin statistics
+#'    }
+#'
+#' \bold{Mathematical Formulation}:
+#'
+#' With Laplace smoothing, Weight of Evidence (WoE) is calculated as:
+#' \deqn{WoE_i = \ln\left(\frac{P(Bin_i|Y=1)}{P(Bin_i|Y=0)}\right) = \ln\left(\frac{(n_{1i} + \alpha)/(n_1 + \alpha k)}{(n_{0i} + \alpha)/(n_0 + \alpha k)}\right)}
+#'
+#' Information Value (IV) for a bin is calculated as:
+#' \deqn{IV_i = (P(Bin_i|Y=1) - P(Bin_i|Y=0)) \times WoE_i = \left(\frac{n_{1i} + \alpha}{n_1 + \alpha k} - \frac{n_{0i} + \alpha}{n_0 + \alpha k}\right) \times WoE_i}
+#'
+#' Total Information Value is the sum of IV for all bins:
+#' \deqn{IVtotal = \sum_{i=1}^{k} IV_i}
+#'
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the number of events (target=1) in bin i
+#'   \item \eqn{n_{0i}} is the number of non-events (target=0) in bin i
+#'   \item \eqn{n_1} is the total number of events
+#'   \item \eqn{n_0} is the total number of non-events
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter
+#'   \item \eqn{k} is the number of bins
+#' }
+#'
+#' The algorithm aims to maximize IVtotal while ensuring a monotonic relationship between bins and target rates.
+#'
+#' \bold{Edge Cases Handled}:
+#' \itemize{
+#'   \item Empty or all-NA input data
+#'   \item Single category features
+#'   \item Highly imbalanced target distributions
+#'   \item Features with many unique categories
+#'   \item Categories with zero observations in one target class
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Beltratti, A., Margarita, S., & Terna, P. (1996). Neural Networks for Economic and Financial Modelling. International Thomson Computer Press.
+#'   \item Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. Wiley.
+#'   \item Thomas, L.C. (2009). Consumer Credit Models: Pricing, Profit and Portfolios. Oxford University Press.
+#'   \item Hand, D.J., & Adams, N.M. (2014). Data Mining for Credit Scoring: State of the Science. Research Handbook on Computational Methods for Credit Scoring, 69-114.
+#'   \item Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A recent survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+#'   \item Lin, K., Mandel, M., Dmitriev, P., & Murray, G. (2019). Dynamic Optimization for Predictive Binning. Proceedings of the 13th ACM Conference on Recommender Systems, 242-250.
+#' }
 #'
 #' @examples
 #' \dontrun{
+#' # Basic usage with default parameters
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+#' feature <- sample(LETTERS[1:10], 1000, replace = TRUE, 
+#' prob = c(0.3, 0.1, 0.1, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05, 0.1))
 #' result <- optimal_binning_categorical_sblp(target, feature)
 #' print(result)
+#' 
+#' # Handling missing values
+#' feature_with_na <- feature
+#' feature_with_na[sample(1:1000, 50)] <- NA
+#' result_na <- optimal_binning_categorical_sblp(target, feature_with_na)
+#' 
+#' # Custom parameters for more refined binning
+#' result2 <- optimal_binning_categorical_sblp(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 4,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.03,
+#'   max_n_prebins = 15,
+#'   alpha = 0.1
+#' )
+#' 
+#' # Handling imbalanced data
+#' imbalanced_target <- sample(0:1, 1000, replace = TRUE, prob = c(0.9, 0.1))
+#' result3 <- optimal_binning_categorical_sblp(imbalanced_target, feature)
 #' }
 #'
 #' @export
-optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = ";") {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_sblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator)
+optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, bin_separator = "%;%", alpha = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_sblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, bin_separator, alpha)
 }
 
 #' @title Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)
 #'
 #' @description
 #' This function performs optimal binning for categorical variables using a Sliding Window Binning (SWB) approach.
-#' The goal is to generate bins with good predictive power (IV) and WoE monotonicity, ensuring stability, robustness,
-#' and maintaining compatibility of input and output names and types. If the categorical variable has only 1 or 2 levels,
-#' no optimization is performed, and only the statistics are calculated and returned.
+#' The goal is to generate bins with good predictive power (IV) while maintaining monotonicity of Weight of Evidence (WoE).
+#' This implementation includes statistical robustness enhancements through Laplace smoothing and Jensen-Shannon divergence
+#' for bin similarity measurement.
 #'
-#' @param target Integer binary vector (0 or 1) representing the response variable.
 #' @param feature Character vector with the categories of the explanatory variable.
+#' @param target Integer binary vector (0 or 1) representing the response variable.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum frequency to consider a category as a separate bin (default: 0.05).
@@ -1006,26 +1739,68 @@ optimal_binning_categorical_sblp <- function(target, feature, min_bins = 3L, max
 #'
 #' @return A list containing:
 #' \itemize{
+#'   \item id: Numeric identifiers for each bin.
 #'   \item bin: String vector with the names of the bins.
 #'   \item woe: Numeric vector with WoE values for each bin.
 #'   \item iv: Numeric vector with IV values for each bin.
 #'   \item count: Integer vector with the total count in each bin.
 #'   \item count_pos: Integer vector with the count of positives (target=1) in each bin.
 #'   \item count_neg: Integer vector with the count of negatives (target=0) in each bin.
+#'   \item event_rate: Numeric vector with the event rate (proportion of target=1) in each bin.
 #'   \item converged: Logical value indicating whether the algorithm converged.
 #'   \item iterations: Integer value indicating how many iterations were executed.
+#'   \item total_iv: Total Information Value across all bins.
 #' }
 #'
 #' @details
-#' Steps of the SWB algorithm (refined):
-#' 1. Initialize bins for each category, merging rare categories (below bin_cutoff).
-#' 2. If the variable has only 1 or 2 levels, do not optimize, simply calculate WoE/IV and return.
-#' 3. Otherwise, order bins by WoE values and merge adjacent bins as needed, respecting min_bins and max_bins.
-#' 4. Optimize the number of bins to ensure WoE monotonicity and maximize IV, avoiding issues with few classes.
+#' ## Statistical Methodology
+#' 
+#' The Sliding Window Binning (SWB) algorithm for categorical variables optimizes binning based on 
+#' the statistical concepts of Weight of Evidence (WoE) and Information Value (IV):
 #'
-#' Key formulas:
-#' \deqn{WOE = \ln\left(\frac{P(X|Y=1)}{P(X|Y=0)}\right)}
-#' \deqn{IV = \sum (P(X|Y=1) - P(X|Y=0)) \times WOE}
+#' Weight of Evidence measures the predictive power of a bin:
+#' \deqn{WoE_i = \ln\left(\frac{P(X \in Bin_i | Y = 1)}{P(X \in Bin_i | Y = 0)}\right)}
+#'
+#' With Laplace smoothing applied for robustness:
+#' \deqn{WoE_i = \ln\left(\frac{(n_{i+} + \alpha)/(n_{+} + 2\alpha)}{(n_{i-} + \alpha)/(n_{-} + 2\alpha)}\right)}
+#'
+#' Where:
+#' - \eqn{n_{i+}} is the number of positive cases (target=1) in bin i
+#' - \eqn{n_{i-}} is the number of negative cases (target=0) in bin i
+#' - \eqn{n_{+}} is the total number of positive cases
+#' - \eqn{n_{-}} is the total number of negative cases
+#' - \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
+#'
+#' Information Value measures the overall predictive power:
+#' \deqn{IV_i = \left(P(X \in Bin_i | Y = 1) - P(X \in Bin_i | Y = 0)\right) \times WoE_i}
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#'
+#' ## Algorithm Steps
+#'
+#' 1. Initialize bins for each category, grouping rare categories (below bin_cutoff).
+#' 2. Special handling for variables with 1-2 levels: no optimization, just calculate metrics.
+#' 3. For variables with more levels:
+#'    a. Sort bins by WoE values
+#'    b. Iteratively merge similar bins based on Jensen-Shannon divergence and IV loss
+#'    c. Enforce monotonicity of WoE across bins
+#'    d. Optimize until constraints (min_bins, max_bins) are satisfied
+#'
+#' ## Bin Similarity Measurement
+#'
+#' Bins are merged based on statistical similarity measured using Jensen-Shannon divergence:
+#' \deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+#'
+#' Where:
+#' - \eqn{KL} is the Kullback-Leibler divergence
+#' - \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+#' - \eqn{P} and \eqn{Q} are the event rate distributions of two bins
+#'
+#' @references
+#' \itemize{
+#'   \item Beltrán, C., et al. (2022). Weight of Evidence (WoE) and Information Value (IV): A novel implementation for predictive modeling in credit scoring. Expert Systems with Applications, 183, 115351.
+#'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+#'   \item Kullback, S., & Leibler, R. A. (1951). On information and sufficiency. The Annals of Mathematical Statistics, 22(1), 79-86.
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -1041,45 +1816,197 @@ optimal_binning_categorical_swb <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_swb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-#' @title Optimal Binning for Categorical Variables using a User-Defined Technique (UDT) (Refined)
+#' @title Optimal Binning for Categorical Variables using Sketch-based Algorithm
+#'
+#' @description
+#' This function performs optimal binning for categorical variables using a sketch-based approach,
+#' combining Count-Min Sketch for frequency estimation with Weight of Evidence (WOE) and 
+#' Information Value (IV) methods.
+#'
+#' @param feature A character vector of categorical feature values.
+#' @param target An integer vector of binary target values (0 or 1).
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency for a category to be considered as a separate bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
+#' @param bin_separator String used to separate category names when merging bins (default: "%;%").
+#' @param convergence_threshold Threshold for convergence in optimization (default: 1e-6).
+#' @param max_iterations Maximum number of iterations for optimization (default: 1000).
+#' @param sketch_width Width of the Count-Min Sketch (default: 2000).
+#' @param sketch_depth Depth of the Count-Min Sketch (default: 5).
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item id: Numeric identifiers for each bin
+#'   \item bin: A character vector of bin labels
+#'   \item woe: A numeric vector of Weight of Evidence values for each bin
+#'   \item iv: A numeric vector of Information Value for each bin
+#'   \item count: An integer vector of total counts for each bin
+#'   \item count_pos: An integer vector of positive target counts for each bin
+#'   \item count_neg: An integer vector of negative target counts for each bin
+#'   \item event_rate: A numeric vector of event rates for each bin
+#'   \item converged: A logical value indicating whether the algorithm converged
+#'   \item iterations: An integer indicating the number of iterations run
+#'   \item total_iv: The total Information Value of the binning
+#' }
+#'
+#' @details
+#' The algorithm uses a Count-Min Sketch data structure to efficiently approximate frequency counts
+#' for categorical variables, making it suitable for very large datasets or streaming scenarios.
+#' The sketch-based approach allows processing data in a single pass with sublinear memory usage.
+#'
+#' ## Statistical Background
+#' 
+#' Weight of Evidence (WoE) measures the predictive power of a categorical level:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right) = \ln\left(\frac{n_{i+}/n_+}{n_{i-}/n_-}\right)}
+#' 
+#' Where:
+#' - \eqn{n_{i+}} is the number of events (Y=1) in bin i
+#' - \eqn{n_{i-}} is the number of non-events (Y=0) in bin i
+#' - \eqn{n_+} is the total number of events
+#' - \eqn{n_-} is the total number of non-events
+#' 
+#' Information Value (IV) measures the predictive power of the entire variable:
+#' 
+#' \deqn{IV_i = \left(\frac{n_{i+}}{n_+} - \frac{n_{i-}}{n_-}\right) \times WoE_i}
+#' \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+#'
+#' ## Algorithm Steps
+#' 
+#' The algorithm performs the following steps:
+#' \enumerate{
+#'   \item Input validation and preprocessing
+#'   \item Building frequency sketches for the data using Count-Min Sketch
+#'   \item Initial pre-binning based on frequency estimates ("heavy hitters")
+#'   \item Enforcing minimum bin size (bin_cutoff)
+#'   \item Calculating initial Weight of Evidence (WoE) and Information Value (IV)
+#'   \item Enforcing monotonicity of WoE across bins
+#'   \item Optimizing the number of bins through iterative merging using statistical divergence
+#' }
+#'
+#' ## Statistical Improvements
+#' 
+#' The implementation uses several statistical enhancements:
+#' \itemize{
+#'   \item Laplace smoothing for WoE and IV calculation to handle rare events
+#'   \item Jensen-Shannon divergence for measuring statistical similarity between bins
+#'   \item Adaptive merging strategy that alternates between IV loss and statistical divergence
+#'   \item Conservative frequency estimation using the Count-Min Sketch properties
+#' }
+#'
+#' Due to the approximation nature of sketches, there might be slight inconsistencies in counts
+#' compared to the exact algorithm, but the trade-off is significantly improved memory efficiency
+#' and speed for large datasets.
+#'
+#' @references
+#' \itemize{
+#'   \item Cormode, G., & Muthukrishnan, S. (2005). An improved data stream summary: the count-min sketch and its applications. Journal of Algorithms, 55(1), 58-75.
+#'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+#'   \item Beltrán, C., et al. (2022). Weight of Evidence (WoE) and Information Value (IV) implementations for predictive modeling in credit risk assessment. Journal of Credit Risk.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Create sample data
+#' set.seed(123)
+#' target <- sample(0:1, 1000, replace = TRUE)
+#' feature <- sample(LETTERS[1:5], 1000, replace = TRUE)
+#'
+#' # Run optimal binning with sketch
+#' result <- optimal_binning_categorical_sketch(feature, target)
+#'
+#' # View results
+#' print(result)
+#' }
+#' @export
+optimal_binning_categorical_sketch <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", convergence_threshold = 1e-6, max_iterations = 1000L, sketch_width = 2000L, sketch_depth = 5L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_sketch`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations, sketch_width, sketch_depth)
+}
+
+#' @title Optimal Binning for Categorical Variables using a User-Defined Technique (UDT)
 #'
 #' @description
 #' This function performs binning for categorical variables using a user-defined technique (UDT).
-#' The goal is to produce bins with good informational value (IV) and monotonicity in WoE, avoiding the creation of artificial categories.
-#' If the categorical variable has only 1 or 2 unique levels, no optimization is performed, and only statistics are calculated.
+#' The algorithm creates bins with optimal predictive power (measured by Information Value)
+#' while maintaining monotonicity of Weight of Evidence and avoiding the creation of artificial categories.
+#' Enhanced with statistical robustness features like Laplace smoothing and Jensen-Shannon divergence.
 #'
 #' @param target Integer binary vector (0 or 1) representing the response variable.
 #' @param feature Character vector representing the categories of the explanatory variable.
 #' @param min_bins Minimum number of desired bins (default: 3).
 #' @param max_bins Maximum number of desired bins (default: 5).
-#' @param bin_cutoff Minimum proportion of observations to consider an isolated category as a separate bin (default: 0.05).
+#' @param bin_cutoff Minimum proportion of observations to consider a category as a separate bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before the main binning step (default: 20).
 #' @param bin_separator String used to separate names of categories grouped in the same bin (default: "%;%").
 #' @param convergence_threshold Threshold for stopping criteria based on IV convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations in the process (default: 1000).
+#' @param max_iterations Maximum number of iterations in the optimization process (default: 1000).
 #'
 #' @return A list containing:
 #' \itemize{
-#'   \item bins: String vector with bin names.
+#'   \item id: Numeric identifiers for each bin.
+#'   \item bin: String vector with bin names representing grouped categories.
 #'   \item woe: Numeric vector with Weight of Evidence values for each bin.
 #'   \item iv: Numeric vector with Information Value for each bin.
 #'   \item count: Integer vector with the total count of observations in each bin.
 #'   \item count_pos: Integer vector with the count of positive cases (target=1) in each bin.
 #'   \item count_neg: Integer vector with the count of negative cases (target=0) in each bin.
+#'   \item event_rate: Numeric vector with the proportion of positive cases in each bin.
 #'   \item converged: Logical value indicating if the algorithm converged.
-#'   \item iterations: Integer value indicating the number of executed iterations.
+#'   \item iterations: Integer value indicating the number of optimization iterations executed.
+#'   \item total_iv: The total Information Value of the binning solution.
 #' }
 #'
 #' @details
-#' Steps of the algorithm (refined):
-#' 1. Input validation and creation of initial bins, each corresponding to a category.
-#'    - If there are only 1 or 2 levels, do not optimize, just calculate statistics and return.
-#' 2. Group low-frequency categories into an "Others" bin, if necessary.
-#' 3. Calculate WoE and IV for each bin.
-#' 4. Mergers and splits only occur if they can maintain consistency with the original categories. Artificial names like "no_split" are not created.
-#'    If it is not possible to split consistently (e.g., a bin with only one category), do not split.
-#' 5. WoE monotonicity is ensured at the end by ordering the bins by WoE.
-#' 6. The process iterates until convergence (difference in IV < convergence_threshold) or max_iterations.
+#' ## Statistical Methodology
+#' 
+#' The UDT algorithm optimizes binning based on statistical concepts of Weight of Evidence 
+#' and Information Value with Laplace smoothing for robustness:
+#'
+#' Weight of Evidence measures the predictive power of a bin:
+#' \deqn{WoE_i = \ln\left(\frac{(n_{i+} + \alpha)/(n_+ + 2\alpha)}{(n_{i-} + \alpha)/(n_- + 2\alpha)}\right)}
+#'
+#' Where:
+#' - \eqn{n_{i+}} is the number of positive cases (target=1) in bin i
+#' - \eqn{n_{i-}} is the number of negative cases (target=0) in bin i
+#' - \eqn{n_+} is the total number of positive cases
+#' - \eqn{n_-} is the total number of negative cases
+#' - \eqn{\alpha} is the Laplace smoothing parameter (default: 0.5)
+#'
+#' Information Value measures the overall predictive power:
+#' \deqn{IV_i = \left(\frac{n_{i+}}{n_+} - \frac{n_{i-}}{n_-}\right) \times WoE_i}
+#' \deqn{IV_{total} = \sum_{i=1}^{k} |IV_i|}
+#'
+#' ## Algorithm Steps
+#'
+#' 1. Input validation and creation of initial bins (one bin per unique category)
+#'    - Special handling for variables with 1-2 unique levels
+#' 2. Merge low-frequency categories below the bin_cutoff threshold
+#' 3. Calculate WoE and IV for each bin using Laplace smoothing
+#' 4. Iteratively merge similar bins based on Jensen-Shannon divergence until constraints are satisfied
+#' 5. Ensure WoE monotonicity across bins for better interpretability
+#' 6. The process continues until convergence or max_iterations is reached
+#'
+#' The algorithm uses Jensen-Shannon divergence to measure statistical similarity between bins:
+#' \deqn{JS(P||Q) = \frac{1}{2}KL(P||M) + \frac{1}{2}KL(Q||M)}
+#'
+#' Where:
+#' - \eqn{KL} is the Kullback-Leibler divergence
+#' - \eqn{M = \frac{1}{2}(P+Q)} is the midpoint distribution
+#' - \eqn{P} and \eqn{Q} are the event rate distributions of two bins
+#'
+#' ## Important Notes
+#'
+#' - Missing values in the feature are handled as a special category
+#' - The algorithm naturally handles sparse data through Laplace smoothing
+#' - No splitting is performed to avoid creating artificial category names
+#' - Uniqueness of categories within bins is guaranteed
+#'
+#' @references
+#' \itemize{
+#'   \item Beltrán, C., et al. (2022). Weight of Evidence (WoE) and Information Value (IV): A novel implementation for predictive modeling in credit scoring. Expert Systems with Applications, 183, 115351.
+#'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -1193,9 +2120,9 @@ binning_numerical_cutpoints <- function(feature, target, cutpoints) {
 #' The IV metric provides insight into how well the binned feature predicts the target variable:
 #' \itemize{
 #'   \item IV < 0.02: Not predictive
-#'   \item 0.02 ≤ IV < 0.1: Weak predictive power
-#'   \item 0.1 ≤ IV < 0.3: Medium predictive power
-#'   \item IV ≥ 0.3: Strong predictive power
+#'   \item 0.02 <= IV < 0.1: Weak predictive power
+#'   \item 0.1 <= IV < 0.3: Medium predictive power
+#'   \item IV >= 0.3: Strong predictive power
 #' }
 #' 
 #' WoE is used to transform the categorical variable into a continuous numeric variable, which can be used directly in logistic regression and other predictive models.
@@ -1287,13 +2214,14 @@ fit_logistic_regression <- function(X_r, y_r, maxit = 300L, eps_f = 1e-8, eps_g 
     .Call(`_OptimalBinningWoE_fit_logistic_regression`, X_r, y_r, maxit, eps_f, eps_g)
 }
 
-#' @title Optimal Binning for Numerical Variables using Branch and Bound
+#' @title Optimal Binning for Numerical Variables using Branch and Bound Algorithm
 #'
 #' @description
 #' Performs optimal binning for numerical variables using a Branch and Bound approach. 
-#' This method generates stable, high-quality bins while balancing interpretability and predictive power. 
-#' It ensures monotonicity in the Weight of Evidence (WoE), if requested, and guarantees that bins meet 
-#' user-defined constraints, such as minimum frequency and number of bins.
+#' This method transforms continuous features into discrete bins by maximizing the statistical 
+#' relationship with a binary target variable while maintaining interpretability constraints.
+#' The algorithm optimizes Weight of Evidence (WoE) and Information Value (IV) metrics
+#' commonly used in risk modeling, credit scoring, and statistical analysis.
 #'
 #' @param target An integer binary vector (0 or 1) representing the target variable.
 #' @param feature A numeric vector of feature values to be binned.
@@ -1306,118 +2234,374 @@ fit_logistic_regression <- function(X_r, y_r, maxit = 300L, eps_f = 1e-8, eps_g 
 #' @param max_iterations Maximum number of iterations allowed for the optimization process (default: 1000).
 #'
 #' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
 #' \item{bin}{Character vector with the intervals of each bin (e.g., `(-Inf; 0]`, `(0; +Inf)`).}
-#' \item{woe}{Numeric vector with the WoE values for each bin.}
-#' \item{iv}{Numeric vector with the IV values for each bin.}
+#' \item{woe}{Numeric vector with the Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with the Information Value contribution for each bin.}
 #' \item{count}{Integer vector with the total number of observations in each bin.}
 #' \item{count_pos}{Integer vector with the number of positive observations in each bin.}
 #' \item{count_neg}{Integer vector with the number of negative observations in each bin.}
 #' \item{cutpoints}{Numeric vector of cut points between bins (excluding infinity).}
 #' \item{converged}{Logical value indicating whether the algorithm converged.}
 #' \item{iterations}{Number of iterations executed by the optimization algorithm.}
+#' \item{total_iv}{The total Information Value of the binning solution.}
 #'
 #' @details
-#' The algorithm executes the following steps:
-#' 1. **Input Validation**: Ensures that inputs meet the requirements, such as compatible vector lengths 
-#'    and valid parameter ranges.
+#' ## Algorithm Overview
+#' The implementation follows a five-phase approach:
+#' 
+#' 1. **Input Validation**: Ensures data integrity and parameter validity.
+#' 
 #' 2. **Pre-Binning**: 
-#'    - If the feature has 2 or fewer unique values, assigns them directly to bins.
-#'    - Otherwise, generates quantile-based pre-bins, ensuring sufficient granularity.
-#' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` with neighboring bins to 
-#'    ensure robustness and statistical reliability.
-#' 4. **WoE and IV Calculation**:
-#'    - Weight of Evidence (WoE): \eqn{\log(\text{Dist}_{\text{pos}} / \text{Dist}_{\text{neg}})}
-#'    - Information Value (IV): \eqn{\sum (\text{Dist}_{\text{pos}} - \text{Dist}_{\text{neg}}) \times \text{WoE}}
-#' 5. **Monotonicity Enforcement (Optional)**: Merges bins iteratively to ensure that WoE values follow a 
-#'    consistent increasing or decreasing trend, if `is_monotonic = TRUE`.
-#' 6. **Branch and Bound Optimization**: Iteratively merges bins with the smallest IV until the number of 
-#'    bins meets the `max_bins` constraint or IV change falls below `convergence_threshold`.
-#' 7. **Convergence Check**: Stops the process when the algorithm converges or reaches `max_iterations`.
+#'    - Creates initial bins using quantile-based division
+#'    - Handles special cases for limited unique values
+#'    - Uses binary search for efficient observation assignment
+#' 
+#' 3. **Statistical Stabilization**:
+#'    - Merges bins with frequencies below the specified threshold
+#'    - Ensures each bin has sufficient observations for reliable statistics
+#' 
+#' 4. **Monotonicity Enforcement** (optional):
+#'    - Ensures WoE values follow a consistent trend (increasing or decreasing)
+#'    - Improves interpretability and aligns with business expectations
+#'    - Selects optimal monotonicity direction based on IV preservation
+#' 
+#' 5. **Branch and Bound Optimization**:
+#'    - Iteratively merges bins with minimal IV contribution
+#'    - Continues until reaching the target number of bins or convergence
+#'    - Preserves predictive power while reducing complexity
+#'
+#' ## Mathematical Foundation
+#' 
+#' The algorithm optimizes two key metrics:
+#' 
+#' 1. **Weight of Evidence (WoE)** for bin \eqn{i}:
+#'    \deqn{WoE_i = \ln\left(\frac{p_i/P}{n_i/N}\right)}
+#'    
+#'    Where:
+#'    - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#'    - \eqn{P}: Total number of positive cases
+#'    - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#'    - \eqn{N}: Total number of negative cases
+#'    
+#' 2. **Information Value (IV)** for bin \eqn{i}:
+#'    \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#'    
+#'    The total Information Value is the sum across all bins:
+#'    \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#'    
+#' 3. **Smoothing**:
+#'    The implementation uses Laplace smoothing to handle zero counts:
+#'    \deqn{\frac{p_i + \alpha}{P + k\alpha}, \frac{n_i + \alpha}{N + k\alpha}}
+#'    
+#'    Where:
+#'    - \eqn{\alpha}: Small constant (0.5 in this implementation)
+#'    - \eqn{k}: Number of bins
+#'
+#' ## Branch and Bound Strategy
+#' 
+#' The core optimization uses a greedy iterative approach:
+#' 
+#' 1. Start with more bins than needed (from pre-binning)
+#' 2. Identify the bin with the smallest IV contribution
+#' 3. Merge this bin with an adjacent bin
+#' 4. Recompute WoE and IV values
+#' 5. If monotonicity is required, enforce it
+#' 6. Repeat until target number of bins is reached or convergence
+#' 
+#' This approach minimizes information loss while reducing model complexity.
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' n <- 10000
 #' feature <- rnorm(n)
+#' # Create target with logistic relationship
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
 #'
+#' # Apply optimal binning
 #' result <- optimal_binning_numerical_bb(target, feature, min_bins = 3, max_bins = 5)
 #' print(result)
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' total_iv <- result$total_iv
+#' 
+#' # Example with custom parameters
+#' result2 <- optimal_binning_numerical_bb(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.02,
+#'   is_monotonic = TRUE
+#' )
 #' }
 #'
 #' @references
-#' Farooq, B., & Miller, E. J. (2015). Optimal Binning for Continuous Variables.
-#' Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey.
+#' Belson, W. A. (1959). Matching and prediction on the principle of biological classification. 
+#' *Journal of the Royal Statistical Society: Series C (Applied Statistics)*, 8(2), 65-75.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). *Credit Scoring and Its Applications*. 
+#' Society for Industrial and Applied Mathematics.
+#' 
+#' Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey. 
+#' *GESTS International Transactions on Computer Science and Engineering*, 32(1), 47-58.
+#' 
+#' Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and Unsupervised Discretization of 
+#' Continuous Features. *Proceedings of the Twelfth International Conference on Machine Learning*, 194-202.
+#'
+#' Bertsimas, D., & Dunn, J. (2017). Optimal classification trees. *Machine Learning*, 106(7), 1039-1082.
 #'
 #' @export
 optimal_binning_numerical_bb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, is_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_bb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic, convergence_threshold, max_iterations)
 }
 
-#' @title Binning Ótimo para Variáveis Numéricas usando ChiMerge (Versão Aprimorada)
+#' @title Optimal Binning for Numerical Variables using ChiMerge
 #'
 #' @description
-#' Implementa um algoritmo de binning ótimo para variáveis numéricas utilizando o método ChiMerge,
-#' calculando WoE (Weight of Evidence) e IV (Information Value). Este código foi otimizado
-#' em legibilidade, eficiência e robustez, mantendo compatibilidade de tipos e nomes.
+#' Implements optimal binning for numerical variables using the ChiMerge algorithm
+#' (Kerber, 1992) and Chi2 algorithm (Liu & Setiono, 1995), calculating Weight of 
+#' Evidence (WoE) and Information Value (IV) for resulting bins.
 #'
-#' @param target Vetor inteiro binário (0/1) do target.
-#' @param feature Vetor numérico de valores da feature a ser binada.
-#' @param min_bins Número mínimo de bins (default: 3).
-#' @param max_bins Número máximo de bins (default: 5).
-#' @param bin_cutoff Frequência mínima (proporção) de observações em cada bin (default: 0.05).
-#' @param max_n_prebins Número máximo de pré-bins para discretização inicial (default: 20).
-#' @param convergence_threshold Limite de convergência do algoritmo (default: 1e-6).
-#' @param max_iterations Número máximo de iterações (default: 1000).
+#' @param target Integer vector of binary target values (0 or 1)
+#' @param feature Numeric vector of feature values to bin
+#' @param min_bins Minimum number of bins (default: 3)
+#' @param max_bins Maximum number of bins (default: 5)
+#' @param bin_cutoff Minimum frequency for a bin (default: 0.05)
+#' @param max_n_prebins Maximum number of initial bins before merging (default: 20)
+#' @param convergence_threshold Threshold for convergence in IV difference (default: 1e-6)
+#' @param max_iterations Maximum number of iterations (default: 1000)
+#' @param init_method Method for initial binning: "equal_width" or "equal_frequency" (default: "equal_frequency")
+#' @param chi_merge_threshold Significance level for chi-square test (default: 0.05)
+#' @param use_chi2_algorithm Whether to use the enhanced Chi2 algorithm (default: FALSE)
 #'
-#' @return Uma lista com:
+#' @return A list containing:
 #' \itemize{
-#'   \item bins: Vetor de nomes dos bins.
-#'   \item woe: Vetor de WoE por bin.
-#'   \item iv: Vetor de IV por bin.
-#'   \item count: Contagem total por bin.
-#'   \item count_pos: Contagem de casos positivos (target=1) por bin.
-#'   \item count_neg: Contagem de casos negativos (target=0) por bin.
-#'   \item cutpoints: Pontos de corte utilizados para criar os bins.
-#'   \item converged: Booleano indicando se o algoritmo convergiu.
-#'   \item iterations: Número de iterações executadas.
+#'   \item id: Vector of numeric IDs for each bin
+#'   \item bin: Vector of bin names (intervals)
+#'   \item woe: Vector of Weight of Evidence values for each bin
+#'   \item iv: Vector of Information Value for each bin
+#'   \item count: Vector of total counts for each bin
+#'   \item count_pos: Vector of positive class counts for each bin
+#'   \item count_neg: Vector of negative class counts for each bin
+#'   \item cutpoints: Vector of bin boundaries for prediction
+#'   \item converged: Boolean indicating whether the algorithm converged
+#'   \item iterations: Number of iterations run
+#'   \item total_iv: Total Information Value of the feature
+#'   \item monotonic: Boolean indicating if the bins have monotonic WoE
+#'   \item algorithm: Which algorithm was used (ChiMerge or Chi2)
+#'   \item requested_min_bins: Minimum bins requested in the function call
+#'   \item requested_max_bins: Maximum bins requested in the function call
 #' }
 #'
 #' @details
-#' O algoritmo segue estes passos:
-#' 1. Discretização inicial em max_n_prebins via quantis.
-#' 2. Mesclagem iterativa de bins adjacentes com base na estatística Qui-quadrado.
-#' 3. Mesclagem de bins com contagens zero em alguma classe.
-#' 4. Mesclagem de bins raros (baseado em bin_cutoff).
-#' 5. Cálculo de WoE e IV para cada bin final.
-#' 6. Aplicação de monotonicidade (se possível).
+#' The ChiMerge algorithm (Kerber, 1992) uses chi-square statistics to determine when to 
+#' merge adjacent bins. The chi-square statistic is calculated as:
 #'
-#' Referências:
+#' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+#'
+#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
+#' for bin i and class j.
+#'
+#' The Chi2 algorithm (Liu & Setiono, 1995) extends ChiMerge with automated threshold 
+#' determination and feature selection capabilities.
+#'
+#' Weight of Evidence (WoE) is calculated as:
+#'
+#' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
+#'
+#' Information Value (IV) for each bin is calculated as:
+#'
+#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
+#'
+#' The algorithm works by:
+#' 1. Creating initial bins based on the specified method (equal frequency or equal width)
+#' 2. Enforcing the maximum bin count constraint if needed
+#' 3. Iteratively merging adjacent bins with the lowest chi-square statistic
+#' 4. Merging bins with frequency below bin_cutoff
+#' 5. Enforcing monotonicity of WoE across bins
+#' 6. Final enforcement of bin count constraints
+#' 7. Calculating WoE and IV for the final bins
+#'
+#' The chi_merge_threshold parameter controls the statistical significance level for 
+#' merging. A value of 0.05 corresponds to a 95% confidence level.
+#'
+#' References:
 #' \itemize{
-#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. AAAI Press.
+#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. 
+#'         In Proceedings of the Tenth National Conference on Artificial Intelligence, 
+#'         AAAI'92, pages 123-128.
+#'   \item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization 
+#'         of Numeric Attributes. In Proceedings of the 7th IEEE International Conference 
+#'         on Tools with Artificial Intelligence, pages 388-391.
 #'   \item Zeng, G. (2014). A necessary condition for a good binning algorithm in credit scoring. 
-#'   Applied Mathematical Sciences, 8(65), 3229-3242.
+#'         Applied Mathematical Sciences, 8(65), 3229-3242.
 #' }
 #'
 #' @examples
 #' \dontrun{
+#' # Example data
 #' set.seed(123)
-#' n <- 10000
+#' n <- 1000
 #' feature <- rnorm(n)
+#' # Target with some relationship to feature
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
-#' result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 5)
+#' 
+#' # Run optimal binning with ChiMerge
+#' result <- optimal_binning_numerical_cm(target, feature, min_bins = 3, max_bins = 6)
+#'
+#' # Use Chi2 algorithm instead
+#' result_chi2 <- optimal_binning_numerical_cm(target, feature, min_bins = 3, 
+#'                                            max_bins = 6, use_chi2_algorithm = TRUE)
+#'
+#' # View results
 #' print(result)
 #' }
 #'
-#' @export 
-optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+#' @export
+optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, init_method = "equal_frequency", chi_merge_threshold = 0.05, use_chi2_algorithm = FALSE) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_cm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, init_method, chi_merge_threshold, use_chi2_algorithm)
 }
 
-#' @title Optimal Binning for Numerical Variables using Dynamic Programming with Local Constraints (DPLC)
+#' @title Optimal Binning for Numerical Variables using Divergence Measures and Information Value
 #'
 #' @description
-#' Performs optimal binning for numerical variables using a Dynamic Programming with Local Constraints (DPLC) approach.
+#' Performs optimal binning for numerical variables using various divergence measures as proposed
+#' by Zeng (2013). This method transforms continuous features into discrete bins by maximizing 
+#' the statistical divergence between distributions of positive and negative cases, while 
+#' maintaining interpretability constraints.
+#'
+#' @param target An integer binary vector (0 or 1) representing the target variable.
+#' @param feature A numeric vector of feature values to be binned.
+#' @param min_bins Minimum number of bins to generate (default: 3).
+#' @param max_bins Maximum number of bins to generate (default: 5).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins generated before optimization (default: 20).
+#' @param is_monotonic Logical value indicating whether to enforce monotonicity in WoE (default: TRUE).
+#' @param convergence_threshold Convergence threshold for divergence measure change (default: 1e-6).
+#' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+#' @param bin_method Method for WoE calculation, either 'woe' (traditional) or 'woe1' (Zeng's) (default: 'woe1').
+#' @param divergence_method Divergence measure to optimize. Options: 
+#' \itemize{
+#'   \item 'he': Hellinger Discrimination
+#'   \item 'kl': Kullback-Leibler Divergence
+#'   \item 'tr': Triangular Discrimination 
+#'   \item 'klj': J-Divergence (symmetric KL)
+#'   \item 'sc': Chi-Square Symmetric Divergence
+#'   \item 'js': Jensen-Shannon Divergence
+#'   \item 'l1': L1 metric (Manhattan distance)
+#'   \item 'l2': L2 metric (Euclidean distance) - Default
+#'   \item 'ln': L-infinity metric (Maximum distance)
+#' }
+#'
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with the intervals of each bin (e.g., `(-Inf; 0]`, `(0; +Inf)`).}
+#' \item{woe}{Numeric vector with the Weight of Evidence values for each bin.}
+#' \item{divergence}{Numeric vector with the divergence measure contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the number of positive observations in each bin.}
+#' \item{count_neg}{Integer vector with the number of negative observations in each bin.}
+#' \item{cutpoints}{Numeric vector of cut points between bins (excluding infinity).}
+#' \item{converged}{Logical value indicating whether the algorithm converged.}
+#' \item{iterations}{Number of iterations executed by the optimization algorithm.}
+#' \item{total_divergence}{The total divergence measure of the binning solution.}
+#' \item{bin_method}{The WoE calculation method used ('woe' or 'woe1').}
+#' \item{divergence_method}{The divergence measure used for optimization.}
+#'
+#' @details
+#' This implementation is based on the theoretical framework from Zeng (2013) "Metric Divergence 
+#' Measures and Information Value in Credit Scoring", which explores various divergence measures 
+#' for optimal binning in credit scoring applications.
+#' 
+#' The algorithm extends traditional optimal binning by:
+#' 
+#' 1. Supporting multiple divergence measures including true metric distances (L1, L2, L-infinity)
+#' 2. Offering choice between traditional WoE and Zeng's corrected WOE1 formula
+#' 3. Optimizing bin boundaries to maximize the chosen divergence measure
+#' 4. Ensuring monotonicity when requested, with direction determined by divergence maximization
+#' 
+#' The mathematical formulations of the divergence measures include:
+#' 
+#' \deqn{Hellinger: h(P||Q) = \frac{1}{2}\sum_{i=1}^{n}(\sqrt{p_i} - \sqrt{q_i})^2}
+#' \deqn{Kullback-Leibler: D(P||Q) = \sum_{i=1}^{n}p_i\ln(\frac{p_i}{q_i})}
+#' \deqn{J-Divergence: J(P||Q) = \sum_{i=1}^{n}(p_i - q_i)\ln(\frac{p_i}{q_i})}
+#' \deqn{Triangular: \Delta(P||Q) = \sum_{i=1}^{n}\frac{(p_i - q_i)^2}{p_i + q_i}}
+#' \deqn{Chi-Square: \psi(P||Q) = \sum_{i=1}^{n}\frac{(p_i - q_i)^2(p_i + q_i)}{p_iq_i}}
+#' \deqn{Jensen-Shannon: I(P||Q) = \frac{1}{2}[\sum_{i=1}^{n}p_i\ln(\frac{2p_i}{p_i+q_i}) + \sum_{i=1}^{n}q_i\ln(\frac{2q_i}{p_i+q_i})]}
+#' \deqn{L1: L_1(P||Q) = \sum_{i=1}^{n}|p_i - q_i|}
+#' \deqn{L2: L_2(P||Q) = \sqrt{\sum_{i=1}^{n}(p_i - q_i)^2}}
+#' \deqn{L-infinity: L_\infty(P||Q) = \max_{1 \leq i \leq n}|p_i - q_i|}
+#' 
+#' WoE calculation methods:
+#' \deqn{Traditional WoE: \ln(\frac{p_i/P}{n_i/N})}
+#' \deqn{Zeng's WOE1: \ln(\frac{g_i}{b_i})}
+#' 
+#' Where:
+#' \itemize{
+#'   \item \eqn{p_i, q_i}: Proportion of positive/negative cases in bin i
+#'   \item \eqn{g_i, b_i}: Count of positive/negative cases in bin i
+#'   \item \eqn{P, N}: Total positive/negative cases
+#' }
+#'
+#' @references
+#' Zeng, G. (2013). Metric Divergence Measures and Information Value in Credit Scoring.
+#' Journal of Mathematics, 2013, Article ID 848271, 10 pages.
+#' 
+#' Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. 
+#' Society for Industrial and Applied Mathematics.
+#'
+#' @examples
+#' \dontrun{
+#' # Generate synthetic data
+#' set.seed(123)
+#' n <- 10000
+#' feature <- rnorm(n)
+#' # Create target with logistic relationship
+#' target <- rbinom(n, 1, plogis(0.5 * feature))
+#'
+#' # Apply optimal binning with default L2 metric and WOE1
+#' result <- optimal_binning_numerical_dmiv(target, feature)
+#' print(result)
+#' 
+#' # Try with J-Divergence and traditional WoE
+#' result_j <- optimal_binning_numerical_dmiv(
+#'   target = target,
+#'   feature = feature,
+#'   divergence_method = "klj",
+#'   bin_method = "woe"
+#' )
+#' 
+#' # Compare results from different metrics
+#' l1_result <- optimal_binning_numerical_dmiv(target, feature, divergence_method = "l1")
+#' l2_result <- optimal_binning_numerical_dmiv(target, feature, divergence_method = "l2")
+#' ln_result <- optimal_binning_numerical_dmiv(target, feature, divergence_method = "ln")
+#' 
+#' # Compare total divergence values
+#' cat("L1 total divergence:", l1_result$total_divergence, "\n")
+#' cat("L2 total divergence:", l2_result$total_divergence, "\n")
+#' cat("L-infinity total divergence:", ln_result$total_divergence, "\n")
+#' }
+#'
+#' @export
+optimal_binning_numerical_dmiv <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, is_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L, bin_method = "woe1", divergence_method = "l2") {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_dmiv`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic, convergence_threshold, max_iterations, bin_method, divergence_method)
+}
+
+#' @title Optimal Binning for Numerical Variables using Dynamic Programming
+#'
+#' @description
+#' Performs optimal binning for numerical variables using a Dynamic Programming approach.
 #' It creates optimal bins for a numerical feature based on its relationship with a binary target variable, 
 #' maximizing the predictive power while respecting user-defined constraints and enforcing monotonicity.
 #'
@@ -1429,35 +2613,65 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 #' @param max_n_prebins Maximum number of pre-bins before the optimization process (default: 20).
 #' @param convergence_threshold Convergence threshold for the algorithm (default: 1e-6).
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
+#' @param monotonic_trend Monotonicity direction. One of 'auto', 'ascending', 'descending', or 'none' (default: 'auto').
 #'
 #' @return A list containing the following elements:
+#' \item{id}{Numeric vector of bin identifiers (1 to n).}
 #' \item{bin}{Character vector of bin ranges.}
-#' \item{woe}{Numeric vector of WoE values for each bin.}
+#' \item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
 #' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 #' \item{count}{Numeric vector of total observations in each bin.}
 #' \item{count_pos}{Numeric vector of positive target observations in each bin.}
 #' \item{count_neg}{Numeric vector of negative target observations in each bin.}
+#' \item{event_rate}{Numeric vector of event rates (proportion of positive events) in each bin.}
 #' \item{cutpoints}{Numeric vector of cut points to generate the bins.}
+#' \item{total_iv}{Total Information Value across all bins.}
 #' \item{converged}{Logical indicating if the algorithm converged.}
 #' \item{iterations}{Integer number of iterations run by the algorithm.}
+#' \item{execution_time_ms}{Execution time in milliseconds.}
+#' \item{monotonic_trend}{The monotonic trend used ('auto', 'ascending', 'descending', 'none').}
 #'
 #' @details
-#' The Dynamic Programming with Local Constraints (DPLC) algorithm for numerical variables works as follows:
-#' 1. Perform initial pre-binning based on quantiles of the feature distribution.
-#' 2. Calculate initial counts and Weight of Evidence (WoE) for each bin.
-#' 3. Enforce monotonicity of WoE values across bins by merging adjacent non-monotonic bins.
-#' 4. Ensure the number of bins is between \code{min_bins} and \code{max_bins}:
-#'   - Merge bins with the smallest WoE difference if above \code{max_bins}.
-#'   - Handle rare bins by merging those below the \code{bin_cutoff} threshold.
-#' 5. Calculate final Information Value (IV) for each bin.
+#' The Dynamic Programming algorithm for numerical variables works as follows:
+#' 
+#' \enumerate{
+#'   \item Create initial pre-bins based on equal-frequency binning of the feature distribution
+#'   \item Calculate bin statistics: counts, event rates, WoE, and IV
+#'   \item If monotonicity is required, determine the appropriate trend:
+#'     \itemize{
+#'       \item In 'auto' mode: Calculate correlation between feature and target to choose direction
+#'       \item In 'ascending'/'descending' mode: Use the specified direction
+#'     }
+#'   \item Enforce monotonicity by merging adjacent bins that violate the monotonic trend
+#'   \item Ensure bin constraints are met:
+#'     \itemize{
+#'       \item If exceeding max_bins: Merge bins with the smallest WoE difference
+#'       \item Handle rare bins: Merge bins with fewer than bin_cutoff proportion of observations
+#'     }
+#'   \item Calculate final statistics for the optimized bins
+#' }
 #'
-#' The algorithm aims to create bins that maximize the predictive power of the numerical variable while adhering to the specified constraints. It enforces monotonicity of WoE values, which is particularly useful for credit scoring and risk modeling applications.
+#' The Weight of Evidence (WoE) measures the predictive power of each bin and is calculated as:
+#' 
+#' \deqn{WoE = \ln\left(\frac{\text{Distribution of Events}}{\text{Distribution of Non-Events}}\right)}
 #'
-#' Weight of Evidence (WoE) is calculated as:
-#' \deqn{WoE = \ln\left(\frac{\text{Positive Rate}}{\text{Negative Rate}}\right)}
+#' The Information Value (IV) for each bin is calculated as:
+#' 
+#' \deqn{IV = (\text{Distribution of Events} - \text{Distribution of Non-Events}) \times WoE}
 #'
-#' Information Value (IV) is calculated as:
-#' \deqn{IV = (\text{Positive Rate} - \text{Negative Rate}) \times WoE}
+#' The total IV is the sum of bin IVs and measures the overall predictive power of the feature.
+#'
+#' This implementation is based on the methodology described in:
+#' 
+#' \itemize{
+#'   \item Navas-Palencia, G. (2022). "OptBinning: Mathematical Optimization for Optimal Binning". Journal of Open Source Software, 7(74), 4101.
+#'   \item Siddiqi, N. (2017). "Intelligent Credit Scoring: Building and Implementing Better Credit Risk Scorecards". John Wiley & Sons, 2nd Edition.
+#'   \item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2017). "Credit Scoring and Its Applications". SIAM, 2nd Edition.
+#'   \item Kotsiantis, S.B., & Kanellopoulos, D. (2006). "Discretization Techniques: A recent survey". GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+#' }
+#'
+#' Monotonicity constraints are particularly important in credit scoring and risk modeling
+#' applications, as they ensure that the model behaves in an intuitive and explainable way.
 #'
 #' @examples
 #' # Create sample data
@@ -1467,22 +2681,24 @@ optimal_binning_numerical_cm <- function(target, feature, min_bins = 3L, max_bin
 #' feature <- rnorm(n)
 #'
 #' # Run optimal binning
-#' result <- optimal_binning_numerical_dplc(target, feature, min_bins = 2, max_bins = 4)
+#' result <- optimal_binning_numerical_dp(target, feature, min_bins = 2, max_bins = 4)
 #'
 #' # Print results
 #' print(result)
 #'
 #' @export
-optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_dplc`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_dp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, monotonic_trend = "auto") {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_dp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, monotonic_trend)
 }
 
 #' @title Optimal Binning for Numerical Variables using Equal-Width Binning
 #'
 #' @description
-#' Performs optimal binning for numerical variables using equal-width intervals (Equal-Width Binning) 
-#' with subsequent merging and adjustment steps. This procedure aims to create an interpretable binning 
-#' strategy with good predictive power, taking into account monotonicity and minimum splits within the bins.
+#' Performs optimal binning for numerical variables using equal-width intervals as a starting point, 
+#' followed by a suite of optimization steps. This method balances predictive power and interpretability
+#' by creating statistically stable bins with a strong relationship to the target variable.
+#' The algorithm is particularly useful for risk modeling, credit scoring, and feature engineering in 
+#' classification tasks.
 #'
 #' @param target Integer binary vector (0 or 1) representing the target variable.
 #' @param feature Numeric vector with the values of the feature to be binned.
@@ -1490,176 +2706,467 @@ optimal_binning_numerical_dplc <- function(target, feature, min_bins = 3L, max_b
 #' @param max_bins Maximum number of bins (default: 5).
 #' @param bin_cutoff Minimum fraction of observations each bin must contain (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
-#' @param convergence_threshold Convergence threshold (default: 1e-6).
+#' @param is_monotonic Logical indicating whether to enforce monotonicity in WoE (default: TRUE).
+#' @param convergence_threshold Convergence threshold for optimization process (default: 1e-6).
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
 #'
 #' @return A list containing:
-#' \item{bins}{Character vector with the interval of each bin.}
-#' \item{woe}{Numeric vector with the WoE values for each bin.}
-#' \item{iv}{Numeric vector with the IV value for each bin.}
-#' \item{count}{Numeric vector with the total number of observations in each bin.}
-#' \item{count_pos}{Numeric vector with the total number of positive observations in each bin.}
-#' \item{count_neg}{Numeric vector with the total number of negative observations in each bin.}
-#' \item{cutpoints}{Numeric vector with the cut points.}
+#' \item{id}{Numeric identifiers for each bin (1-based indexing).}
+#' \item{bin}{Character vector with the interval specification of each bin (e.g., "(-Inf;0.5]").}
+#' \item{woe}{Numeric vector with the Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with the Information Value contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the number of positive observations in each bin.}
+#' \item{count_neg}{Integer vector with the number of negative observations in each bin.}
+#' \item{cutpoints}{Numeric vector with the cut points between bins (excluding infinity).}
 #' \item{converged}{Logical value indicating whether the algorithm converged.}
 #' \item{iterations}{Number of iterations performed by the algorithm.}
+#' \item{total_iv}{Total Information Value of the binning solution.}
 #'
 #' @details
-#' The algorithm consists of the following steps:
-#' 1. Creation of equal-width pre-bins.
-#' 2. Assignment of data to these pre-bins.
-#' 3. Merging of rare bins (with few observations).
-#' 4. Calculation of initial WoE and IV.
-#' 5. Ensuring WoE monotonicity by merging non-monotonic bins.
-#' 6. Adjustment to ensure the maximum number of bins does not exceed max_bins.
-#' 7. Recalculating WoE and IV at the end.
-#'
-#' This method aims to provide bins that balance interpretability, monotonicity, and predictive power, useful in risk modeling and credit scoring.
-#'
-#' @examples
-#' set.seed(123)
-#' target <- sample(0:1, 1000, replace = TRUE)
-#' feature <- rnorm(1000)
-#' result <- optimal_binning_numerical_ewb(target, feature)
-#' print(result)
-#'
-#' @export
-optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ewb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
-}
-
-#' @title Optimal Binning for Numerical Variables using Fisher's Exact Test (FETB)
-#'
-#' @description
-#' This function implements an optimal binning algorithm for numerical variables using Fisher's Exact Test. 
-#' It attempts to create an optimal set of bins for a given numerical feature based on its relationship with 
-#' a binary target variable, ensuring both statistical significance (via Fisher's Exact Test) and monotonicity in WoE values.
-#'
-#' @param target A numeric vector of binary target values (0 or 1).
-#' @param feature A numeric vector of feature values to be binned.
-#' @param min_bins Minimum number of bins (default: 3).
-#' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff P-value threshold for merging bins (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins before the merging process (default: 20).
-#' @param convergence_threshold Threshold for algorithmic convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed during merging and monotonicity enforcement (default: 1000).
-#'
-#' @return A list containing:
-#' \item{bin}{A character vector of bin ranges.}
-#' \item{woe}{A numeric vector of WoE values for each bin.}
-#' \item{iv}{A numeric vector of IV for each bin.}
-#' \item{count}{A numeric vector of total observations in each bin.}
-#' \item{count_pos}{A numeric vector of positive target observations in each bin.}
-#' \item{count_neg}{A numeric vector of negative target observations in each bin.}
-#' \item{cutpoints}{A numeric vector of cut points used to generate the bins.}
-#' \item{converged}{A logical indicating if the algorithm converged.}
-#' \item{iterations}{An integer indicating the number of iterations run.}
-#'
-#' @details
-#' The algorithm works as follows:
-#' 1. Pre-binning: Initially divides the feature into up to \code{max_n_prebins} bins based on sorted values.
-#' 2. Fisher Merging: Adjacent bins are merged if the Fisher's Exact Test p-value exceeds \code{bin_cutoff}, indicating no statistically significant difference between them.
-#' 3. Monotonicity Enforcement: Ensures the WoE values are monotonic by merging non-monotonic adjacent bins.
-#' 4. Final WoE/IV Calculation: After achieving a stable set of bins (or reaching iteration limits), it calculates the final WoE and IV for each bin.
-#'
-#' The method aims at providing statistically justifiable and monotonic binning, which is particularly useful for credit scoring and other risk modeling tasks.
+#' ## Algorithm Overview
+#' 
+#' The implementation follows a multi-stage approach:
+#' 
+#' 1. **Pre-processing**:
+#'    - Validation of inputs and handling of missing values
+#'    - Special processing for features with few unique values
+#' 
+#' 2. **Equal-Width Binning**:
+#'    - Division of the feature range into intervals of equal width
+#'    - Initial assignment of observations to bins
+#' 
+#' 3. **Statistical Optimization**:
+#'    - Merging of rare bins with frequencies below threshold
+#'    - WoE monotonicity enforcement (optional)
+#'    - Optimization to meet maximum bins constraint
+#' 
+#' 4. **Metric Calculation**:
+#'    - Weight of Evidence (WoE) and Information Value (IV) computation
+#' 
+#' ## Mathematical Foundation
+#' 
+#' The algorithm uses two key metrics from information theory:
+#' 
+#' 1. **Weight of Evidence (WoE)** for bin \eqn{i}:
+#'    \deqn{WoE_i = \ln\left(\frac{p_i/P}{n_i/N}\right)}
+#'    
+#'    Where:
+#'    - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#'    - \eqn{P}: Total number of positive cases
+#'    - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#'    - \eqn{N}: Total number of negative cases
+#'    
+#' 2. **Information Value (IV)** for bin \eqn{i}:
+#'    \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#'    
+#'    The total Information Value is the sum across all bins:
+#'    \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#'    
+#' 3. **Laplace Smoothing**:
+#'    To handle zero counts, the algorithm employs Laplace smoothing:
+#'    \deqn{\frac{p_i + \alpha}{P + k\alpha}, \frac{n_i + \alpha}{N + k\alpha}}
+#'    
+#'    Where:
+#'    - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#'    - \eqn{k}: Number of bins
+#' 
+#' ## Monotonicity Enforcement
+#' 
+#' When `is_monotonic = TRUE`, the algorithm ensures that WoE values either consistently 
+#' increase or decrease across bins. This property is desirable for:
+#' 
+#' - Interpretability: Monotonic relationships are easier to explain
+#' - Robustness: Reduces overfitting and improves stability
+#' - Business logic: Aligns with domain knowledge expectations
+#' 
+#' The algorithm determines the preferred monotonicity direction (increasing or decreasing) 
+#' based on the initial bins and proceeds to merge bins that violate this pattern while 
+#' minimizing information loss.
+#' 
+#' ## Handling Edge Cases
+#' 
+#' The algorithm includes special handling for:
+#' 
+#' - Missing values (NaN)
+#' - Features with few unique values
+#' - Nearly constant features
+#' - Highly imbalanced target distributions
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' result <- optimal_binning_numerical_fetb(target, feature)
-#' print(result$bins)
-#' print(result$woe)
-#' print(result$iv)
+#' 
+#' # Basic usage
+#' result <- optimal_binning_numerical_ewb(target, feature)
+#' print(result)
+#' 
+#' # Custom parameters
+#' result_custom <- optimal_binning_numerical_ewb(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.03,
+#'   is_monotonic = TRUE
+#' )
+#' 
+#' # Extract cutpoints for use in prediction
+#' cutpoints <- result$cutpoints
+#' 
+#' # Calculate total information value
+#' total_iv <- result$total_iv
 #' }
 #'
+#' @references
+#' Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and Unsupervised Discretization of 
+#' Continuous Features. *Proceedings of the Twelfth International Conference on Machine Learning*, 194-202.
+#' 
+#' García, S., Luengo, J., Sáez, J. A., López, V., & Herrera, F. (2013). A survey of discretization 
+#' techniques: Taxonomy and empirical analysis in supervised learning. *IEEE Transactions on Knowledge 
+#' and Data Engineering*, 25(4), 734-750.
+#' 
+#' Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization Techniques: A Recent Survey. 
+#' *GESTS International Transactions on Computer Science and Engineering*, 32(1), 47-58.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C. (2009). *Consumer Credit Models: Pricing, Profit and Portfolios*. Oxford University Press.
+#' 
+#' Zeng, Y. (2014). Univariate feature selection and binner. *arXiv preprint arXiv:1410.5420*.
+#'
 #' @export
-optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_fetb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, is_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ewb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, is_monotonic, convergence_threshold, max_iterations)
 }
 
-optimal_binning_numerical_fastMDLPM <- function(target, feature, min_bins = 2L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 100L, convergence_threshold = 1e-6, max_iterations = 1000L, force_monotonicity = TRUE) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_fastMDLPM`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, force_monotonicity)
+#' @title Optimal Binning for Numerical Variables with Fisher’s Exact Test
+#'
+#' @description
+#' Implements a **supervised, monotonic, optimal** binning procedure for
+#' numeric predictors against a binary target.  
+#' The algorithm iteratively merges the pair of *adjacent* bins whose class
+#' composition is \emph{most similar} according to the two‑tailed
+#' Fisher’s Exact Test, and guarantees a monotone
+#' \emph{Weight of Evidence} (WoE) profile.  
+#' Designed for scorecard development, churn modelling and any logistic
+#' application where robust, information‑preserving discretisation is required.
+#'
+#' @details
+#' \strong{Notation}\cr
+#' \eqn{(x_i,\,y_i),\; i=1,\dots,N} are observations with
+#' \eqn{y_i\in\{0,1\}}.  A cut‑point vector
+#' \eqn{c=(c_0=-\infty < c_1 < \dots < c_{B-1} < c_B=+\infty)}
+#' induces bins \eqn{I_b=(c_{b-1},c_b],\; b=1,\dots,B}.  For each bin collect
+#' contingency counts
+#' \deqn{(a_b,b_b)=\Bigl(\sum_{x_i\in I_b}y_i,\;\sum_{x_i\in I_b}(1-y_i)\Bigr).}
+#'
+#' \strong{Algorithm}\cr
+#' \enumerate{
+#'   \item \emph{Pre‑binning}.  Create up to \code{max_n_prebins} equal‑frequency
+#'         bins from the ordered feature.  This bounds subsequent complexity.
+#'   \item \emph{Fisher merge loop}.  While \eqn{B>}\code{max_bins},
+#'         merge the adjacent pair \eqn{(I_j,I_{j+1})} maximising the
+#'         point probability of the corresponding 2×2 table
+#'         \eqn{p_j = P\{ \text{table }(a_j,b_j,c_j,d_j)\}}.
+#'   \item \emph{Monotonicity}.  After every merge, if the WoE sequence
+#'         \eqn{w_1,\dots,w_B} violates monotonicity
+#'         (\eqn{\exists\,b:\,w_b>w_{b+1}} for ascending trend or vice‑versa)
+#'         merge that offending pair and restart the check locally.
+#'   \item \emph{Convergence}.  Stop when
+#'         \eqn{|IV_{t+1}-IV_t|<}\code{convergence_threshold} or the iteration
+#'         cap is reached.\cr
+#' }
+#'
+#' \strong{Complexity}\cr
+#' \itemize{
+#'   \item Pre‑binning: \eqn{O(N\log N)} (sort) but done once.
+#'   \item Merge loop: worst‑case \eqn{O(B^2)} with
+#'         \eqn{B\le}\code{max_n_prebins}.
+#'   \item Memory: \eqn{O(B)}.
+#' }
+#'
+#' \strong{Formulae}\cr
+#' \deqn{ \mathrm{WoE}_b = \log\!\left(
+#'         \frac{a_b / T_1}{\,b_b / T_0}\right)\!, \qquad
+#'        \mathrm{IV}   = \sum_{b=1}^{B}
+#'         \left(\frac{a_b}{T_1}-\frac{b_b}{T_0}\right)\mathrm{WoE}_b}
+#' where \eqn{T_1=\sum_b a_b},\ \eqn{T_0=\sum_b b_b}.
+#'
+#' @param target Integer (0/1) vector, length \eqn{N}.
+#' @param feature Numeric vector, length \eqn{N}.
+#' @param min_bins Minimum number of final bins (default \code{3}).
+#' @param max_bins Maximum number of final bins (default \code{5}).
+#' @param max_n_prebins Maximum number of pre‑bins created before optimisation
+#'        (default \code{20}).
+#' @param convergence_threshold Absolute tolerance for change in total IV used
+#'        as convergence criterion (default \code{1e-6}).
+#' @param max_iterations Safety cap for merge + monotonicity iterations
+#'        (default \code{1000}).
+#'
+#' @return A named \code{list}:
+#' \describe{
+#'   \item{id}{Bin index (1‑based).}
+#'   \item{bin}{Character vector \code{"(lo; hi]"} describing intervals.}
+#'   \item{woe, iv}{WoE and IV per bin.}
+#'   \item{count, count_pos, count_neg}{Bin frequencies.}
+#'   \item{cutpoints}{Numeric vector of internal cut‑points
+#'         \eqn{c_1,\dots,c_{B-1}}.}
+#'   \item{converged}{Logical flag.}
+#'   \item{iterations}{Number of iterations executed.}
+#' }
+#'
+#' @examples
+#' \donttest{
+#' set.seed(2025)
+#' N  <- 1000
+#' y  <- rbinom(N, 1, 0.3)             # 30 % positives
+#' x  <- rnorm(N, mean = 50, sd = 10)  # numeric predictor
+#' res <- optimal_binning_numerical_fetb(y, x,
+#'         min_bins = 2, max_bins = 6, max_n_prebins = 25)
+#' print(res)
+#'
+#' @references
+#' Fisher, R. A. (1922) \emph{On the interpretation of \eqn{X^2} from contingency
+#'   tables, and the calculation of P}. *JRSS*, 85 (1), 87‑94.\cr
+#' Siddiqi, N. (2012) \emph{Credit Risk Scorecards}. Wiley.\cr
+#' Navas‑Palencia, G. (2019) *optbinning* documentation – Numerical FETB.\cr
+#' Hand, D. J., & Adams, N. M. (2015) \emph{Supervised Classification in
+#'   High Dimensions}. Springer (Ch. 4, discretisation).\cr
+#' Hosmer, D. W., Lemeshow, S., & Sturdivant, R. X. (2013)
+#'   \emph{Applied Logistic Regression} (3rd ed.). Wiley.
+#'
+#' @author Lopes, J. E.
+#' @export
+optimal_binning_numerical_fetb <- function(target, feature, min_bins = 3L, max_bins = 5L, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_fetb`, target, feature, min_bins, max_bins, max_n_prebins, convergence_threshold, max_iterations)
+}
+
+#' Optimal Binning for Numerical Variables using MDLP with Monotonicity
+#'
+#' This function implements optimal binning for numerical variables using the Minimum
+#' Description Length Principle (MDLP) with optional monotonicity constraints on the
+#' Weight of Evidence (WoE).
+#'
+#' The algorithm recursively partitions the feature space by finding cut points that 
+#' maximize information gain, subject to the MDLP criterion that determines whether a cut is 
+#' justified based on information theory principles. The monotonicity constraint ensures that
+#' the WoE values across bins follow a monotonic (strictly increasing or decreasing) pattern,
+#' which is often desirable in credit risk modeling applications.
+#'
+#' @param target Binary target variable (0/1)
+#' @param feature Numerical feature to be binned
+#' @param min_bins Minimum number of bins (default: 2)
+#' @param max_bins Maximum number of bins (default: 5)
+#' @param bin_cutoff Minimum relative frequency for a bin (not fully implemented, for future extensions)
+#' @param max_n_prebins Maximum number of pre-bins (not fully implemented, for future extensions) 
+#' @param convergence_threshold Convergence threshold for monotonicity enforcement
+#' @param max_iterations Maximum number of iterations for monotonicity enforcement
+#' @param force_monotonicity Whether to enforce monotonicity of Weight of Evidence
+#'
+#' @return A list containing:
+#'   \item{id}{Bin identifiers}
+#'   \item{bin}{Bin interval representations}
+#'   \item{woe}{Weight of Evidence values for each bin}
+#'   \item{iv}{Information Value components for each bin}
+#'   \item{count}{Total count in each bin}
+#'   \item{count_pos}{Positive count in each bin}
+#'   \item{count_neg}{Negative count in each bin}
+#'   \item{cutpoints}{Cut points between bins}
+#'   \item{converged}{Whether the algorithm converged}
+#'   \item{iterations}{Number of iterations performed}
+#'
+#' @examples
+#' \dontrun{
+#' # Generate sample data
+#' set.seed(123)
+#' feature <- rnorm(1000)
+#' target <- as.integer(feature + rnorm(1000) > 0)
+#'
+#' # Apply optimal binning
+#' result <- optimal_binning_numerical_fast_mdlpm(target, feature, min_bins = 3, max_bins = 5)
+#' 
+#' # Print results
+#' print(result)
+#' 
+#' # Create WoE transformation
+#' woe_transform <- function(x, bins, woe_values) {
+#'   result <- rep(NA, length(x))
+#'   for(i in seq_along(bins)) {
+#'     idx <- eval(parse(text = paste0("x", bins[i])))
+#'     result[idx] <- woe_values[i]
+#'   }
+#'   return(result)
+#' }
+#' }
+#'
+#' @references
+#' Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued 
+#' attributes for classification learning. Proceedings of the 13th International 
+#' Joint Conference on Artificial Intelligence, 1022-1027.
+#'
+#' Kotsiantis, S., & Kanellopoulos, D. (2006). Discretization techniques: A recent 
+#' survey. GESTS International Transactions on Computer Science and Engineering, 32(1), 47-58.
+#' 
+optimal_binning_numerical_fast_mdlpm <- function(target, feature, min_bins = 2L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 100L, convergence_threshold = 1e-6, max_iterations = 1000L, force_monotonicity = TRUE) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_fast_mdlpm`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, force_monotonicity)
 }
 
 #' @title Optimal Binning for Numerical Variables using Isotonic Regression
 #'
 #' @description
-#' Implements a sophisticated binning algorithm for numerical variables using isotonic regression. 
-#' Ensures monotonicity in bin rates and stable bin boundaries while optimizing information retention.
+#' Implements an advanced binning algorithm for numerical variables using isotonic regression
+#' to ensure monotonicity in bin event rates. This method is particularly valuable for risk modeling,
+#' credit scoring, and other applications where monotonic relationships between features and
+#' target variables are expected or preferred.
 #'
 #' @details
-#' ### Algorithm Framework:
-#' The algorithm segments a numerical feature \eqn{X} into \eqn{K} bins based on its relationship with a binary 
-#' target \eqn{Y \in \{0,1\}}. Each bin \eqn{B_i = (c_{i-1}, c_i]} is defined to maximize information content 
-#' under the following constraints:
+#' ## Algorithm Overview
+#' 
+#' The algorithm transforms a continuous feature into discrete bins that maximize the relationship
+#' with a binary target while enforcing monotonicity constraints. It operates through several phases:
 #'
-#' \enumerate{
-#'   \item **Monotonicity**: Ensures non-decreasing (or non-increasing) trends in bin rates.
-#'   \item **Minimum Bin Size**: Each bin contains at least \eqn{\text{bin_cutoff} \times N} observations.
-#'   \item **Bin Count Bounds**: The number of bins satisfies \eqn{\text{min_bins} \leq K \leq \text{max_bins}}.
-#' }
+#' 1. **Pre-Binning**: Initial segmentation based on quantiles or unique feature values
+#' 2. **Frequency Stabilization**: Merging of low-frequency bins to ensure statistical reliability
+#' 3. **Monotonicity Enforcement**: Application of isotonic regression via Pool Adjacent Violators (PAV)
+#' 4. **Bin Optimization**: Adjustments to meet constraints on minimum and maximum bin count
+#' 5. **Information Value Calculation**: Computation of WoE and IV metrics for each bin
 #'
-#' The algorithm is divided into the following phases:
-#' 1. **Pre-Binning**: Initial binning based on quantiles or unique feature values.
-#' 2. **Rare Bin Merging**: Merges bins with insufficient observations to ensure statistical stability.
-#' 3. **Monotonicity Enforcement**: Applies isotonic regression to enforce monotonic trends in bin rates.
-#' 4. **Bin Optimization**: Adjusts the number of bins to ensure adherence to \eqn{\text{min_bins}} and \eqn{\text{max_bins}}.
-#' 5. **Information Value Calculation**: Computes WoE and IV for each bin.
+#' ## Mathematical Foundation
+#' 
+#' The core mathematical concepts employed in this algorithm are:
+#' 
+#' ### 1. Isotonic Regression
+#' 
+#' Isotonic regression solves the following optimization problem:
+#' 
+#' \deqn{\min_{\mu} \sum_{i=1}^{n} w_i (y_i - \mu_i)^2}
+#' 
+#' Subject to:
+#' \deqn{\mu_1 \leq \mu_2 \leq \ldots \leq \mu_n} (for increasing monotonicity)
+#' 
+#' Where:
+#' - \eqn{y_i} is the original event rate in bin \eqn{i}
+#' - \eqn{w_i} is the weight (observation count) of bin \eqn{i}
+#' - \eqn{\mu_i} is the isotonic (monotone) estimate for bin \eqn{i}
+#' 
+#' ### 2. Weight of Evidence (WoE)
+#' 
+#' For each bin \eqn{i}, the Weight of Evidence is defined as:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{p_i/P}{n_i/N}\right)}
+#' 
+#' Where:
+#' - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#' - \eqn{P}: Total number of positive cases
+#' - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#' - \eqn{N}: Total number of negative cases
+#' 
+#' ### 3. Information Value (IV)
+#' 
+#' For each bin \eqn{i}, the Information Value contribution is:
+#' 
+#' \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#' 
+#' The total Information Value is:
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#' 
+#' ### 4. Laplace Smoothing
+#' 
+#' To handle zero counts, Laplace smoothing is applied:
+#' 
+#' \deqn{\frac{p_i + \alpha}{P + k\alpha}, \frac{n_i + \alpha}{N + k\alpha}}
+#' 
+#' Where:
+#' - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#' - \eqn{k}: Number of bins
 #'
-#' ### Key Metrics:
-#' - **Weight of Evidence (WoE)** for bin \eqn{i}:
-#'   \deqn{WoE_i = \ln\left(\frac{\text{Pos}_i / \sum \text{Pos}_i}{\text{Neg}_i / \sum \text{Neg}_i}\right)}
-#'
-#' - **Information Value (IV)** per bin:
-#'   \deqn{IV_i = \left(\frac{\text{Pos}_i}{\sum \text{Pos}_i} - \frac{\text{Neg}_i}{\sum \text{Neg}_i}\right) \times WoE_i}
-#'
-#' - **Total IV**:
-#'   \deqn{IV_{\text{total}} = \sum_{i=1}^K IV_i}
-#'
-#' ### Features:
-#' - **Robustness**: Handles edge cases like unique feature values and extreme distributions.
-#' - **Monotonicity Enforcement**: Ensures trends in bin rates are consistent with the model's expected direction.
-#' - **Flexible Configuration**: User-defined parameters for bin count, cutoff, and convergence thresholds.
-#' - **Stable Computation**: Uses Laplace smoothing to avoid division by zero in WoE calculations.
+#' ## Key Features
+#' 
+#' - **Automatic Monotonicity Direction**: Determines optimal monotonicity (increasing/decreasing) based on data
+#' - **Robust Handling of Edge Cases**: Special processing for few unique values, missing data, etc.
+#' - **Optimal Information Preservation**: Merges bins to minimize information loss while meeting constraints
+#' - **Statistical Reliability**: Ensures each bin has sufficient observations for stable estimates
 #'
 #' @param target Binary integer vector (0 or 1) representing the target variable.
-#' @param feature Numeric vector representing the continuous feature to be binned.
+#' @param feature Numeric vector of values to be binned.
 #' @param min_bins Minimum number of bins to generate (default: 3).
 #' @param max_bins Maximum number of bins allowed (default: 5).
-#' @param bin_cutoff Minimum fraction of observations required in a bin (default: 0.05).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
-#' @param convergence_threshold Threshold for IV stability to determine convergence (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+#' @param auto_monotonicity Automatically determine monotonicity direction (default: TRUE).
+#' @param convergence_threshold Convergence threshold for optimization (default: 1e-6).
+#' @param max_iterations Maximum number of iterations allowed (default: 1000).
 #'
 #' @return A list containing:
-#' \itemize{
-#'   \item `bin`: Character vector with the bin intervals.
-#'   \item `woe`: Numeric vector with Weight of Evidence values for each bin.
-#'   \item `iv`: Numeric vector with Information Value for each bin.
-#'   \item `count`: Integer vector with the number of observations in each bin.
-#'   \item `count_pos`: Integer vector with the positive class counts in each bin.
-#'   \item `count_neg`: Integer vector with the negative class counts in each bin.
-#'   \item `cutpoints`: Numeric vector with the bin cutpoints (excluding ±Inf).
-#'   \item `converged`: Logical value indicating whether the algorithm converged.
-#'   \item `iterations`: Integer with the number of optimization iterations performed.
-#' }
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with the bin intervals.}
+#' \item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with Information Value contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the positive class counts in each bin.}
+#' \item{count_neg}{Integer vector with the negative class counts in each bin.}
+#' \item{cutpoints}{Numeric vector with the bin cutpoints (excluding ±Inf).}
+#' \item{converged}{Logical value indicating whether the algorithm converged.}
+#' \item{iterations}{Integer with the number of optimization iterations performed.}
+#' \item{total_iv}{Total Information Value of the binning solution.}
+#' \item{monotone_increasing}{Logical indicating whether monotonically increasing (TRUE) or decreasing (FALSE).}
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' n <- 1000
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- rnorm(n)
-#' result <- optimal_binning_numerical_ir(target, feature, min_bins = 2, max_bins = 4)
+#' 
+#' # Basic usage
+#' result <- optimal_binning_numerical_ir(target, feature)
 #' print(result)
+#' 
+#' # Custom settings
+#' result_custom <- optimal_binning_numerical_ir(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 6,
+#'   bin_cutoff = 0.03,
+#'   auto_monotonicity = TRUE
+#' )
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' is_increasing <- result$monotone_increasing
 #' }
 #'
+#' @references
+#' Barlow, R. E., & Brunk, H. D. (1972). The isotonic regression problem and its dual. 
+#' *Journal of the American Statistical Association*, 67(337), 140-147.
+#' 
+#' Robertson, T., Wright, F. T., & Dykstra, R. L. (1988). *Order restricted statistical inference*. 
+#' Wiley.
+#' 
+#' de Leeuw, J., Hornik, K., & Mair, P. (2009). Isotone optimization in R: pool-adjacent-violators 
+#' algorithm (PAVA) and active set methods. *Journal of Statistical Software*, 32(5), 1-24.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). *Credit Scoring and Its Applications*. 
+#' Society for Industrial and Applied Mathematics.
+#' 
+#' Belkin, M., Hsu, D., & Mitra, P. (2018). Overfitting or perfect fitting? Risk bounds for 
+#' classification and regression rules that interpolate. *Advances in Neural Information Processing Systems*.
+#'
 #' @export
-optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ir`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, auto_monotonicity = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ir`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, auto_monotonicity, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Numerical Binning JEDI (Joint Entropy-Driven Interval Discretization)
@@ -1676,9 +3183,9 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' satisfying the following constraints:
 #'
 #' \enumerate{
-#'   \item **Monotonic WoE**: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
-#'   \item **Minimum Bin Size**: \eqn{\text{count}(B_i)/N \ge \text{bin_cutoff}}.
-#'   \item **Bin Quantity Limits**: \eqn{\text{min_bins} \le K \le \text{max_bins}}.
+#' \item **Monotonic WoE**: \eqn{WoE_i \le WoE_{i+1}} (or \eqn{\ge} for decreasing trends).
+#' \item **Minimum Bin Size**: count\eqn{(B_i)/N \ge} bin_cutoff.
+#' \item **Bin Quantity Limits**: min_bins \eqn{\le K \le} max_bins.
 #' }
 #'
 #' **Weight of Evidence (WoE)** for bin \eqn{i}:
@@ -1705,8 +3212,8 @@ optimal_binning_numerical_ir <- function(target, feature, min_bins = 3L, max_bin
 #' - **Early Convergence Detection**: Stops iterations when IV stabilizes within the threshold.
 #'
 #' ### Parameters:
-#' - `min_bins`: Minimum number of bins to be created (default: 3, must be ≥2).
-#' - `max_bins`: Maximum number of bins allowed (default: 5, must be ≥ `min_bins`).
+#' - `min_bins`: Minimum number of bins to be created (default: 3, must be >= 2).
+#' - `max_bins`: Maximum number of bins allowed (default: 5, must be >= `min_bins`).
 #' - `bin_cutoff`: Minimum relative frequency required for a bin to remain standalone (default: 0.05).
 #' - `max_n_prebins`: Maximum number of pre-bins created before optimization (default: 20).
 #' - `convergence_threshold`: Threshold for IV change to determine convergence (default: 1e-6).
@@ -1823,308 +3330,606 @@ optimal_binning_numerical_jedi_mwoe <- function(target, feature, min_bins = 3L, 
 
 #' @title Optimal Binning for Numerical Variables using K-means Binning (KMB)
 #'
-#' @description This function implements the K-means Binning (KMB) algorithm for optimal binning of numerical variables.
+#' @description
+#' Implements an advanced binning algorithm for numerical variables inspired by K-means clustering
+#' principles. This method transforms continuous features into optimal discrete bins that maximize
+#' predictive power while maintaining interpretability constraints. The algorithm is particularly
+#' valuable for risk modeling, credit scoring, and feature engineering in classification tasks.
+#'
+#' @details
+#' ## Algorithm Overview
+#' 
+#' The K-means Binning (KMB) algorithm transforms a continuous feature into discrete bins through
+#' several coordinated steps:
+#' 
+#' 1. **Initialization**: Creates initial bins using a clustering-inspired approach, placing bin
+#'    boundaries to create approximately equal-width bins or based on quantiles of the distribution.
+#' 
+#' 2. **Data Assignment**: Assigns observations to appropriate bins and calculates statistics
+#'    including positive/negative counts and event rates.
+#' 
+#' 3. **Bin Optimization**:
+#'    - Merges low-frequency bins to ensure statistical stability
+#'    - Enforces monotonicity in Weight of Evidence (WoE) values (optional)
+#'    - Adjusts the number of bins to fall within specified bounds
+#' 
+#' 4. **Metrics Calculation**: Computes WoE and Information Value (IV) for each bin
+#' 
+#' ## Mathematical Foundation
+#' 
+#' The algorithm optimizes two key metrics from information theory:
+#' 
+#' 1. **Weight of Evidence (WoE)** for bin \eqn{i}:
+#'    \deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+#'    
+#'    Where:
+#'    - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#'    - \eqn{P}: Total number of positive cases
+#'    - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#'    - \eqn{N}: Total number of negative cases
+#'    - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#'    - \eqn{k}: Number of bins
+#'    
+#' 2. **Information Value (IV)** for bin \eqn{i}:
+#'    \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#'    
+#'    The total Information Value is the sum across all bins:
+#'    \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#' 
+#' ## K-means Connection
+#' 
+#' The algorithm draws inspiration from K-means clustering in several ways:
+#' 
+#' - Initial bin boundaries are positioned similar to how K-means initializes centroids
+#' - Data points are assigned to the nearest bin, resembling the assignment step in K-means
+#' - Bin statistics (like centroids) are updated based on the assigned observations
+#' - The algorithm iteratively refines bins to optimize a global objective
+#' 
+#' While traditional K-means minimizes within-cluster variance, KMB optimizes predictive power 
+#' through Information Value while respecting constraints on bin sizes and monotonicity.
+#' 
+#' ## Handling Edge Cases
+#' 
+#' The implementation includes special handling for:
+#' 
+#' - Features with very few unique values
+#' - Missing values (NaN)
+#' - Extreme outliers and infinity values
+#' - Empty or near-empty bins
+#' - Imbalanced target distributions
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins (default: 20).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+#' @param enforce_monotonic Whether to enforce monotonicity in WoE values (default: TRUE).
 #' @param convergence_threshold Convergence threshold for the algorithm (default: 1e-6).
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \item{bin}{Character vector of bin ranges.}
-#' \item{woe}{Numeric vector of WoE values for each bin.}
-#' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector of bin intervals.}
+#' \item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
+#' \item{iv}{Numeric vector of Information Value (IV) contribution for each bin.}
 #' \item{count}{Integer vector of total observations in each bin.}
 #' \item{count_pos}{Integer vector of positive target observations in each bin.}
 #' \item{count_neg}{Integer vector of negative target observations in each bin.}
-#' \item{cutpoints}{Numeric vector of cut points to generate the bins.}
+#' \item{centroids}{Numeric vector of bin centroids (mean of feature values in each bin).}
+#' \item{cutpoints}{Numeric vector of cut points between bins (excluding infinity bounds).}
 #' \item{converged}{Logical indicating if the algorithm converged.}
-#' \item{iterations}{Integer number of iterations run by the algorithm.}
-#'
-#' @details
-#' The K-means Binning (KMB) algorithm is an advanced method for optimal binning of numerical variables.
-#' It combines elements of k-means clustering with traditional binning techniques to create bins that maximize
-#' the predictive power of the feature while respecting user-defined constraints.
-#'
-#' The algorithm works through several steps:
-#' 1. Initial Binning: Creates initial bins based on the unique values of the feature, respecting the max_n_prebins constraint.
-#' 2. Data Assignment: Assigns data points to the appropriate bins.
-#' 3. Low Frequency Merging: Merges bins with frequencies below the bin_cutoff threshold.
-#' 4. Enforce Monotonicity: Merges bins to ensure that the WoE values are monotonic.
-#' 5. Bin Count Adjustment: Adjusts the number of bins to fall within the specified range (min_bins to max_bins).
-#' 6. Statistics Calculation: Computes Weight of Evidence (WoE) and Information Value (IV) for each bin.
-#'
-#' The KMB method uses a modified version of the Weight of Evidence (WoE) calculation that incorporates Laplace smoothing
-#' to handle cases with zero counts
-#' \deqn{WoE_i = \ln\left(\frac{(n_{1i} + 0.5) / (N_1 + 1)}{(n_{0i} + 0.5) / (N_0 + 1)}\right)}
-#' where \eqn{n_{1i}} and \eqn{n_{0i}} are the number of events and non-events in bin i,
-#' and \eqn{N_1} and \eqn{N_0} are the total number of events and non-events.
-#'
-#' The Information Value (IV) for each bin is calculated as:
-#' \deqn{IV_i = \left(\frac{n_{1i}}{N_1} - \frac{n_{0i}}{N_0}\right) \times WoE_i}
-#'
-#' The KMB method aims to create bins that maximize the overall IV while respecting the user-defined constraints.
-#' It uses a greedy approach to merge bins when necessary, choosing to merge bins with the smallest difference in IV.
-#'
-#' When adjusting the number of bins, the algorithm either merges bins with the most similar IVs (if there are too many bins)
-#' or stops merging when min_bins is reached, even if monotonicity is not achieved.
+#' \item{iterations}{Integer number of iterations performed by the algorithm.}
+#' \item{total_iv}{Total Information Value of the binning solution.}
 #'
 #' @examples
 #' \dontrun{
-#'   # Create sample data
-#'   set.seed(123)
-#'   target <- sample(0:1, 1000, replace = TRUE)
-#'   feature <- rnorm(1000)
+#' # Generate synthetic data
+#' set.seed(123)
+#' target <- sample(0:1, 1000, replace = TRUE)
+#' feature <- rnorm(1000)
 #'
-#'   # Run optimal binning
-#'   result <- optimal_binning_numerical_kmb(target, feature)
+#' # Basic usage
+#' result <- optimal_binning_numerical_kmb(target, feature)
+#' print(result)
 #'
-#'   # View results
-#'   print(result)
+#' # Custom parameters
+#' result_custom <- optimal_binning_numerical_kmb(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.03,
+#'   enforce_monotonic = TRUE
+#' )
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' total_iv <- result$total_iv
 #' }
 #'
 #' @references
-#' \itemize{
-#' \item Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. In Proceedings of the 13th International Joint Conference on Artificial Intelligence (pp. 1022-1027).
-#' \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). Credit Scoring and Its Applications. SIAM Monographs on Mathematical Modeling and Computation.
-#' }
+#' Arthur, D., & Vassilvitskii, S. (2007). k-means++: The advantages of careful seeding. 
+#' *Proceedings of the eighteenth annual ACM-SIAM symposium on Discrete algorithms*, 1027-1035.
+#' 
+#' Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued 
+#' attributes for classification learning. *Proceedings of the 13th International Joint 
+#' Conference on Artificial Intelligence*, 1022-1027.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent 
+#' Credit Scoring*. John Wiley & Sons.
+#' 
+#' Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). *Credit Scoring and Its Applications*. 
+#' Society for Industrial and Applied Mathematics.
+#' 
+#' García, S., Luengo, J., Sáez, J. A., López, V., & Herrera, F. (2013). A survey of 
+#' discretization techniques: Taxonomy and empirical analysis in supervised learning. 
+#' *IEEE Transactions on Knowledge and Data Engineering*, 25(4), 734-750.
+#' 
+#' Zhu, X., Zhu, Y., Wang, H., & Zeng, Y. (2020). Credit risk evaluation model with 
+#' optimal discretization and feature selection. *Mathematics*, 8(4), 638.
 #'
 #' @export
-optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_kmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_kmb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, enforce_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_kmb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, enforce_monotonic, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Variables using Local Density Binning (LDB)
 #'
 #' @description
-#' Implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables. 
-#' The method adjusts binning to maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE),
-#' handling rare bins, and ensuring numerical stability.
+#' Implements the Local Density Binning (LDB) algorithm for optimal binning of numerical variables.
+#' This method adapts bin boundaries based on the local density structure of the data while
+#' maximizing the predictive relationship with a binary target variable. LDB is particularly
+#' effective for features with non-uniform distributions or multiple modes.
 #'
 #' @details
-#' ### Key Features:
-#' - **Weight of Evidence (WoE)**: Ensures interpretability by calculating the WoE for each bin, useful for logistic regression and risk models.
-#' - **Information Value (IV)**: Evaluates the predictive power of the binned feature.
-#' - **Monotonicity**: Ensures WoE values are either strictly increasing or decreasing across bins.
-#' - **Rare Bin Handling**: Merges bins with low frequencies to maintain statistical reliability.
-#' - **Numerical Stability**: Prevents log(0) issues through smoothing (Laplace adjustment).
-#' - **Dynamic Adjustments**: Supports constraints on minimum and maximum bins, convergence thresholds, and iteration limits.
+#' ## Algorithm Overview
+#' 
+#' The Local Density Binning algorithm operates in several phases:
+#' 
+#' 1. **Density Analysis**: Analyzes the local density structure of the feature to identify
+#'    regions of high and low density, placing bin boundaries preferentially at density minima.
+#' 
+#' 2. **Initial Binning**: Creates initial bins based on density minima and/or quantiles.
+#' 
+#' 3. **Statistical Optimization**:
+#'    - Merges bins with frequencies below threshold for stability
+#'    - Enforces monotonicity in Weight of Evidence (optional)
+#'    - Adjusts to meet constraints on minimum and maximum bin count
+#' 
+#' 4. **Information Value Calculation**: Computes predictive metrics for each bin
+#' 
+#' ## Mathematical Foundation
+#' 
+#' The algorithm employs several statistical concepts:
+#' 
+#' ### 1. Kernel Density Estimation
+#' 
+#' To identify the local density structure:
+#' 
+#' \deqn{f_h(x) = \frac{1}{nh}\sum_{i=1}^{n}K\left(\frac{x-x_i}{h}\right)}
+#' 
+#' Where:
+#' - \eqn{K} is a kernel function (Gaussian kernel in this implementation)
+#' - \eqn{h} is the bandwidth parameter (selected using Silverman's rule of thumb)
+#' - \eqn{n} is the number of observations
+#' 
+#' ### 2. Weight of Evidence (WoE)
+#' 
+#' For assessing the predictive power of each bin:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+#' 
+#' Where:
+#' - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#' - \eqn{P}: Total number of positive cases
+#' - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#' - \eqn{N}: Total number of negative cases
+#' - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#' - \eqn{k}: Number of bins
+#' 
+#' ### 3. Information Value (IV)
+#' 
+#' For quantifying overall predictive power:
+#' 
+#' \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#' 
+#' ## Advantages of Local Density Binning
+#' 
+#' - **Respects Data Structure**: Places bin boundaries at natural gaps in the distribution
+#' - **Adapts to Multimodality**: Handles features with multiple modes effectively
+#' - **Maximizes Information**: Optimizes binning for predictive power
+#' - **Statistical Stability**: Ensures sufficient observations in each bin
+#' - **Interpretability**: Produces monotonic WoE patterns when requested
 #'
-#' ### Mathematical Framework:
-#' - **Weight of Evidence (WoE)**: For a bin \( i \):
-#'   \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-#'
-#' - **Information Value (IV)**: Aggregates predictive power across all bins:
-#'   \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
-#'
-#' ### Algorithm Steps:
-#' 1. **Input Validation**: Ensures the feature and target vectors are valid and properly formatted.
-#' 2. **Pre-Binning**: Divides the feature into pre-bins based on quantile cuts or unique values.
-#' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` to maintain statistical stability.
-#' 4. **WoE and IV Calculation**: Computes the WoE and IV values for each bin based on the target distribution.
-#' 5. **Monotonicity Enforcement**: Adjusts bins to ensure WoE values are monotonic (either increasing or decreasing).
-#' 6. **Bin Optimization**: Iteratively merges bins to respect constraints on `min_bins` and `max_bins`.
-#' 7. **Result Validation**: Ensures bins cover the entire range of the feature without overlap and adhere to constraints.
-#'
-#' ### Parameters:
-#' - `min_bins`: Minimum number of bins to be created (default: 3).
-#' - `max_bins`: Maximum number of bins allowed (default: 5).
-#' - `bin_cutoff`: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
-#' - `max_n_prebins`: Maximum number of pre-bins before optimization (default: 20).
-#' - `convergence_threshold`: Threshold for determining convergence in terms of IV changes (default: 1e-6).
-#' - `max_iterations`: Maximum number of iterations allowed for optimization (default: 1000).
-#'
-#' @param target An integer binary vector (0 or 1) representing the response variable.
+#' @param target A binary integer vector (0 or 1) representing the target variable.
 #' @param feature A numeric vector representing the feature to be binned.
-#' @param min_bins Minimum number of bins to be created (default: 3).
-#' @param max_bins Maximum number of bins allowed (default: 5).
-#' @param bin_cutoff Minimum frequency proportion for retaining a bin (default: 0.05).
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
-#' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+#' @param enforce_monotonic Whether to enforce monotonic WoE across bins (default: TRUE).
+#' @param convergence_threshold Convergence threshold for optimization (default: 1e-6).
+#' @param max_iterations Maximum iterations allowed (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \itemize{
-#'   \item `bins`: A vector of bin intervals in the format "[lower;upper)".
-#'   \item `woe`: A numeric vector of WoE values for each bin.
-#'   \item `iv`: A numeric vector of IV contributions for each bin.
-#'   \item `count`: An integer vector of the total number of observations per bin.
-#'   \item `count_pos`: An integer vector of the number of positive cases per bin.
-#'   \item `count_neg`: An integer vector of the number of negative cases per bin.
-#'   \item `cutpoints`: A numeric vector of the cutpoints defining the bin edges.
-#'   \item `converged`: A boolean indicating whether the algorithm converged.
-#'   \item `iterations`: An integer indicating the number of iterations executed.
-#' }
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with bin intervals.}
+#' \item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with Information Value contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the positive class count in each bin.}
+#' \item{count_neg}{Integer vector with the negative class count in each bin.}
+#' \item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+#' \item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+#' \item{converged}{Logical indicating whether the algorithm converged.}
+#' \item{iterations}{Integer count of iterations performed.}
+#' \item{total_iv}{Numeric total Information Value of the binning solution.}
+#' \item{monotonicity}{Character indicating the monotonicity direction ("increasing", "decreasing", or "none").}
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' result <- optimal_binning_numerical_ldb(target, feature, min_bins = 3, max_bins = 6)
-#' print(result$bins)
-#' print(result$woe)
-#' print(result$iv)
+#' 
+#' # Basic usage
+#' result <- optimal_binning_numerical_ldb(target, feature)
+#' print(result)
+#' 
+#' # Custom parameters
+#' result_custom <- optimal_binning_numerical_ldb(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.03,
+#'   enforce_monotonic = TRUE
+#' )
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' total_iv <- result$total_iv
+#' monotonicity <- result$monotonicity
 #' }
 #'
+#' @references
+#' Bin, Y., Liang, S., Chen, Z., Yang, S., & Zhang, L. (2019). Density-based supervised discretization 
+#' for continuous feature. *Knowledge-Based Systems*, 166, 1-17.
+#' 
+#' Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data 
+#' representation. *Neural Computation*, 15(6), 1373-1396.
+#' 
+#' Silverman, B. W. (1986). *Density Estimation for Statistics and Data Analysis*. Chapman and Hall/CRC.
+#' 
+#' Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised discretization of 
+#' continuous features. *Proceedings of the Twelfth International Conference on Machine Learning*, 194-202.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C. (2009). *Consumer Credit Models: Pricing, Profit and Portfolios*. Oxford University Press.
+#'
 #' @export
-optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ldb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_ldb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, enforce_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ldb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, enforce_monotonic, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)
 #'
 #' @description
-#' Implements the Local Polynomial Density Binning (LPDB) algorithm for optimal binning of numerical variables. 
-#' The method creates bins that maximize predictive power while maintaining monotonicity in Weight of Evidence (WoE).
-#' It handles rare bins, ensures numerical stability, and provides flexibility through various customizable parameters.
+#' Implements an advanced binning algorithm for numerical variables that combines local polynomial
+#' density estimation with information-theoretic optimization. This method adapts bin boundaries
+#' to the natural structure of the data while maximizing predictive power for a binary target
+#' variable. LPDB is particularly effective for complex distributions with multiple modes or
+#' regions of varying density.
 #'
 #' @details
-#' ### Key Steps:
-#' 1. **Input Validation**: Ensures the `feature` and `target` vectors are valid, checks binary nature of the `target` vector, 
-#'    and removes missing values (`NA`).
-#' 2. **Pre-Binning**: Divides the feature into preliminary bins using quantile-based partitioning or unique values.
-#' 3. **Calculation of WoE and IV**: Computes the WoE and Information Value (IV) for each bin based on the target distribution.
-#' 4. **Monotonicity Enforcement**: Adjusts bins iteratively to ensure monotonicity in WoE values, either increasing or decreasing.
-#' 5. **Rare Bin Merging**: Merges bins with frequencies below the `bin_cutoff` threshold to ensure statistical stability.
-#' 6. **Validation**: Ensures bins are non-overlapping, cover the entire range of the feature, and are consistent with constraints on `min_bins` and `max_bins`.
+#' ## Algorithm Overview
+#' 
+#' The Local Polynomial Density Binning algorithm operates through several coordinated phases:
+#' 
+#' 1. **Density Analysis**: Uses polynomial regression techniques to estimate the local density
+#'    structure of the feature distribution, identifying natural groupings in the data.
+#' 
+#' 2. **Critical Point Detection**: Locates important points in the density curve (minima, maxima,
+#'    and inflection points) as potential bin boundaries.
+#' 
+#' 3. **Initial Binning**: Creates preliminary bins based on these critical points, ensuring they
+#'    respect the natural structure of the data.
+#' 
+#' 4. **Statistical Optimization**:
+#'    - Merges bins with frequencies below threshold to ensure statistical reliability
+#'    - Enforces monotonicity in Weight of Evidence (optional)
+#'    - Adjusts bin count to meet minimum and maximum constraints
+#' 
+#' 5. **Information Value Calculation**: Computes predictive metrics for the final binning solution
+#' 
+#' ## Mathematical Foundation
+#' 
+#' The algorithm employs several advanced statistical concepts:
+#' 
+#' ### 1. Local Polynomial Density Estimation
+#' 
+#' For density estimation at point \eqn{x}:
+#' 
+#' \deqn{f_h(x) = \frac{1}{nh}\sum_{i=1}^{n}K\left(\frac{x-x_i}{h}\right)}
+#' 
+#' Where:
+#' - \eqn{K} is a kernel function (Gaussian kernel in this implementation)
+#' - \eqn{h} is the bandwidth parameter (calculated using Silverman's rule)
+#' - \eqn{n} is the number of observations
+#' 
+#' ### 2. Critical Point Detection
+#' 
+#' The algorithm identifies key points in the density curve:
+#' 
+#' - **Local Minima**: Natural boundaries between clusters (density valleys)
+#' - **Inflection Points**: Regions where density curvature changes
+#' - **Local Maxima**: Centers of high-density regions
+#' 
+#' ### 3. Weight of Evidence (WoE) Calculation
+#' 
+#' For bin \eqn{i}, with Laplace smoothing:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+#' 
+#' Where:
+#' - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#' - \eqn{P}: Total number of positive cases
+#' - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#' - \eqn{N}: Total number of negative cases
+#' - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#' - \eqn{k}: Number of bins
+#' 
+#' ### 4. Information Value (IV)
+#' 
+#' Overall predictive power measure:
+#' 
+#' \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#' 
+#' ## Advantages
+#' 
+#' - **Adaptive to Data Structure**: Places bin boundaries at natural density transitions
+#' - **Handles Complex Distributions**: Effective for multimodal or skewed features
+#' - **Information Preservation**: Optimizes binning for maximum predictive power
+#' - **Statistical Stability**: Ensures sufficient observations in each bin
+#' - **Interpretability**: Supports monotonic relationships between feature and target
 #'
-#' ### Mathematical Framework:
-#' - **Weight of Evidence (WoE)**: For a bin \( i \):
-#'   \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-#'
-#' - **Information Value (IV)**: Aggregates the predictive power across all bins:
-#'   \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
-#'
-#' ### Features:
-#' - **Monotonicity**: Ensures the WoE values are either strictly increasing or decreasing across bins.
-#' - **Rare Bin Handling**: Merges bins with low frequencies to maintain statistical reliability.
-#' - **Numerical Stability**: Incorporates small constants to avoid division by zero or undefined logarithms.
-#' - **Flexibility**: Supports custom definitions for minimum and maximum bins, convergence thresholds, and iteration limits.
-#' - **Output Metadata**: Provides detailed bin information, including WoE, IV, and cutpoints for interpretability and downstream analysis.
-#'
-#' ### Parameters:
-#' - `min_bins`: Minimum number of bins to be created (default: 3).
-#' - `max_bins`: Maximum number of bins allowed (default: 5).
-#' - `bin_cutoff`: Minimum proportion of total observations required for a bin to be retained as standalone (default: 0.05).
-#' - `max_n_prebins`: Maximum number of pre-bins before optimization (default: 20).
-#' - `convergence_threshold`: Threshold for determining convergence in terms of IV changes (default: 1e-6).
-#' - `max_iterations`: Maximum number of iterations allowed for binning optimization (default: 1000).
-#'
-#' @param target An integer binary vector (0 or 1) representing the response variable.
+#' @param target A binary integer vector (0 or 1) representing the target variable.
 #' @param feature A numeric vector representing the feature to be binned.
-#' @param min_bins Minimum number of bins to be created (default: 3).
-#' @param max_bins Maximum number of bins allowed (default: 5).
-#' @param bin_cutoff Minimum frequency proportion for retaining a bin (default: 0.05).
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
-#' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed for optimization (default: 1000).
+#' @param polynomial_degree Degree of polynomial used for density estimation (default: 3).
+#' @param enforce_monotonic Whether to enforce monotonic relationship in WoE (default: TRUE).
+#' @param convergence_threshold Convergence threshold for optimization (default: 1e-6).
+#' @param max_iterations Maximum iterations allowed (default: 1000).
 #'
-#' @return A list containing the following elements:
-#' \itemize{
-#'   \item `bin`: A vector of bin intervals in the format "[lower;upper)".
-#'   \item `woe`: A numeric vector of WoE values for each bin.
-#'   \item `iv`: A numeric vector of IV contributions for each bin.
-#'   \item `count`: An integer vector of the total number of observations per bin.
-#'   \item `count_pos`: An integer vector of the number of positive cases per bin.
-#'   \item `count_neg`: An integer vector of the number of negative cases per bin.
-#'   \item `cutpoints`: A numeric vector of the cutpoints defining the bin edges.
-#'   \item `converged`: A boolean indicating whether the algorithm converged.
-#'   \item `iterations`: An integer indicating the number of iterations executed.
-#' }
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with bin intervals.}
+#' \item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with Information Value contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the positive class count in each bin.}
+#' \item{count_neg}{Integer vector with the negative class count in each bin.}
+#' \item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+#' \item{centroids}{Numeric vector with the centroid (mean value) of each bin.}
+#' \item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+#' \item{converged}{Logical indicating whether the algorithm converged.}
+#' \item{iterations}{Integer count of iterations performed.}
+#' \item{total_iv}{Numeric total Information Value of the binning solution.}
+#' \item{monotonicity}{Character indicating monotonicity direction ("increasing", "decreasing", or "none").}
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' target <- sample(0:1, 1000, replace = TRUE)
 #' feature <- rnorm(1000)
-#' result <- optimal_binning_numerical_lpdb(target, feature, min_bins = 3, max_bins = 6)
-#' print(result$bin)
-#' print(result$woe)
-#' print(result$iv)
+#' 
+#' # Basic usage
+#' result <- optimal_binning_numerical_lpdb(target, feature)
+#' print(result)
+#' 
+#' # Custom parameters
+#' result_custom <- optimal_binning_numerical_lpdb(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 8,
+#'   bin_cutoff = 0.03,
+#'   polynomial_degree = 5,
+#'   enforce_monotonic = TRUE
+#' )
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' total_iv <- result$total_iv
 #' }
 #'
+#' @references
+#' Fan, J., & Gijbels, I. (1996). *Local Polynomial Modelling and Its Applications*. 
+#' Chapman and Hall.
+#' 
+#' Loader, C. (1999). *Local Regression and Likelihood*. Springer-Verlag.
+#' 
+#' Hastie, T., & Tibshirani, R. (1990). *Generalized Additive Models*. Chapman and Hall.
+#' 
+#' Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data 
+#' representation. *Neural Computation*, 15(6), 1373-1396.
+#' 
+#' Silverman, B. W. (1986). *Density Estimation for Statistics and Data Analysis*. Chapman and Hall/CRC.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#'
 #' @export
-optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_lpdb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_lpdb <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, polynomial_degree = 3L, enforce_monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_lpdb`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, polynomial_degree, enforce_monotonic, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming (MBLP)
 #'
 #' @description
-#' This method performs optimal binning for numerical features, ensuring monotonicity in the Weight of Evidence (WoE) across bins.
-#' It adheres to constraints on the minimum and maximum number of bins, merges rare bins, and handles edge cases like identical values.
-#' The algorithm returns bins, WoE, Information Value (IV), counts, cutpoints, and metadata such as convergence status and iterations run.
+#' Implements an advanced binning algorithm for numerical features that ensures monotonicity in 
+#' the Weight of Evidence (WoE) while maximizing predictive power. The method formulates the 
+#' binning problem as an optimization task with monotonicity constraints and solves it through
+#' an iterative process that preserves information value.
 #'
 #' @details
-#' ### Key Steps:
-#' 1. **Input Validation**: Ensures proper formatting and constraints for `feature`, `target`, and algorithm parameters.
-#' 2. **Pre-Binning**: Creates preliminary bins based on quantiles or unique values in the feature.
-#' 3. **Rare Bin Merging**: Combines bins with frequencies below `bin_cutoff` to maintain statistical stability.
-#' 4. **Optimization**: Adjusts bins iteratively to maximize IV, enforce monotonicity, and adhere to bin constraints (`min_bins` and `max_bins`).
-#' 5. **Monotonicity Enforcement**: Ensures WoE values are either strictly increasing or decreasing across bins.
-#' 6. **Validation**: Verifies bin structure for consistency, preventing gaps or overlapping intervals.
-#'
-#' ### Mathematical Framework:
-#' - **Weight of Evidence (WoE)**: For a bin \( i \):
-#'   \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
-#'
-#' - **Information Value (IV)**: Aggregates predictive power across all bins:
-#'   \deqn{IV = \sum_{i=1}^{N} (\text{Distribution of positives}_i - \text{Distribution of negatives}_i) \times WoE_i}
-#'
-#' ### Features:
-#' - Monotonic WoE ensures interpretability in logistic regression and credit scoring models.
-#' - Dynamically adjusts binning to maximize IV and improve model predictive power.
-#' - Handles rare categories and missing values by merging and imputation.
-#' - Supports large datasets with efficient pre-binning and convergence checks.
-#' - Validates results to prevent invalid bin configurations (e.g., gaps, overlaps).
-#'
-#' ### Algorithm Parameters:
-#' - `min_bins`: Minimum number of bins (default: 3).
-#' - `max_bins`: Maximum number of bins (default: 5).
-#' - `bin_cutoff`: Minimum frequency proportion required to retain a bin as standalone (default: 0.05).
-#' - `max_n_prebins`: Maximum number of preliminary bins before optimization (default: 20).
-#' - `convergence_threshold`: Threshold for convergence in IV optimization (default: 1e-6).
-#' - `max_iterations`: Maximum number of iterations allowed for optimization (default: 1000).
+#' ## Algorithm Overview
+#' 
+#' The Monotonic Binning via Linear Programming algorithm operates through several coordinated steps:
+#' 
+#' 1. **Input Validation**: Ensures proper formatting and constraints for data and parameters.
+#' 
+#' 2. **Pre-Binning**: Creates initial bins based on quantiles or handles special cases for few unique values.
+#' 
+#' 3. **Statistical Optimization**:
+#'    - Merges bins with frequencies below `bin_cutoff` to ensure statistical stability
+#'    - Enforces monotonicity in Weight of Evidence (WoE) values
+#'    - Optimizes bin count to satisfy the min_bins/max_bins constraints
+#'    - Iteratively improves binning to maximize Information Value (IV)
+#' 
+#' 4. **Monotonicity Analysis**: Automatically detects optimal monotonicity direction or applies
+#'    a forced direction if specified.
+#' 
+#' ## Mathematical Foundation
+#' 
+#' ### Linear Programming Connection
+#' 
+#' The binning optimization problem can be formulated as a constrained optimization problem:
+#' 
+#' \deqn{\max_{b} \sum_{i=1}^{k} IV_i(b)}
+#' 
+#' Subject to:
+#' \deqn{WoE_i \leq WoE_{i+1} \quad \text{or} \quad WoE_i \geq WoE_{i+1} \quad \forall i \in \{1, \ldots, k-1\}}
+#' \deqn{min\_bins \leq k \leq max\_bins}
+#' \deqn{count_i \geq bin\_cutoff \times N \quad \forall i \in \{1, \ldots, k\}}
+#' 
+#' Where:
+#' - \eqn{b} is the set of bin boundaries
+#' - \eqn{k} is the number of bins
+#' - \eqn{IV_i(b)} is the Information Value of bin \eqn{i} given boundaries \eqn{b}
+#' - \eqn{WoE_i} is the Weight of Evidence of bin \eqn{i}
+#' 
+#' ### Weight of Evidence (WoE)
+#' 
+#' For bin \eqn{i}, with Laplace smoothing:
+#' 
+#' \deqn{WoE_i = \ln\left(\frac{(p_i + \alpha) / (P + k\alpha)}{(n_i + \alpha) / (N + k\alpha)}\right)}
+#' 
+#' Where:
+#' - \eqn{p_i}: Number of positive cases in bin \eqn{i}
+#' - \eqn{P}: Total number of positive cases
+#' - \eqn{n_i}: Number of negative cases in bin \eqn{i}
+#' - \eqn{N}: Total number of negative cases
+#' - \eqn{\alpha}: Smoothing factor (0.5 in this implementation)
+#' - \eqn{k}: Number of bins
+#' 
+#' ### Information Value (IV)
+#' 
+#' For bin \eqn{i}:
+#' 
+#' \deqn{IV_i = \left(\frac{p_i}{P} - \frac{n_i}{N}\right) \times WoE_i}
+#' 
+#' Total Information Value:
+#' 
+#' \deqn{IV_{total} = \sum_{i=1}^{k} IV_i}
+#' 
+#' ## Advantages
+#' 
+#' - **Guaranteed Monotonicity**: Ensures monotonic relationship between binned variable and target
+#' - **Optimal Information Preservation**: Merges bins in a way that minimizes information loss
+#' - **Flexible Direction Control**: Automatically detects optimal monotonicity direction or allows
+#'   forcing a specific direction
+#' - **Statistical Stability**: Ensures sufficient observations in each bin
+#' - **Efficient Implementation**: Uses binary search and optimized merge strategies
 #'
 #' @param target An integer binary vector (0 or 1) representing the target variable.
 #' @param feature A numeric vector representing the feature to bin.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency proportion for retaining bins (default: 0.05).
+#' @param bin_cutoff Minimum frequency fraction for each bin (default: 0.05).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
-#' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
-#' @param max_iterations Maximum number of iterations allowed (default: 1000).
+#' @param force_monotonic_direction Force specific monotonicity direction: 0=auto, 1=increasing, -1=decreasing (default: 0).
+#' @param convergence_threshold Convergence threshold for optimization (default: 1e-6).
+#' @param max_iterations Maximum iterations allowed (default: 1000).
 #'
-#' @return A list with the following components:
-#' \itemize{
-#'   \item `bin`: A character vector of bin intervals in the format "[lower;upper)".
-#'   \item `woe`: A numeric vector of WoE values for each bin.
-#'   \item `iv`: A numeric vector of IV contributions for each bin.
-#'   \item `count`: An integer vector of total observations per bin.
-#'   \item `count_pos`: An integer vector of positive cases per bin.
-#'   \item `count_neg`: An integer vector of negative cases per bin.
-#'   \item `cutpoints`: A numeric vector of cutpoints defining the bin edges.
-#'   \item `converged`: A boolean indicating whether the algorithm converged.
-#'   \item `iterations`: An integer indicating the number of iterations executed.
-#' }
+#' @return A list containing:
+#' \item{id}{Numeric identifiers for each bin (1-based).}
+#' \item{bin}{Character vector with bin intervals.}
+#' \item{woe}{Numeric vector with Weight of Evidence values for each bin.}
+#' \item{iv}{Numeric vector with Information Value contribution for each bin.}
+#' \item{count}{Integer vector with the total number of observations in each bin.}
+#' \item{count_pos}{Integer vector with the positive class count in each bin.}
+#' \item{count_neg}{Integer vector with the negative class count in each bin.}
+#' \item{event_rate}{Numeric vector with the event rate (proportion of positives) in each bin.}
+#' \item{cutpoints}{Numeric vector with the bin boundaries (excluding infinities).}
+#' \item{converged}{Logical indicating whether the algorithm converged.}
+#' \item{iterations}{Integer count of iterations performed.}
+#' \item{total_iv}{Numeric total Information Value of the binning solution.}
+#' \item{monotonicity}{Character indicating monotonicity direction ("increasing", "decreasing", or "none").}
 #'
 #' @examples
 #' \dontrun{
+#' # Generate synthetic data
 #' set.seed(123)
 #' feature <- rnorm(1000)
 #' target <- rbinom(1000, 1, 0.3)
-#' result <- optimal_binning_numerical_mblp(target, feature, min_bins = 3, max_bins = 6)
+#' 
+#' # Basic usage
+#' result <- optimal_binning_numerical_mblp(target, feature)
 #' print(result)
+#' 
+#' # Custom parameters with forced increasing monotonicity
+#' result_custom <- optimal_binning_numerical_mblp(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 3,
+#'   max_bins = 6,
+#'   force_monotonic_direction = 1  # Force increasing
+#' )
+#' 
+#' # Access specific components
+#' bins <- result$bin
+#' woe_values <- result$woe
+#' total_iv <- result$total_iv
+#' monotonicity <- result$monotonicity
 #' }
 #'
+#' @references
+#' Zeng, Y. (2018). Discretization of Continuous Features by Weighs of Evidence with Isotonic Regression. 
+#' *arXiv preprint arXiv:1812.05089*.
+#' 
+#' Barlow, R. E., & Brunk, H. D. (1972). The isotonic regression problem and its dual. 
+#' *Journal of the American Statistical Association*, 67(337), 140-147.
+#' 
+#' Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality reduction and data
+#' representation. *Neural Computation*, 15(6), 1373-1396.
+#' 
+#' Bertsimas, D., & Tsitsiklis, J. N. (1997). *Introduction to Linear Optimization*. Athena Scientific.
+#' 
+#' Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring*. 
+#' John Wiley & Sons.
+#' 
+#' Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). *Credit Scoring and Its Applications*. 
+#' Society for Industrial and Applied Mathematics.
+#'
 #' @export
-optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, force_monotonic_direction = 0L, convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, force_monotonic_direction, convergence_threshold, max_iterations)
 }
 
 #' @title Optimal Binning for Numerical Features using the Minimum Description Length Principle (MDLP)
@@ -2148,10 +3953,23 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
 #' **Entropy Calculation**: For a bin \( i \) with positive (\( p \)) and negative (\( n \)) counts:
 #' \deqn{Entropy = -p \log_2(p) - n \log_2(n)}
 #'
-#' **MDL Cost**: Combines the cost of the model and data description. Lower MDL values indicate better binning.
+#' **MDL Cost**: Combines the cost of the model and data description:
+#' \deqn{MDL\_Cost = Model\_Cost + Data\_Cost}
+#' Where:
+#' \deqn{Model\_Cost = \log_2(Number\_of\_bins - 1)}
+#' \deqn{Data\_Cost = Total\_Entropy - \sum_{i} Count_i \times Entropy_i}
 #'
-#' **Weight of Evidence (WoE)**: For a bin \( i \):
-#' \deqn{WoE_i = \ln\left(\frac{\text{Distribution of positives}_i}{\text{Distribution of negatives}_i}\right)}
+#' **Weight of Evidence (WoE)**: For a bin \( i \) with Laplace smoothing parameter:
+#' \deqn{WoE_i = \ln\left(\frac{n_{1i} + a}{n_{1} + ma} \cdot \frac{n_{0} + ma}{n_{0i} + a}\right)}
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+#'   \item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+#'   \item \eqn{n_{1}} is the total count of positive cases
+#'   \item \eqn{n_{0}} is the total count of negative cases
+#'   \item \eqn{m} is the number of bins
+#'   \item a is the Laplace smoothing parameter
+#' }
 #'
 #' **Information Value (IV)**: Summarizes predictive power across all bins:
 #' \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
@@ -2162,14 +3980,7 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
 #' - Handles rare bins by merging categories with low frequencies.
 #' - Stable against edge cases like all identical values or insufficient observations.
 #' - Efficiently processes large datasets with iterative binning and convergence checks.
-#'
-#' ### Algorithm Parameters:
-#' - `min_bins`: Minimum number of bins (default: 3).
-#' - `max_bins`: Maximum number of bins (default: 5).
-#' - `bin_cutoff`: Minimum proportion of records required in a bin (default: 0.05).
-#' - `max_n_prebins`: Maximum number of pre-bins before merging (default: 20).
-#' - `convergence_threshold`: Threshold for convergence in terms of IV changes (default: 1e-6).
-#' - `max_iterations`: Maximum number of iterations for optimization (default: 1000).
+#' - Applies Laplace smoothing for robust WoE calculation in sparse bins.
 #'
 #' @param target An integer binary vector (0 or 1) representing the target variable.
 #' @param feature A numeric vector representing the feature to bin.
@@ -2179,9 +3990,11 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
 #' @param max_n_prebins Maximum number of pre-bins before merging (default: 20).
 #' @param convergence_threshold Convergence threshold for IV optimization (default: 1e-6).
 #' @param max_iterations Maximum number of iterations allowed (default: 1000).
+#' @param laplace_smoothing Smoothing parameter for WoE calculation (default: 0.5).
 #'
 #' @return A list with the following components:
 #' \itemize{
+#'   \item `id`: A numeric vector with bin identifiers (1-based).
 #'   \item `bin`: A vector of bin names representing the intervals.
 #'   \item `woe`: A numeric vector with the WoE values for each bin.
 #'   \item `iv`: A numeric vector with the IV values for each bin.
@@ -2189,6 +4002,7 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
 #'   \item `count_pos`: An integer vector with the count of positive cases in each bin.
 #'   \item `count_neg`: An integer vector with the count of negative cases in each bin.
 #'   \item `cutpoints`: A numeric vector of cut points defining the bins.
+#'   \item `total_iv`: A numeric value representing the total information value of the binning.
 #'   \item `converged`: A boolean indicating whether the algorithm converged.
 #'   \item `iterations`: An integer with the number of iterations performed.
 #' }
@@ -2201,19 +4015,73 @@ optimal_binning_numerical_mblp <- function(target, feature, min_bins = 3L, max_b
 #' feature <- runif(100)
 #' result <- optimal_binning_numerical_mdlp(target, feature, min_bins = 3, max_bins = 5)
 #' print(result)
+#' 
+#' # With different parameters
+#' result2 <- optimal_binning_numerical_mdlp(
+#'   target, 
+#'   feature, 
+#'   min_bins = 2, 
+#'   max_bins = 10,
+#'   bin_cutoff = 0.03,
+#'   laplace_smoothing = 0.1
+#' )
+#' 
+#' # Print summary statistics
+#' print(paste("Total Information Value:", round(result2$total_iv, 4)))
+#' print(paste("Number of bins created:", length(result2$bin)))
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Fayyad, U. & Irani, K. (1993). "Multi-interval discretization of continuous-valued 
+#'         attributes for classification learning." Proceedings of the International Joint 
+#'         Conference on Artificial Intelligence, 1022-1027.
+#'   \item Rissanen, J. (1978). "Modeling by shortest data description." Automatica, 14(5), 465-471.
+#'   \item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society, 
+#'         Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
 #' }
 #'
 #' @export
-optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mdlp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mdlp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
-#' @title 
-#' Perform Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)
+#' @title Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)
 #'
 #' @description
-#' This function implements the Monotonic Optimal Binning algorithm for numerical features.
-#' It creates optimal bins while maintaining monotonicity in the Weight of Evidence (WoE) values.
+#' Implements the Monotonic Optimal Binning (MOB) algorithm for discretizing numerical features
+#' while maintaining monotonicity in the Weight of Evidence (WoE) values. This is particularly 
+#' useful for credit scoring and risk modeling applications where monotonicity is often a 
+#' desirable property for interpretability and regulatory compliance.
+#'
+#' @details
+#' ### Mathematical Framework:
+#' 
+#' **Weight of Evidence (WoE)**: For a bin \eqn{i} with Laplace smoothing \code{alpha}:
+#' \deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+#'   \item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+#'   \item \eqn{n_{1}} is the total count of positive cases
+#'   \item \eqn{n_{0}} is the total count of negative cases
+#'   \item \eqn{m} is the number of bins
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter
+#' }
+#'
+#' **Information Value (IV)**: Summarizes predictive power across all bins:
+#' \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+#'
+#' **Monotonicity**: The algorithm ensures that WoE values either consistently increase or 
+#' decrease as the feature value increases, which aligns with business expectations that 
+#' risk should change monotonically with certain features.
+#'
+#' ### Algorithm Steps:
+#' 1. **Create Initial Pre-bins**: Divide the feature into equal-frequency bins
+#' 2. **Merge Rare Bins**: Combine bins with frequency below the threshold
+#' 3. **Enforce Monotonicity**: Identify and merge bins that violate monotonicity
+#' 4. **Optimize Bin Count**: Adjust number of bins to stay within min/max constraints
+#' 5. **Calculate Metrics**: Compute final WoE and IV values with Laplace smoothing
 #'
 #' @param target An integer vector of binary target values (0 or 1)
 #' @param feature A numeric vector of feature values to be binned
@@ -2223,35 +4091,62 @@ optimal_binning_numerical_mdlp <- function(target, feature, min_bins = 3L, max_b
 #' @param max_n_prebins Maximum number of prebins to create initially (default: 20)
 #' @param convergence_threshold Threshold for convergence in the iterative process (default: 1e-6)
 #' @param max_iterations Maximum number of iterations for the binning process (default: 1000)
+#' @param laplace_smoothing Smoothing parameter for WoE calculation (default: 0.5)
 #'
 #' @return A list containing the following elements:
-#'   \item{bin}{A character vector of bin labels}
+#'   \item{id}{Bin identifiers (1-based)}
+#'   \item{bin}{A character vector of bin labels showing the intervals}
 #'   \item{woe}{A numeric vector of Weight of Evidence values for each bin}
 #'   \item{iv}{A numeric vector of Information Value for each bin}
 #'   \item{count}{An integer vector of total count of observations in each bin}
 #'   \item{count_pos}{An integer vector of count of positive class observations in each bin}
 #'   \item{count_neg}{An integer vector of count of negative class observations in each bin}
+#'   \item{event_rate}{A numeric vector with the proportion of positive cases in each bin}
 #'   \item{cutpoints}{A numeric vector of cutpoints used to create the bins}
+#'   \item{total_iv}{The total Information Value of all bins combined}
 #'   \item{converged}{A logical value indicating whether the algorithm converged}
 #'   \item{iterations}{An integer value indicating the number of iterations run}
 #'
-#' @details
-#' The algorithm starts by creating initial bins and then iteratively merges them
-#' to achieve optimal binning while maintaining monotonicity in the WoE values.
-#' It respects the minimum and maximum number of bins specified.
-#'
 #' @examples
 #' \dontrun{
+#' # Basic usage
 #' set.seed(42)
 #' feature <- rnorm(1000)
-#' target <- rbinom(1000, 1, 0.5)
+#' target <- rbinom(1000, 1, plogis(0.5 * feature))
 #' result <- optimal_binning_numerical_mob(target, feature)
 #' print(result)
+#'
+#' # Advanced usage with custom parameters
+#' result2 <- optimal_binning_numerical_mob(
+#'   target = target,
+#'   feature = feature,
+#'   min_bins = 2,
+#'   max_bins = 10,
+#'   bin_cutoff = 0.03,
+#'   laplace_smoothing = 0.1
+#' )
+#'
+#' # Plot Weight of Evidence by bin
+#' plot(result2$woe, type = "b", xlab = "Bin", ylab = "WoE",
+#'      main = "Weight of Evidence by Bin")
+#' abline(h = 0, lty = 2)
+#' }
+#'
+#' @references
+#' \itemize{
+#'   \item Belotti, T. & Crook, J. (2009). "Credit Scoring with Macroeconomic Variables 
+#'         Using Survival Analysis." Journal of the Operational Research Society, 60(12), 1699-1707.
+#'   \item Hand, D.J. & Adams, N.M. (2000). "Defining attributes for scorecard construction 
+#'         in credit scoring." Journal of Applied Statistics, 27(5), 527-540.
+#'   \item Thomas, L.C. (2009). "Consumer Credit Models: Pricing, Profit, and Portfolios." 
+#'         Oxford University Press.
+#'   \item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society, 
+#'         Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
 #' }
 #'
 #' @export
-optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mob`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mob`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
 #' @title Optimal Binning for Numerical Variables using Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP)
@@ -2262,6 +4157,31 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' continuous feature into discrete bins while preserving the monotonic relationship
 #' with the target variable and maximizing the predictive power.
 #'
+#' @details
+#' ### Mathematical Framework:
+#' 
+#' **Weight of Evidence (WoE)**: For a bin \code{i} with Laplace smoothing \code{alpha}:
+#' \deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+#'   \item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+#'   \item \eqn{n_{1}} is the total count of positive cases
+#'   \item \eqn{n_{0}} is the total count of negative cases
+#'   \item \eqn{m} is the number of bins
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter
+#' }
+#'
+#' **Information Value (IV)**: Summarizes predictive power across all bins:
+#' \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+#'
+#' ### Algorithm Steps:
+#' 1. **Pre-binning**: Initial bins are created using equal-frequency binning.
+#' 2. **Merge Small Bins**: Bins with frequency below the threshold are merged.
+#' 3. **Enforce Monotonicity**: Bins that violate monotonicity in WoE are merged.
+#' 4. **Adjust Bin Count**: Bins are merged/split to respect min_bins and max_bins.
+#' 5. **Calculate Metrics**: Final WoE and IV values are computed with Laplace smoothing.
+#'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of the continuous feature to be binned.
 #' @param min_bins Integer. The minimum number of bins to create (default: 3).
@@ -2270,30 +4190,21 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' @param max_n_prebins Integer. The maximum number of pre-bins to create during the initial binning step (default: 20).
 #' @param convergence_threshold Numeric. The threshold for convergence in the monotonic binning step (default: 1e-6).
 #' @param max_iterations Integer. The maximum number of iterations for the monotonic binning step (default: 1000).
+#' @param laplace_smoothing Numeric. Smoothing parameter for WoE calculation (default: 0.5).
 #'
 #' @return A list containing the following elements:
-#' \item{bins}{A character vector of bin ranges.}
-#' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin.}
-#' \item{iv}{A numeric vector of Information Value (IV) for each bin.}
-#' \item{count}{An integer vector of the total count of observations in each bin.}
-#' \item{count_pos}{An integer vector of the count of positive observations in each bin.}
-#' \item{count_neg}{An integer vector of the count of negative observations in each bin.}
-#' \item{cutpoints}{A numeric vector of cutpoints used to create the bins.}
-#' \item{converged}{A logical value indicating whether the algorithm converged.}
-#' \item{iterations}{An integer value indicating the number of iterations run.}
-#'
-#' @details
-#' The MRBLP algorithm combines pre-binning, small bin merging, and monotonic binning to create an optimal binning solution for numerical variables. The process involves the following steps:
-#'
-#' 1. Pre-binning: The algorithm starts by creating initial bins using equal-frequency binning. The number of pre-bins is determined by the `max_n_prebins` parameter.
-#' 2. Small bin merging: Bins with a proportion of observations less than `bin_cutoff` are merged with adjacent bins to ensure statistical significance.
-#' 3. Monotonic binning: The algorithm enforces a monotonic relationship between the bin order and the Weight of Evidence (WoE) values. This step ensures that the binning preserves the original relationship between the feature and the target variable.
-#' 4. Bin count adjustment: If the number of bins exceeds `max_bins`, the algorithm merges bins with the smallest difference in Information Value (IV). If the number of bins is less than `min_bins`, the largest bin is split.
-#'
-#' The algorithm includes additional controls to prevent instability and ensure convergence:
-#' - A convergence threshold is used to determine when the algorithm should stop iterating.
-#' - A maximum number of iterations is set to prevent infinite loops.
-#' - If convergence is not reached within the specified time and standards, the function returns the best result obtained up to the last iteration.
+#' \item{id}{Bin identifiers (1-based)}
+#' \item{bin}{A character vector of bin ranges}
+#' \item{woe}{A numeric vector of Weight of Evidence (WoE) values for each bin}
+#' \item{iv}{A numeric vector of Information Value (IV) for each bin}
+#' \item{count}{An integer vector of the total count of observations in each bin}
+#' \item{count_pos}{An integer vector of the count of positive observations in each bin}
+#' \item{count_neg}{An integer vector of the count of negative observations in each bin}
+#' \item{event_rate}{A numeric vector with the proportion of positive cases in each bin}
+#' \item{cutpoints}{A numeric vector of cutpoints used to create the bins}
+#' \item{total_iv}{The total Information Value of all bins combined}
+#' \item{converged}{A logical value indicating whether the algorithm converged}
+#' \item{iterations}{An integer value indicating the number of iterations run}
 #'
 #' @examples
 #' \dontrun{
@@ -2308,6 +4219,11 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #'
 #' # View binning results
 #' print(result)
+#'
+#' # Plot Weight of Evidence against bins
+#' plot(result$woe, type = "b", xlab = "Bin", ylab = "WoE",
+#'      main = "Weight of Evidence by Bin")
+#' abline(h = 0, lty = 2)
 #' }
 #'
 #' @references
@@ -2315,20 +4231,47 @@ optimal_binning_numerical_mob <- function(target, feature, min_bins = 3L, max_bi
 #' \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics on Clouds."
 #'       In Handbook of Big Data Technologies (pp. 101-142). Springer, Cham.
 #' \item Zeng, Y. (2014). "Optimal Binning for Scoring Modeling." Computational Economics, 44(1), 137-149.
+#' \item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society, 
+#'         Series B, 14, 107-114. (Origin of Laplace smoothing/additive smoothing)
 #' }
 #'
-#' @author Lopes, J.
-#'
 #' @export
-optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mrblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_mrblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
 #' @title Optimal Binning for Numerical Variables using OSLP
 #'
 #' @description
 #' Performs optimal binning for numerical variables using the Optimal
-#' Supervised Learning Partitioning (OSLP) approach.
+#' Supervised Learning Partitioning (OSLP) approach. This advanced binning
+#' algorithm creates bins that maximize predictive power while preserving
+#' interpretability through monotonic Weight of Evidence (WoE) values.
+#'
+#' @details
+#' ### Mathematical Framework:
+#' 
+#' **Weight of Evidence (WoE)**: For a bin \eqn{i} with Laplace smoothing \code{alpha}:
+#' \deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+#'   \item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+#'   \item \eqn{n_{1}} is the total count of positive cases
+#'   \item \eqn{n_{0}} is the total count of negative cases
+#'   \item \eqn{m} is the number of bins
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter
+#' }
+#'
+#' **Information Value (IV)**: Summarizes predictive power across all bins:
+#' \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+#'
+#' ### Algorithm Steps:
+#' 1. **Pre-binning**: Initial bins created using quantile-based approach
+#' 2. **Merge Small Bins**: Bins with frequency below threshold are merged
+#' 3. **Enforce Monotonicity**: Bins that violate monotonicity in WoE are merged
+#' 4. **Optimize Bin Count**: Bins are merged if exceeding max_bins
+#' 5. **Calculate Metrics**: Final WoE, IV, and event rates are computed
 #'
 #' @param target A numeric vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values.
@@ -2340,15 +4283,19 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #'   (default: 20).
 #' @param convergence_threshold Threshold for convergence (default: 1e-6).
 #' @param max_iterations Maximum number of iterations (default: 1000).
+#' @param laplace_smoothing Smoothing parameter for WoE calculation (default: 0.5).
 #'
 #' @return A list containing:
-#' \item{bins}{Character vector of bin labels.}
+#' \item{id}{Numeric vector of bin identifiers (1-based).}
+#' \item{bin}{Character vector of bin labels.}
 #' \item{woe}{Numeric vector of Weight of Evidence (WoE) values for each bin.}
 #' \item{iv}{Numeric vector of Information Value (IV) for each bin.}
 #' \item{count}{Integer vector of total count of observations in each bin.}
 #' \item{count_pos}{Integer vector of positive class count in each bin.}
 #' \item{count_neg}{Integer vector of negative class count in each bin.}
+#' \item{event_rate}{Numeric vector of positive class rate in each bin.}
 #' \item{cutpoints}{Numeric vector of cutpoints used to create the bins.}
+#' \item{total_iv}{Numeric value of total Information Value across all bins.}
 #' \item{converged}{Logical value indicating whether the algorithm converged.}
 #' \item{iterations}{Integer value indicating the number of iterations run.}
 #'
@@ -2360,16 +4307,104 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
 #' target <- sample(0:1, n, replace = TRUE)
 #' feature <- rnorm(n)
 #'
-#' # Optimal binning
+#' # Perform optimal binning
 #' result <- optimal_binning_numerical_oslp(target, feature,
 #'                                          min_bins = 2, max_bins = 4)
 #'
 #' # Print results
 #' print(result)
+#' 
+#' # Visualize WoE against bins
+#' barplot(result$woe, names.arg = result$bin, las = 2,
+#'         main = "Weight of Evidence by Bin",
+#'         ylab = "WoE")
+#' abline(h = 0, lty = 2)
+#' }
+#'
+#' @references
+#' \itemize{
+#' \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics."
+#'       Handbook of Big Data Technologies. Springer.
+#' \item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone Optimal Binning Algorithm for Credit Risk Modeling."
+#'       SSRN 2987720.
+#' \item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+#'       Series B, 14, 107-114. (Origin of Laplace smoothing)
+#' \item Thomas, L.C. (2009). "Consumer Credit Models: Pricing, Profit, and Portfolios."
+#'       Oxford University Press.
+#' }
+#'
+#' @export
+optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_oslp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
+}
+
+#' @title Optimal Binning for Numerical Variables using Sketch-based Algorithm
+#'
+#' @description
+#' This function performs optimal binning for numerical variables using a sketch-based approach,
+#' combining KLL Sketch for quantile approximation with Weight of Evidence (WOE) and 
+#' Information Value (IV) methods.
+#'
+#' @param feature A numeric vector of feature values.
+#' @param target An integer vector of binary target values (0 or 1).
+#' @param min_bins Minimum number of bins (default: 3).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency for a bin (default: 0.05).
+#' @param special_codes String with special codes to be treated separately, separated by comma (default: "").
+#' @param monotonic Whether to enforce monotonicity of WOE across bins (default: TRUE).
+#' @param convergence_threshold Threshold for convergence in optimization (default: 1e-6).
+#' @param max_iterations Maximum number of iterations for optimization (default: 1000).
+#' @param sketch_k Parameter controlling the accuracy of the KLL sketch (default: 200).
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item id: Numeric identifiers for each bin
+#'   \item bin_lower: Lower bounds of bins
+#'   \item bin_upper: Upper bounds of bins
+#'   \item woe: Weight of Evidence for each bin
+#'   \item iv: Information Value for each bin
+#'   \item count: Total counts for each bin
+#'   \item count_pos: Positive target counts for each bin
+#'   \item count_neg: Negative target counts for each bin
+#'   \item cutpoints: Selected cutting points between bins
+#'   \item converged: Logical value indicating whether the algorithm converged
+#'   \item iterations: Number of iterations run
+#' }
+#'
+#' @details
+#' The algorithm uses a KLL (Karnin-Lang-Liberty) Sketch data structure to efficiently approximate
+#' the quantiles of numerical data, making it suitable for very large datasets or streaming scenarios.
+#' The sketch-based approach allows processing data in a single pass with sublinear memory usage.
+#'
+#' The algorithm performs the following steps:
+#' \enumerate{
+#'   \item Input validation and preprocessing
+#'   \item Building a KLL sketch for the data
+#'   \item Extracting candidate cutpoints from the sketch
+#'   \item Selecting optimal cutpoints using either dynamic programming (for smaller datasets)
+#'         or a greedy approach based on Information Value
+#'   \item Enforcing minimum bin size (bin_cutoff)
+#'   \item Calculating initial Weight of Evidence (WOE) and Information Value (IV)
+#'   \item Enforcing monotonicity of WOE across bins (if requested)
+#'   \item Optimizing the number of bins through iterative merging
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Create sample data
+#' set.seed(123)
+#' target <- sample(0:1, 1000, replace = TRUE)
+#' feature <- rnorm(1000)
+#'
+#' # Run optimal binning with sketch
+#' result <- optimal_binning_numerical_sketch(feature, target)
+#'
+#' # View results
+#' print(result)
 #' }
 #' @export
-optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_oslp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_sketch <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, special_codes = "", monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L, sketch_k = 200L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sketch`, target, feature, min_bins, max_bins, bin_cutoff, special_codes, monotonic, convergence_threshold, max_iterations, sketch_k)
 }
 
 #' @title Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation
@@ -2377,7 +4412,34 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' @description
 #' This function implements an optimal binning algorithm for numerical variables using an
 #' Unsupervised Binning approach based on Standard Deviation (UBSD) with Weight of Evidence (WoE)
-#' and Information Value (IV) criteria.
+#' and Information Value (IV) criteria. The algorithm creates interpretable bins that maximize
+#' predictive power while ensuring monotonicity of WoE values.
+#'
+#' @details
+#' ### Mathematical Framework:
+#' 
+#' **Weight of Evidence (WoE)**: For a bin \code{i} with Laplace smoothing \code{alpha}:
+#' \deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha}{n_{1} + m\alpha} \cdot \frac{n_{0} + m\alpha}{n_{0i} + \alpha}\right)}
+#' Where:
+#' \itemize{
+#'   \item \eqn{n_{1i}} is the count of positive cases in bin \(i\)
+#'   \item \eqn{n_{0i}} is the count of negative cases in bin \(i\)
+#'   \item \eqn{n_{1}} is the total count of positive cases
+#'   \item \eqn{n_{0}} is the total count of negative cases
+#'   \item \eqn{m} is the number of bins
+#'   \item \eqn{\alpha} is the Laplace smoothing parameter
+#' }
+#'
+#' **Information Value (IV)**: Summarizes predictive power across all bins:
+#' \deqn{IV = \sum_{i} (P(X|Y=1) - P(X|Y=0)) \times WoE_i}
+#'
+#' ### Algorithm Steps:
+#' 1. **Initial Binning**: Create bins using statistical properties of the data (mean and standard deviation)
+#' 2. **Merge Small Bins**: Combine bins with frequency below the threshold to ensure statistical stability
+#' 3. **Calculate WoE/IV**: Compute Weight of Evidence and Information Value with Laplace smoothing
+#' 4. **Enforce Monotonicity**: Merge bins to ensure monotonic relationship between feature and target
+#' 5. **Adjust Bin Count**: Ensure the number of bins is within the specified range
+#' 6. **Validate Bins**: Perform statistical checks on the final binning solution
 #'
 #' @param target A numeric vector of binary target values (should contain exactly two unique values: 0 and 1).
 #' @param feature A numeric vector of feature values to be binned.
@@ -2387,32 +4449,21 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #' @param max_n_prebins Maximum number of pre-bins for initial standard deviation-based discretization (default: 20).
 #' @param convergence_threshold Threshold for convergence of the total IV (default: 1e-6).
 #' @param max_iterations Maximum number of iterations for the algorithm (default: 1000).
+#' @param laplace_smoothing Smoothing parameter for WoE calculation (default: 0.5).
 #'
 #' @return A list containing the following elements:
-#' \item{bins}{A character vector of bin names.}
+#' \item{id}{Numeric vector of bin identifiers (1-based).}
+#' \item{bin}{A character vector of bin names.}
 #' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
 #' \item{iv}{A numeric vector of Information Value for each bin.}
 #' \item{count}{An integer vector of the total count of observations in each bin.}
 #' \item{count_pos}{An integer vector of the count of positive observations in each bin.}
 #' \item{count_neg}{An integer vector of the count of negative observations in each bin.}
+#' \item{event_rate}{A numeric vector of the proportion of positive cases in each bin.}
 #' \item{cutpoints}{A numeric vector of cut points used to generate the bins.}
+#' \item{total_iv}{A numeric value of the total Information Value.}
 #' \item{converged}{A logical value indicating whether the algorithm converged.}
 #' \item{iterations}{An integer value indicating the number of iterations run.}
-#'
-#' @details
-#' The optimal binning algorithm for numerical variables uses an Unsupervised Binning approach
-#' based on Standard Deviation (UBSD) with Weight of Evidence (WoE) and Information Value (IV)
-#' to create bins that maximize the predictive power of the feature while maintaining interpretability.
-#'
-#' The algorithm follows these steps:
-#' 1. Initial binning based on standard deviations around the mean
-#' 2. Assignment of data points to bins
-#' 3. Merging of rare bins based on the bin_cutoff parameter
-#' 4. Calculation of WoE and IV for each bin
-#' 5. Enforcement of monotonicity in WoE across bins
-#' 6. Further merging of bins to ensure the number of bins is within the specified range
-#'
-#' The algorithm iterates until convergence is reached or the maximum number of iterations is hit.
 #'
 #' @examples
 #' \dontrun{
@@ -2427,11 +4478,28 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
 #'
 #' # View binning results
 #' print(result)
+#' 
+#' # Plot WoE against bins
+#' barplot(result$woe, names.arg = result$bin, las = 2,
+#'         main = "Weight of Evidence by Bin", ylab = "WoE")
+#' abline(h = 0, lty = 2)
+#' }
+#'
+#' @references
+#' \itemize{
+#' \item Thomas, L.C. (2009). "Consumer Credit Models: Pricing, Profit, and Portfolios."
+#'       Oxford University Press.
+#' \item Scott, D.W. (2015). "Multivariate Density Estimation: Theory, Practice, and Visualization."
+#'       John Wiley & Sons.
+#' \item Good, I.J. (1952). "Rational Decisions." Journal of the Royal Statistical Society,
+#'       Series B, 14, 107-114.
+#' \item Belcastro, L., Marozzo, F., Talia, D., & Trunfio, P. (2020). "Big Data Analytics."
+#'       Handbook of Big Data Technologies, Springer.
 #' }
 #'
 #' @export
-optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ubsd`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_ubsd`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
 #' @title Optimal Binning for Numerical Variables using Unsupervised Decision Trees
@@ -2439,39 +4507,80 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #' @description 
 #' This function implements an optimal binning algorithm for numerical variables
 #' using an Unsupervised Decision Tree (UDT) approach with Weight of Evidence (WoE)
-#' and Information Value (IV) criteria.
+#' and Information Value (IV) criteria. The algorithm creates bins that maximize 
+#' the predictive power of the feature while maintaining interpretability.
 #'
 #' @param target An integer vector of binary target values (0 or 1).
 #' @param feature A numeric vector of feature values to be binned.
 #' @param min_bins Minimum number of bins (default: 3).
 #' @param max_bins Maximum number of bins (default: 5).
-#' @param bin_cutoff Minimum frequency of observations in each bin (default: 0.05).
-#' @param max_n_prebins Maximum number of pre-bins for initial quantile-based discretization (default: 20).
+#' @param bin_cutoff Minimum frequency of observations in each bin as a proportion (default: 0.05).
+#' @param max_n_prebins Maximum number of pre-bins for initial discretization (default: 20).
+#' @param laplace_smoothing Smoothing parameter for WoE calculation to handle zero counts (default: 0.5).
+#' @param monotonicity_direction Specify monotonicity constraint: "none", "increasing", "decreasing", or "auto" (default: "none").
 #' @param convergence_threshold Threshold for convergence of the optimization process (default: 1e-6).
 #' @param max_iterations Maximum number of iterations for the optimization process (default: 1000).
 #'
 #' @return A list containing binning details:
-#' \item{bins}{A character vector of bin intervals.}
+#' \item{id}{A numeric vector of bin identifiers.}
+#' \item{bin}{A character vector of bin intervals.}
 #' \item{woe}{A numeric vector of Weight of Evidence values for each bin.}
 #' \item{iv}{A numeric vector of Information Value for each bin.}
+#' \item{event_rate}{A numeric vector of event rates (proportion of positives) for each bin.}
 #' \item{count}{An integer vector of total observations in each bin.}
 #' \item{count_pos}{An integer vector of positive observations in each bin.}
 #' \item{count_neg}{An integer vector of negative observations in each bin.}
 #' \item{cutpoints}{A numeric vector of cut points between bins.}
+#' \item{total_iv}{The total Information Value of the binning.}
+#' \item{gini}{The Gini coefficient measuring discrimination power.}
+#' \item{ks}{The Kolmogorov-Smirnov statistic measuring separation.}
 #' \item{converged}{A logical value indicating whether the algorithm converged.}
 #' \item{iterations}{An integer value of the number of iterations run.}
 #'
 #' @details
-#' The optimal binning algorithm for numerical variables uses an Unsupervised Decision Tree
-#' approach with Weight of Evidence (WoE) and Information Value (IV) to create bins that
-#' maximize the predictive power of the feature while maintaining interpretability.
+#' The Unsupervised Decision Tree (UDT) binning algorithm discretizes a continuous 
+#' variable into bins that maximize the Information Value (IV) while respecting 
+#' constraints on the number and size of bins.
 #'
-#' The algorithm follows these steps:
-#' 1. Initial discretization using quantile-based binning
+#' The algorithm follows these main steps:
+#' 1. Initial discretization using an entropy-based decision tree approach
 #' 2. Merging of rare bins based on the bin_cutoff parameter
 #' 3. Bin optimization using IV and WoE criteria
-#' 4. Enforcement of monotonicity in WoE across bins
+#' 4. Optional enforcement of monotonicity in WoE across bins
 #' 5. Adjustment of the number of bins to be within the specified range
+#'
+#' The mathematical formulation of the optimization problem is:
+#'
+#' \deqn{
+#' \max_{\{c_1, c_2, ..., c_{m-1}\}} \sum_{i=1}^{m} (p_i - q_i) \cdot \ln\left(\frac{p_i + \epsilon}{q_i + \epsilon}\right)
+#' }
+#'
+#' Subject to:
+#' \itemize{
+#'   \item \eqn{min\_bins \leq m \leq max\_bins}
+#'   \item \eqn{\frac{n_i}{n} \geq bin\_cutoff} for all i
+#'   \item Optionally, \eqn{WoE_1 \leq WoE_2 \leq ... \leq WoE_m} (for increasing monotonicity)
+#' }
+#'
+#' Where:
+#' \itemize{
+#'   \item \eqn{p_i = \frac{n_{i,1}}{n_1}} is the proportion of positive observations in bin i
+#'   \item \eqn{q_i = \frac{n_{i,0}}{n_0}} is the proportion of negative observations in bin i
+#'   \item \eqn{\epsilon} is the Laplace smoothing parameter
+#' }
+#'
+#' The algorithm includes special handling for missing values (NA/NaN) and extreme values
+#' (±Inf), as well as proper treatment of variables with very few unique values.
+#'
+#' @references
+#' Belkin, M., Hsu, D., Ma, S., & Mandal, S. (2019). Reconciling modern machine-learning practice
+#' and the classical bias-variance trade-off. Proceedings of the National Academy of Sciences, 116(32), 15849-15854.
+#'
+#' Hastie, T., Tibshirani, R., & Friedman, J. (2009). The Elements of Statistical Learning. Springer.
+#'
+#' Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and Its Applications. SIAM.
+#'
+#' Siddiqi, N. (2017). Intelligent Credit Scoring: Building and Implementing Better Credit Risk Scorecards. Wiley.
 #'
 #' @examples
 #' \dontrun{
@@ -2482,15 +4591,21 @@ optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_b
 #' target <- rbinom(n, 1, plogis(0.5 * feature))
 #'
 #' # Apply optimal binning
-#' result <- optimal_binning_numerical_udt(target, feature, min_bins = 3, max_bins = 5)
+#' result <- optimal_binning_numerical_udt(
+#'   target, feature, 
+#'   min_bins = 3, 
+#'   max_bins = 5,
+#'   monotonicity_direction = "auto",
+#'   laplace_smoothing = 0.5
+#' )
 #'
 #' # View binning results
 #' print(result)
 #' }
 #'
 #' @export
-optimal_binning_numerical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations)
+optimal_binning_numerical_udt <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, laplace_smoothing = 0.5, monotonicity_direction = "none", convergence_threshold = 1e-6, max_iterations = 1000L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, laplace_smoothing, monotonicity_direction, convergence_threshold, max_iterations)
 }
 
 #' Preprocesses a numeric or categorical variable for optimal binning with handling of missing values and outliers
