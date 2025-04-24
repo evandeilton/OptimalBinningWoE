@@ -972,7 +972,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
   if (progress) {
     pb <- progress::progress_bar$new(
       format = "Processing :what [:bar] :percent | ETA: :eta | Elapsed: :elapsed",
-      total = length(features) * 3, # Multiplicamos por 3 para representar as principais etapas
+      total = length(features) * 3,
       clear = FALSE,
       width = 80
     )

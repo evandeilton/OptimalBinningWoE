@@ -118,7 +118,7 @@ print.oblr <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
   names(co) <- colnames(x$data$X)
   print(co, digits = digits)
 
-  cat("\nConvergence:", if (x$convergence == 0) "Successful" else "Not Successful", "\n")
+  cat("\nConvergence:", if (x$convergence == 1) "Successful" else "Not Successful", "\n")
   cat("Iterations:", x$iterations, "\n")
   if (!is.null(x$message)) {
     cat("Message:", x$message, "\n")

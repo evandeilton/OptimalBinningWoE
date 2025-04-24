@@ -1,5 +1,20 @@
+---
+output: github_document
+---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # OptimalBinningWoE <a href="https://evandeilton.github.io/OptimalBinningWoE/"><img src="inst/figures/obwoe.png" align="right" height="139" alt="OptimalBinningWoE website" /></a>
