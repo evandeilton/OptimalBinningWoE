@@ -1,3 +1,4 @@
+// [[Rcpp::depends(Rcpp)]]
 #include <Rcpp.h>
 #include <vector>
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <iomanip>
+#include <memory>
 
 using namespace Rcpp;
 
