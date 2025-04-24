@@ -124,91 +124,76 @@ OptimalBinningApplyWoENum <- function(obresults, feature, include_upper_bound = 
 #'
 #' @description
 #' Implements optimal binning for categorical variables using the ChiMerge algorithm
-#' (Kerber, 1992) and Chi2 algorithm (Liu & Setiono, 1995), calculating Weight of 
-#' Evidence (WoE) and Information Value (IV) for the resulting bins.
+#' (Kerber, 1992) and optionally the Chi2 algorithm (Liu & Setiono, 1995),
+#' calculating Weight of Evidence (WoE) and Information Value (IV) for the
+#' resulting bins. This is Version 4 with corrections based on previous code review.
 #'
-#' @param target Integer vector of binary target values (0 or 1)
-#' @param feature Character vector of categorical feature values
-#' @param min_bins Minimum number of bins (default: 3)
-#' @param max_bins Maximum number of bins (default: 5)
-#' @param bin_cutoff Minimum frequency for a separate bin (default: 0.05)
-#' @param max_n_prebins Maximum number of pre-bins before merging (default: 20)
-#' @param bin_separator Separator for concatenating category names in bins (default: "%;%")
-#' @param convergence_threshold Threshold for convergence in Chi-square difference (default: 1e-6)
-#' @param max_iterations Maximum number of iterations for bin merging (default: 1000)
-#' @param chi_merge_threshold Significance level threshold for chi-square test (default: 0.05)
-#' @param use_chi2_algorithm Whether to use the enhanced Chi2 algorithm (default: FALSE)
+#' @param target Integer vector of binary target values (0 or 1). Cannot contain NAs.
+#' @param feature Character vector of categorical feature values. `NA` values will be treated as a distinct category "NA".
+#' @param min_bins Minimum number of bins (default: 3, must be >= 2).
+#' @param max_bins Maximum number of bins (default: 5).
+#' @param bin_cutoff Minimum frequency fraction for a category to potentially avoid being merged in the initial `handle_rare_categories` step (default: 0.05). Note: The main merging uses chi-square statistics.
+#' @param max_n_prebins Maximum number of bins allowed after the initial pre-binning/rare handling step, before the main ChiMerge/Chi2 loop (default: 20). Merging stops if this limit is reached and statistical thresholds aren't met.
+#' @param bin_separator Separator string for concatenating category names in bins (default: "%;%").
+#' @param convergence_threshold Threshold for convergence based on the absolute difference in minimum chi-square between iterations during bin merging (default: 1e-6).
+#' @param max_iterations Maximum number of iterations allowed for the bin merging loop (default: 1000).
+#' @param chi_merge_threshold Significance level threshold for the chi-square test used in merging decisions (default: 0.05, corresponds to 95 pct confidence). Lower values lead to fewer merges.
+#' @param use_chi2_algorithm Boolean indicating whether to use the enhanced Chi2 algorithm which involves multiple ChiMerge phases with decreasing significance levels (default: FALSE).
 #'
 #' @return A list containing:
-#' \itemize{
-#'   \item id: Vector of numeric IDs for each bin
-#'   \item bin: Vector of bin names (concatenated categories)
-#'   \item woe: Vector of Weight of Evidence values for each bin
-#'   \item iv: Vector of Information Value for each bin
-#'   \item count: Vector of total counts for each bin
-#'   \item count_pos: Vector of positive class counts for each bin
-#'   \item count_neg: Vector of negative class counts for each bin
-#'   \item converged: Boolean indicating whether the algorithm converged
-#'   \item iterations: Number of iterations run
-#'   \item algorithm: Which algorithm was used (ChiMerge or Chi2)
-#' }
+#' \item{id}{Vector of numeric IDs (1-based) for each final bin.}
+#' \item{bin}{Vector of character strings representing the final bins (concatenated category names).}
+#' \item{woe}{Vector of numeric Weight of Evidence (WoE) values for each bin.}
+#' \item{iv}{Vector of numeric Information Value (IV) contributions for each bin.}
+#' \item{count}{Vector of integer total counts (observations) for each bin.}
+#' \item{count_pos}{Vector of integer positive class counts for each bin.}
+#' \item{count_neg}{Vector of integer negative class counts for each bin.}
+#' \item{converged}{Boolean indicating whether the merging algorithm converged (either reached target bins, statistical threshold, or convergence threshold).}
+#' \item{iterations}{Integer number of merging iterations performed.}
+#' \item{algorithm}{Character string indicating the algorithm used ("ChiMerge" or "Chi2").}
 #'
 #' @details
-#' The ChiMerge algorithm (Kerber, 1992) uses chi-square statistics to determine when to 
-#' merge adjacent bins. The chi-square statistic is calculated as:
+#' This function implements categorical variable binning based on chi-square statistics.
+#' The core logic follows the ChiMerge approach, iteratively merging adjacent bins (sorted by WoE)
+#' that have the lowest chi-square statistic below a specified critical value (derived from `chi_merge_threshold`).
+#' The optional Chi2 algorithm applies multiple rounds of ChiMerge with varying significance levels.
+#' Monotonicity of WoE across the final bins is enforced by merging adjacent bins that violate the trend.
 #'
-#' \deqn{\chi^2 = \sum_{i=1}^{2}\sum_{j=1}^{2} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}}
+#' Weight of Evidence (WoE) is calculated as: \eqn{WoE_i = \ln(\frac{p_{pos,i}}{p_{neg,i}})}
+#' Information Value (IV) is calculated as: \eqn{IV = \sum_{i} (p_{pos,i} - p_{neg,i}) \times WoE_i}
+#' where \eqn{p_{pos,i}} and \eqn{p_{neg,i}} are the proportions of positive and negative observations in bin i relative to the total positive and negative observations, respectively.
 #'
-#' where \eqn{O_{ij}} is the observed frequency and \eqn{E_{ij}} is the expected frequency
-#' for bin i and class j.
+#' V4 includes fixes for stability and corrects the initialization and usage of the internal chi-square cache.
 #'
-#' The Chi2 algorithm (Liu & Setiono, 1995) extends ChiMerge with automated threshold 
-#' determination and feature selection capabilities.
-#'
-#' Weight of Evidence (WoE) is calculated as:
-#'
-#' \deqn{WoE = \ln(\frac{P(X|Y=1)}{P(X|Y=0)})}
-#'
-#' Information Value (IV) for each bin is calculated as:
-#'
-#' \deqn{IV = (P(X|Y=1) - P(X|Y=0)) * WoE}
-#'
-#' The algorithm works by:
-#' 1. Initializing each category as a separate bin
-#' 2. Merging rare categories based on bin_cutoff
-#' 3. Limiting the number of pre-bins to max_n_prebins
-#' 4. Iteratively merging bins with the lowest chi-square until max_bins is reached,
-#'    or no further merging is possible based on the chi-square threshold
-#' 5. Ensuring monotonicity of WoE across bins
-#'
-#' The chi_merge_threshold parameter controls the statistical significance level for 
-#' merging. A value of 0.05 corresponds to a 95% confidence level.
-#'
-#' References:
+#' @references
 #' \itemize{
-#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. 
-#'         In Proceedings of the Tenth National Conference on Artificial Intelligence, 
-#'         AAAI'92, pages 123-128.
-#'   \item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization 
-#'         of Numeric Attributes. In Proceedings of the 7th IEEE International Conference 
-#'         on Tools with Artificial Intelligence, pages 388-391.
+#'   \item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In AAAI'92.
+#'   \item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization of Numeric Attributes. In TAI'95.
+#'   \item Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. John Wiley & Sons.
 #' }
 #'
 #' @examples
 #' \dontrun{
 #' # Example data
-#' target <- c(1, 0, 1, 1, 0, 1, 0, 0, 1, 1)
-#' feature <- c("A", "B", "A", "C", "B", "D", "C", "A", "D", "B")
+#' set.seed(123)
+#' target <- sample(0:1, 500, replace = TRUE, prob = c(0.7, 0.3))
+#' feature <- sample(LETTERS[1:8], 500, replace = TRUE)
+#' feature[sample(1:500, 20)] <- NA # Add some NAs
 #'
-#' # Run optimal binning with ChiMerge
-#' result <- optimal_binning_categorical_cm(target, feature, min_bins = 2, max_bins = 4)
+#' # Run optimal binning with ChiMerge (V4)
+#' result_v4 <- optimal_binning_categorical_cm_v4(target, feature,
+#'                                            min_bins = 3, max_bins = 6,
+#'                                            chi_merge_threshold = 0.05)
+#' print(result_v4)
 #'
-#' # Use the Chi2 algorithm instead
-#' result_chi2 <- optimal_binning_categorical_cm(target, feature, min_bins = 2, 
-#'                                              max_bins = 4, use_chi2_algorithm = TRUE)
+#' # Check total IV
+#' print(sum(result_v4$iv))
 #'
-#' # View results
-#' print(result)
+#' # Run using the Chi2 algorithm variant
+#' result_chi2_v4 <- optimal_binning_categorical_cm_v4(target, feature,
+#'                                                min_bins = 3, max_bins = 6,
+#'                                                use_chi2_algorithm = TRUE)
+#' print(result_chi2_v4)
 #' }
 #'
 #' @export
