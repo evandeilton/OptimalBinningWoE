@@ -1,6 +1,6 @@
 Package: OptimalBinningWoE
 Title: Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: person("Lopes", "J. E", , "evandeilton@gmail.com", role = c("aut", "cre"))
 Description: Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.
 License: MIT + file LICENSE
@@ -27,3 +27,4 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 URL: https://evandeilton.github.io/OptimalBinningWoE/
+VignetteBuilder: knitr

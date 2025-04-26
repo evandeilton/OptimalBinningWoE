@@ -22,7 +22,7 @@ obwoe(
 \arguments{
 \item{dt}{A data.table containing the dataset.}
 
-\item{target}{The name of the target variable (must be binary).}
+\item{target}{The name of the target variable column (must be binary: 0/1).}
 
 \item{features}{Vector of feature names to process. If NULL, all features except the target will be processed.}
 
@@ -30,7 +30,7 @@ obwoe(
 
 \item{max_bins}{Maximum number of bins (default: 4).}
 
-\item{method}{The binning method to use. Can be "auto" or one of the methods listed in the details section. Default 'jedi'}
+\item{method}{The binning method to use. Can be "auto" or one of the methods listed in the details section tables. Default is 'jedi'.}
 
 \item{positive}{Character string specifying which category should be considered as positive. Must be either "bad|1" or "good|1".}
 
@@ -71,6 +71,21 @@ obwoe(
 \item max_iterations: Maximum number of iterations for iterative algorithms (default: 1000)
 \item include_upper_bound: Include upper bound for numeric bins (default is TRUE)
 \item bin_separator: Bin separator for optimal bins categorical variables (default = "\%;\%")
+\item laplace_smoothing: Smoothing parameter for WoE calculation (default: 0.5)
+\item sketch_k: Parameter controlling the accuracy of sketch-based algorithms (default: 200)
+\item sketch_width: Width parameter for sketch-based algorithms (default: 2000)
+\item sketch_depth: Depth parameter for sketch-based algorithms (default: 5)
+\item polynomial_degree: Degree of polynomial for LPDB algorithm (default: 3)
+\item auto_monotonicity: Auto-detect monotonicity direction (default: TRUE)
+\item monotonic_trend: Monotonicity direction for DP algorithm (default: "auto")
+\item use_chi2_algorithm: Whether to use enhanced Chi2 algorithm (default: FALSE)
+\item chi_merge_threshold: Threshold for chi-merge algorithm (default: 0.05)
+\item force_monotonic_direction: Force direction in MBLP (0=auto, 1=increasing, -1=decreasing)
+\item monotonicity_direction: Monotonicity for UDT ("none", "increasing", "decreasing", "auto")
+\item divergence_method: Divergence measure for DMIV ("he", "kl", "tr", "klj", "sc", "js", "l1", "l2", "ln")
+\item bin_method: Method for WoE calculation in DMIV ("woe", "woe1")
+\item adaptive_cooling: Whether to use adaptive cooling in SAB (default: TRUE)
+\item enforce_monotonic: Whether to enforce monotonicity in various algorithms (default: TRUE)
 }}
 }
 \value{
@@ -118,128 +133,135 @@ A list containing:
 }
 }
 \description{
-This function performs optimal binning and calculates Weight of Evidence (WoE)
-for both numerical and categorical features. It implements a variety of
-advanced binning algorithms to discretize continuous variables and optimize
-categorical variables for predictive modeling, particularly in credit scoring
-and risk assessment applications.
-
-The function supports automatic method selection, data preprocessing, and handles
-both numerical and categorical features. It aims to maximize the predictive power
-of features while maintaining interpretability through monotonic binning and
-information value optimization.
+This function implements a comprehensive suite of state-of-the-art algorithms
+for optimal binning and Weight of Evidence (WoE) calculation for both numerical
+and categorical variables. It maximizes predictive power while preserving
+interpretability through monotonic constraints, information-theoretic optimization,
+and statistical validation. Primarily designed for credit risk modeling,
+classification problems, and predictive analytics applications.
 }
 \details{
-Supported Algorithms:
-The function implements the following binning algorithms:
-
-For Categorical Variables:
-\itemize{
-\item CM (ChiMerge): Implements optimal binning using the Chi-Merge algorithm,
-calculating Weight of Evidence (WoE) and Information Value (IV) for resulting bins.
-
-\item DPLC (Dynamic Programming with Local Constraints): Performs optimal binning
-using dynamic programming with linear constraints, maximizing Information
-Value (IV) while respecting user-defined constraints on bin numbers.
-
-\item FETB (Fisher's Exact Test Binning): Implements binning using Fisher's
-Exact Test, calculating WoE and IV for statistical significance.
-
-\item GMB (Greedy Merge): Uses a Greedy Merge approach for optimal binning,
-calculating WoE and IV metrics.
-
-\item IVB (Information Value Binning): Implements IV-based binning with dynamic
-programming, featuring enhanced robustness, numerical stability, and improved
-maintainability.
-
-\item JEDI: A robust algorithm optimizing IV while maintaining monotonic WoE
-relationships, using adaptive merging with numerical stability protections.
-
-\item MBA (Monotonic Binning Algorithm): Combines WoE and IV methods with
-monotonicity constraints.
-
-\item MILP (Mixed Integer Linear Programming): Creates optimal bins maximizing
-predictive power while respecting user-defined constraints.
-
-\item MOB (Monotonic Optimal Binning): Specialized implementation focusing on
-monotonicity preservation.
-
-\item SAB (Simulated Annealing): Maximizes IV while maintaining monotonicity
-using simulated annealing optimization.
-
-\item SBLP (Similarity-Based Logistic Partitioning): Produces bins maximizing
-IV with consistent WoE, considering target rates and similarity-based merges.
-
-\item SWB (Sliding Window Binning): Generates bins with good predictive power
-and WoE monotonicity, ensuring stability and robustness.
-
-\item UDT (User-Defined Technique): Flexible binning approach producing bins
-with good IV and WoE monotonicity.
+\subsection{Algorithm Classification}{
+\subsection{Categorical Variables}{\tabular{llll}{
+   Algorithm \tab Abbreviation \tab Theoretical Foundation \tab Key Features \cr
+   ChiMerge \tab CM \tab Statistical Tests \tab Uses chi-square tests to merge adjacent bins \cr
+   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Maximizes IV with global optimization \cr
+   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Uses Fisher's exact test for optimal merging \cr
+   Greedy Merge Binning \tab GMB \tab Iterative Optimization \tab Iteratively merges bins to maximize IV \cr
+   Information Value Binning \tab IVB \tab Information Theory \tab Dynamic programming for IV maximization \cr
+   Joint Entropy-Driven Information \tab JEDI \tab Information Theory \tab Adaptive merging with entropy optimization \cr
+   Monotonic Binning Algorithm \tab MBA \tab Information Theory \tab Combines WoE/IV with monotonicity constraints \cr
+   Mixed Integer Linear Programming \tab MILP \tab Mathematical Programming \tab Mathematical optimization with constraints \cr
+   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized for monotonicity preservation \cr
+   Simulated Annealing Binning \tab SAB \tab Metaheuristic Optimization \tab Simulated annealing for global optimization \cr
+   Similarity-Based Logistic Partitioning \tab SBLP \tab Distance-Based Methods \tab Similarity measures for optimal partitioning \cr
+   Sliding Window Binning \tab SWB \tab Iterative Optimization \tab Sliding window approach with adaptive merging \cr
+   User-Defined Technique \tab UDT \tab Hybrid Methods \tab Flexible hybrid approach for binning \cr
+   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Extension of JEDI for multinomial response \cr
 }
 
-For Numerical Variables:
-\itemize{
-\item BB (Branch and Bound): Generates stable, high-quality bins balancing
-interpretability and predictive power, with optional WoE monotonicity.
-
-\item CM (ChiMerge): Implementa binning ótimo usando ChiMerge, calculando
-WoE e IV com foco em eficiência e robustez.
-
-\item DPLC (Dynamic Programming with Local Constraints): Creates optimal bins
-maximizing predictive power while enforcing monotonicity and constraints.
-
-\item EWB (Equal-Width Binning): Uses equal-width intervals with merging and
-adjustment steps for interpretable binning.
-
-\item FETB (Fisher's Exact Test): Creates optimal bins ensuring statistical
-significance and WoE monotonicity.
-
-\item JEDI: Sophisticated algorithm optimizing IV with monotonic WoE relationships,
-using quantile-based pre-binning and adaptive merging.
-
-\item KMB (K-means Binning): Implements K-means clustering for optimal binning.
-
-\item LDB (Local Density Binning): Adjusts binning to maximize predictive power
-while maintaining WoE monotonicity.
-
-\item LPDB (Local Polynomial Density Binning): Creates bins maximizing predictive
-power with WoE monotonicity using polynomial density estimation.
-
-\item MBLP (Monotonic Binning with Linear Programming): Ensures WoE monotonicity
-with constraints on bin numbers and rare bin handling.
-
-\item MDLP (Minimum Description Length Principle): Minimizes information loss
-while ensuring WoE monotonicity using MDL principle.
-
-\item MOB (Monotonic Optimal Binning): Creates optimal bins maintaining WoE
-monotonicity.
-
-\item MRBLP (Monotonic Risk Binning with Likelihood Ratio Pre-binning):
-Preserves monotonic relationships while maximizing predictive power.
-
-\item OSLP (Optimal Supervised Learning Partitioning): Specialized supervised
-learning approach for optimal binning.
-
-\item UBSD (Unsupervised Binning with Standard Deviation): Uses standard
-deviation-based approach with WoE and IV criteria.
-
-\item UDT (Unsupervised Decision Tree): Implements binning using decision
-tree approach with WoE and IV criteria.
 }
 
-Key Concepts:
-\itemize{
-\item Weight of Evidence (WoE): \deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
-where \eqn{P(X_i|Y=1)} is the proportion of positive cases in bin i, and
-\eqn{P(X_i|Y=0)} is the proportion of negative cases in bin i.
-
-\item Information Value (IV): \deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
-The total IV is the sum of IVs across all bins: \deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+\subsection{Numerical Variables}{\tabular{llll}{
+   Algorithm \tab Abbreviation \tab Theoretical Foundation \tab Key Features \cr
+   Branch and Bound \tab BB \tab Mathematical Programming \tab Efficient search in solution space \cr
+   ChiMerge \tab CM \tab Statistical Tests \tab Chi-square-based merging strategy \cr
+   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Constrained optimization with DP \cr
+   Equal-Width Binning \tab EWB \tab Simple Discretization \tab Equal-width intervals with adaptive refinement \cr
+   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Fisher's test for statistical significance \cr
+   Joint Entropy-Driven Interval \tab JEDI \tab Information Theory \tab Entropy optimization with adaptive merging \cr
+   K-means Binning \tab KMB \tab Clustering \tab K-means inspired clustering approach \cr
+   Local Density Binning \tab LDB \tab Density Estimation \tab Adapts to local density structure \cr
+   Local Polynomial Density Binning \tab LPDB \tab Density Estimation \tab Polynomial density estimation approach \cr
+   Monotonic Binning with Linear Programming \tab MBLP \tab Mathematical Programming \tab Linear programming with monotonicity \cr
+   Minimum Description Length Principle \tab MDLP \tab Information Theory \tab MDL criterion with monotonicity \cr
+   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized monotonicity preservation \cr
+   Monotonic Risk Binning with LR Pre-binning \tab MRBLP \tab Hybrid Methods \tab Likelihood ratio pre-binning approach \cr
+   Optimal Supervised Learning Partitioning \tab OSLP \tab Supervised Learning \tab Specialized supervised approach \cr
+   Unsupervised Binning with Standard Deviation \tab UBSD \tab Statistical Methods \tab Standard deviation-based approach \cr
+   Unsupervised Decision Tree \tab UDT \tab Decision Trees \tab Decision tree inspired binning \cr
+   Isotonic Regression \tab IR \tab Statistical Methods \tab Pool Adjacent Violators algorithm \cr
+   Fast MDLP with Monotonicity \tab FAST_MDLPM \tab Information Theory \tab Optimized MDL implementation \cr
+   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Multinomial extension of JEDI \cr
+   Sketch-based Binning \tab SKETCH \tab Approximate Computing \tab KLL sketch for efficient quantile approximation \cr
 }
 
-Method Selection:
+}
+
+}
+
+\subsection{Mathematical Framework}{
+\subsection{Weight of Evidence (WoE)}{
+
+The Weight of Evidence measures the predictive power of a bin and is defined as:
+
+\deqn{WoE_i = \ln\left(\frac{P(X_i|Y=1)}{P(X_i|Y=0)}\right)}
+
+Where \eqn{P(X_i|Y=1)} is the proportion of positive events in bin i relative to all positive events,
+and \eqn{P(X_i|Y=0)} is the proportion of negative events in bin i relative to all negative events.
+
+With Bayesian smoothing applied (used in many implementations):
+
+\deqn{WoE_i = \ln\left(\frac{n_{1i} + \alpha\pi}{n_1 + m\alpha} \cdot \frac{n_0 + m\alpha}{n_{0i} + \alpha(1-\pi)}\right)}
+
+Where:
+\itemize{
+\item \eqn{n_{1i}} is the count of positive cases in bin i
+\item \eqn{n_{0i}} is the count of negative cases in bin i
+\item \eqn{n_1} is the total count of positive cases
+\item \eqn{n_0} is the total count of negative cases
+\item \eqn{\pi} is the overall positive rate
+\item \eqn{\alpha} is the smoothing parameter (typically 0.5)
+\item \eqn{m} is the number of bins
+}
+}
+
+\subsection{Information Value (IV)}{
+
+The Information Value quantifies the predictive power of a variable:
+
+\deqn{IV_i = (P(X_i|Y=1) - P(X_i|Y=0)) \times WoE_i}
+
+The total Information Value is the sum across all bins:
+
+\deqn{IV_{total} = \sum_{i=1}^{n} IV_i}
+
+IV can be interpreted as follows:
+\itemize{
+\item IV < 0.02: Not predictive
+\item 0.02 <= IV < 0.1: Weak predictive power
+\item 0.1 <= IV < 0.3: Medium predictive power
+\item 0.3 <= IV < 0.5: Strong predictive power
+\item IV >= 0.5: Suspicious (possible overfitting)
+}
+}
+
+\subsection{Monotonicity Constraint}{
+
+Many algorithms enforce monotonicity of WoE values across bins, which means:
+
+\deqn{WoE_1 \leq WoE_2 \leq \ldots \leq WoE_n} (increasing)
+
+or
+
+\deqn{WoE_1 \geq WoE_2 \geq \ldots \geq WoE_n} (decreasing)
+}
+
+}
+
+\subsection{Method Selection}{
+
 When method = "auto", the function tests multiple algorithms and selects the one
 that produces the highest total Information Value while respecting the specified constraints.
+The selection process considers:
+\itemize{
+\item Total Information Value (IV)
+\item Monotonicity of WoE values
+\item Number of bins created
+\item Bin frequency distribution
+\item Statistical stability
+}
+}
 }
 \examples{
 \dontrun{
@@ -289,5 +311,53 @@ result_cat <- obwoe(dt,
 
 # View binning information for categorical features
 print(result_cat)
+
+# Example 2: Automatic method selection
+result_auto <- obwoe(dt,
+  target = "creditability",
+  method = "auto", # Tries multiple methods and selects the best
+  min_bins = 3, max_bins = 5, positive = "bad|1"
+)
+
+# View which methods were selected for each feature
+print(result_auto$report_best_model)
+
+# Example 3: Using specialized algorithms
+# For numerical features with complex distributions
+result_lpdb <- obwoe(dt,
+  target = "creditability",
+  features = numeric_features[1:3],
+  method = "lpdb", # Local Polynomial Density Binning
+  min_bins = 3, max_bins = 5, positive = "bad|1",
+  control = list(polynomial_degree = 3)
+)
+
+# For categorical features with many levels
+result_jedi <- obwoe(dt,
+  target = "creditability",
+  features = categoric_features[1:3],
+  method = "jedi", # Joint Entropy-Driven Information
+  min_bins = 3, max_bins = 5, positive = "bad|1"
+)
+}
+}
+\references{
+\itemize{
+\item Beltrami, M., Mach, M., & Dall'Aglio, M. (2021). Monotonic Optimal Binning Algorithm for Credit Risk Modeling. Risks, 9(3), 58.
+\item Siddiqi, N. (2006). Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring. John Wiley & Sons.
+\item Thomas, L.C., Edelman, D.B., & Crook, J.N. (2002). Credit Scoring and Its Applications. SIAM.
+\item Zeng, G. (2013). Metric Divergence Measures and Information Value in Credit Scoring. Journal of Mathematics, 2013, Article ID 848271, 10 pages.
+\item Zeng, Y. (2014). Univariate feature selection and binner. arXiv preprint arXiv:1410.5420.
+\item Mironchyk, P., & Tchistiakov, V. (2017). Monotone Optimal Binning Algorithm for Credit Risk Modeling. Working Paper.
+\item Kerber, R. (1992). ChiMerge: Discretization of Numeric Attributes. In AAAI'92.
+\item Liu, H. & Setiono, R. (1995). Chi2: Feature Selection and Discretization of Numeric Attributes. In TAI'95.
+\item Fayyad, U., & Irani, K. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. Proceedings of the 13th International Joint Conference on Artificial Intelligence, 1022-1027.
+\item Barlow, R. E., & Brunk, H. D. (1972). The isotonic regression problem and its dual. Journal of the American Statistical Association, 67(337), 140-147.
+\item Fisher, R. A. (1922). On the interpretation of X^2 from contingency tables, and the calculation of P. Journal of the Royal Statistical Society, 85, 87-94.
+\item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
+\item Bertsimas, D., & Tsitsiklis, J. N. (1997). Introduction to Linear Optimization. Athena Scientific.
+\item Gelman, A., Jakulin, A., Pittau, M. G., & Su, Y. S. (2008). A weakly informative default prior distribution for logistic and other regression models. The annals of applied statistics, 2(4), 1360-1383.
+\item Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). Optimization by simulated annealing. Science, 220(4598), 671-680.
+\item Navas-Palencia, G. (2020). Optimal binning: mathematical programming formulations for binary classification. arXiv preprint arXiv:2001.08025.
 }
 }

@@ -51,13 +51,7 @@ logistic regression, particularly in credit scoring. It quantifies the
 predictive power of a feature by comparing the distribution of good and
 bad cases across bins.
 
-For bin $i$:
-
-$$
-\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right)
-$$
-
-where: - $P(X_i | Y = 1)$ is the proportion of positive cases (e.g.,
+For bin $i$: $$\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right),$$ where: - $P(X_i | Y = 1)$ is the proportion of positive cases (e.g.,
 defaults) in bin $i$, - $P(X_i | Y = 0)$ is the proportion of negative
 cases (e.g., non-defaults) in bin $i$.
 
@@ -67,17 +61,7 @@ Information Value quantifies the overall predictive power of a feature.
 It is calculated as the sum of the WoE differences between good and bad
 cases across all bins.
 
-For bin $i$:
-
-$$
-\text{IV}_i = \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i
-$$
-
-The total Information Value is:
-
-$$
-\text{IV}_{\text{total}} = \sum_{i=1}^{n} \text{IV}_i
-$$
+For bin $i$: $$\text{IV}_i = \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i.$$ The total Information Value is: $$\text{IV}_{\text{total}} = \sum_{i=1}^{n} \text{IV}_i$$
 
 Interpretation of IV values:
 
