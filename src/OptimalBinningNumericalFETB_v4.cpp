@@ -348,6 +348,7 @@ public:
 //' res <- optimal_binning_numerical_fetb(y, x,
 //'         min_bins = 2, max_bins = 6, max_n_prebins = 25)
 //' print(res)
+//'}
 //'
 //' @references
 //' Fisher, R. A. (1922) \emph{On the interpretation of \eqn{X^2} from contingency

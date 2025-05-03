@@ -41,13 +41,13 @@
 #'   id = c(1, 2, 3)
 #' )
 #' feature <- c("business", "education", "radio/television", "unknown_category")
-#' result <- OptimalBinningApplyWoECat(obresults, feature, bin_separator = ";")
+#' result <- OBApplyWoECat(obresults, feature, bin_separator = ";")
 #' print(result)
 #' }
 #'
 #' @export
-OptimalBinningApplyWoECat <- function(obresults, feature, bin_separator = "%;%") {
-    .Call(`_OptimalBinningWoE_OptimalBinningApplyWoECat`, obresults, feature, bin_separator)
+OBApplyWoECat <- function(obresults, feature, bin_separator = "%;%") {
+    .Call(`_OptimalBinningWoE_OBApplyWoECat`, obresults, feature, bin_separator)
 }
 
 #' @title Apply Optimal Weight of Evidence (WoE) to a Numerical Feature
@@ -111,13 +111,13 @@ OptimalBinningApplyWoECat <- function(obresults, feature, bin_separator = "%;%")
 #'   id = c(1, 2, 3, 4)  # IDs for each bin
 #' )
 #' feature <- c(1.0, 2.0, 3.5, 5.0)
-#' result <- OptimalBinningApplyWoENum(obresults, feature, include_upper_bound = TRUE)
+#' result <- OBApplyWoENum(obresults, feature, include_upper_bound = TRUE)
 #' print(result)
 #' }
 #'
 #' @export
-OptimalBinningApplyWoENum <- function(obresults, feature, include_upper_bound = TRUE) {
-    .Call(`_OptimalBinningWoE_OptimalBinningApplyWoENum`, obresults, feature, include_upper_bound)
+OBApplyWoENum <- function(obresults, feature, include_upper_bound = TRUE) {
+    .Call(`_OptimalBinningWoE_OBApplyWoENum`, obresults, feature, include_upper_bound)
 }
 
 #' @title Optimal Binning for Categorical Variables using ChiMerge
@@ -2007,8 +2007,8 @@ optimal_binning_categorical_udt <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_udt`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-OptimalBinningCheckDistinctsLength <- function(x, target) {
-    .Call(`_OptimalBinningWoE_OptimalBinningCheckDistinctsLength`, x, target)
+OBCheckDistinctsLength <- function(x, target) {
+    .Call(`_OptimalBinningWoE_OBCheckDistinctsLength`, x, target)
 }
 
 #' @title 
@@ -2914,6 +2914,7 @@ optimal_binning_numerical_ewb <- function(target, feature, min_bins = 3L, max_bi
 #' res <- optimal_binning_numerical_fetb(y, x,
 #'         min_bins = 2, max_bins = 6, max_n_prebins = 25)
 #' print(res)
+#'}
 #'
 #' @references
 #' Fisher, R. A. (1922) \emph{On the interpretation of \eqn{X^2} from contingency
@@ -4622,12 +4623,12 @@ optimal_binning_numerical_udt <- function(target, feature, min_bins = 3L, max_bi
 #' target <- c(0, 1, 1, 0, 1)
 #' feature_numeric <- c(10, 20, NA, 40, 50)
 #' feature_categorical <- c("A", "B", NA, "B", "A")
-#' result <- OptimalBinningDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
-#' result <- OptimalBinningDataPreprocessor(target, feature_categorical)
+#' result <- OBDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
+#' result <- OBDataPreprocessor(target, feature_categorical)
 #' }
 #' @export
-OptimalBinningDataPreprocessor <- function(target, feature, num_miss_value = -999.0, char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, preprocess = as.character( c("both")), iqr_k = 1.5, zscore_threshold = 3.0, grubbs_alpha = 0.05) {
-    .Call(`_OptimalBinningWoE_OptimalBinningDataPreprocessor`, target, feature, num_miss_value, char_miss_value, outlier_method, outlier_process, preprocess, iqr_k, zscore_threshold, grubbs_alpha)
+OBDataPreprocessor <- function(target, feature, num_miss_value = -999.0, char_miss_value = "N/A", outlier_method = "iqr", outlier_process = FALSE, preprocess = as.character( c("both")), iqr_k = 1.5, zscore_threshold = 3.0, grubbs_alpha = 0.05) {
+    .Call(`_OptimalBinningWoE_OBDataPreprocessor`, target, feature, num_miss_value, char_miss_value, outlier_method, outlier_process, preprocess, iqr_k, zscore_threshold, grubbs_alpha)
 }
 
 #' @title Generate a Detailed Gains Table from Optimal Binning Results
@@ -4690,18 +4691,9 @@ OptimalBinningDataPreprocessor <- function(target, feature, num_miss_value = -99
 #'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
 #' }
 #'
-#' @examples
-#' \dontrun{
-#' # Generate optimal binning results
-#' binning_result <- OptimalBinning(target, feature)
-#' # Create a gains table
-#' gains_table <- OptimalBinningGainsTable(binning_result)
-#' print(gains_table)
-#' }
-#'
 #' @export
-OptimalBinningGainsTable <- function(binning_result) {
-    .Call(`_OptimalBinningWoE_OptimalBinningGainsTable`, binning_result)
+OBGainsTable <- function(binning_result) {
+    .Call(`_OptimalBinningWoE_OBGainsTable`, binning_result)
 }
 
 #' @title Generate Gains Table for a Binned Feature
@@ -4712,7 +4704,7 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' optimal binning methods. The calculated metrics include Weight of Evidence (WoE), Information Value (IV),
 #' accuracy rates, information divergences, Kolmogorov-Smirnov (KS), Lift, and others.
 #'
-#' @param binned_df A DataFrame containing the following columns, resulting from a binning process (e.g., using `OptimalBinningApplyWoENum` or `OptimalBinningApplyWoECat`):
+#' @param binned_df A DataFrame containing the following columns, resulting from a binning process (e.g., using `OBApplyWoENum` or `OBApplyWoECat`):
 #' \itemize{
 #'   \item \code{feature}: Original values of the variable.
 #'   \item \code{bin}: Bin label where the feature value was classified.
@@ -4768,13 +4760,13 @@ OptimalBinningGainsTable <- function(binning_result) {
 #' @examples
 #' \dontrun{
 #' # Hypothetical example:
-#' # Assume binned_df is the result of OptimalBinningApplyWoENum(...) and target is a 0/1 vector.
-#' # gains_table <- OptimalBinningGainsTableFeature(binned_df, target, group_var = "idbin")
+#' # Assume binned_df is the result of OBApplyWoENum(...) and target is a 0/1 vector.
+#' # gains_table <- OBGainsTableFeature(binned_df, target, group_var = "idbin")
 #' # print(gains_table)
 #' }
 #'
 #' @export
-OptimalBinningGainsTableFeature <- function(binned_df, target, group_var = "bin") {
-    .Call(`_OptimalBinningWoE_OptimalBinningGainsTableFeature`, binned_df, target, group_var)
+OBGainsTableFeature <- function(binned_df, target, group_var = "bin") {
+    .Call(`_OptimalBinningWoE_OBGainsTableFeature`, binned_df, target, group_var)
 }
 

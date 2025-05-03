@@ -85,12 +85,12 @@ Rcpp::IntegerVector create_frequency_table(SEXP x, Rcpp::IntegerVector target) {
 }
 
 // [[Rcpp::export]]
-Rcpp::IntegerVector OptimalBinningCheckDistinctsLength(SEXP x, Rcpp::IntegerVector target) {
+Rcpp::IntegerVector OBCheckDistinctsLength(SEXP x, Rcpp::IntegerVector target) {
   try {
     return create_frequency_table(x, target);
   } catch (std::exception& e) {
-    Rcpp::stop("Error in OptimalBinningCheckDistinctsLength: %s", e.what());
+    Rcpp::stop("Error in OBCheckDistinctsLength: %s", e.what());
   } catch (...) {
-    Rcpp::stop("Unknown error in OptimalBinningCheckDistinctsLength");
+    Rcpp::stop("Unknown error in OBCheckDistinctsLength");
   }
 }

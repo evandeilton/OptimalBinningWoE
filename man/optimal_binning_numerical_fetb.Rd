@@ -96,6 +96,18 @@ cap is reached.\cr
         \left(\frac{a_b}{T_1}-\frac{b_b}{T_0}\right)\mathrm{WoE}_b}
 where \eqn{T_1=\sum_b a_b},\ \eqn{T_0=\sum_b b_b}.
 }
+\examples{
+\donttest{
+set.seed(2025)
+N  <- 1000
+y  <- rbinom(N, 1, 0.3)             # 30 \% positives
+x  <- rnorm(N, mean = 50, sd = 10)  # numeric predictor
+res <- optimal_binning_numerical_fetb(y, x,
+        min_bins = 2, max_bins = 6, max_n_prebins = 25)
+print(res)
+}
+
+}
 \references{
 Fisher, R. A. (1922) \emph{On the interpretation of \eqn{X^2} from contingency
 tables, and the calculation of P}. \emph{JRSS}, 85 (1), 87‑94.\cr

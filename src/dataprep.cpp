@@ -137,12 +137,12 @@ std::string list_to_string(const List& lst) {
 //' target <- c(0, 1, 1, 0, 1)
 //' feature_numeric <- c(10, 20, NA, 40, 50)
 //' feature_categorical <- c("A", "B", NA, "B", "A")
-//' result <- OptimalBinningDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
-//' result <- OptimalBinningDataPreprocessor(target, feature_categorical)
+//' result <- OBDataPreprocessor(target, feature_numeric, outlier_process = TRUE)
+//' result <- OBDataPreprocessor(target, feature_categorical)
 //' }
 //' @export
 // [[Rcpp::export]]
-List OptimalBinningDataPreprocessor(
+List OBDataPreprocessor(
     NumericVector target,
     SEXP feature,
     double num_miss_value = -999.0,

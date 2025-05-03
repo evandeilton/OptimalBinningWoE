@@ -78,18 +78,9 @@ double kl_divergence(double p, double q) {
 //'   \item Lin, J. (1991). Divergence measures based on the Shannon entropy. IEEE Transactions on Information Theory, 37(1), 145-151.
 //' }
 //'
-//' @examples
-//' \dontrun{
-//' # Generate optimal binning results
-//' binning_result <- OptimalBinning(target, feature)
-//' # Create a gains table
-//' gains_table <- OptimalBinningGainsTable(binning_result)
-//' print(gains_table)
-//' }
-//'
 //' @export
 // [[Rcpp::export]]
-DataFrame OptimalBinningGainsTable(List binning_result) {
+DataFrame OBGainsTable(List binning_result) {
  // Extrair dados do resultado do binning
  NumericVector bin_ids = binning_result["id"];
  CharacterVector bin_labels = binning_result["bin"];
@@ -266,7 +257,7 @@ DataFrame OptimalBinningGainsTable(List binning_result) {
 //' optimal binning methods. The calculated metrics include Weight of Evidence (WoE), Information Value (IV),
 //' accuracy rates, information divergences, Kolmogorov-Smirnov (KS), Lift, and others.
 //'
-//' @param binned_df A DataFrame containing the following columns, resulting from a binning process (e.g., using `OptimalBinningApplyWoENum` or `OptimalBinningApplyWoECat`):
+//' @param binned_df A DataFrame containing the following columns, resulting from a binning process (e.g., using `OBApplyWoENum` or `OBApplyWoECat`):
 //' \itemize{
 //'   \item \code{feature}: Original values of the variable.
 //'   \item \code{bin}: Bin label where the feature value was classified.
@@ -322,14 +313,14 @@ DataFrame OptimalBinningGainsTable(List binning_result) {
 //' @examples
 //' \dontrun{
 //' # Hypothetical example:
-//' # Assume binned_df is the result of OptimalBinningApplyWoENum(...) and target is a 0/1 vector.
-//' # gains_table <- OptimalBinningGainsTableFeature(binned_df, target, group_var = "idbin")
+//' # Assume binned_df is the result of OBApplyWoENum(...) and target is a 0/1 vector.
+//' # gains_table <- OBGainsTableFeature(binned_df, target, group_var = "idbin")
 //' # print(gains_table)
 //' }
 //'
 //' @export
 // [[Rcpp::export]]
-DataFrame OptimalBinningGainsTableFeature(DataFrame binned_df, 
+DataFrame OBGainsTableFeature(DataFrame binned_df, 
                                           NumericVector target,
                                           std::string group_var = "bin") {
   // Validação dos parâmetros de entrada

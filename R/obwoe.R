@@ -345,7 +345,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
   control <- modifyList(default_control, control)
 
   # Validate input arguments and handle exceptions
-  OptimalBinningValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
+  OBValidateInputs(dt, target, features, method, preprocess, min_bins, max_bins, control, positive)
 
   # Step 2: Check input data 'dt', and if not data.table, transform
   if (!data.table::is.data.table(dt)) {
@@ -361,11 +361,11 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 
   # Step 4: Map the target variable and preprocess data
   # Map the target variable based on 'positive' argument
-  data <- OptimalBinningMapTargetVariable(dt, target, positive)
+  data <- OBMapTargetVariable(dt, target, positive)
 
   if (preprocess) {
     # Preprocess data (handling outliers, missing values, etc.)
-    preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "both")
+    preprocessed_data <- OBPreprocessData(data, target, features, control, preprocess = "both")
     # Extract preprocessing reports
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
     # Prepare preprocessed data
@@ -374,7 +374,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
     }
   } else {
     # Generate preprocessing reports without modifying data
-    preprocessed_data <- OptimalBinningPreprocessData(data, target, features, control, preprocess = "report")
+    preprocessed_data <- OBPreprocessData(data, target, features, control, preprocess = "report")
     preprocessed_report <- data.table::rbindlist(lapply(preprocessed_data, function(x) data.table::setDT(x$report)), idcol = "feature")
   }
 
@@ -391,7 +391,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 
   # Check for unsupported variable types and single-class target in categorical variables
   for (feat in features) {
-    featdim <- OptimalBinningCheckDistinctsLength(data[[feat]], data[[target]])
+    featdim <- OBCheckDistinctsLength(data[[feat]], data[[target]])
 
     if (featdim[1] <= 2) {
       data[[feat]] <- as.factor(data[[feat]])
@@ -418,7 +418,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 
   # Step 7: Apply algorithms
   # If there are features to process, apply the optimal binning algorithms
-  results <- OptimalBinningSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
+  results <- OBSelectBestModel(data, target, features, method, min_bins, max_bins, control, progress, trace)
 
   # Step 8: Prepare outputs conditional on user choice
   # Prepare WoE binning gains table
@@ -510,7 +510,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 #' @examples
 #' \dontrun{
 #' # Assuming 'obwoe_result' is the output from an Optimal Binning and WoE analysis
-#' result <- OptimalBinningSelectOptimalFeatures(
+#' result <- OBSelectOptimalFeatures(
 #'   obresult = obwoe_result,
 #'   target = "target_variable",
 #'   iv_threshold = 0.05,
@@ -530,7 +530,7 @@ obwoe <- function(dt, target, features = NULL, min_bins = 3, max_bins = 4, metho
 #'
 #' @importFrom data.table setDT setorder data.table
 #' @export
-OptimalBinningSelectOptimalFeatures <- function(obresult, target, iv_threshold = 0.02, min_features = 5, max_features = NULL) {
+OBSelectOptimalFeatures <- function(obresult, target, iv_threshold = 0.02, min_features = 5, max_features = NULL) {
   # Input validation
   if (!is.list(obresult) || !all(c("woedt", "woebins") %in% names(obresult))) {
     stop("'obresult' must be a list containing 'woedt' and 'woebins' elements")
@@ -620,10 +620,10 @@ OptimalBinningSelectOptimalFeatures <- function(obresult, target, iv_threshold =
 #' @return A list of preprocessed data for each feature.
 #'
 #' @export
-OptimalBinningPreprocessData <- function(dt, target, features, control, preprocess = "both") {
+OBPreprocessData <- function(dt, target, features, control, preprocess = "both") {
   preprocessed_data <- list()
   for (feat in features) {
-    preprocessed_data[[feat]] <- OptimalBinningDataPreprocessor(
+    preprocessed_data[[feat]] <- OBDataPreprocessor(
       target = dt[[target]],
       feature = dt[[feat]],
       num_miss_value = control$num_miss_value,
@@ -647,7 +647,7 @@ OptimalBinningPreprocessData <- function(dt, target, features, control, preproce
 #'
 #' @keywords internal
 #' @export
-OptimalBinningIsWoEMonotonic <- function(woe_values) {
+OBWoEMonotonic <- function(woe_values) {
   diff_woe <- diff(woe_values)
   all(diff_woe >= 0) || all(diff_woe <= 0)
 }
@@ -662,7 +662,7 @@ OptimalBinningIsWoEMonotonic <- function(woe_values) {
 #'
 #' @keywords internal
 #' @export
-OptimalBinningMapTargetVariable <- function(dt, target, positive) {
+OBMapTargetVariable <- function(dt, target, positive) {
   if (is.character(dt[[target]]) || is.factor(dt[[target]])) {
     if (length(unique(dt[[target]])) > 2) {
       stop("Target variable must have exactly two categories")
@@ -684,7 +684,7 @@ OptimalBinningMapTargetVariable <- function(dt, target, positive) {
 #'
 #' @keywords internal
 #' @export
-OptimalBinningCalculateSpecialWoE <- function(target) {
+OBCalculateSpecialWoE <- function(target) {
   counts <- table(target)
   log(counts[2] / sum(counts) / (counts[1] / sum(counts)))
 }
@@ -699,7 +699,7 @@ OptimalBinningCalculateSpecialWoE <- function(target) {
 #'
 #' @keywords internal
 #' @export
-OptimalBinningCreateSpecialBin <- function(dt_special, woebin, special_woe) {
+OBCreateSpecialBin <- function(dt_special, woebin, special_woe) {
   data.table::data.table(
     bin = "Special",
     count = nrow(dt_special),
@@ -728,7 +728,7 @@ OptimalBinningCreateSpecialBin <- function(dt_special, woebin, special_woe) {
 #'
 #' @keywords internal
 #' @export
-OptimalBinningValidateInputs <- function(dt, target, features, method, preprocess, min_bins, max_bins, control, positive) {
+OBValidateInputs <- function(dt, target, features, method, preprocess, min_bins, max_bins, control, positive) {
   # Check if dt is a data.table
   if (!data.table::is.data.table(dt)) {
     stop("The 'dt' argument must be a data.table.")
@@ -765,8 +765,8 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
   #   "bb", "bs", "dpb", "eb", "eblc", "efb", "ewb", "ir", "jnbo", "kmb", "mdlp", "mrblp", "plaob", "qb", "sbb", "ubsd"
   # )
 
-  all_methods_char <- unique(c("auto", names(OptimalBinningGetAlgoName()$char)))
-  all_methods_num <- unique(c("auto", names(OptimalBinningGetAlgoName()$num)))
+  all_methods_char <- unique(c("auto", names(OBGetAlgoName()$char)))
+  all_methods_num <- unique(c("auto", names(OBGetAlgoName()$num)))
 
   all_methods <- sort(unique(c(all_methods_char, all_methods_num)))
 
@@ -826,12 +826,12 @@ OptimalBinningValidateInputs <- function(dt, target, features, method, preproces
 #'
 #' @keywords internal
 #' @export
-OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin, control) {
+OBSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin, control) {
   # Determine if the feature is categorical or numeric
   is_categorical <- is.factor(dt[[feature]]) || is.character(dt[[feature]])
 
-  # Get available algorithms using OptimalBinningGetAlgoName()
-  available_algorithms <- OptimalBinningGetAlgoName()
+  # Get available algorithms using OBGetAlgoName()
+  available_algorithms <- OBGetAlgoName()
 
   # Select the appropriate algorithm based on the method and variable type
   data_type <- if (is_categorical) "char" else "num"
@@ -902,7 +902,7 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
 #' Get Available Optimal Binning Algorithms
 #'
 #' @description
-#' This function retrieves all available optimal binning algorithms from the OptimalBinningWoE package,
+#' This function retrieves all available optimal binning algorithms from the OBWoE package,
 #' separating them into categorical and numerical types.
 #'
 #' @return A list containing two elements:
@@ -910,22 +910,22 @@ OptimalBinningSelectAlgorithm <- function(feature, method, dt, min_bin, max_bin,
 #'   \item{num}{A named list of numerical binning algorithms}
 #'
 #' @details
-#' The function searches for all exported functions in the OptimalBinningWoE package that start with
+#' The function searches for all exported functions in the OBWoE package that start with
 #' "optimal_binning_categorical_" or "optimal_binning_numerical_". It then creates two separate lists
 #' for categorical and numerical algorithms, using the last part of the function name (after the last
 #' underscore) as the list item name.
 #'
 #' @examples
 #' \dontrun{
-#' algorithms <- OptimalBinningGetAlgoName()
+#' algorithms <- OBGetAlgoName()
 #' print(algorithms$char) # List of categorical algorithms
 #' print(algorithms$num) # List of numerical algorithms
 #' }
 #'
 #' @export
-OptimalBinningGetAlgoName <- function() {
-  # Get all exported functions from OptimalBinningWoE package
-  pk <- getNamespaceExports("OptimalBinningWoE")
+OBGetAlgoName <- function() {
+  # Get all exported functions from OBWoE package
+  pk <- getNamespaceExports("OBWoE")
 
   # Helper function to extract the last part of the function name
   get_last_part <- function(x) {
@@ -936,7 +936,7 @@ OptimalBinningGetAlgoName <- function() {
     "dmiv", "cm", "sketch", "swb", "fetb", "milp", "jedi",
     "ivb", "mba", "sblp", "dp", "sab", "udt", "mob"
   )
-  
+
   # "gmb" (bugs)
 
   nummethods <- c(
@@ -1021,7 +1021,7 @@ OptimalBinningGetAlgoName <- function() {
 #'   feature1 = rnorm(1000),
 #'   feature2 = sample(letters[1:5], 1000, replace = TRUE)
 #' )
-#' results <- OptimalBinningSelectBestModel(
+#' results <- OBSelectBestModel(
 #'   dt = dt,
 #'   target = "target",
 #'   features = c("feature1", "feature2"),
@@ -1031,10 +1031,10 @@ OptimalBinningGetAlgoName <- function() {
 #' }
 #'
 #' @export
-OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
+OBSelectBestModel <- function(dt, target, features, method = NULL, min_bins, max_bins, control, progress = TRUE, trace = FALSE) {
   results <- list()
 
-  algoes <- OptimalBinningGetAlgoName()
+  algoes <- OBGetAlgoName()
 
   numerical_methods <- lapply(algoes$num, function(a) {
     a$params <- utils::modifyList(a$params, list(min_bins = min_bins, max_bins = max_bins))
@@ -1121,7 +1121,7 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
               total_bins = length(OO[[m]]$bin),
               total_zero_pos = sum(OO[[m]]$count_pos == 0, na.rm = TRUE),
               total_zero_neg = sum(OO[[m]]$count_neg == 0, na.rm = TRUE),
-              is_monotonic = as.numeric(OptimalBinningIsWoEMonotonic(OO[[m]]$woe))
+              is_monotonic = as.numeric(OBWoEMonotonic(OO[[m]]$woe))
             )
           },
           error = function(e) {
@@ -1156,12 +1156,12 @@ OptimalBinningSelectBestModel <- function(dt, target, features, method = NULL, m
     best_model <- OO[[unique(head(mm, 1)$model_method)]]
 
     woefeature <- if (!is_string) {
-      OptimalBinningApplyWoENum(best_model, dt_feature$feature, include_upper_bound = control$include_upper_bound)
+      OBApplyWoENum(best_model, dt_feature$feature, include_upper_bound = control$include_upper_bound)
     } else {
-      OptimalBinningApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
+      OBApplyWoECat(best_model, dt_feature$feature, bin_separator = control$bin_separator)
     }
 
-    woebin <- OptimalBinningGainsTableFeature(woefeature, dt_feature$target)
+    woebin <- OBGainsTableFeature(woefeature, dt_feature$target)
 
     bestmethod <- best_model$algorithm
 

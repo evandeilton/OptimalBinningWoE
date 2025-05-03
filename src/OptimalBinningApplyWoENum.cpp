@@ -69,13 +69,13 @@ using namespace Rcpp;
 //'   id = c(1, 2, 3, 4)  # IDs for each bin
 //' )
 //' feature <- c(1.0, 2.0, 3.5, 5.0)
-//' result <- OptimalBinningApplyWoENum(obresults, feature, include_upper_bound = TRUE)
+//' result <- OBApplyWoENum(obresults, feature, include_upper_bound = TRUE)
 //' print(result)
 //' }
 //'
 //' @export
 // [[Rcpp::export]]
-DataFrame OptimalBinningApplyWoENum(const List& obresults,
+DataFrame OBApplyWoENum(const List& obresults,
                                   const NumericVector& feature,
                                   bool include_upper_bound = true) {
  // Validação dos parâmetros de entrada, agora incluindo id
