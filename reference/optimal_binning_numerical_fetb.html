@@ -21,7 +21,7 @@ application where robust, information‑preserving discretisation is required.">
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -179,6 +179,51 @@ Hosmer, D. W., Lemeshow, S., &amp; Sturdivant, R. X. (2013)
     <p>Lopes, J. E.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2025</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">N</span>  <span class="op">&lt;-</span> <span class="fl">1000</span></span></span>
+<span class="r-in"><span><span class="va">y</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">N</span>, <span class="fl">1</span>, <span class="fl">0.3</span><span class="op">)</span>             <span class="co"># 30 % positives</span></span></span>
+<span class="r-in"><span><span class="va">x</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">N</span>, mean <span class="op">=</span> <span class="fl">50</span>, sd <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>  <span class="co"># numeric predictor</span></span></span>
+<span class="r-in"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">optimal_binning_numerical_fetb</span><span class="op">(</span><span class="va">y</span>, <span class="va">x</span>,</span></span>
+<span class="r-in"><span>        min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">6</span>, max_n_prebins <span class="op">=</span> <span class="fl">25</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $id</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1 2 3 4 5</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-inf; 31.8986]"    "(31.8986; 41.2299]" "(41.2299; 49.6264]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(49.6264; 64.0953]" "(64.0953; inf]"    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  0.49626425  0.09325460  0.03041461 -0.05407541 -0.29115469</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.0108370609 0.0014169813 0.0002601131 0.0012699106 0.0064345803</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  40 160 280 440  80</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $count_pos</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  17  53  89 132  20</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $count_neg</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  23 107 191 308  60</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $cutpoints</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 31.89857 41.22994 49.62642 64.09529</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $converged</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $iterations</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
+<span class="r-in"><span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
@@ -188,7 +233,7 @@ Hosmer, D. W., Lemeshow, S., &amp; Sturdivant, R. X. (2013)
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.2.</p>
 </div>
 
     </footer></div>
