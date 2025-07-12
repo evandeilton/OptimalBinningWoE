@@ -1,5 +1,6 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # OptimalBinningWoE <a href="https://evandeilton.github.io/OptimalBinningWoE/"><img src="inst/figures/obwoe.png" align="right" height="139" alt="OptimalBinningWoE website" /></a>
@@ -11,6 +12,7 @@
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <!-- [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/OptimalBinningWoE)](https://cran.r-project.org/package=OptimalBinningWoE) -->
+
 <!-- badges: end -->
 
 ## Introduction
@@ -350,8 +352,5 @@ on [GitHub](https://evandeilton.github.io/OptimalBinningWoE/).
 
 This project is licensed under the MIT License - see the
 [LICENSE](https://opensource.org/licenses/MIT) for details.
-
-<!-- ## Acknowledgments -->
-<!-- Special thanks to the contributors and the open-source community for their valuable input and support. -->
 
 ------------------------------------------------------------------------

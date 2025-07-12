@@ -2,27 +2,26 @@
 % Please edit documentation in R/obwoe.R
 \name{OBSelectAlgorithm}
 \alias{OBSelectAlgorithm}
-\title{Select Optimal Binning Algorithm}
+\title{Select Optimal Binning Algorithm (Unused in main flow)}
 \usage{
 OBSelectAlgorithm(feature, method, dt, min_bin, max_bin, control)
 }
 \arguments{
-\item{feature}{The name of the feature to bin.}
+\item{feature}{Name of the feature.}
 
-\item{method}{The binning method to use.}
+\item{method}{Desired method.}
 
-\item{dt}{A data.table containing the dataset.}
+\item{dt}{data.frame.}
 
-\item{min_bin}{Minimum number of bins.}
+\item{min_bin}{Integer.}
 
-\item{max_bin}{Maximum number of bins.}
+\item{max_bin}{Integer.}
 
-\item{control}{A list of additional control parameters.}
+\item{control}{List.}
 }
 \value{
-A list containing the selected algorithm, its parameters, and the method name.
+List(algorithm, params, method).
 }
 \description{
-This function selects the appropriate binning algorithm based on the method and variable type.
+Select Optimal Binning Algorithm (Unused in main flow)
 }
-\keyword{internal}

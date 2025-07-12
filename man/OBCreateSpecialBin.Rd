@@ -2,21 +2,20 @@
 % Please edit documentation in R/obwoe.R
 \name{OBCreateSpecialBin}
 \alias{OBCreateSpecialBin}
-\title{Create Special Bin}
+\title{Create Special Bin Entry}
 \usage{
 OBCreateSpecialBin(dt_special, woebin, special_woe)
 }
 \arguments{
-\item{dt_special}{Data for special cases}
+\item{dt_special}{data.frame of special-case rows.}
 
-\item{woebin}{Existing WoE bins}
+\item{woebin}{data.frame of existing bins (must have count_pos, count_neg).}
 
-\item{special_woe}{WoE value for special cases}
+\item{special_woe}{Numeric WoE value.}
 }
 \value{
-Special bin information
+Single-row data.frame with special bin info.
 }
 \description{
-Create Special Bin
+Create Special Bin Entry
 }
-\keyword{internal}

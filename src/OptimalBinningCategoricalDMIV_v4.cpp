@@ -22,7 +22,7 @@ using namespace Rcpp;
  *  - Implemented max_n_prebins logic for handling very high cardinality features.
  *  - Added const correctness and improved comments.
  */
-class OptimalBinningCategoricalDMIV_v2 {
+class OptimalBinningCategoricalDMIV {
 private:
   // Input parameters (made const where appropriate)
   const std::vector<std::string>& feature;
@@ -1002,10 +1002,10 @@ private:
   
 public:
   /**
-   * Constructor for OptimalBinningCategoricalDMIV_v2
+   * Constructor for OptimalBinningCategoricalDMIV
    * (Parameters descriptions omitted for brevity, see Rcpp wrapper doc)
    */
-  OptimalBinningCategoricalDMIV_v2(
+  OptimalBinningCategoricalDMIV(
     const std::vector<std::string>& feature_,
     const std::vector<int>& target_,
     int min_bins_ = 3,
@@ -1070,7 +1070,7 @@ public:
       Rcpp::stop("Unknown error occurred during optimal binning v2.");
     }
   }
-}; // End class OptimalBinningCategoricalDMIV_v2
+}; // End class OptimalBinningCategoricalDMIV
 
 
 //' @title Optimal Binning for Categorical Variables using Divergence Measures (V2)
@@ -1228,7 +1228,7 @@ Rcpp::List optimal_binning_categorical_dmiv(
    }
    
    // Create algorithm object (V2)
-   OptimalBinningCategoricalDMIV_v2 obcat_v2(
+   OptimalBinningCategoricalDMIV obcat_v2(
        feature_vec, target_vec, min_bins, max_bins, bin_cutoff, max_n_prebins,
        bin_separator, convergence_threshold, max_iterations, bin_method,
        divergence_method

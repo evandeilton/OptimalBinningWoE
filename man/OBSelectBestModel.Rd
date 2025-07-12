@@ -17,62 +17,27 @@ OBSelectBestModel(
 )
 }
 \arguments{
-\item{dt}{A data.table containing the target variable and features to be binned.}
+\item{dt}{data.frame with target + feature columns.}
 
-\item{target}{The name of the target variable in the data.table.}
+\item{target}{Name of the target column.}
 
-\item{features}{A character vector of feature names to be binned.}
+\item{features}{Character vector of feature names.}
 
-\item{method}{A method for use. If not available, test all.}
+\item{method}{String or vector; methods to try or "auto".}
 
-\item{min_bins}{The minimum number of bins to use in the binning process.}
+\item{min_bins}{Integer.}
 
-\item{max_bins}{The maximum number of bins to use in the binning process.}
+\item{max_bins}{Integer.}
 
-\item{control}{A list of control parameters for the binning algorithms (not used directly in this function).}
+\item{control}{List of control parameters.}
 
-\item{progress}{Logical; if TRUE, display a progress bar during processing (default is TRUE).}
+\item{progress}{Logical; show progress bar.}
 
-\item{trace}{Logical; if TRUE, provide more detailed output for debugging (default is FALSE).}
+\item{trace}{Logical; print method errors.}
 }
 \value{
-A list containing the results for each feature:
-\item{woebin}{The Weight of Evidence (WoE) binning result for the best model.}
-\item{woefeature}{The WoE-transformed feature for the best model.}
-\item{bestmethod}{The name of the algorithm that produced the best model.}
-\item{report}{A data.table summarizing the performance of all tried models.}
+Named list of results per feature: each has woebin, woefeature, report, bestmethod.
 }
 \description{
-This function selects the best model for optimal binning across multiple features
-using various binning algorithms for both numerical and categorical variables.
-}
-\details{
-The function iterates through each feature, applying various binning algorithms
-suitable for either numerical or categorical data. It then selects the best model
-based on monotonicity, number of zero-count bins, total number of bins, and
-Information Value (IV).
-
-For features with 2 or fewer distinct values, the function forces them to be
-treated as factors and applies categorical binning methods.
-
-If a binning algorithm fails, the function attempts to relax the binning parameters
-and try again. If it still fails, that method is skipped for that feature.
-}
-\examples{
-\dontrun{
-library(data.table)
-dt <- data.table(
-  target = sample(0:1, 1000, replace = TRUE),
-  feature1 = rnorm(1000),
-  feature2 = sample(letters[1:5], 1000, replace = TRUE)
-)
-results <- OBSelectBestModel(
-  dt = dt,
-  target = "target",
-  features = c("feature1", "feature2"),
-  min_bins = 3,
-  max_bins = 10
-)
-}
-
+Select the Best Model for Optimal Binning
 }

@@ -8,8 +8,8 @@ obwoe(
   dt,
   target,
   features = NULL,
-  min_bins = 3,
-  max_bins = 4,
+  min_bins = 3L,
+  max_bins = 4L,
   method = "jedi",
   positive = "bad|1",
   preprocess = TRUE,
@@ -141,51 +141,48 @@ and statistical validation. Primarily designed for credit risk modeling,
 classification problems, and predictive analytics applications.
 }
 \details{
-\subsection{Algorithm Classification}{
-\subsection{Categorical Variables}{\tabular{llll}{
+\subsection{\strong{Categorical Variable Algorithms}}{\tabular{llll}{
    Algorithm \tab Abbreviation \tab Theoretical Foundation \tab Key Features \cr
-   ChiMerge \tab CM \tab Statistical Tests \tab Uses chi-square tests to merge adjacent bins \cr
-   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Maximizes IV with global optimization \cr
-   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Uses Fisher's exact test for optimal merging \cr
-   Greedy Merge Binning \tab GMB \tab Iterative Optimization \tab Iteratively merges bins to maximize IV \cr
-   Information Value Binning \tab IVB \tab Information Theory \tab Dynamic programming for IV maximization \cr
-   Joint Entropy-Driven Information \tab JEDI \tab Information Theory \tab Adaptive merging with entropy optimization \cr
-   Monotonic Binning Algorithm \tab MBA \tab Information Theory \tab Combines WoE/IV with monotonicity constraints \cr
-   Mixed Integer Linear Programming \tab MILP \tab Mathematical Programming \tab Mathematical optimization with constraints \cr
-   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized for monotonicity preservation \cr
-   Simulated Annealing Binning \tab SAB \tab Metaheuristic Optimization \tab Simulated annealing for global optimization \cr
-   Similarity-Based Logistic Partitioning \tab SBLP \tab Distance-Based Methods \tab Similarity measures for optimal partitioning \cr
-   Sliding Window Binning \tab SWB \tab Iterative Optimization \tab Sliding window approach with adaptive merging \cr
-   User-Defined Technique \tab UDT \tab Hybrid Methods \tab Flexible hybrid approach for binning \cr
-   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Extension of JEDI for multinomial response \cr
+   ChiMerge \tab CM \tab Statistical Tests \tab Uses chi-square tests to merge. \cr
+   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Maximizes IV with global constraints. \cr
+   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Uses Fisher's exact test for statistical merging. \cr
+   Greedy Merge Binning \tab GMB \tab Iterative Optimization \tab Iteratively merges bins to optimize. \cr
+   Information Value Binning \tab IVB \tab Information Theory \tab Dynamic programming for IV optimization. \cr
+   Joint Entropy-Driven Information \tab JEDI \tab Information Theory \tab Adaptive merging with entropy. \cr
+   Monotonic Binning Algorithm \tab MBA \tab Information Theory \tab Combines WoE/IV with monotonicity constraints. \cr
+   Mixed Integer Linear Programming \tab MILP \tab Mathematical Programming \tab Mathematical optimization for binning. \cr
+   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized for monotonicity. \cr
+   Simulated Annealing Binning \tab SAB \tab Metaheuristic Optimization \tab Simulated annealing for global optimization. \cr
+   Similarity-Based Logistic Partitioning \tab SBLP \tab Distance-Based Methods \tab Similarity measures for optimal binning. \cr
+   Sliding Window Binning \tab SWB \tab Iterative Optimization \tab Sliding window approach for binning. \cr
+   User-Defined Technique \tab UDT \tab Hybrid Methods \tab Flexible hybrid approach. \cr
+   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Extension of JEDI for multinomial targets. \cr
 }
 
 }
 
-\subsection{Numerical Variables}{\tabular{llll}{
+\subsection{\strong{Numerical Variable Algorithms}}{\tabular{llll}{
    Algorithm \tab Abbreviation \tab Theoretical Foundation \tab Key Features \cr
-   Branch and Bound \tab BB \tab Mathematical Programming \tab Efficient search in solution space \cr
-   ChiMerge \tab CM \tab Statistical Tests \tab Chi-square-based merging strategy \cr
-   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Constrained optimization with DP \cr
-   Equal-Width Binning \tab EWB \tab Simple Discretization \tab Equal-width intervals with adaptive refinement \cr
-   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Fisher's test for statistical significance \cr
-   Joint Entropy-Driven Interval \tab JEDI \tab Information Theory \tab Entropy optimization with adaptive merging \cr
-   K-means Binning \tab KMB \tab Clustering \tab K-means inspired clustering approach \cr
-   Local Density Binning \tab LDB \tab Density Estimation \tab Adapts to local density structure \cr
-   Local Polynomial Density Binning \tab LPDB \tab Density Estimation \tab Polynomial density estimation approach \cr
-   Monotonic Binning with Linear Programming \tab MBLP \tab Mathematical Programming \tab Linear programming with monotonicity \cr
-   Minimum Description Length Principle \tab MDLP \tab Information Theory \tab MDL criterion with monotonicity \cr
-   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized monotonicity preservation \cr
-   Monotonic Risk Binning with LR Pre-binning \tab MRBLP \tab Hybrid Methods \tab Likelihood ratio pre-binning approach \cr
-   Optimal Supervised Learning Partitioning \tab OSLP \tab Supervised Learning \tab Specialized supervised approach \cr
-   Unsupervised Binning with Standard Deviation \tab UBSD \tab Statistical Methods \tab Standard deviation-based approach \cr
-   Unsupervised Decision Tree \tab UDT \tab Decision Trees \tab Decision tree inspired binning \cr
-   Isotonic Regression \tab IR \tab Statistical Methods \tab Pool Adjacent Violators algorithm \cr
-   Fast MDLP with Monotonicity \tab FAST_MDLPM \tab Information Theory \tab Optimized MDL implementation \cr
-   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Multinomial extension of JEDI \cr
-   Sketch-based Binning \tab SKETCH \tab Approximate Computing \tab KLL sketch for efficient quantile approximation \cr
-}
-
+   Branch and Bound \tab BB \tab Mathematical Programming \tab Efficient search in solution space. \cr
+   ChiMerge \tab CM \tab Statistical Methods \tab Chi-square-based merging. \cr
+   Dynamic Programming with Local Constraints \tab DPLC \tab Mathematical Programming \tab Constrained optimization. \cr
+   Equal-Width Binning \tab EWB \tab Simple Discretization \tab Equal-width intervals for binning. \cr
+   Fisher's Exact Test Binning \tab FETB \tab Statistical Tests \tab Fisher's test for statistical merging. \cr
+   Joint Entropy-Driven Interval \tab JEDI \tab Information Theory \tab Entropy optimization with merging. \cr
+   K-means Binning \tab KMB \tab Clustering \tab K-means inspired clustering. \cr
+   Local Density Binning \tab LDB \tab Density Estimation \tab Adapts to local density structure. \cr
+   Local Polynomial Density Binning \tab LPDB \tab Density Estimation \tab Polynomial density estimation. \cr
+   Monotonic Binning with Linear Programming \tab MBLP \tab Mathematical Programming \tab Linear programming with monotonicity. \cr
+   Minimum Description Length Principle \tab MDLP \tab Information Theory \tab MDL criterion with monotonicity. \cr
+   Monotonic Optimal Binning \tab MOB \tab Iterative Optimization \tab Specialized monotonicity. \cr
+   Monotonic Risk Binning with LR Pre-binning \tab MRBLP \tab Hybrid Methods \tab Likelihood ratio pre-binning. \cr
+   Optimal Supervised Learning Partitioning \tab OSLP \tab Supervised Learning \tab Specialized supervised approach. \cr
+   Unsupervised Binning with Standard Deviation \tab UBSD \tab Statistical Methods \tab Standard deviation-based binning. \cr
+   Unsupervised Decision Tree \tab UDT \tab Decision Trees \tab Decision tree inspired binning. \cr
+   Isotonic Regression \tab IR \tab Statistical Methods \tab Pool Adjacent Violators algorithm (PAVA). \cr
+   Fast MDLP with Monotonicity \tab FAST_MDLPM \tab Information Theory \tab Optimized MDL implementation. \cr
+   JEDI Multinomial WoE \tab JEDI_MWOE \tab Information Theory \tab Multinomial extension of JEDI. \cr
+   Sketch-based Binning \tab SKETCH \tab Approximate Computing \tab KLL sketch for efficient computation. \cr
 }
 
 }
@@ -274,7 +271,7 @@ dt <- as.data.table(germancredit)
 
 # Process all features with MBLP method
 result <- obwoe(dt,
-  target = "creditability", method = "mblp",
+  target = "creditability", method = "jedi",
   min_bins = 3, max_bins = 5, positive = "bad|1"
 )
 
@@ -287,7 +284,7 @@ numeric_features <- setdiff(numeric_features, "creditability")
 
 result_detailed <- obwoe(dt,
   target = "creditability", features = numeric_features,
-  method = "mblp", preprocess = TRUE, outputall = FALSE,
+  method = c("jedi", "cm"), preprocess = TRUE, outputall = FALSE,
   min_bins = 3, max_bins = 5, positive = "bad|1"
 )
 
@@ -327,7 +324,7 @@ print(result_auto$report_best_model)
 result_lpdb <- obwoe(dt,
   target = "creditability",
   features = numeric_features[1:3],
-  method = "lpdb", # Local Polynomial Density Binning
+  method = "jedi", # Local Polynomial Density Binning
   min_bins = 3, max_bins = 5, positive = "bad|1",
   control = list(polynomial_degree = 3)
 )

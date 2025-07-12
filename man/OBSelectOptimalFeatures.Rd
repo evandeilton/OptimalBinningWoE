@@ -8,7 +8,7 @@ OBSelectOptimalFeatures(
   obresult,
   target,
   iv_threshold = 0.02,
-  min_features = 5,
+  min_features = 5L,
   max_features = NULL
 )
 }

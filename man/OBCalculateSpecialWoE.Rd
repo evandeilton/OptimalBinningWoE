@@ -2,17 +2,16 @@
 % Please edit documentation in R/obwoe.R
 \name{OBCalculateSpecialWoE}
 \alias{OBCalculateSpecialWoE}
-\title{Calculate Special WoE}
+\title{Calculate Special WoE for Edge Cases}
 \usage{
 OBCalculateSpecialWoE(target)
 }
 \arguments{
-\item{target}{Target values for special cases}
+\item{target}{Numeric or factor vector of two values.}
 }
 \value{
-WoE value for special cases
+Numeric WoE.
 }
 \description{
-Calculate Special WoE
+Calculate Special WoE for Edge Cases
 }
-\keyword{internal}

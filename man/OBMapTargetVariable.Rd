@@ -2,21 +2,20 @@
 % Please edit documentation in R/obwoe.R
 \name{OBMapTargetVariable}
 \alias{OBMapTargetVariable}
-\title{Map Target Variable}
+\title{Map Target Variable to 0/1}
 \usage{
 OBMapTargetVariable(dt, target, positive)
 }
 \arguments{
-\item{dt}{Data table}
+\item{dt}{A data.frame.}
 
-\item{target}{Target variable name}
+\item{target}{Name of the target column.}
 
-\item{positive}{Positive class indicator}
+\item{positive}{Which level is positive, "bad|1" or "good|1".}
 }
 \value{
-Updated data table with mapped target variable
+data.frame with recoded target.
 }
 \description{
-Map Target Variable
+Map Target Variable to 0/1
 }
-\keyword{internal}

@@ -7,25 +7,8 @@
 OBGetAlgoName()
 }
 \value{
-A list containing two elements:
-\item{char}{A named list of categorical binning algorithms}
-\item{num}{A named list of numerical binning algorithms}
+List with $char (categorical) and $num (numerical) named lists.
 }
 \description{
-This function retrieves all available optimal binning algorithms from the OBWoE package,
-separating them into categorical and numerical types.
-}
-\details{
-The function searches for all exported functions in the OBWoE package that start with
-"optimal_binning_categorical_" or "optimal_binning_numerical_". It then creates two separate lists
-for categorical and numerical algorithms, using the last part of the function name (after the last
-underscore) as the list item name.
-}
-\examples{
-\dontrun{
-algorithms <- OBGetAlgoName()
-print(algorithms$char) # List of categorical algorithms
-print(algorithms$num) # List of numerical algorithms
-}
-
+Get Available Optimal Binning Algorithms
 }

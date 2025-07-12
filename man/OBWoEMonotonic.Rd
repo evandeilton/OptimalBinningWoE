@@ -7,12 +7,11 @@
 OBWoEMonotonic(woe_values)
 }
 \arguments{
-\item{woe_values}{Vector of WoE values}
+\item{woe_values}{Numeric vector of WoE.}
 }
 \value{
-Logical indicating if WoE values are monotonic
+TRUE if entirely nondecreasing or nonincreasing.
 }
 \description{
 Check if WoE values are monotonic
 }
-\keyword{internal}

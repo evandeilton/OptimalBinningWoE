@@ -82,7 +82,7 @@ feature <- sample(LETTERS[1:8], 500, replace = TRUE)
 feature[sample(1:500, 20)] <- NA # Add some NAs
 
 # Run optimal binning with ChiMerge (V4)
-result_v4 <- optimal_binning_categorical_cm_v4(target, feature,
+result_v4 <- optimal_binning_categorical_cm(target, feature,
                                            min_bins = 3, max_bins = 6,
                                            chi_merge_threshold = 0.05)
 print(result_v4)
@@ -91,7 +91,7 @@ print(result_v4)
 print(sum(result_v4$iv))
 
 # Run using the Chi2 algorithm variant
-result_chi2_v4 <- optimal_binning_categorical_cm_v4(target, feature,
+result_chi2_v4 <- optimal_binning_categorical_cm(target, feature,
                                                min_bins = 3, max_bins = 6,
                                                use_chi2_algorithm = TRUE)
 print(result_chi2_v4)

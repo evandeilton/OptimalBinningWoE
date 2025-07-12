@@ -4,21 +4,27 @@
 \alias{OBPreprocessData}
 \title{Preprocess Data for Optimal Binning}
 \usage{
-OBPreprocessData(dt, target, features, control, preprocess = "both")
+OBPreprocessData(
+  dt,
+  target,
+  features,
+  control,
+  preprocess = c("both", "report")
+)
 }
 \arguments{
-\item{dt}{A data.table containing the dataset.}
+\item{dt}{A data.frame containing the dataset.}
 
-\item{target}{Target name}
+\item{target}{String name of the target column.}
 
-\item{features}{Vector of feature names to process.}
+\item{features}{Character vector of feature names.}
 
-\item{control}{A list of control parameters.}
+\item{control}{List of control parameters.}
 
-\item{preprocess}{Preprocess feature. 'both' feature and report. Can also be 'both' or 'feature'}
+\item{preprocess}{One of "both" or "report".}
 }
 \value{
-A list of preprocessed data for each feature.
+Named list of preprocessing results for each feature.
 }
 \description{
 Preprocess Data for Optimal Binning

@@ -17,28 +17,27 @@ OBValidateInputs(
 )
 }
 \arguments{
-\item{dt}{A data.table containing the dataset.}
+\item{dt}{A data.frame.}
 
-\item{target}{The name of the target variable.}
+\item{target}{Target column name.}
 
-\item{features}{Vector of feature names to process.}
+\item{features}{Character vector or NULL.}
 
-\item{method}{The binning method to use.}
+\item{method}{String or vector of methods.}
 
-\item{preprocess}{Logical. Whether to preprocess the data before binning.}
+\item{preprocess}{Logical.}
 
-\item{min_bins}{Minimum number of bins.}
+\item{min_bins}{Integer.}
 
-\item{max_bins}{Maximum number of bins.}
+\item{max_bins}{Integer.}
 
-\item{control}{A list of additional control parameters.}
+\item{control}{List of control parameters.}
 
-\item{positive}{Character string specifying which category should be considered as positive.}
+\item{positive}{"bad|1" or "good|1".}
 }
 \value{
-None. Throws an error if any input is invalid.
+NULL; stops on error.
 }
 \description{
 Validate Inputs for Optimal Binning
 }
-\keyword{internal}
