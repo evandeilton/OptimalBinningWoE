@@ -7,9 +7,11 @@
 
 <!-- badges: start -->
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/OptimalBinningWoE)](https://CRAN.R-project.org/package=OptimalBinningWoE)
 [![R-CMD-check](https://github.com/evandeilton/OptimalBinningWoE/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/evandeilton/OptimalBinningWoE/actions/workflows/R-CMD-check.yaml)
-[![License:
-MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://cranlogs.r-pkg.org/badges/grand-total/OptimalBinningWoE)](https://cran.r-project.org/package=OptimalBinningWoE)
+[![License:MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <!-- [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/OptimalBinningWoE)](https://cran.r-project.org/package=OptimalBinningWoE) -->
 
