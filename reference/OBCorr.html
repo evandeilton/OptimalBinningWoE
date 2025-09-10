@@ -201,14 +201,6 @@ $$\mathrm{pbcor}(x,y)=\frac{\sum_i \Psi(U_i^{(x)})\Psi(U_i^{(y)})}{\sqrt{\sum_i 
 
     </div>
     <div class="section level2">
-    <h2 id="performance-recommendations">Performance recommendations<a class="anchor" aria-label="anchor" href="#performance-recommendations"></a></h2>
-
-
-<ul><li><p>Suggested compilation (Linux/Mac): <code>-O3 -march=native -fopenmp</code>. Avoid <code>-ffast-math</code> in robust statistics.</p></li>
-<li><p>For very large <em>n</em>: dCor is \(O(n^2)\); consider sampling/stratification for <em>screening</em>.</p></li>
-<li><p>Hoeffding \(O(n^2)\) in this version; \(O(n\log n)\) variants are possible with Fenwick trees/BIT.</p></li>
-</ul></div>
-    <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
 
 <ul><li><p>Hoeffding, W. (1948). <em>A non-parametric test of independence</em>. Annals of Mathematical Statistics, 19(4), 546–557.</p></li>
