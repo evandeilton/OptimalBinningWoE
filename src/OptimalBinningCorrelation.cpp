@@ -530,6 +530,35 @@ SoA extract_soa(const DataFrame& df) {
 //'   \item In \code{hoeffding}: requires \eqn{n\geq 5}; otherwise \code{NA_real_}.
 //' }
 //'
+//'
+//' @seealso
+//' \itemize{
+//'   \item \pkg{Hmisc}::\code{hoeffd} (Hoeffding's D, 30× scale).
+//'   \item \pkg{energy}::\code{dcor} (Distance correlation).
+//'   \item \pkg{WGCNA}::\code{bicor} (Biweight midcorrelation).
+//'   \item \pkg{WRS2}::\code{pbcor} (Percentage bend correlation).
+//' }
+//'
+//' @references
+//' \itemize{
+//'   \item Hoeffding, W. (1948). \emph{A non-parametric test of independence}. Annals of Mathematical Statistics, 19(4), 546–557.
+//'   \item Székely, G. J., Rizzo, M. L., & Bakirov, N. K. (2007). \emph{Measuring and testing dependence by correlation of distances}. Annals of Statistics, 35(6), 2769–2794.
+//'   \item Székely, G. J., & Rizzo, M. L. (2013). \emph{The distance correlation t-test of independence in high dimension}. Journal of Multivariate Analysis, 117, 193–213.
+//'   \item Langfelder, P., & Horvath, S. (2008). \emph{WGCNA: an R package for weighted correlation network analysis}. BMC Bioinformatics, 9, 559.
+//'   \item Langfelder, P., & Horvath, S. (2012). \emph{Fast R Functions for Robust Correlations}. (Notes from \pkg{WGCNA} package and \emph{bicor} vignette.)
+//'   \item Wilcox, R. R. (2012/2017). \emph{Introduction to Robust Estimation and Hypothesis Testing}. Academic Press.
+//'   \item Rizzo, M. L., & Székely, G. J. (2022). \emph{energy: E-statistics (energy statistics)}. CRAN package.
+//'   \item Harrell, F. E. Jr. (2024). \emph{Hmisc: Harrell Miscellaneous}. CRAN package.
+//'   \item Mair, P., & Wilcox, R. R. (2020). \emph{WRS2: A Collection of Robust Statistical Methods}. CRAN package.
+//' }
+//'
+//' @note
+//' \itemize{
+//'   \item Values reported by \code{hoeffding} in this function follow the conventional \emph{30× scale} (\pkg{Hmisc}/SAS), facilitating comparisons.
+//'   \item \code{distance} returns the \emph{distance correlation} (not the squared version); 0 indicates independence (under conditions), 1 indicates perfect dependence.
+//'   \item Results may differ from implementations that use "unbiased" variants (dCor) or alternative schemes for \emph{ranking}/ties.
+//' }
+//'
 //' @section Examples:
 //' \preformatted{
 //' ## Synthetic data
@@ -559,41 +588,6 @@ SoA extract_soa(const DataFrame& df) {
 //' ## 5) Scaling with many variables
 //' # Thread control (0 = auto)
 //' OBCorr(df, method="distance", threads=0)
-//' }
-//'
-//' @section Performance recommendations:
-//' \itemize{
-//'   \item Suggested compilation (Linux/Mac): \code{-O3 -march=native -fopenmp}. Avoid \code{-ffast-math} in robust statistics.
-//'   \item For very large \emph{n}: dCor is \eqn{O(n^2)}; consider sampling/stratification for \emph{screening}.
-//'   \item Hoeffding \eqn{O(n^2)} in this version; \eqn{O(n\log n)} variants are possible with Fenwick trees/BIT.
-//' }
-//'
-//' @seealso
-//' \itemize{
-//'   \item \pkg{Hmisc}::\code{hoeffd} (Hoeffding's D, 30× scale).
-//'   \item \pkg{energy}::\code{dcor} (Distance correlation).
-//'   \item \pkg{WGCNA}::\code{bicor} (Biweight midcorrelation).
-//'   \item \pkg{WRS2}::\code{pbcor} (Percentage bend correlation).
-//' }
-//'
-//' @references
-//' \itemize{
-//'   \item Hoeffding, W. (1948). \emph{A non-parametric test of independence}. Annals of Mathematical Statistics, 19(4), 546–557.
-//'   \item Székely, G. J., Rizzo, M. L., & Bakirov, N. K. (2007). \emph{Measuring and testing dependence by correlation of distances}. Annals of Statistics, 35(6), 2769–2794.
-//'   \item Székely, G. J., & Rizzo, M. L. (2013). \emph{The distance correlation t-test of independence in high dimension}. Journal of Multivariate Analysis, 117, 193–213.
-//'   \item Langfelder, P., & Horvath, S. (2008). \emph{WGCNA: an R package for weighted correlation network analysis}. BMC Bioinformatics, 9, 559.
-//'   \item Langfelder, P., & Horvath, S. (2012). \emph{Fast R Functions for Robust Correlations}. (Notes from \pkg{WGCNA} package and \emph{bicor} vignette.)
-//'   \item Wilcox, R. R. (2012/2017). \emph{Introduction to Robust Estimation and Hypothesis Testing}. Academic Press.
-//'   \item Rizzo, M. L., & Székely, G. J. (2022). \emph{energy: E-statistics (energy statistics)}. CRAN package.
-//'   \item Harrell, F. E. Jr. (2024). \emph{Hmisc: Harrell Miscellaneous}. CRAN package.
-//'   \item Mair, P., & Wilcox, R. R. (2020). \emph{WRS2: A Collection of Robust Statistical Methods}. CRAN package.
-//' }
-//'
-//' @note
-//' \itemize{
-//'   \item Values reported by \code{hoeffding} in this function follow the conventional \emph{30× scale} (\pkg{Hmisc}/SAS), facilitating comparisons.
-//'   \item \code{distance} returns the \emph{distance correlation} (not the squared version); 0 indicates independence (under conditions), 1 indicates perfect dependence.
-//'   \item Results may differ from implementations that use "unbiased" variants (dCor) or alternative schemes for \emph{ranking}/ties.
 //' }
 //'
 //' @keywords correlation robust independence nonparametric distance-correlation hoeffding bicor pbcor kendall spearman Pearson OpenMP

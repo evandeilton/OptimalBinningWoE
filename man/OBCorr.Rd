@@ -165,15 +165,6 @@ OBCorr(df, method="distance", threads=0)
 }
 }
 
-\section{Performance recommendations}{
-
-\itemize{
-\item Suggested compilation (Linux/Mac): \code{-O3 -march=native -fopenmp}. Avoid \code{-ffast-math} in robust statistics.
-\item For very large \emph{n}: dCor is \eqn{O(n^2)}; consider sampling/stratification for \emph{screening}.
-\item Hoeffding \eqn{O(n^2)} in this version; \eqn{O(n\log n)} variants are possible with Fenwick trees/BIT.
-}
-}
-
 \references{
 \itemize{
 \item Hoeffding, W. (1948). \emph{A non-parametric test of independence}. Annals of Mathematical Statistics, 19(4), 546–557.
