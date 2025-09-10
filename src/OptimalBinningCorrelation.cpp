@@ -571,14 +571,14 @@ SoA extract_soa(const DataFrame& df) {
 //' df <- data.frame(x=x, yL=yL, yU=yU, yO=yO)
 //'
 //' ## 1) Complete panel
-//' res_all <- OBCorr(df, method="all")
+//' res_all <- obcorr(df, method="all")
 //' head(res_all)
 //'
 //' ## 2) Alternative methods (independence/non-linearity)
-//' OBCorr(df, method="alternative")      # hoeffding + dCor
+//' obcorr(df, method="alternative")      # hoeffding + dCor
 //'
 //' ## 3) Robustness (outliers)
-//' OBCorr(df, method="robust")           # bicor + pbend
+//' obcorr(df, method="robust")           # bicor + pbend
 //'
 //' ## 4) Practical interpretation:
 //' # - For (x, yL): High Pearson/Spearman/Kendall; high dCor; moderate/high Hoeffding.
@@ -587,12 +587,12 @@ SoA extract_soa(const DataFrame& df) {
 //'
 //' ## 5) Scaling with many variables
 //' # Thread control (0 = auto)
-//' OBCorr(df, method="distance", threads=0)
+//' obcorr(df, method="distance", threads=0)
 //' }
 //'
 //' @keywords correlation robust independence nonparametric distance-correlation hoeffding bicor pbcor kendall spearman Pearson OpenMP
 // [[Rcpp::export]]
-DataFrame OBCorr(DataFrame df, std::string method="all", int threads=0) {
+DataFrame obcorr(DataFrame df, std::string method="all", int threads=0) {
    
 #ifdef _OPENMP
    if (threads>0) omp_set_num_threads(threads);
