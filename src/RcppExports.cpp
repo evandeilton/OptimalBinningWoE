@@ -364,16 +364,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// OBCorr
-DataFrame OBCorr(DataFrame df, std::string method, int threads);
-RcppExport SEXP _OptimalBinningWoE_OBCorr(SEXP dfSEXP, SEXP methodSEXP, SEXP threadsSEXP) {
+// obcorr
+DataFrame obcorr(DataFrame df, std::string method, int threads);
+RcppExport SEXP _OptimalBinningWoE_obcorr(SEXP dfSEXP, SEXP methodSEXP, SEXP threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
     Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
     Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(OBCorr(df, method, threads));
+    rcpp_result_gen = Rcpp::wrap(obcorr(df, method, threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -885,7 +885,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_sketch", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sketch, 11},
     {"_OptimalBinningWoE_optimal_binning_categorical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_udt, 9},
     {"_OptimalBinningWoE_OBCheckDistinctsLength", (DL_FUNC) &_OptimalBinningWoE_OBCheckDistinctsLength, 2},
-    {"_OptimalBinningWoE_OBCorr", (DL_FUNC) &_OptimalBinningWoE_OBCorr, 3},
+    {"_OptimalBinningWoE_obcorr", (DL_FUNC) &_OptimalBinningWoE_obcorr, 3},
     {"_OptimalBinningWoE_binning_numerical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_numerical_cutpoints, 3},
     {"_OptimalBinningWoE_binning_categorical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_categorical_cutpoints, 3},
     {"_OptimalBinningWoE_fit_logistic_regression", (DL_FUNC) &_OptimalBinningWoE_fit_logistic_regression, 5},
