@@ -591,6 +591,7 @@ SoA extract_soa(const DataFrame& df) {
 //' }
 //'
 //' @keywords correlation robust independence nonparametric distance-correlation hoeffding bicor pbcor kendall spearman Pearson OpenMP
+//' @export
 // [[Rcpp::export]]
 DataFrame obcorr(DataFrame df, std::string method="all", int threads=0) {
    
