@@ -10,7 +10,6 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBApplyWoECat.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBApplyWoENum.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBCalculateSpecialWoE.html</loc></url>
-<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBCorr.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBCreateSpecialBin.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBDataPreprocessor.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/OBGainsTable.html</loc></url>
@@ -33,6 +32,7 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/fitted.oblr.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/index.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/logLik.oblr.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obcorr.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/oblr.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/optimal_binning_categorical_cm.html</loc></url>
