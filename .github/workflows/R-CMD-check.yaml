@@ -24,7 +24,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macos-latest,   r: 'release'}
+          - {os: macos-15,   r: 'release'}
+          # - {os: macos-latest,   r: 'release'}
           - {os: windows-latest, r: 'release'}
           # use 4.0 or 4.1 to check with rtools40's older compiler
           # - {os: windows-latest, r: 'oldrel-4'}
@@ -39,8 +40,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # Allow pak to build from source when binaries aren't available (macOS ARM64)
-      PKG_SYSREQS: true
 
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +56,6 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
-          pak-version: devel
-          upgrade: 'TRUE'
 
       - uses: r-lib/actions/check-r-package@v2
         with:
