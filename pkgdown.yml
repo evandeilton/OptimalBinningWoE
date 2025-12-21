@@ -3,7 +3,7 @@ pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   introduction: introduction.html
-last_built: 2025-12-21T02:20Z
+last_built: 2025-12-21T02:29Z
 urls:
   reference: https://evandeilton.github.io/OptimalBinningWoE/reference
   article: https://evandeilton.github.io/OptimalBinningWoE/articles
