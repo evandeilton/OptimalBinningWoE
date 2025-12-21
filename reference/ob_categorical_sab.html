@@ -225,16 +225,16 @@ where \(T\) is the current temperature.</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_sab</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "c%;%e%;%f%;%h" "d%;%g"         "a"             "b"            </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "c%;%f" "e%;%h" "d"     "a%;%g" "b"    </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.5555558 -0.2902418  1.1317116  1.4348044</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.6160508 -0.4979681 -0.3871070  0.4367024  1.4348044</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.14168367 0.02029562 0.16489041 0.25663321</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.08435798 0.05880863 0.01633718 0.05152071 0.25663321</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 495 249 128 128</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 242 253 114 263 128</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With custom parameters</span></span></span>
