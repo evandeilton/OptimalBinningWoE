@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling • OptimalBinningWoE</title>
+<title>Optimal Binning for Weight of Evidence • OptimalBinningWoE</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling">
-<meta name="description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.">
-<meta property="og:description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Optimal Binning for Weight of Evidence">
+<meta name="description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification and regression problems.">
+<meta property="og:description" content="Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification and regression problems.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,13 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  </ul>
+</li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -50,13 +57,31 @@
 </h1></div>
 <!-- badges: start -->
 
-<!-- [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/OptimalBinningWoE)](https://cran.r-project.org/package=OptimalBinningWoE) -->
 <!-- badges: end -->
 <div class="section level2">
-<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p><code>OptimalBinningWoE</code> is an R package designed to perform optimal binning and calculate Weight of Evidence (WoE) for both numerical and categorical features. It implements a variety of advanced binning algorithms to discretize continuous variables and optimize categorical variables for predictive modeling, particularly in credit scoring and risk assessment applications.</p>
-<p>The package supports automatic method selection, data preprocessing, and handles both numerical and categorical features. It aims to maximize the predictive power of features while maintaining interpretability through monotonic binning and information value optimization.</p>
+<p><code>OptimalBinningWoE</code> is a high-performance R package for optimal binning and Weight of Evidence (WoE) calculation. It provides <strong>36 advanced binning algorithms</strong> implemented in C++ via Rcpp for both numerical and categorical variables, designed for credit scoring, risk assessment, and predictive modeling applications.</p>
+<div class="section level3">
+<h3 id="key-features">Key Features<a class="anchor" aria-label="anchor" href="#key-features"></a>
+</h3>
+<ul>
+<li>
+<strong>36 Binning Algorithms</strong>: 16 for categorical + 20 for numerical variables</li>
+<li>
+<strong>Binary &amp; Multinomial Support</strong>: Traditional WoE for binary targets and M-WoE for multinomial classification</li>
+<li>
+<strong>High Performance</strong>: Core algorithms implemented in C++ with RcppEigen</li>
+<li>
+<strong>Automatic Method Selection</strong>: Test multiple algorithms and select the best based on Information Value</li>
+<li>
+<strong>Monotonicity Enforcement</strong>: Ensure interpretable, monotonic WoE patterns</li>
+<li>
+<strong>Robust Preprocessing</strong>: Handle missing values, outliers, and rare categories</li>
+<li>
+<strong>Comprehensive Metrics</strong>: Gains tables with KS, Gini, lift, divergence measures</li>
+</ul>
+</div>
 </div>
 <div class="section level2">
 <h2 id="key-concepts">Key Concepts<a class="anchor" aria-label="anchor" href="#key-concepts"></a>
@@ -64,344 +89,503 @@
 <div class="section level3">
 <h3 id="weight-of-evidence-woe">Weight of Evidence (WoE)<a class="anchor" aria-label="anchor" href="#weight-of-evidence-woe"></a>
 </h3>
-<p>Weight of Evidence is a measure used to encode categorical variables in logistic regression, particularly in credit scoring. It quantifies the predictive power of a feature by comparing the distribution of good and bad cases across bins.</p>
-<p>For bin <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mo>=</mo><mo>ln</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right),</annotation></semantics></math> where: - <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">P(X_i | Y = 1)</annotation></semantics></math> is the proportion of positive cases (e.g., defaults) in bin <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>, - <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">P(X_i | Y = 0)</annotation></semantics></math> is the proportion of negative cases (e.g., non-defaults) in bin <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mo>=</mo><mo>ln</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{WoE}_i = \ln\left(\frac{P(X_i | Y = 1)}{P(X_i | Y = 0)}\right)</annotation></semantics></math></p>
 </div>
 <div class="section level3">
 <h3 id="information-value-iv">Information Value (IV)<a class="anchor" aria-label="anchor" href="#information-value-iv"></a>
 </h3>
-<p>Information Value quantifies the overall predictive power of a feature. It is calculated as the sum of the WoE differences between good and bad cases across all bins.</p>
-<p>For bin <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">IV</mtext><mi>i</mi></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">\text{IV}_i = \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i.</annotation></semantics></math> The total Information Value is: <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">IV</mtext><mtext mathvariant="normal">total</mtext></msub><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msub><mtext mathvariant="normal">IV</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\text{IV}_{\text{total}} = \sum_{i=1}^{n} \text{IV}_i</annotation></semantics></math></p>
-<p>Interpretation of IV values:</p>
-<ul>
-<li>
-<strong>IV &lt; 0.02</strong>: Not Predictive</li>
-<li>
-<strong>0.02 ≤ IV &lt; 0.1</strong>: Weak Predictive Power</li>
-<li>
-<strong>0.1 ≤ IV &lt; 0.3</strong>: Medium Predictive Power</li>
-<li>
-<strong>0.3 ≤ IV &lt; 0.5</strong>: Strong Predictive Power</li>
-<li>
-<strong>IV ≥ 0.5</strong>: Suspicious or Overfitting</li>
-</ul>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">IV</mtext><mtext mathvariant="normal">total</mtext></msub><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mrow><mo stretchy="true" form="prefix">(</mo><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>X</mi><mi>i</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>Y</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\text{IV}_{\text{total}} = \sum_{i=1}^{n} \left(P(X_i | Y = 1) - P(X_i | Y = 0)\right) \times \text{WoE}_i</annotation></semantics></math></p>
+<table class="table">
+<thead><tr class="header">
+<th>IV Range</th>
+<th>Interpretation</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>&lt; 0.02</td>
+<td>Not Predictive</td>
+</tr>
+<tr class="even">
+<td>0.02 - 0.1</td>
+<td>Weak Predictive Power</td>
+</tr>
+<tr class="odd">
+<td>0.1 - 0.3</td>
+<td>Medium Predictive Power</td>
+</tr>
+<tr class="even">
+<td>0.3 - 0.5</td>
+<td>Strong Predictive Power</td>
+</tr>
+<tr class="odd">
+<td>≥ 0.5</td>
+<td>Suspicious (possible overfitting)</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section level2">
-<h2 id="supported-algorithms">Supported Algorithms<a class="anchor" aria-label="anchor" href="#supported-algorithms"></a>
+<h2 id="algorithms-for-categorical-variables-16">Algorithms for Categorical Variables (16)<a class="anchor" aria-label="anchor" href="#algorithms-for-categorical-variables-16"></a>
 </h2>
-<div class="section level3">
-<h3 id="for-categorical-variables">For Categorical Variables<a class="anchor" aria-label="anchor" href="#for-categorical-variables"></a>
-</h3>
-<ul>
-<li>
-<strong>Fisher’s Exact Test Binning (FETB)</strong>: Uses Fisher’s exact test to merge categories with similar target distributions.</li>
-<li>
-<strong>ChiMerge (CM)</strong>: Merges categories based on chi-square statistics to ensure homogeneous bins.</li>
-<li>
-<strong>Unsupervised Decision Trees (UDT)</strong>: Applies decision tree algorithms for unsupervised categorical binning.</li>
-<li>
-<strong>Information Value Binning (IVB)</strong>: Bins categories based on maximizing Information Value.</li>
-<li>
-<strong>Greedy Monotonic Binning (GMB)</strong>: Creates monotonic bins using a greedy approach.</li>
-<li>
-<strong>Sliding Window Binning (SWB)</strong>: Adapts the sliding window method for categorical variables.</li>
-<li>
-<strong>Dynamic Programming with Local Constraints (DPLC)</strong>: Applies dynamic programming for optimal binning with local constraints.</li>
-<li>
-<strong>Monotonic Optimal Binning (MOB)</strong>: Ensures monotonicity in WoE across categories.</li>
-<li>
-<strong>Modified Binning Algorithm (MBA)</strong>: A modified approach tailored for categorical variable binning.</li>
-<li>
-<strong>Mixed Integer Linear Programming (MILP)</strong>: Uses MILP to find the optimal binning solution.</li>
-<li>
-<strong>Simulated Annealing Binning (SAB)</strong>: Applies simulated annealing for binning optimization.</li>
-</ul>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th>Acronym</th>
+<th>Function</th>
+<th>Full Name</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><strong>CM</strong></td>
+<td><code><a href="reference/ob_categorical_cm.html">ob_categorical_cm()</a></code></td>
+<td>ChiMerge</td>
+<td>Merges categories based on chi-square statistics</td>
+</tr>
+<tr class="even">
+<td><strong>DMIV</strong></td>
+<td><code><a href="reference/ob_categorical_dmiv.html">ob_categorical_dmiv()</a></code></td>
+<td>Decision Tree MIV</td>
+<td>Decision Tree with Minimum Information Value</td>
+</tr>
+<tr class="odd">
+<td><strong>DP</strong></td>
+<td><code><a href="reference/ob_categorical_dp.html">ob_categorical_dp()</a></code></td>
+<td>Dynamic Programming</td>
+<td>Optimal binning with local constraints</td>
+</tr>
+<tr class="even">
+<td><strong>FETB</strong></td>
+<td><code><a href="reference/ob_categorical_fetb.html">ob_categorical_fetb()</a></code></td>
+<td>Fisher’s Exact Test</td>
+<td>Merges categories with similar target distributions</td>
+</tr>
+<tr class="odd">
+<td><strong>GMB</strong></td>
+<td><code><a href="reference/ob_categorical_gmb.html">ob_categorical_gmb()</a></code></td>
+<td>Greedy Monotonic</td>
+<td>Creates monotonic bins using greedy approach</td>
+</tr>
+<tr class="even">
+<td><strong>IVB</strong></td>
+<td><code><a href="reference/ob_categorical_ivb.html">ob_categorical_ivb()</a></code></td>
+<td>Information Value</td>
+<td>Maximizes Information Value</td>
+</tr>
+<tr class="odd">
+<td><strong>JEDI</strong></td>
+<td><code><a href="reference/ob_categorical_jedi.html">ob_categorical_jedi()</a></code></td>
+<td>Joint Entropy-Driven</td>
+<td>Information maximization with Bayesian smoothing</td>
+</tr>
+<tr class="even">
+<td><strong>JEDI-MWoE</strong></td>
+<td><code><a href="reference/ob_categorical_jedi_mwoe.html">ob_categorical_jedi_mwoe()</a></code></td>
+<td>JEDI Multinomial</td>
+<td>Multinomial WoE for multi-class targets</td>
+</tr>
+<tr class="odd">
+<td><strong>MBA</strong></td>
+<td><code><a href="reference/ob_categorical_mba.html">ob_categorical_mba()</a></code></td>
+<td>Modified Binning</td>
+<td>Modified approach for categorical binning</td>
+</tr>
+<tr class="even">
+<td><strong>MILP</strong></td>
+<td><code><a href="reference/ob_categorical_milp.html">ob_categorical_milp()</a></code></td>
+<td>Mixed Integer LP</td>
+<td>Mixed Integer Linear Programming optimization</td>
+</tr>
+<tr class="odd">
+<td><strong>MOB</strong></td>
+<td><code><a href="reference/ob_categorical_mob.html">ob_categorical_mob()</a></code></td>
+<td>Monotonic Optimal</td>
+<td>Ensures monotonicity in WoE across categories</td>
+</tr>
+<tr class="even">
+<td><strong>SAB</strong></td>
+<td><code><a href="reference/ob_categorical_sab.html">ob_categorical_sab()</a></code></td>
+<td>Simulated Annealing</td>
+<td>Stochastic optimization for binning</td>
+</tr>
+<tr class="odd">
+<td><strong>SBLP</strong></td>
+<td><code><a href="reference/ob_categorical_sblp.html">ob_categorical_sblp()</a></code></td>
+<td>Similarity-Based LP</td>
+<td>Similarity-based logistic partitioning</td>
+</tr>
+<tr class="even">
+<td><strong>Sketch</strong></td>
+<td><code><a href="reference/ob_categorical_sketch.html">ob_categorical_sketch()</a></code></td>
+<td>Count-Min Sketch</td>
+<td>Sketch-based for large-scale/streaming data</td>
+</tr>
+<tr class="odd">
+<td><strong>SWB</strong></td>
+<td><code><a href="reference/ob_categorical_swb.html">ob_categorical_swb()</a></code></td>
+<td>Sliding Window</td>
+<td>Sliding window method for categoricals</td>
+</tr>
+<tr class="even">
+<td><strong>UDT</strong></td>
+<td><code><a href="reference/ob_categorical_udt.html">ob_categorical_udt()</a></code></td>
+<td>Unsupervised DT</td>
+<td>Unsupervised decision tree binning</td>
+</tr>
+</tbody>
+</table>
 </div>
-<div class="section level3">
-<h3 id="for-numerical-variables">For Numerical Variables<a class="anchor" aria-label="anchor" href="#for-numerical-variables"></a>
-</h3>
-<ul>
-<li>
-<strong>Unsupervised Decision Trees (UDT)</strong>: Utilizes decision tree algorithms in an unsupervised manner.</li>
-<li>
-<strong>Minimum Description Length Principle (MDLP)</strong>: Implements MDLP criterion for optimal binning.</li>
-<li>
-<strong>Monotonic Optimal Binning (MOB)</strong>: Ensures monotonicity in WoE across bins.</li>
-<li>
-<strong>Monotonic Binning via Linear Programming (MBLP)</strong>: Uses linear programming to achieve monotonic binning.</li>
-<li>
-<strong>Dynamic Programming with Local Constraints (DPLC)</strong>: Employs dynamic programming for numerical variables.</li>
-<li>
-<strong>Local Polynomial Density Binning (LPDB)</strong>: Uses local polynomial density estimation.</li>
-<li>
-<strong>Unsupervised Binning with Standard Deviation (UBSD)</strong>: Bins based on standard deviation intervals.</li>
-<li>
-<strong>Fisher’s Exact Test Binning (FETB)</strong>: Applies Fisher’s exact test to numerical variables.</li>
-<li>
-<strong>Equal Width Binning (EWB)</strong>: Creates bins of equal width across the variable’s range.</li>
-<li>
-<strong>K-means Binning (KMB)</strong>: Uses k-means clustering for binning.</li>
-<li>
-<strong>Optimal Supervised Learning Path (OSLP)</strong>: Finds optimal bins using supervised learning paths.</li>
-<li>
-<strong>Monotonic Regression-Based Linear Programming (MRBLP)</strong>: Combines monotonic regression with linear programming.</li>
-<li>
-<strong>Isotonic Regression (IR)</strong>: Uses isotonic regression for binning.</li>
-<li>
-<strong>Branch and Bound (BB)</strong>: Employs branch and bound algorithm for optimal binning.</li>
-<li>
-<strong>Local Density Binning (LDB)</strong>: Utilizes local density estimation for binning.</li>
-</ul>
+<div class="section level2">
+<h2 id="algorithms-for-numerical-variables-20">Algorithms for Numerical Variables (20)<a class="anchor" aria-label="anchor" href="#algorithms-for-numerical-variables-20"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th>Acronym</th>
+<th>Function</th>
+<th>Full Name</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><strong>BB</strong></td>
+<td><code><a href="reference/ob_numerical_bb.html">ob_numerical_bb()</a></code></td>
+<td>Branch and Bound</td>
+<td>Exact optimization algorithm</td>
+</tr>
+<tr class="even">
+<td><strong>CM</strong></td>
+<td><code><a href="reference/ob_numerical_cm.html">ob_numerical_cm()</a></code></td>
+<td>ChiMerge</td>
+<td>Chi-square based merging for numericals</td>
+</tr>
+<tr class="odd">
+<td><strong>DMIV</strong></td>
+<td><code><a href="reference/ob_numerical_dmiv.html">ob_numerical_dmiv()</a></code></td>
+<td>Decision Tree MIV</td>
+<td>Decision Tree with Minimum Information Value</td>
+</tr>
+<tr class="even">
+<td><strong>DP</strong></td>
+<td><code><a href="reference/ob_numerical_dp.html">ob_numerical_dp()</a></code></td>
+<td>Dynamic Programming</td>
+<td>Optimal binning with local constraints</td>
+</tr>
+<tr class="odd">
+<td><strong>EWB</strong></td>
+<td><code><a href="reference/ob_numerical_ewb.html">ob_numerical_ewb()</a></code></td>
+<td>Equal Width</td>
+<td>Creates bins of equal width</td>
+</tr>
+<tr class="even">
+<td><strong>Fast-MDLP</strong></td>
+<td><code><a href="reference/ob_numerical_fast_mdlp.html">ob_numerical_fast_mdlp()</a></code></td>
+<td>Fast MDLP</td>
+<td>Optimized MDLP implementation</td>
+</tr>
+<tr class="odd">
+<td><strong>FETB</strong></td>
+<td><code><a href="reference/ob_numerical_fetb.html">ob_numerical_fetb()</a></code></td>
+<td>Fisher’s Exact Test</td>
+<td>Fisher’s exact test for numericals</td>
+</tr>
+<tr class="even">
+<td><strong>IR</strong></td>
+<td><code><a href="reference/ob_numerical_ir.html">ob_numerical_ir()</a></code></td>
+<td>Isotonic Regression</td>
+<td>Isotonic regression for binning</td>
+</tr>
+<tr class="odd">
+<td><strong>JEDI</strong></td>
+<td><code><a href="reference/ob_numerical_jedi.html">ob_numerical_jedi()</a></code></td>
+<td>Joint Entropy-Driven</td>
+<td>Information maximization with Bayesian smoothing</td>
+</tr>
+<tr class="even">
+<td><strong>JEDI-MWoE</strong></td>
+<td><code><a href="reference/ob_numerical_jedi_mwoe.html">ob_numerical_jedi_mwoe()</a></code></td>
+<td>JEDI Multinomial</td>
+<td>Multinomial WoE for multi-class targets</td>
+</tr>
+<tr class="odd">
+<td><strong>KMB</strong></td>
+<td><code><a href="reference/ob_numerical_kmb.html">ob_numerical_kmb()</a></code></td>
+<td>K-Means Binning</td>
+<td>K-means clustering for binning</td>
+</tr>
+<tr class="even">
+<td><strong>LDB</strong></td>
+<td><code><a href="reference/ob_numerical_ldb.html">ob_numerical_ldb()</a></code></td>
+<td>Local Density</td>
+<td>Local density estimation binning</td>
+</tr>
+<tr class="odd">
+<td><strong>LPDB</strong></td>
+<td><code><a href="reference/ob_numerical_lpdb.html">ob_numerical_lpdb()</a></code></td>
+<td>Local Polynomial</td>
+<td>Local polynomial density binning</td>
+</tr>
+<tr class="even">
+<td><strong>MBLP</strong></td>
+<td><code><a href="reference/ob_numerical_mblp.html">ob_numerical_mblp()</a></code></td>
+<td>Monotonic LP</td>
+<td>Monotonic binning via linear programming</td>
+</tr>
+<tr class="odd">
+<td><strong>MDLP</strong></td>
+<td><code><a href="reference/ob_numerical_mdlp.html">ob_numerical_mdlp()</a></code></td>
+<td>Min Description Length</td>
+<td>Minimum Description Length Principle</td>
+</tr>
+<tr class="even">
+<td><strong>MOB</strong></td>
+<td><code><a href="reference/ob_numerical_mob.html">ob_numerical_mob()</a></code></td>
+<td>Monotonic Optimal</td>
+<td>Monotonic optimal binning</td>
+</tr>
+<tr class="odd">
+<td><strong>MRBLP</strong></td>
+<td><code><a href="reference/ob_numerical_mrblp.html">ob_numerical_mrblp()</a></code></td>
+<td>Monotonic Regression LP</td>
+<td>Monotonic regression with LP</td>
+</tr>
+<tr class="even">
+<td><strong>OSLP</strong></td>
+<td><code><a href="reference/ob_numerical_oslp.html">ob_numerical_oslp()</a></code></td>
+<td>Optimal Supervised LP</td>
+<td>Optimal supervised learning path</td>
+</tr>
+<tr class="odd">
+<td><strong>Sketch</strong></td>
+<td><code><a href="reference/ob_numerical_sketch.html">ob_numerical_sketch()</a></code></td>
+<td>KLL Sketch</td>
+<td>Quantile approximation for large data</td>
+</tr>
+<tr class="even">
+<td><strong>UBSD</strong></td>
+<td><code><a href="reference/ob_numerical_ubsd.html">ob_numerical_ubsd()</a></code></td>
+<td>Unsupervised StdDev</td>
+<td>Standard deviation-based intervals</td>
+</tr>
+<tr class="odd">
+<td><strong>UDT</strong></td>
+<td><code><a href="reference/ob_numerical_udt.html">ob_numerical_udt()</a></code></td>
+<td>Unsupervised DT</td>
+<td>Unsupervised decision tree binning</td>
+</tr>
+</tbody>
+</table>
 </div>
+<div class="section level2">
+<h2 id="utility-functions">Utility Functions<a class="anchor" aria-label="anchor" href="#utility-functions"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code><a href="reference/ob_preprocess.html">ob_preprocess()</a></code></td>
+<td>Data preprocessing with missing value and outlier handling (IQR, Z-score, Grubbs)</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/ob_gains_table.html">ob_gains_table()</a></code></td>
+<td>Comprehensive gains table with KS, Gini, lift, KL/JS divergence</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/ob_gains_table_feature.html">ob_gains_table_feature()</a></code></td>
+<td>Per-feature gains table generation</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/ob_apply_woe_num.html">ob_apply_woe_num()</a></code></td>
+<td>Apply WoE transformation to numerical features</td>
+</tr>
+<tr class="odd">
+<td><code><a href="reference/ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code></td>
+<td>Apply WoE transformation to categorical features</td>
+</tr>
+<tr class="even">
+<td><code>ob_binning_cutpoints_num()</code></td>
+<td>Extract cutpoints from numerical binning results</td>
+</tr>
+<tr class="odd">
+<td><code>ob_binning_cutpoints_cat()</code></td>
+<td>Extract cutpoints from categorical binning results</td>
+</tr>
+<tr class="even">
+<td><code><a href="reference/ob_check_distincts.html">ob_check_distincts()</a></code></td>
+<td>Check distinct values in features</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>Install the development version from GitHub:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"evandeilton/OptimalBinningWoE"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
+<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<p>The main function provided by the package is <code><a href="reference/obwoe.html">obwoe()</a></code>, which performs optimal binning and WoE calculation.</p>
 <div class="section level3">
-<h3 id="function-signature">Function Signature<a class="anchor" aria-label="anchor" href="#function-signature"></a>
+<h3 id="numerical-binning">Numerical Binning<a class="anchor" aria-label="anchor" href="#numerical-binning"></a>
 </h3>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  <span class="va">dt</span>,</span>
-<span>  <span class="va">target</span>,</span>
-<span>  features <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
-<span>  preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  outputall <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://evandeilton.github.io/OptimalBinningWoE/">OptimalBinningWoE</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_numerical_jedi.html">ob_numerical_jedi</a></span><span class="op">(</span></span>
+<span>  feature <span class="op">=</span> <span class="va">numeric_vector</span>,</span>
+<span>  target <span class="op">=</span> <span class="va">binary_target</span>,</span>
 <span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">4</span>,</span>
-<span>  positive <span class="op">=</span> <span class="st">"bad|1"</span>,</span>
-<span>  progress <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  trace <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span>
+<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a>
-</h3>
-<ul>
-<li>
-<strong>dt</strong>: A <code>data.table</code> containing the dataset.</li>
-<li>
-<strong>target</strong>: The name of the binary target variable.</li>
-<li>
-<strong>features</strong>: Vector of feature names to process. If <code>NULL</code>, all features except the target will be processed.</li>
-<li>
-<strong>method</strong>: The binning method to use. Can be <code>"auto"</code> or one of the methods listed in the Supported Algorithms section.</li>
-<li>
-<strong>preprocess</strong>: Logical. Whether to preprocess the data before binning (default: <code>TRUE</code>).</li>
-<li>
-<strong>outputall</strong>: Logical. If <code>TRUE</code>, returns detailed output including data, binning information, and reports (default: <code>TRUE</code>).</li>
-<li>
-<strong>min_bins</strong>: Minimum number of bins (default: <code>3</code>).</li>
-<li>
-<strong>max_bins</strong>: Maximum number of bins (default: <code>4</code>).</li>
-<li>
-<strong>positive</strong>: Specifies which category should be considered as positive (e.g., <code>"bad|1"</code> or <code>"good|1"</code>).</li>
-<li>
-<strong>progress</strong>: Logical. Whether to display a progress bar (default: <code>TRUE</code>).</li>
-<li>
-<strong>trace</strong>: Logical. Whether to generate error logs when testing existing methods (default: <code>TRUE</code>).</li>
-<li>
-<strong>control</strong>: A list of additional control parameters (see below).</li>
-</ul>
-</div>
-<div class="section level3">
-<h3 id="control-parameters">Control Parameters<a class="anchor" aria-label="anchor" href="#control-parameters"></a>
-</h3>
-<p>The <code>control</code> list allows fine-tuning of the binning process:</p>
-<ul>
-<li>
-<strong>cat_cutoff</strong>: Minimum frequency for a category (default: <code>0.05</code>).</li>
-<li>
-<strong>bin_cutoff</strong>: Minimum frequency for a bin (default: <code>0.05</code>).</li>
-<li>
-<strong>min_bads</strong>: Minimum proportion of bad cases in a bin (default: <code>0.05</code>).</li>
-<li>
-<strong>pvalue_threshold</strong>: P-value threshold for statistical tests (default: <code>0.05</code>).</li>
-<li>
-<strong>max_n_prebins</strong>: Maximum number of pre-bins (default: <code>20</code>).</li>
-<li>
-<strong>monotonicity_direction</strong>: Direction of monotonicity (“increase” or “decrease”).</li>
-<li>
-<strong>lambda</strong>: Regularization parameter for some algorithms (default: <code>0.1</code>).</li>
-<li>
-<strong>min_bin_size</strong>: Minimum bin size as a proportion of total observations (default: <code>0.05</code>).</li>
-<li>
-<strong>min_iv_gain</strong>: Minimum IV gain for bin splitting (default: <code>0.01</code>).</li>
-<li>
-<strong>max_depth</strong>: Maximum depth for tree-based algorithms (default: <code>10</code>).</li>
-<li>
-<strong>num_miss_value</strong>: Value to replace missing numeric values (default: <code>-999.0</code>).</li>
-<li>
-<strong>char_miss_value</strong>: Value to replace missing categorical values (default: <code>"N/A"</code>).</li>
-<li>
-<strong>outlier_method</strong>: Method for outlier detection (<code>"iqr"</code>, <code>"zscore"</code>, or <code>"grubbs"</code>).</li>
-<li>
-<strong>outlier_process</strong>: Whether to process outliers (default: <code>FALSE</code>).</li>
-<li>
-<strong>iqr_k</strong>: IQR multiplier for outlier detection (default: <code>1.5</code>).</li>
-<li>
-<strong>zscore_threshold</strong>: Z-score threshold for outlier detection (default: <code>3</code>).</li>
-<li>
-<strong>grubbs_alpha</strong>: Significance level for Grubbs’ test (default: <code>0.05</code>).</li>
-<li>
-<strong>n_threads</strong>: Number of threads for parallel processing (default: <code>1</code>).</li>
-<li>
-<strong>is_monotonic</strong>: Whether to enforce monotonicity in binning (default: <code>TRUE</code>).</li>
-<li>
-<strong>population_size</strong>: Population size for genetic algorithm (default: <code>50</code>).</li>
-<li>
-<strong>max_generations</strong>: Maximum number of generations for genetic algorithm (default: <code>100</code>).</li>
-<li>
-<strong>mutation_rate</strong>: Mutation rate for genetic algorithm (default: <code>0.1</code>).</li>
-<li>
-<strong>initial_temperature</strong>: Initial temperature for simulated annealing (default: <code>1</code>).</li>
-<li>
-<strong>cooling_rate</strong>: Cooling rate for simulated annealing (default: <code>0.995</code>).</li>
-<li>
-<strong>max_iterations</strong>: Maximum number of iterations for iterative algorithms (default: <code>1000</code>).</li>
-<li>
-<strong>include_upper_bound</strong>: Include upper bound for numeric bins (default: <code>TRUE</code>).</li>
-<li>
-<strong>bin_separator</strong>: Separator for bins in categorical variables (default: <code>"%;%"</code>).</li>
-</ul>
-</div>
-</div>
-<div class="section level2">
-<h2 id="examples">Examples<a class="anchor" aria-label="anchor" href="#examples"></a>
-</h2>
-<div class="section level3">
-<h3 id="example-1-using-the-german-credit-data">Example 1: Using the German Credit Data<a class="anchor" aria-label="anchor" href="#example-1-using-the-german-credit-data"></a>
+<h3 id="categorical-binning">Categorical Binning<a class="anchor" aria-label="anchor" href="#categorical-binning"></a>
 </h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://evandeilton.github.io/OptimalBinningWoE/">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load the German Credit dataset</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">germancredit</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/as.data.table.html" class="external-link">as.data.table</a></span><span class="op">(</span><span class="va">germancredit</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Process all features with Monotonic Binning via Linear Programming (MBLP) method</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  <span class="va">dt</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"creditability"</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_categorical_sblp.html">ob_categorical_sblp</a></span><span class="op">(</span></span>
+<span>  feature <span class="op">=</span> <span class="va">categorical_vector</span>,</span>
+<span>  target <span class="op">=</span> <span class="va">binary_target</span>,</span>
 <span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  positive <span class="op">=</span> <span class="st">"bad|1"</span>,</span>
-<span>  features <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age.in.years"</span>, <span class="st">"purpose"</span><span class="op">)</span>,</span>
-<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>bin_separator <span class="op">=</span> <span class="st">"'+'"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View WoE binning information</span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">]</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="example-2-detailed-output-with-numeric-features">Example 2: Detailed Output with Numeric Features<a class="anchor" aria-label="anchor" href="#example-2-detailed-output-with-numeric-features"></a>
+<h3 id="preprocessing">Preprocessing<a class="anchor" aria-label="anchor" href="#preprocessing"></a>
 </h3>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Select numeric features excluding the target</span></span>
-<span><span class="va">numeric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dt</span>, <span class="va">is.numeric</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">numeric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">numeric_features</span>, <span class="st">"creditability"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Process numeric features with detailed output</span></span>
-<span><span class="va">result_detailed</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  <span class="va">dt</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"creditability"</span>,</span>
-<span>  features <span class="op">=</span> <span class="va">numeric_features</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
-<span>  preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  outputall <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  positive <span class="op">=</span> <span class="st">"bad|1"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View WoE-transformed data</span></span>
-<span><span class="va">result_detailed</span><span class="op">$</span><span class="va">data</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View best model report</span></span>
-<span><span class="va">result_detailed</span><span class="op">$</span><span class="va">report_best_model</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View preprocessing report</span></span>
-<span><span class="co"># print(result_detailed$report_preprocess)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">preprocessed</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_preprocess.html">ob_preprocess</a></span><span class="op">(</span></span>
+<span>  feature <span class="op">=</span> <span class="va">feature_vector</span>,</span>
+<span>  target <span class="op">=</span> <span class="va">target_vector</span>,</span>
+<span>  outlier_method <span class="op">=</span> <span class="st">"iqr"</span>,</span>
+<span>  outlier_process <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="example-3-processing-categorical-features-with-unsupervised-decision-trees">Example 3: Processing Categorical Features with Unsupervised Decision Trees<a class="anchor" aria-label="anchor" href="#example-3-processing-categorical-features-with-unsupervised-decision-trees"></a>
+<h3 id="gains-table">Gains Table<a class="anchor" aria-label="anchor" href="#gains-table"></a>
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Select categorical features excluding the target</span></span>
-<span><span class="va">categoric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">dt</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dt</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">is.numeric</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">categoric_features</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">categoric_features</span>, <span class="st">"creditability"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Process categorical features with UDT method</span></span>
-<span><span class="va">result_cat</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  <span class="va">dt</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"creditability"</span>,</span>
-<span>  features <span class="op">=</span> <span class="va">categoric_features</span>,</span>
-<span>  method <span class="op">=</span> <span class="st">"udt"</span>,</span>
-<span>  preprocess <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<code class="sourceCode R"><span><span class="va">gains</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_gains_table.html">ob_gains_table</a></span><span class="op">(</span><span class="va">binning_result</span><span class="op">)</span></span>
+<span><span class="co"># Includes: WoE, IV, KS, Gini, lift, precision, recall, </span></span>
+<span><span class="co"># KL divergence, Jensen-Shannon divergence</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="multinomial-classification">Multinomial Classification<a class="anchor" aria-label="anchor" href="#multinomial-classification"></a>
+</h3>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_categorical_jedi_mwoe.html">ob_categorical_jedi_mwoe</a></span><span class="op">(</span></span>
+<span>  feature <span class="op">=</span> <span class="va">categorical_vector</span>,</span>
+<span>  target <span class="op">=</span> <span class="va">multiclass_target</span>,  <span class="co"># Values: 0, 1, 2, ...</span></span>
 <span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">4</span>,</span>
-<span>  positive <span class="op">=</span> <span class="st">"bad|1"</span></span>
+<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View binning information for categorical features</span></span>
-<span><span class="va">result_cat</span><span class="op">$</span><span class="va">woebin</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">]</span> <span class="op"><a href="reference/pipe.html">%&gt;%</a></span> <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Returns M-WoE and IV matrices (n_bins × n_classes)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="use-recommendations">Use Recommendations<a class="anchor" aria-label="anchor" href="#use-recommendations"></a>
+<h2 id="algorithm-selection-guide">Algorithm Selection Guide<a class="anchor" aria-label="anchor" href="#algorithm-selection-guide"></a>
 </h2>
+<table class="table">
+<thead><tr class="header">
+<th>Use Case</th>
+<th>Recommended Algorithms</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><strong>Credit Scoring</strong></td>
+<td>JEDI, MBLP, MOB, SBLP</td>
+</tr>
+<tr class="even">
+<td><strong>Large Datasets</strong></td>
+<td>Sketch, Fast-MDLP, EWB</td>
+</tr>
+<tr class="odd">
+<td><strong>Streaming Data</strong></td>
+<td>Sketch (Count-Min/KLL)</td>
+</tr>
+<tr class="even">
+<td><strong>Multinomial Targets</strong></td>
+<td>JEDI-MWoE</td>
+</tr>
+<tr class="odd">
+<td><strong>Strong Monotonicity</strong></td>
+<td>MOB, MBLP, MRBLP, IR</td>
+</tr>
+<tr class="even">
+<td><strong>Interpretability</strong></td>
+<td>DP, MDLP, UDT</td>
+</tr>
+<tr class="odd">
+<td><strong>Global Optimization</strong></td>
+<td>MILP, SAB, BB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level2">
+<h2 id="technical-details">Technical Details<a class="anchor" aria-label="anchor" href="#technical-details"></a>
+</h2>
+<div class="section level3">
+<h3 id="c-implementation">C++ Implementation<a class="anchor" aria-label="anchor" href="#c-implementation"></a>
+</h3>
+<p>Core algorithms use Rcpp, RcppEigen, and RcppNumerical for high performance.</p>
+</div>
+<div class="section level3">
+<h3 id="bayesian-smoothing">Bayesian Smoothing<a class="anchor" aria-label="anchor" href="#bayesian-smoothing"></a>
+</h3>
+<p>Many algorithms employ Bayesian smoothing for robust WoE estimation with small samples.</p>
+</div>
+<div class="section level3">
+<h3 id="sketch-based-algorithms">Sketch-Based Algorithms<a class="anchor" aria-label="anchor" href="#sketch-based-algorithms"></a>
+</h3>
 <ul>
 <li>
-<strong>Method Selection</strong>: When <code>method = "auto"</code>, the function tests multiple algorithms and selects the one that produces the highest total Information Value while respecting the specified constraints.</li>
+<strong>Count-Min Sketch</strong>: Frequency estimation for categorical data</li>
 <li>
-<strong>Monotonicity</strong>: Enforcing monotonicity in binning (<code>is_monotonic = TRUE</code>) is recommended for credit scoring models to ensure interpretability.</li>
-<li>
-<strong>Preprocessing</strong>: It’s advisable to preprocess data (<code>preprocess = TRUE</code>) to handle missing values and outliers effectively.</li>
-<li>
-<strong>Bin Constraints</strong>: Adjust <code>min_bins</code> and <code>max_bins</code> according to the feature’s characteristics and the desired level of granularity.</li>
-<li>
-<strong>Control Parameters</strong>: Fine-tune the <code>control</code> parameters to optimize the binning process for your specific dataset.</li>
+<strong>KLL Sketch</strong>: Quantile approximation for numerical data</li>
 </ul>
+<p>Both provide sublinear memory usage with single-pass processing.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
-<li>Siddiqi, N. (2006). <strong>Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring</strong>. John Wiley &amp; Sons.</li>
-<li>Hand, D. J., &amp; Henley, W. E. (1997). <strong>Statistical classification methods in consumer credit scoring: a review</strong>. Journal of the Royal Statistical Society: Series A (Statistics in Society), 160(3), 523-541.</li>
-<li>Thomas, L. C., Edelman, D. B., &amp; Crook, J. N. (2002). <strong>Credit Scoring and Its Applications</strong>. SIAM.</li>
+<li>Siddiqi, N. (2006). <strong>Credit Risk Scorecards</strong>. John Wiley &amp; Sons.</li>
+<li>Thomas, L. C., et al. (2002). <strong>Credit Scoring and Its Applications</strong>. SIAM.</li>
+<li>Beltrami, M., et al. (2021). <strong>Monotonic Optimal Binning Algorithm</strong>. Risks, 9(3), 58.</li>
+<li>Navas-Palencia, G. (2020). <strong>Optimal binning: mathematical programming formulations</strong>. arXiv:2001.08025.</li>
+<li>Cormode, G., &amp; Muthukrishnan, S. (2005). <strong>Count-min sketch</strong>. Journal of Algorithms, 55(1).</li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
 </h2>
-<p>Contributions are welcome! Please open an issue or submit a pull request on <a href="https://evandeilton.github.io/OptimalBinningWoE/">GitHub</a>.</p>
+<p>Contributions welcome! Open an issue or PR on <a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">GitHub</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
 </h2>
-<p>This project is licensed under the MIT License - see the <a href="https://opensource.org/licenses/MIT" class="external-link">LICENSE</a> for details.</p>
-<hr>
+<p>MIT License - see <a href="https://opensource.org/licenses/MIT" class="external-link">LICENSE</a>.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="license">
@@ -423,7 +607,7 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Lopes J. E <br><small class="roles"> Author, maintainer </small>   </li>
+<li>José Evandeilton Lopes <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0009-0007-5887-4084" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -442,11 +626,11 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Lopes J. E.</p>
+  <p>Developed by José Evandeilton Lopes.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>

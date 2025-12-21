@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -16,6 +16,11 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  </ul></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
       </ul></div>
@@ -34,460 +39,510 @@
 
 
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
 
       <dl><dt>
 
-          <code><a href="AIC.oblr.html">AIC(<i>&lt;oblr&gt;</i>)</a></code>
+          <code><a href="bake.step_obwoe.html">bake(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>AIC Method for oblr Objects</dd>
-      </dl><dl><dt>
+        <dd>Apply the Optimal Binning Transformation</dd>
 
-          <code><a href="BIC.html">BIC()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Register the S3 method</dd>
-      </dl><dl><dt>
-
-          <code><a href="BIC.oblr.html">BIC(<i>&lt;oblr&gt;</i>)</a></code>
+          <code><a href="control.obwoe.html">control.obwoe()</a></code>
 
         </dt>
-        <dd>BIC Method for oblr Objects</dd>
-      </dl><dl><dt>
+        <dd>Control Parameters for Optimal Binning Algorithms</dd>
 
-          <code><a href="OBApplyWoECat.html">OBApplyWoECat()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Apply Optimal Weight of Evidence (WoE) to a Categorical Feature</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBApplyWoENum.html">OBApplyWoENum()</a></code>
+          <code><a href="dot-categorical_only_algorithms.html">.categorical_only_algorithms()</a></code>
 
         </dt>
-        <dd>Apply Optimal Weight of Evidence (WoE) to a Numerical Feature</dd>
-      </dl><dl><dt>
+        <dd>Categorical-Only Algorithms</dd>
 
-          <code><a href="OBCalculateSpecialWoE.html">OBCalculateSpecialWoE()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Calculate Special WoE for Edge Cases</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBCreateSpecialBin.html">OBCreateSpecialBin()</a></code>
+          <code><a href="dot-numerical_only_algorithms.html">.numerical_only_algorithms()</a></code>
 
         </dt>
-        <dd>Create Special Bin Entry</dd>
-      </dl><dl><dt>
+        <dd>Numerical-Only Algorithms</dd>
 
-          <code><a href="OBDataPreprocessor.html">OBDataPreprocessor()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Preprocesses a numeric or categorical variable for optimal binning with handling of missing values and outliers</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBGainsTable.html">OBGainsTable()</a></code>
+          <code><a href="dot-universal_algorithms.html">.universal_algorithms()</a></code>
 
         </dt>
-        <dd>Generate a Detailed Gains Table from Optimal Binning Results</dd>
-      </dl><dl><dt>
+        <dd>Universal Algorithms</dd>
 
-          <code><a href="OBGainsTableFeature.html">OBGainsTableFeature()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Generate Gains Table for a Binned Feature</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBGetAlgoName.html">OBGetAlgoName()</a></code>
+          <code><a href="dot-valid_algorithms.html">.valid_algorithms()</a></code>
 
         </dt>
-        <dd>Get Available Optimal Binning Algorithms</dd>
-      </dl><dl><dt>
+        <dd>Valid Binning Algorithms</dd>
 
-          <code><a href="OBMapTargetVariable.html">OBMapTargetVariable()</a></code>
-
-        </dt>
-        <dd>Map Target Variable to 0/1</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBPreprocessData.html">OBPreprocessData()</a></code>
-
-        </dt>
-        <dd>Preprocess Data for Optimal Binning</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBSelectAlgorithm.html">OBSelectAlgorithm()</a></code>
-
-        </dt>
-        <dd>Select Optimal Binning Algorithm (Unused in main flow)</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBSelectBestModel.html">OBSelectBestModel()</a></code>
-
-        </dt>
-        <dd>Select the Best Model for Optimal Binning</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBSelectOptimalFeatures.html">OBSelectOptimalFeatures()</a></code>
-
-        </dt>
-        <dd>Select Optimal Features Based on Weight of Evidence</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBValidateInputs.html">OBValidateInputs()</a></code>
-
-        </dt>
-        <dd>Validate Inputs for Optimal Binning</dd>
-      </dl><dl><dt>
-
-          <code><a href="OBWoEMonotonic.html">OBWoEMonotonic()</a></code>
-
-        </dt>
-        <dd>Check if WoE values are monotonic</dd>
-      </dl><dl><dt>
-
-          <code><a href="anova.oblr.html">anova(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Anova Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="binning_categorical_cutpoints.html">binning_categorical_cutpoints()</a></code>
-
-        </dt>
-        <dd>Binning Categorical Variables using Custom Cutpoints</dd>
-      </dl><dl><dt>
-
-          <code><a href="binning_numerical_cutpoints.html">binning_numerical_cutpoints()</a></code>
-
-        </dt>
-        <dd>Binning Numerical Variables using Custom Cutpoints</dd>
-      </dl><dl><dt>
-
-          <code><a href="coef.oblr.html">coef(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Coefficients Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="computeMetrics.html">computeMetrics()</a></code>
-
-        </dt>
-        <dd>Compute Performance Metrics for Logistic Regression Models</dd>
-      </dl><dl><dt>
+        <dt>
 
           <code><a href="fit_logistic_regression.html">fit_logistic_regression()</a></code>
 
         </dt>
-        <dd>Logistic Regression with Optional Hessian Calculation</dd>
-      </dl><dl><dt>
+        <dd>Fit Logistic Regression Model</dd>
 
-          <code><a href="fitted.oblr.html">fitted(<i>&lt;oblr&gt;</i>)</a></code>
+        <dt>
 
-        </dt>
-        <dd>Fitted Values Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="logLik.oblr.html">logLik(<i>&lt;oblr&gt;</i>)</a></code>
+          <code><a href="ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code>
 
         </dt>
-        <dd>Log-Likelihood Method for oblr Objects</dd>
-      </dl><dl><dt>
+        <dd>Apply Optimal Weight of Evidence (WoE) to a Categorical Feature</dd>
+
+        <dt>
+
+          <code><a href="ob_apply_woe_num.html">ob_apply_woe_num()</a></code>
+
+        </dt>
+        <dd>Apply Optimal Weight of Evidence (WoE) to a Numerical Feature</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_cm.html">ob_categorical_cm()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Enhanced ChiMerge Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_dmiv.html">ob_categorical_dmiv()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Divergence Measures</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_dp.html">ob_categorical_dp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Dynamic Programming</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_fetb.html">ob_categorical_fetb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Fisher's Exact Test</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_gmb.html">ob_categorical_gmb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Greedy Merge Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_ivb.html">ob_categorical_ivb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Information Value Dynamic Programming</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_jedi.html">ob_categorical_jedi()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using JEDI Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_jedi_mwoe.html">ob_categorical_jedi_mwoe()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables with Multinomial Target using JEDI-MWoE</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_mba.html">ob_categorical_mba()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Monotonic Binning Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_milp.html">ob_categorical_milp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Heuristic Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_mob.html">ob_categorical_mob()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_sab.html">ob_categorical_sab()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Simulated Annealing</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_sblp.html">ob_categorical_sblp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using SBLP</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_sketch.html">ob_categorical_sketch()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Sketch-based Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_swb.html">ob_categorical_swb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)</dd>
+
+        <dt>
+
+          <code><a href="ob_categorical_udt.html">ob_categorical_udt()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Categorical Variables using a User-Defined Technique (UDT)</dd>
+
+        <dt>
+
+          <code><a href="ob_cutpoints_cat.html">ob_cutpoints_cat()</a></code>
+
+        </dt>
+        <dd>Binning Categorical Variables using Custom Cutpoints</dd>
+
+        <dt>
+
+          <code><a href="ob_cutpoints_num.html">ob_cutpoints_num()</a></code>
+
+        </dt>
+        <dd>Binning Numerical Variables using Custom Cutpoints</dd>
+
+        <dt>
+
+          <code><a href="ob_gains_table.html">ob_gains_table()</a></code>
+
+        </dt>
+        <dd>Compute Comprehensive Gains Table from Binning Results</dd>
+
+        <dt>
+
+          <code><a href="ob_gains_table_feature.html">ob_gains_table_feature()</a></code>
+
+        </dt>
+        <dd>Compute Gains Table for a Binned Feature Vector</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_bb.html">ob_numerical_bb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Branch and Bound Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_cm.html">ob_numerical_cm()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Enhanced ChiMerge Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_dmiv.html">ob_numerical_dmiv()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using Metric Divergence Measures (Zeng, 2013)</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_dp.html">ob_numerical_dp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Dynamic Programming</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_ewb.html">ob_numerical_ewb()</a></code>
+
+        </dt>
+        <dd>Hybrid Optimal Binning using Equal-Width Initialization and IV Optimization</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_fast_mdlp.html">ob_numerical_fast_mdlp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using MDLP with Monotonicity Constraints</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_fetb.html">ob_numerical_fetb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using Fisher's Exact Test</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_ir.html">ob_numerical_ir()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using Isotonic Regression (PAVA)</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_jedi.html">ob_numerical_jedi()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using Joint Entropy-Driven Interval Discretization (JEDI)</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_jedi_mwoe.html">ob_numerical_jedi_mwoe()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Multiclass Targets using JEDI M-WOE</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_kmb.html">ob_numerical_kmb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using K-means Inspired Initialization (KMB)</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_ldb.html">ob_numerical_ldb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Local Density Binning</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_lpdb.html">ob_numerical_lpdb()</a></code>
+
+        </dt>
+        <dd>Optimal Binning using Local Polynomial Density Binning (LPDB)</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_mblp.html">ob_numerical_mblp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_mdlp.html">ob_numerical_mdlp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Features using Minimum Description Length Principle</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_mob.html">ob_numerical_mob()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Features using Monotonic Optimal Binning</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_mrblp.html">ob_numerical_mrblp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Features using Monotonic Risk Binning with Likelihood Ratio Pre-binning</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_oslp.html">ob_numerical_oslp()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Optimal Supervised Learning Partitioning</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_sketch.html">ob_numerical_sketch()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Sketch-based Algorithm</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_ubsd.html">ob_numerical_ubsd()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation</dd>
+
+        <dt>
+
+          <code><a href="ob_numerical_udt.html">ob_numerical_udt()</a></code>
+
+        </dt>
+        <dd>Optimal Binning for Numerical Variables using Entropy-Based Partitioning</dd>
+
+        <dt>
+
+          <code><a href="ob_preprocess.html">ob_preprocess()</a></code>
+
+        </dt>
+        <dd>Data Preprocessor for Optimal Binning</dd>
+
+        <dt>
 
           <code><a href="obcorr.html">obcorr()</a></code>
 
         </dt>
-        <dd>Classical, robust, and independence correlations</dd>
-      </dl><dl><dt>
+        <dd>Compute Multiple Robust Correlations Between Numeric Variables</dd>
 
-          <code><a href="oblr.html">oblr()</a></code>
-
-        </dt>
-        <dd>Optimized Logistic Regression</dd>
-      </dl><dl><dt>
+        <dt>
 
           <code><a href="obwoe.html">obwoe()</a></code>
 
         </dt>
-        <dd>Optimal Binning and Weight of Evidence Calculation</dd>
-      </dl><dl><dt>
+        <dd>Unified Optimal Binning and Weight of Evidence Transformation</dd>
 
-          <code><a href="optimal_binning_categorical_cm.html">optimal_binning_categorical_cm()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using ChiMerge</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_dmiv.html">optimal_binning_categorical_dmiv()</a></code>
+          <code><a href="obwoe_algorithm.html">obwoe_algorithm()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using Divergence Measures (V2)</dd>
-      </dl><dl><dt>
+        <dd>Binning Algorithm Parameter</dd>
 
-          <code><a href="optimal_binning_categorical_dp.html">optimal_binning_categorical_dp()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using Dynamic Programming</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_fetb.html">optimal_binning_categorical_fetb()</a></code>
+          <code><a href="obwoe_algorithms.html">obwoe_algorithms()</a></code>
 
         </dt>
-        <dd>Categorical Optimal Binning with Fisher’s Exact Test</dd>
-      </dl><dl><dt>
+        <dd>List Available Algorithms</dd>
 
-          <code><a href="optimal_binning_categorical_gmb.html">optimal_binning_categorical_gmb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Categorical Optimal Binning with Greedy Merge Binning</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_ivb.html">optimal_binning_categorical_ivb()</a></code>
+          <code><a href="obwoe_apply.html">obwoe_apply()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using Information Value Dynamic Programming</dd>
-      </dl><dl><dt>
+        <dd>Apply Weight of Evidence Transformations to New Data</dd>
 
-          <code><a href="optimal_binning_categorical_jedi.html">optimal_binning_categorical_jedi()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Categorical Binning JEDI (Joint Entropy-Driven Information Maximization)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_jedi_mwoe.html">optimal_binning_categorical_jedi_mwoe()</a></code>
+          <code><a href="obwoe_bin_cutoff.html">obwoe_bin_cutoff()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables with Multinomial Target using JEDI-MWoE</dd>
-      </dl><dl><dt>
+        <dd>Bin Cutoff Parameter</dd>
 
-          <code><a href="optimal_binning_categorical_mba.html">optimal_binning_categorical_mba()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using Monotonic Binning Algorithm (MBA)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_milp.html">optimal_binning_categorical_milp()</a></code>
+          <code><a href="obwoe_gains.html">obwoe_gains()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using MILP</dd>
-      </dl><dl><dt>
+        <dd>Gains Table Statistics for Credit Risk Scorecard Evaluation</dd>
 
-          <code><a href="optimal_binning_categorical_mob.html">optimal_binning_categorical_mob()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using Monotonic Optimal Binning (MOB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_sab.html">optimal_binning_categorical_sab()</a></code>
+          <code><a href="obwoe_max_bins.html">obwoe_max_bins()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using Simulated Annealing</dd>
-      </dl><dl><dt>
+        <dd>Maximum Bins Parameter</dd>
 
-          <code><a href="optimal_binning_categorical_sblp.html">optimal_binning_categorical_sblp()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using Similarity-Based Logistic Partitioning (SBLP)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_sketch.html">optimal_binning_categorical_sketch()</a></code>
+          <code><a href="obwoe_min_bins.html">obwoe_min_bins()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using Sketch-based Algorithm</dd>
-      </dl><dl><dt>
+        <dd>Minimum Bins Parameter</dd>
 
-          <code><a href="optimal_binning_categorical_swb.html">optimal_binning_categorical_swb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_categorical_udt.html">optimal_binning_categorical_udt()</a></code>
+          <code><a href="plot.obwoe.html">plot(<i>&lt;obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Categorical Variables using a User-Defined Technique (UDT)</dd>
-      </dl><dl><dt>
+        <dd>Plot Method for obwoe Objects</dd>
 
-          <code><a href="optimal_binning_numerical_bb.html">optimal_binning_numerical_bb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Branch and Bound Algorithm</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_cm.html">optimal_binning_numerical_cm()</a></code>
+          <code><a href="plot.obwoe_gains.html">plot(<i>&lt;obwoe_gains&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using ChiMerge</dd>
-      </dl><dl><dt>
+        <dd>Plot Gains Table</dd>
 
-          <code><a href="optimal_binning_numerical_dmiv.html">optimal_binning_numerical_dmiv()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Divergence Measures and Information Value</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_dp.html">optimal_binning_numerical_dp()</a></code>
+          <code><a href="prep.step_obwoe.html">prep(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using Dynamic Programming</dd>
-      </dl><dl><dt>
+        <dd>Prepare the Optimal Binning Step</dd>
 
-          <code><a href="optimal_binning_numerical_ewb.html">optimal_binning_numerical_ewb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Equal-Width Binning</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_fast_mdlpm.html">optimal_binning_numerical_fast_mdlpm()</a></code>
+          <code><a href="print.obwoe.html">print(<i>&lt;obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using MDLP with Monotonicity</dd>
-      </dl><dl><dt>
+        <dd>Print Method for obwoe Objects</dd>
 
-          <code><a href="optimal_binning_numerical_fetb.html">optimal_binning_numerical_fetb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables with Fisher’s Exact Test</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_ir.html">optimal_binning_numerical_ir()</a></code>
+          <code><a href="print.step_obwoe.html">print(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using Isotonic Regression</dd>
-      </dl><dl><dt>
+        <dd>Print Method for step_obwoe</dd>
 
-          <code><a href="optimal_binning_numerical_jedi.html">optimal_binning_numerical_jedi()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Numerical Binning JEDI (Joint Entropy-Driven Interval Discretization)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_jedi_mwoe.html">optimal_binning_numerical_jedi_mwoe()</a></code>
+          <code><a href="required_pkgs.step_obwoe.html">required_pkgs(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Numerical Binning JEDI M-WOE (Multinomial Weight of Evidence)</dd>
-      </dl><dl><dt>
+        <dd>Required Packages for step_obwoe</dd>
 
-          <code><a href="optimal_binning_numerical_kmb.html">optimal_binning_numerical_kmb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using K-means Binning (KMB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_ldb.html">optimal_binning_numerical_ldb()</a></code>
+          <code><a href="step_obwoe.html">step_obwoe()</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using Local Density Binning (LDB)</dd>
-      </dl><dl><dt>
+        <dd>Optimal Binning and WoE Transformation Step</dd>
 
-          <code><a href="optimal_binning_numerical_lpdb.html">optimal_binning_numerical_lpdb()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Local Polynomial Density Binning (LPDB)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_mblp.html">optimal_binning_numerical_mblp()</a></code>
+          <code><a href="summary.obwoe.html">summary(<i>&lt;obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming (MBLP)</dd>
-      </dl><dl><dt>
+        <dd>Summary Method for obwoe Objects</dd>
 
-          <code><a href="optimal_binning_numerical_mdlp.html">optimal_binning_numerical_mdlp()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Features using the Minimum Description Length Principle (MDLP)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_mob.html">optimal_binning_numerical_mob()</a></code>
+          <code><a href="tidy.step_obwoe.html">tidy(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Features using Monotonic Optimal Binning (MOB)</dd>
-      </dl><dl><dt>
+        <dd>Tidy Method for step_obwoe</dd>
 
-          <code><a href="optimal_binning_numerical_mrblp.html">optimal_binning_numerical_mrblp()</a></code>
+        <dt>
 
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Monotonic Risk Binning with Likelihood Ratio Pre-binning (MRBLP)</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_oslp.html">optimal_binning_numerical_oslp()</a></code>
+          <code><a href="tunable.step_obwoe.html">tunable(<i>&lt;step_obwoe&gt;</i>)</a></code>
 
         </dt>
-        <dd>Optimal Binning for Numerical Variables using OSLP</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_sketch.html">optimal_binning_numerical_sketch()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Sketch-based Algorithm</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_ubsd.html">optimal_binning_numerical_ubsd()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Unsupervised Binning with Standard Deviation</dd>
-      </dl><dl><dt>
-
-          <code><a href="optimal_binning_numerical_udt.html">optimal_binning_numerical_udt()</a></code>
-
-        </dt>
-        <dd>Optimal Binning for Numerical Variables using Unsupervised Decision Trees</dd>
-      </dl><dl><dt>
-
-          <code><a href="predict.oblr.html">predict(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Predict Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.oblr.html">print(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="print.summary.oblr.html">print(<i>&lt;summary.oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print Method for summary.oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="residuals.oblr.html">residuals(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Residuals Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="summary.oblr.html">summary(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Summary Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="update.oblr.html">update(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Update Method for oblr Objects</dd>
-      </dl><dl><dt>
-
-          <code><a href="vcov.oblr.html">vcov(<i>&lt;oblr&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Variance-Covariance Matrix Method for oblr Objects</dd>
+        <dd>Tunable Parameters for step_obwoe</dd>
       </dl></div>
   </main></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Lopes J. E.</p>
+  <p>Developed by José Evandeilton Lopes.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>
