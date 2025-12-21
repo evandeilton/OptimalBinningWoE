@@ -219,12 +219,16 @@ credit_data <- data.frame(
   age = rnorm(500, 45, 12),
   income = exp(rnorm(500, 10, 0.6)),
   employment = sample(c("Employed", "Self-Employed", "Unemployed"),
-                      500, replace = TRUE, prob = c(0.7, 0.2, 0.1)),
+    500,
+    replace = TRUE, prob = c(0.7, 0.2, 0.1)
+  ),
   education = factor(c("HighSchool", "Bachelor", "Master", "PhD")[
     sample(1:4, 500, replace = TRUE, prob = c(0.3, 0.4, 0.2, 0.1))
   ]),
-  default = factor(rbinom(500, 1, 0.15), levels = c(0, 1),
-                   labels = c("No", "Yes"))
+  default = factor(rbinom(500, 1, 0.15),
+    levels = c(0, 1),
+    labels = c("No", "Yes")
+  )
 )
 
 # Example 1: Basic usage with automatic algorithm selection
@@ -241,16 +245,18 @@ tidy(rec_prepped, number = 1)
 # Example 2: Numerical-only algorithm on numeric predictors
 rec_mdlp <- recipe(default ~ age + income, data = credit_data) \%>\%
   step_obwoe(all_numeric_predictors(),
-             outcome = "default",
-             algorithm = "mdlp",
-             min_bins = 3,
-             max_bins = 6)
+    outcome = "default",
+    algorithm = "mdlp",
+    min_bins = 3,
+    max_bins = 6
+  )
 
 # Example 3: Output both bins and WoE
 rec_both <- recipe(default ~ age, data = credit_data) \%>\%
   step_obwoe(age,
-             outcome = "default",
-             output = "both")
+    outcome = "default",
+    output = "both"
+  )
 
 baked_both <- bake(prep(rec_both), new_data = NULL)
 names(baked_both)
@@ -259,11 +265,14 @@ names(baked_both)
 # Example 4: Custom control parameters
 rec_custom <- recipe(default ~ ., data = credit_data) \%>\%
   step_obwoe(all_predictors(),
-             outcome = "default",
-             algorithm = "mob",
-             bin_cutoff = 0.03,
-             control = list(max_n_prebins = 30,
-                            convergence_threshold = 1e-8))
+    outcome = "default",
+    algorithm = "mob",
+    bin_cutoff = 0.03,
+    control = list(
+      max_n_prebins = 30,
+      convergence_threshold = 1e-8
+    )
+  )
 
 # Example 5: Tuning specification (for use with tune package)
 # rec_tune <- recipe(default ~ ., data = credit_data) \%>\%
