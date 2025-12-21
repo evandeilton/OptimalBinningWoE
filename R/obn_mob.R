@@ -1,0 +1,382 @@
+#' @title Optimal Binning for Numerical Features using Monotonic Optimal Binning
+#'
+#' @description
+#' Implements Monotonic Optimal Binning (MOB), a supervised discretization algorithm
+#' that enforces strict monotonicity in Weight of Evidence (WoE) values. MOB is
+#' designed for credit scoring and risk modeling applications where monotonicity is
+#' a \strong{regulatory requirement} or essential for model interpretability and
+#' stakeholder acceptance.
+#'
+#' Unlike heuristic methods that treat monotonicity as a post-processing step, MOB
+#' integrates monotonicity constraints into the core optimization loop, ensuring
+#' that the final binning satisfies: \eqn{\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le \text{WoE}_k}
+#' (or the reverse for decreasing patterns).
+#'
+#' @param feature Numeric vector of feature values to be binned. Missing values (NA)
+#'   are automatically removed during preprocessing. Infinite values trigger a warning
+#'   but are handled internally.
+#' @param target Integer vector of binary target values (must contain only 0 and 1).
+#'   Must have the same length as \code{feature}.
+#' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
+#'   Acts as a hard constraint during monotonicity enforcement; the algorithm will not
+#'   merge below this threshold even if violations persist.
+#' @param max_bins Maximum number of bins to generate (default: 5). Must be greater
+#'   than or equal to \code{min_bins}. The algorithm reduces bins via greedy merging
+#'   if the initial count exceeds this limit.
+#' @param bin_cutoff Minimum fraction of total observations required in each bin
+#'   (default: 0.05). Bins with frequency below this threshold are merged with adjacent
+#'   bins. Must be in the range (0, 1).
+#' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
+#'   Controls granularity of initial equal-frequency discretization. Must be at least
+#'   equal to \code{min_bins}.
+#' @param convergence_threshold Convergence threshold for iterative optimization
+#'   (default: 1e-6). Reserved for future extensions; current implementation uses
+#'   \code{max_iterations} as the primary stopping criterion.
+#' @param max_iterations Maximum number of iterations for bin merging and monotonicity
+#'   enforcement (default: 1000). Prevents infinite loops in pathological cases. A
+#'   warning is issued if this limit is reached without achieving convergence.
+#' @param laplace_smoothing Laplace smoothing parameter for WoE calculation (default: 0.5).
+#'   Prevents division by zero and stabilizes WoE estimates in bins with zero counts
+#'   for one class. Must be non-negative. Standard values: 0.5 (Laplace), 1.0 (Jeffreys prior).
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{id}{Integer vector of bin identifiers (1-based indexing).}
+#'   \item{bin}{Character vector of bin intervals in the format \code{"[lower;upper)"}.
+#'     The first bin starts with \code{-Inf} and the last bin ends with \code{+Inf}.}
+#'   \item{woe}{Numeric vector of Weight of Evidence values for each bin. Guaranteed
+#'     to be monotonic (either non-decreasing or non-increasing).}
+#'   \item{iv}{Numeric vector of Information Value contributions for each bin.}
+#'   \item{count}{Integer vector of total observations in each bin.}
+#'   \item{count_pos}{Integer vector of positive class (target = 1) counts per bin.}
+#'   \item{count_neg}{Integer vector of negative class (target = 0) counts per bin.}
+#'   \item{event_rate}{Numeric vector of event rates (proportion of positives) per bin.}
+#'   \item{cutpoints}{Numeric vector of cutpoints defining bin boundaries (excluding
+#'     -Inf and +Inf). These are the upper bounds of bins 1 to k-1.}
+#'   \item{total_iv}{Numeric scalar representing the total Information Value (sum of
+#'     all bin IVs).}
+#'   \item{converged}{Logical flag indicating whether the algorithm converged within
+#'     \code{max_iterations}. \code{FALSE} indicates the iteration limit was reached
+#'     during rare bin merging or monotonicity enforcement.}
+#'   \item{iterations}{Integer count of iterations performed across all optimization
+#'     phases (rare bin merging + monotonicity enforcement + bin reduction).}
+#' }
+#'
+#' @details
+#' \strong{Algorithm Overview}
+#'
+#' The MOB algorithm executes in five sequential phases with strict monotonicity
+#' enforcement integrated throughout:
+#'
+#' \strong{Phase 1: Equal-Frequency Pre-binning}
+#'
+#' Initial bins are created by dividing sorted data into approximately equal-sized
+#' groups:
+#'
+#' \deqn{n_{\text{bin}} = \left\lfloor \frac{N}{\min(\text{max\_n\_prebins}, n_{\text{unique}})} \right\rfloor}
+#'
+#' Bin boundaries are set to feature values at split points, ensuring no gaps between
+#' consecutive bins. First and last boundaries are set to \eqn{-\infty} and \eqn{+\infty}.
+#'
+#' This approach balances statistical stability (sufficient observations per bin) with
+#' granularity (ability to detect local patterns).
+#'
+#' \strong{Phase 2: Rare Bin Merging}
+#'
+#' Bins with total count below \code{bin_cutoff} \eqn{\times N} are iteratively merged.
+#' The merge direction (left or right) is chosen to minimize Information Value loss:
+#'
+#' \deqn{\text{direction} = \arg\min_{d \in \{\text{left}, \text{right}\}} \left( \text{IV}_{\text{before}} - \text{IV}_{\text{after merge}} \right)}
+#'
+#' where:
+#' \deqn{\text{IV}_{\text{before}} = \text{IV}_i + \text{IV}_{i+d}}
+#' \deqn{\text{IV}_{\text{after}} = (\text{DistGood}_{\text{merged}} - \text{DistBad}_{\text{merged}}) \times \text{WoE}_{\text{merged}}}
+#'
+#' Merging continues until all bins meet the frequency threshold or \code{min_bins}
+#' is reached.
+#'
+#' \strong{Phase 3: Initial WoE/IV Calculation}
+#'
+#' Weight of Evidence for each bin \eqn{i} is computed with Laplace smoothing:
+#'
+#' \deqn{\text{WoE}_i = \ln\left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} \bigg/ \frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right)}
+#'
+#' where \eqn{\alpha = \text{laplace\_smoothing}} and \eqn{k} is the current number
+#' of bins. Information Value is:
+#'
+#' \deqn{\text{IV}_i = \left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} - \frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right) \times \text{WoE}_i}
+#'
+#' \strong{Edge case handling}:
+#' \itemize{
+#'   \item If both distributions approach zero: \eqn{\text{WoE}_i = 0}
+#'   \item If only positive distribution is zero: \eqn{\text{WoE}_i = -20} (capped)
+#'   \item If only negative distribution is zero: \eqn{\text{WoE}_i = +20} (capped)
+#' }
+#'
+#' \strong{Phase 4: Monotonicity Enforcement}
+#'
+#' The algorithm first determines the desired monotonicity direction by examining the
+#' relationship between the first two bins:
+#'
+#' \deqn{\text{should\_increase} = \begin{cases} \text{TRUE} & \text{if } \text{WoE}_1 \ge \text{WoE}_0 \\ \text{FALSE} & \text{otherwise} \end{cases}}
+#'
+#' For each bin \eqn{i} from 1 to \eqn{k-1}, violations are detected as:
+#'
+#' \deqn{\text{violation} = \begin{cases} \text{WoE}_i < \text{WoE}_{i-1} & \text{if should\_increase} \\ \text{WoE}_i > \text{WoE}_{i-1} & \text{if } \neg\text{should\_increase} \end{cases}}
+#'
+#' When a violation is found at index \eqn{i}, the algorithm attempts two merge strategies:
+#'
+#' \enumerate{
+#'   \item \strong{Merge with previous bin}: Combine bins \eqn{i-1} and \eqn{i}, then
+#'     verify the merged bin's WoE is compatible with neighbors:
+#'     \deqn{\text{WoE}_{i-2} \le \text{WoE}_{\text{merged}} \le \text{WoE}_{i+1} \quad \text{(if should\_increase)}}
+#'   \item \strong{Merge with next bin}: If strategy 1 fails, merge bins \eqn{i} and \eqn{i+1}.
+#' }
+#'
+#' Merging continues iteratively until either:
+#' \itemize{
+#'   \item All WoE values satisfy monotonicity constraints
+#'   \item The number of bins reaches \code{min_bins}
+#'   \item \code{max_iterations} is exceeded (triggers warning)
+#' }
+#'
+#' After each merge, WoE and IV are recalculated for all bins to reflect updated
+#' distributions.
+#'
+#' \strong{Phase 5: Bin Count Reduction}
+#'
+#' If the number of bins exceeds \code{max_bins} after monotonicity enforcement,
+#' additional merges are performed. The algorithm identifies the pair of adjacent bins
+#' that minimizes IV loss when merged:
+#'
+#' \deqn{\text{merge\_idx} = \arg\min_{i=0}^{k-2} \left( \text{IV}_i + \text{IV}_{i+1} - \text{IV}_{\text{merged}} \right)}
+#'
+#' This greedy approach continues until \eqn{k \le \text{max\_bins}}.
+#'
+#' \strong{Theoretical Foundations}
+#'
+#' \itemize{
+#'   \item \strong{Monotonicity as Stability Criterion}: Zeng (2014) proves that
+#'     non-monotonic WoE patterns are unstable under population drift, leading to
+#'     unreliable predictions when the data distribution shifts.
+#'   \item \strong{Regulatory Compliance}: Basel II/III validation requirements
+#'     (BCBS, 2005) explicitly require monotonic relationships between risk drivers
+#'     and probability of default for IRB models.
+#'   \item \strong{Information Preservation}: While enforcing monotonicity reduces
+#'     model flexibility, Mironchyk & Tchistiakov (2017) demonstrate that the IV
+#'     loss is typically < 5\% compared to unconstrained binning for real credit
+#'     portfolios.
+#' }
+#'
+#' \strong{Comparison with Related Methods}
+#'
+#' \tabular{llll}{
+#'   \strong{Method} \tab \strong{Monotonicity} \tab \strong{Enforcement} \tab \strong{Use Case} \cr
+#'   MOB \tab Guaranteed \tab During optimization \tab Regulatory scorecards \cr
+#'   MBLP \tab Target \tab Iterative post-process \tab General credit models \cr
+#'   MDLP \tab Optional \tab Post-hoc merging \tab Exploratory analysis \cr
+#'   LDB \tab Optional \tab Post-hoc merging \tab Research/prototyping \cr
+#' }
+#'
+#' \strong{Computational Complexity}
+#'
+#' \itemize{
+#'   \item Sorting: \eqn{O(N \log N)}
+#'   \item Pre-binning: \eqn{O(N)}
+#'   \item Rare bin merging: \eqn{O(k^2 \times I_{\text{rare}})} where \eqn{I_{\text{rare}}}
+#'     is the number of rare bins
+#'   \item Monotonicity enforcement: \eqn{O(k^2 \times I_{\text{mono}})} where
+#'     \eqn{I_{\text{mono}}} is the number of violations (worst case: \eqn{O(k)})
+#'   \item Bin reduction: \eqn{O(k \times (k_{\text{initial}} - \text{max\_bins}))}
+#'   \item Total: \eqn{O(N \log N + k^2 \times \text{max\_iterations})}
+#' }
+#'
+#' For typical credit scoring datasets (\eqn{N \sim 10^5}, \eqn{k \sim 5}), runtime
+#' is dominated by sorting. Pathological cases (e.g., perfectly alternating WoE values)
+#' may require \eqn{O(k^2)} merges.
+#'
+#' @references
+#' \itemize{
+#'   \item Mironchyk, P., & Tchistiakov, V. (2017). "Monotone optimal binning algorithm
+#'     for credit risk modeling". \emph{Frontiers in Applied Mathematics and Statistics},
+#'     3, 2.
+#'   \item Zeng, G. (2014). "A Necessary Condition for a Good Binning Algorithm in
+#'     Credit Scoring". \emph{Applied Mathematical Sciences}, 8(65), 3229-3242.
+#'   \item Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). \emph{Credit Scoring
+#'     and Its Applications}. SIAM.
+#'   \item Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing
+#'     Intelligent Credit Scoring}. Wiley.
+#'   \item Basel Committee on Banking Supervision (2005). "Studies on the Validation
+#'     of Internal Rating Systems". \emph{Bank for International Settlements Working
+#'     Paper No. 14}.
+#'   \item Naeem, B., Huda, N., & Aziz, A. (2013). "Developing Scorecards with
+#'     Constrained Logistic Regression". \emph{Proceedings of the International Workshop
+#'     on Data Mining Applications}.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Simulate non-monotonic credit scoring data
+#' set.seed(42)
+#' n <- 12000
+#'
+#' # Create feature with inherent monotonic relationship + noise
+#' feature <- c(
+#'   rnorm(4000, mean = 600, sd = 50), # Low scores (high risk)
+#'   rnorm(5000, mean = 680, sd = 45), # Medium scores
+#'   rnorm(3000, mean = 740, sd = 35) # High scores (low risk)
+#' )
+#'
+#' target <- c(
+#'   rbinom(4000, 1, 0.25), # 25% default
+#'   rbinom(5000, 1, 0.10), # 10% default
+#'   rbinom(3000, 1, 0.03) # 3% default
+#' )
+#'
+#' # Apply MOB
+#' result <- ob_numerical_mob(
+#'   feature = feature,
+#'   target = target,
+#'   min_bins = 3,
+#'   max_bins = 5,
+#'   bin_cutoff = 0.05,
+#'   max_n_prebins = 20
+#' )
+#'
+#' # Verify monotonicity
+#' print(result$woe)
+#' stopifnot(all(diff(result$woe) >= -1e-10)) # Non-decreasing WoE
+#'
+#' # Inspect binning quality
+#' binning_table <- data.frame(
+#'   Bin = result$bin,
+#'   WoE = round(result$woe, 4),
+#'   IV = round(result$iv, 4),
+#'   Count = result$count,
+#'   EventRate = round(result$event_rate, 4)
+#' )
+#' print(binning_table)
+#'
+#' cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
+#' cat(sprintf(
+#'   "Converged: %s (iterations: %d)\n",
+#'   result$converged, result$iterations
+#' ))
+#'
+#' # Compare with different smoothing
+#' result_no_smooth <- ob_numerical_mob(
+#'   feature = feature,
+#'   target = target,
+#'   laplace_smoothing = 0.0 # No smoothing (risky)
+#' )
+#'
+#' # Check impact on extreme bins
+#' data.frame(
+#'   Bin = seq_along(result$woe),
+#'   WoE_smoothed = result$woe,
+#'   WoE_raw = result_no_smooth$woe,
+#'   Diff = abs(result$woe - result_no_smooth$woe)
+#' )
+#'
+#' # Visualize monotonic pattern
+#' par(mfrow = c(1, 2))
+#'
+#' # WoE monotonicity
+#' plot(result$woe,
+#'   type = "b", col = "darkgreen", pch = 19, lwd = 2,
+#'   xlab = "Bin", ylab = "WoE",
+#'   main = "Guaranteed Monotonic WoE"
+#' )
+#' grid()
+#'
+#' # Event rate vs WoE relationship
+#' plot(result$event_rate, result$woe,
+#'   pch = 19, col = "steelblue",
+#'   xlab = "Event Rate", ylab = "WoE",
+#'   main = "WoE vs Event Rate"
+#' )
+#' abline(lm(result$woe ~ result$event_rate), col = "red", lwd = 2)
+#' grid()
+#' }
+#'
+#' @author
+#' Lopes, J. E. (algorithm implementation based on Mironchyk & Tchistiakov, 2017)
+#'
+#' @seealso
+#' \code{\link{ob_numerical_mblp}} for monotonicity-targeted binning with correlation-based
+#' direction detection,
+#' \code{\link{ob_numerical_mdlp}} for information-theoretic binning without monotonicity
+#' constraints.
+#'
+#' @export
+ob_numerical_mob <- function(feature,
+                             target,
+                             min_bins = 3,
+                             max_bins = 5,
+                             bin_cutoff = 0.05,
+                             max_n_prebins = 20,
+                             convergence_threshold = 1e-6,
+                             max_iterations = 1000,
+                             laplace_smoothing = 0.5) {
+  if (!is.numeric(feature)) {
+    stop("Feature must be a numeric vector.")
+  }
+
+  if (!is.vector(target) || !(is.integer(target) || is.numeric(target))) {
+    stop("Target must be an integer or numeric vector.")
+  }
+
+  if (length(feature) != length(target)) {
+    stop("Feature and target must have the same length.")
+  }
+
+  feature <- as.numeric(feature)
+  target <- as.integer(target)
+
+  unique_target <- unique(target[!is.na(target)])
+  if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
+    stop("Target must contain exactly two classes: 0 and 1.")
+  }
+
+  if (min_bins < 2L) {
+    stop("min_bins must be at least 2.")
+  }
+
+  if (max_bins < min_bins) {
+    stop("max_bins must be greater than or equal to min_bins.")
+  }
+
+  if (bin_cutoff <= 0 || bin_cutoff >= 1) {
+    stop("bin_cutoff must be in the range (0, 1).")
+  }
+
+  if (max_n_prebins < min_bins) {
+    stop("max_n_prebins must be at least equal to min_bins.")
+  }
+
+  if (max_iterations < 1L) {
+    stop("max_iterations must be at least 1.")
+  }
+
+  if (laplace_smoothing < 0) {
+    stop("laplace_smoothing must be non-negative.")
+  }
+
+  result <- .Call(
+    "_OptimalBinningWoE_optimal_binning_numerical_mob",
+    target,
+    feature,
+    as.integer(min_bins),
+    as.integer(max_bins),
+    as.numeric(bin_cutoff),
+    as.integer(max_n_prebins),
+    as.numeric(convergence_threshold),
+    as.integer(max_iterations),
+    as.numeric(laplace_smoothing),
+    PACKAGE = "OptimalBinningWoE"
+  )
+
+  class(result) <- c("OptimalBinningMOB", "OptimalBinning", "list")
+
+  return(result)
+}

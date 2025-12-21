@@ -1,0 +1,192 @@
+#' Optimal Binning for Categorical Variables using Sketch-based Algorithm
+#'
+#' This function performs optimal binning for categorical variables using a
+#' Sketch-based algorithm designed for large-scale data processing. It employs
+#' probabilistic data structures (Count-Min Sketch) to efficiently estimate
+#' category frequencies and event rates, enabling near real-time binning on
+#' massive datasets.
+#'
+#' The Sketch-based algorithm follows these steps:
+#' \enumerate{
+#'   \item \strong{Frequency Estimation}: Uses Count-Min Sketch to approximate
+#'         the frequency of each category in a single data pass.
+#'   \item \strong{Heavy Hitter Detection}: Identifies frequently occurring
+#'         categories (above a threshold defined by \code{bin_cutoff}) using
+#'         sketch estimates.
+#'   \item \strong{Pre-binning}: Creates initial bins from detected heavy
+#'         categories, grouping rare categories separately.
+#'   \item \strong{Optimization}: Applies iterative merging based on
+#'         statistical divergence measures to optimize Information Value (IV)
+#'         while respecting bin count constraints (\code{min_bins},
+#'         \code{max_bins}).
+#'   \item \strong{Monotonicity Enforcement}: Ensures the final binning has
+#'         monotonic Weight of Evidence (WoE).
+#' }
+#'
+#' Key advantages of this approach:
+#' \itemize{
+#'   \item \strong{Memory Efficiency}: Uses sub-linear space complexity,
+#'         independent of dataset size.
+#'   \item \strong{Speed}: Single-pass algorithm with constant-time updates.
+#'   \item \strong{Scalability}: Suitable for streaming data or datasets too
+#'         large to fit in memory.
+#'   \item \strong{Approximation}: Trades perfect accuracy for significant
+#'         gains in speed and memory usage.
+#' }
+#'
+#' Mathematical concepts:
+#'
+#' The Count-Min Sketch uses multiple hash functions to map items to counters:
+#' \deqn{CMS[i][h_i(x)] += 1 \quad \forall i \in \{1,\ldots,d\}}{
+#' CMS[i][h_i(x)] += 1 for all i in {1,...,d}}
+#' where \eqn{d} is the sketch depth and \eqn{w} is the sketch width.
+#'
+#' Frequency estimates are obtained by taking the minimum across all counters:
+#' \deqn{\hat{f}(x) = \min_{i} CMS[i][h_i(x)]}{
+#' f_hat(x) = min_i CMS[i][h_i(x)]}
+#'
+#' Statistical divergence between bins is measured using Jensen-Shannon
+#' divergence:
+#' \deqn{JSD(P||Q) = \frac{1}{2} \left[ KL(P||M) + KL(Q||M) \right]}{
+#' JSD(P||Q) = (1/2) * [KL(P||M) + KL(Q||M)]}
+#' where \eqn{M = \frac{1}{2}(P+Q)} and \eqn{KL} is the Kullback-Leibler
+#' divergence.
+#'
+#' Laplace smoothing is applied to WoE and IV calculations:
+#' \deqn{p_{smoothed} = \frac{count + \alpha}{total + 2\alpha}}{
+#' p_smoothed = (count + alpha) / (total + 2*alpha)}
+#'
+#' @param feature A character vector or factor representing the categorical
+#'   predictor variable. Missing values (NA) will be converted to the string
+#'   "N/A" and treated as a separate category.
+#' @param target An integer vector containing binary outcome values (0 or 1).
+#'   Must be the same length as \code{feature}. Cannot contain missing values.
+#' @param min_bins Integer. Minimum number of bins to create. Must be at least
+#'   2. Default is 3.
+#' @param max_bins Integer. Maximum number of bins to create. Must be greater
+#'   than or equal to \code{min_bins}. Default is 5.
+#' @param bin_cutoff Numeric. Minimum relative frequency threshold for
+#'   categories to be considered "heavy hitters". Categories below this
+#'   proportion will be grouped together. Value must be between 0 and 1.
+#'   Default is 0.05 (5\%).
+#' @param max_n_prebins Integer. Maximum number of initial bins created during
+#'   pre-binning phase. Controls early-stage complexity. Default is 20.
+#' @param bin_separator Character string used to separate category names when
+#'   multiple categories are merged into a single bin. Default is "\%;\%".
+#' @param convergence_threshold Numeric. Threshold for determining algorithm
+#'   convergence based on changes in total Information Value. Default is 1e-6.
+#' @param max_iterations Integer. Maximum number of iterations for the
+#'   optimization process. Default is 1000.
+#' @param sketch_width Integer. Width of the Count-Min Sketch (number of
+#'   counters per hash function). Larger values reduce estimation error but
+#'   increase memory usage. Must be >= 100. Default is 2000.
+#' @param sketch_depth Integer. Depth of the Count-Min Sketch (number of hash
+#'   functions). Larger values reduce collision probability but increase
+#'   computational overhead. Must be >= 3. Default is 5.
+#'
+#' @return A list containing the results of the optimal binning procedure:
+#' \describe{
+#'   \item{\code{id}}{Numeric vector of bin identifiers (1 to n_bins)}
+#'   \item{\code{bin}}{Character vector of bin labels, which are combinations
+#'         of original categories separated by \code{bin_separator}}
+#'   \item{\code{woe}}{Numeric vector of Weight of Evidence values for each bin}
+#'   \item{\code{iv}}{Numeric vector of Information Values for each bin}
+#'   \item{\code{count}}{Integer vector of total observations in each bin}
+#'   \item{\code{count_pos}}{Integer vector of positive outcomes in each bin}
+#'   \item{\code{count_neg}}{Integer vector of negative outcomes in each bin}
+#'   \item{\code{event_rate}}{Numeric vector of the observed event rate in each bin}
+#'   \item{\code{total_iv}}{Numeric scalar. Total Information Value across all
+#'         bins}
+#'   \item{\code{converged}}{Logical. Whether the algorithm converged}
+#'   \item{\code{iterations}}{Integer. Number of iterations performed}
+#' }
+#'
+#' @note
+#' \itemize{
+#'   \item Target variable must contain both 0 and 1 values.
+#'   \item Due to the probabilistic nature of sketches, results may vary
+#'         slightly between runs. For deterministic results, consider setting
+#'         fixed random seeds in the underlying C++ code.
+#'   \item Accuracy of frequency estimates depends on \code{sketch_width} and
+#'         \code{sketch_depth}. Increase these parameters for higher precision
+#'         at the cost of memory/computation.
+#'   \item This algorithm is particularly beneficial when dealing with
+#'         high-cardinality categorical features or streaming data scenarios.
+#'   \item For small to medium datasets, deterministic algorithms like SBLP
+#'         or MOB may provide more accurate results.
+#' }
+#'
+#' @references
+#' Cormode, G., & Muthukrishnan, S. (2005). An improved data stream summary:
+#' the count-min sketch and its applications. Journal of Algorithms, 55(1), 58-75.
+#'
+#' Lin, J., & Keogh, E., Wei, L., & Lonardi, S. (2007). Experiencing SAX:
+#' a novel symbolic representation of time series. Data Mining and Knowledge
+#' Discovery, 15(2), 107-144.
+#'
+#' @examples
+#' # Generate sample data
+#' set.seed(123)
+#' n <- 10000
+#' feature <- sample(letters, n, replace = TRUE, prob = c(rep(0.04, 13), rep(0.02, 13)))
+#' # Create a relationship where early letters have higher probability
+#' target_probs <- ifelse(as.numeric(factor(feature)) <= 10, 0.7, 0.3)
+#' target <- rbinom(n, 1, prob = target_probs)
+#'
+#' # Perform sketch-based optimal binning
+#' result <- ob_categorical_sketch(feature, target)
+#' print(result[c("bin", "woe", "iv", "count")])
+#'
+#' # With custom sketch parameters for higher accuracy
+#' result_high_acc <- ob_categorical_sketch(
+#'   feature = feature,
+#'   target = target,
+#'   min_bins = 3,
+#'   max_bins = 7,
+#'   sketch_width = 4000,
+#'   sketch_depth = 7
+#' )
+#'
+#' # Handling missing values
+#' feature_with_na <- feature
+#' feature_with_na[sample(length(feature_with_na), 200)] <- NA
+#' result_na <- ob_categorical_sketch(feature_with_na, target)
+#' @export
+ob_categorical_sketch <- function(feature,
+                                  target,
+                                  min_bins = 3L,
+                                  max_bins = 5L,
+                                  bin_cutoff = 0.05,
+                                  max_n_prebins = 20L,
+                                  bin_separator = "%;%",
+                                  convergence_threshold = 1e-6,
+                                  max_iterations = 1000L,
+                                  sketch_width = 2000L,
+                                  sketch_depth = 5L) {
+  # Input validation and conversion
+  if (!is.character(feature)) {
+    feature <- as.character(feature)
+  }
+
+  # Convert NA values to special string to ensure they are handled as a category
+  feature[is.na(feature)] <- "N/A"
+
+  # Ensure target is integer
+  target <- as.integer(target)
+
+  # Call the C++ implementation
+  .Call("_OptimalBinningWoE_optimal_binning_categorical_sketch",
+    target = target,
+    feature = feature,
+    min_bins = as.integer(min_bins),
+    max_bins = as.integer(max_bins),
+    bin_cutoff = bin_cutoff,
+    max_n_prebins = as.integer(max_n_prebins),
+    bin_separator = bin_separator,
+    convergence_threshold = convergence_threshold,
+    max_iterations = as.integer(max_iterations),
+    sketch_width = as.integer(sketch_width),
+    sketch_depth = as.integer(sketch_depth),
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

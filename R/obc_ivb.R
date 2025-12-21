@@ -1,0 +1,259 @@
+#' Optimal Binning for Categorical Variables using Information Value Dynamic Programming
+#'
+#' Performs supervised discretization of categorical variables using a dynamic
+#' programming algorithm specifically designed to maximize total Information
+#' Value (IV). This implementation employs Bayesian smoothing for numerical
+#' stability, maintains monotonic Weight of Evidence constraints, and uses
+#' efficient caching strategies for optimal performance with high-cardinality
+#' features.
+#'
+#' @param feature A character vector or factor representing the categorical
+#'   predictor variable to be binned. Missing values are automatically
+#'   converted to the category \code{"NA"}.
+#' @param target An integer vector of binary outcomes (0/1) corresponding
+#'   to each observation in \code{feature}. Missing values are not permitted.
+#' @param min_bins Integer. Minimum number of bins to produce. Must be >= 2.
+#'   The algorithm searches for solutions within [\code{min_bins}, \code{max_bins}]
+#'   that maximize total IV. Defaults to 3.
+#' @param max_bins Integer. Maximum number of bins to produce. Must be >=
+#'   \code{min_bins}. Defines the upper bound of the search space. Defaults to 5.
+#' @param bin_cutoff Numeric. Minimum proportion of total observations required
+#'   for a category to remain separate. Categories below this threshold are
+#'   pre-merged before the optimization phase. Must be in (0, 1). Defaults to 0.05.
+#' @param max_n_prebins Integer. Maximum number of initial bins before dynamic
+#'   programming optimization. Controls computational complexity for high-cardinality
+#'   features. Must be >= 2. Defaults to 20.
+#' @param bin_separator Character string used to concatenate category names
+#'   when multiple categories are merged into a single bin. Defaults to "\%;\%".
+#' @param convergence_threshold Numeric. Convergence tolerance for the iterative
+#'   optimization process based on IV change. Algorithm stops when
+#'   \eqn{|\Delta IV| <} \code{convergence_threshold}. Must be > 0. Defaults to 1e-6.
+#' @param max_iterations Integer. Maximum number of optimization iterations.
+#'   Prevents excessive computation. Must be > 0. Defaults to 1000.
+#'
+#' @return A list containing the binning results with the following components:
+#'   \describe{
+#'     \item{\code{id}}{Integer vector of bin identifiers (1-indexed)}
+#'     \item{\code{bin}}{Character vector of bin labels (merged category names)}
+#'     \item{\code{woe}}{Numeric vector of Weight of Evidence values per bin}
+#'     \item{\code{iv}}{Numeric vector of Information Value contribution per bin}
+#'     \item{\code{count}}{Integer vector of total observations per bin}
+#'     \item{\code{count_pos}}{Integer vector of positive cases (target=1) per bin}
+#'     \item{\code{count_neg}}{Integer vector of negative cases (target=0) per bin}
+#'     \item{\code{total_iv}}{Numeric total Information Value of the binning solution}
+#'     \item{\code{converged}}{Logical indicating algorithm convergence}
+#'     \item{\code{iterations}}{Integer count of optimization iterations performed}
+#'   }
+#'
+#' @details
+#' The Information Value Binning (IVB) algorithm uses dynamic programming to
+#' find the globally optimal binning solution that maximizes total IV subject
+#' to constraints on bin count and monotonicity.
+#'
+#' \strong{Algorithm Workflow:}
+#' \enumerate{
+#'   \item Input validation and preprocessing
+#'   \item Single-pass category counting and statistics computation
+#'   \item Rare category pre-merging (frequencies < \code{bin_cutoff})
+#'   \item Pre-bin limitation (if categories > \code{max_n_prebins})
+#'   \item Category sorting by event rate
+#'   \item Cumulative statistics cache initialization
+#'   \item Dynamic programming table computation:
+#'     \itemize{
+#'       \item State: \eqn{DP[i][k]} = max IV using first \eqn{i} categories in \eqn{k} bins
+#'       \item Transition: \eqn{DP[i][k] = \max_j \{DP[j][k-1] + IV(j+1, i)\}}
+#'       \item Banded optimization to skip infeasible splits
+#'     }
+#'   \item Backtracking to reconstruct optimal bins
+#'   \item Adaptive monotonicity enforcement
+#'   \item Final metric computation with Bayesian smoothing
+#' }
+#'
+#' \strong{Dynamic Programming Formulation:}
+#'
+#' Let \eqn{DP[i][k]} represent the maximum total IV achievable using the first
+#' \eqn{i} categories (sorted by event rate) partitioned into \eqn{k} bins.
+#'
+#' \strong{Recurrence relation:}
+#' \deqn{DP[i][k] = \max_{k-1 \leq j < i} \{DP[j][k-1] + IV(j+1, i)\}}
+#'
+#' \strong{Base case:}
+#' \deqn{DP[i][1] = IV(1, i) \quad \forall i}
+#'
+#' where \eqn{IV(j+1, i)} is the Information Value of a bin containing categories
+#' from \eqn{j+1} to \eqn{i}.
+#'
+#' \strong{Bayesian Smoothing:}
+#'
+#' To prevent numerical instability and overfitting with sparse bins, WoE and IV
+#' are calculated using Bayesian smoothing with pseudocounts:
+#'
+#' \deqn{p'_i = \frac{n_{i,pos} + \alpha_p}{N_{pos} + \alpha_{total}}}
+#' \deqn{n'_i = \frac{n_{i,neg} + \alpha_n}{N_{neg} + \alpha_{total}}}
+#'
+#' where \eqn{\alpha_p} and \eqn{\alpha_n} are prior pseudocounts proportional
+#' to the overall event rate, and \eqn{\alpha_{total} = 1.0} (prior strength).
+#'
+#' \deqn{WoE_i = \ln\left(\frac{p'_i}{n'_i}\right)}
+#' \deqn{IV_i = (p'_i - n'_i) \times WoE_i}
+#'
+#' \strong{Adaptive Monotonicity Enforcement:}
+#'
+#' After finding the optimal bins, the algorithm enforces WoE monotonicity by:
+#' \enumerate{
+#'   \item Computing average WoE gap: \eqn{\bar{\Delta} = \frac{1}{k-1}\sum_{i=1}^{k-1}|WoE_{i+1} - WoE_i|}
+#'   \item Setting adaptive threshold: \eqn{\tau = \min(\epsilon, 0.01\bar{\Delta})}
+#'   \item Identifying worst violation: \eqn{i^* = \arg\max_i \{WoE_i - WoE_{i+1}\}}
+#'   \item Evaluating forward and backward merges by IV retention
+#'   \item Selecting merge direction that maximizes total IV
+#' }
+#'
+#' \strong{Computational Complexity:}
+#' \itemize{
+#'   \item Time: \eqn{O(k^2 \cdot n)} where \eqn{k} = max_bins, \eqn{n} = categories
+#'   \item Space: \eqn{O(k \cdot n)} for DP tables and cumulative caches
+#'   \item IV calculations are \eqn{O(1)} due to cumulative statistics caching
+#' }
+#'
+#' \strong{Advantages over Alternative Methods:}
+#' \itemize{
+#'   \item \strong{Global optimality}: Guaranteed maximum IV (within constraint space)
+#'   \item \strong{Bayesian regularization}: Robust to sparse bins and class imbalance
+#'   \item \strong{Efficient caching}: Cumulative stats and IV memoization
+#'   \item \strong{Banded optimization}: Reduced search space via feasibility pruning
+#'   \item \strong{Adaptive monotonicity}: Context-aware threshold for enforcement
+#' }
+#'
+#' \strong{Comparison with Related Methods:}
+#' \itemize{
+#'   \item \strong{vs DP (general)}: IVB specifically optimizes IV; general DP more flexible
+#'   \item \strong{vs GMB}: IVB guarantees optimality; GMB is faster but approximate
+#'   \item \strong{vs ChiMerge}: IVB uses IV criterion; ChiMerge uses chi-square
+#' }
+#'
+#' @references
+#' Navas-Palencia, G. (2020). Optimal binning: mathematical programming
+#' formulation and solution approach. \emph{Expert Systems with Applications},
+#' 158, 113508. \doi{10.1016/j.eswa.2020.113508}
+#'
+#' Bellman, R. (1957). \emph{Dynamic Programming}. Princeton University Press.
+#'
+#' Siddiqi, N. (2017). \emph{Intelligent Credit Scoring: Building and
+#' Implementing Better Credit Risk Scorecards} (2nd ed.). Wiley.
+#'
+#' Good, I. J. (1965). \emph{The Estimation of Probabilities: An Essay on
+#' Modern Bayesian Methods}. MIT Press.
+#'
+#' Anderson, R. (2007). \emph{The Credit Scoring Toolkit: Theory and Practice
+#' for Retail Credit Risk Management and Decision Automation}. Oxford University Press.
+#'
+#' @seealso
+#' \code{\link{ob_categorical_dp}} for general dynamic programming binning,
+#' \code{\link{ob_categorical_gmb}} for greedy merge approximation,
+#' \code{\link{ob_categorical_cm}} for ChiMerge-based binning
+#'
+#' @examples
+#' \donttest{
+#' # Example 1: Basic IV optimization with Bayesian smoothing
+#' set.seed(42)
+#' n_obs <- 1200
+#'
+#' # Simulate industry sectors with varying default risk
+#' industries <- c(
+#'   "Technology", "Healthcare", "Finance", "Manufacturing",
+#'   "Retail", "Energy"
+#' )
+#' default_rates <- c(0.03, 0.05, 0.08, 0.12, 0.18, 0.25)
+#'
+#' cat_feature <- sample(industries, n_obs,
+#'   replace = TRUE,
+#'   prob = c(0.20, 0.18, 0.22, 0.18, 0.12, 0.10)
+#' )
+#' bin_target <- sapply(cat_feature, function(x) {
+#'   rbinom(1, 1, default_rates[which(industries == x)])
+#' })
+#'
+#' # Apply IVB optimization
+#' result_ivb <- ob_categorical_ivb(
+#'   cat_feature,
+#'   bin_target,
+#'   min_bins = 3,
+#'   max_bins = 4
+#' )
+#'
+#' # Display results
+#' print(data.frame(
+#'   Bin = result_ivb$bin,
+#'   WoE = round(result_ivb$woe, 3),
+#'   IV = round(result_ivb$iv, 4),
+#'   Count = result_ivb$count,
+#'   EventRate = round(result_ivb$count_pos / result_ivb$count, 3)
+#' ))
+#'
+#' cat("\nTotal IV (maximized):", round(result_ivb$total_iv, 4), "\n")
+#' cat("Converged:", result_ivb$converged, "\n")
+#' cat("Iterations:", result_ivb$iterations, "\n")
+#'
+#' # Example 2: Comparing IV optimization with other methods
+#' set.seed(123)
+#' n_obs_comp <- 1500
+#'
+#' regions <- c("North", "South", "East", "West", "Central")
+#' cat_feature_comp <- sample(regions, n_obs_comp, replace = TRUE)
+#' bin_target_comp <- rbinom(n_obs_comp, 1, 0.15)
+#'
+#' # IVB (IV-optimized)
+#' result_ivb_comp <- ob_categorical_ivb(
+#'   cat_feature_comp, bin_target_comp,
+#'   min_bins = 2, max_bins = 3
+#' )
+#'
+#' # GMB (greedy approximation)
+#' result_gmb_comp <- ob_categorical_gmb(
+#'   cat_feature_comp, bin_target_comp,
+#'   min_bins = 2, max_bins = 3
+#' )
+#'
+#' # DP (general optimization)
+#' result_dp_comp <- ob_categorical_dp(
+#'   cat_feature_comp, bin_target_comp,
+#'   min_bins = 2, max_bins = 3
+#' )
+#'
+#' cat("\nMethod comparison:\n")
+#' cat("  IVB total IV:", round(result_ivb_comp$total_iv, 4), "\n")
+#' cat("  GMB total IV:", round(result_gmb_comp$total_iv, 4), "\n")
+#' cat("  DP total IV:", round(result_dp_comp$total_iv, 4), "\n")
+#' cat("\nIVB typically achieves highest IV due to explicit optimization\n")
+#' }
+#'
+#' @export
+ob_categorical_ivb <- function(feature, target,
+                               min_bins = 3,
+                               max_bins = 5,
+                               bin_cutoff = 0.05,
+                               max_n_prebins = 20,
+                               bin_separator = "%;%",
+                               convergence_threshold = 1e-6,
+                               max_iterations = 1000) {
+  # Input preprocessing
+  if (!is.character(feature)) {
+    feature <- as.character(feature)
+  }
+  feature[is.na(feature)] <- "NA"
+  target <- as.integer(target)
+
+  # Invoke C++ implementation
+  .Call("_OptimalBinningWoE_optimal_binning_categorical_ivb",
+    target = target,
+    feature = feature,
+    min_bins = as.integer(min_bins),
+    max_bins = as.integer(max_bins),
+    bin_cutoff = bin_cutoff,
+    max_n_prebins = as.integer(max_n_prebins),
+    bin_separator = bin_separator,
+    convergence_threshold = convergence_threshold,
+    max_iterations = as.integer(max_iterations),
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

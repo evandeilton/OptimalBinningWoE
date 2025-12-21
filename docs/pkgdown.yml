@@ -1,0 +1,8 @@
+pandoc: 3.6.3
+pkgdown: 2.1.3
+pkgdown_sha: ~
+articles: {}
+last_built: 2025-12-16T19:53Z
+urls:
+  reference: https://evandeilton.github.io/OptimalBinningWoE/reference
+  article: https://evandeilton.github.io/OptimalBinningWoE/articles

@@ -1,0 +1,171 @@
+#' Optimal Binning for Categorical Variables using Simulated Annealing
+#'
+#' This function performs optimal binning for categorical variables using a
+#' Simulated Annealing (SA) optimization algorithm. It maximizes Information
+#' Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends.
+#'
+#' The SAB (Simulated Annealing Binning) algorithm follows these steps:
+#' \enumerate{
+#'   \item Initialization: Categories are initially assigned to bins using a
+#'         k-means-like strategy based on event rates
+#'   \item Optimization: Simulated annealing explores different bin assignments
+#'         to maximize IV
+#'   \item Neighborhood generation: Multiple strategies are employed to generate
+#'         neighboring solutions (swaps, reassignments, event-rate based moves)
+#'   \item Acceptance criteria: New solutions are accepted based on the
+#'         Metropolis criterion with adaptive temperature control
+#'   \item Monotonicity enforcement: Final solutions are adjusted to ensure
+#'         monotonic WoE trends
+#' }
+#'
+#' Key features include:
+#' \itemize{
+#'   \item Global optimization approach using simulated annealing
+#'   \item Adaptive cooling schedule to balance exploration and exploitation
+#'   \item Multiple neighborhood generation strategies for better search
+#'   \item Bayesian smoothing to stabilize WoE estimates for sparse categories
+#'   \item Guaranteed monotonic WoE trend across final bins
+#'   \item Configurable optimization parameters for fine-tuning
+#' }
+#'
+#' Mathematical definitions:
+#' \deqn{WoE_i = \ln\left(\frac{p_i^{(1)}}{p_i^{(0)}}\right)}{
+#' WoE_i = ln((p_i^(1))/(p_i^(0)))}
+#' where \eqn{p_i^{(1)}}{p_i^(1)} and \eqn{p_i^{(0)}}{p_i^(0)} are the
+#' proportions of positive and negative cases in bin \eqn{i}, respectively,
+#' adjusted using Bayesian smoothing.
+#'
+#' \deqn{IV = \sum_{i=1}^{n} (p_i^{(1)} - p_i^{(0)}) \times WoE_i}{
+#' IV = sum((p_i^(1) - p_i^(0)) * WoE_i)}
+#'
+#' The acceptance probability in simulated annealing is:
+#' \deqn{P(accept) = \exp\left(\frac{IV_{new} - IV_{current}}{T}\right)}{
+#' P(accept) = exp((IV_new - IV_current)/T)}
+#' where \eqn{T} is the current temperature.
+#'
+#' @param feature A character vector or factor representing the categorical
+#'   predictor variable. Missing values (NA) will be converted to the string
+#'   "NA" and treated as a separate category.
+#' @param target An integer vector containing binary outcome values (0 or 1).
+#'   Must be the same length as \code{feature}. Cannot contain missing values.
+#' @param min_bins Integer. Minimum number of bins to create. Must be at least
+#'   2. Default is 3.
+#' @param max_bins Integer. Maximum number of bins to create. Must be greater
+#'   than or equal to \code{min_bins}. Default is 5.
+#' @param bin_cutoff Numeric. Minimum relative frequency threshold for
+#'   individual bins. Bins with frequency below this proportion will be
+#'   penalized. Value must be between 0 and 1. Default is 0.05 (5\%).
+#' @param max_n_prebins Integer. Maximum number of initial categories before
+#'   optimization (not directly used in current implementation). Must be greater
+#'   than or equal to \code{max_bins}. Default is 20.
+#' @param bin_separator Character string used to separate category names when
+#'   multiple categories are merged into a single bin. Default is "\%;\%".
+#' @param initial_temperature Numeric. Starting temperature for the simulated
+#'   annealing algorithm. Higher values allow more exploration. Must be
+#'   positive. Default is 1.0.
+#' @param cooling_rate Numeric. Rate at which temperature decreases during
+#'   optimization. Value must be between 0 and 1. Lower values lead to faster
+#'   cooling. Default is 0.995.
+#' @param max_iterations Integer. Maximum number of iterations for the
+#'   optimization process. Must be positive. Default is 1000.
+#' @param convergence_threshold Numeric. Threshold for determining algorithm
+#'   convergence based on changes in Information Value. Must be positive.
+#'   Default is 1e-6.
+#' @param adaptive_cooling Logical. Whether to use adaptive cooling that
+#'   modifies the cooling rate based on search progress. Default is TRUE.
+#'
+#' @return A list containing the results of the optimal binning procedure:
+#' \describe{
+#'   \item{\code{id}}{Numeric vector of bin identifiers (1 to n_bins)}
+#'   \item{\code{bin}}{Character vector of bin labels, which are combinations
+#'         of original categories separated by \code{bin_separator}}
+#'   \item{\code{woe}}{Numeric vector of Weight of Evidence values for each bin}
+#'   \item{\code{iv}}{Numeric vector of Information Values for each bin}
+#'   \item{\code{count}}{Integer vector of total observations in each bin}
+#'   \item{\code{count_pos}}{Integer vector of positive outcomes in each bin}
+#'   \item{\code{count_neg}}{Integer vector of negative outcomes in each bin}
+#'   \item{\code{total_iv}}{Numeric scalar. Total Information Value across all
+#'         bins}
+#'   \item{\code{converged}}{Logical. Whether the algorithm converged within
+#'         the specified tolerance}
+#'   \item{\code{iterations}}{Integer. Number of iterations performed}
+#' }
+#'
+#' @note
+#' \itemize{
+#'   \item Target variable must contain both 0 and 1 values.
+#'   \item Empty strings in the feature vector are not allowed and will cause
+#'         an error.
+#'   \item For datasets with very few observations in either class (<5),
+#'         warnings will be issued as results may be unstable.
+#'   \item The algorithm uses global optimization which may require more
+#'         computational time compared to heuristic approaches.
+#'   \item When the number of unique categories is less than \code{max_bins},
+#'         each category will form its own bin.
+#' }
+#'
+#' @examples
+#' # Generate sample data
+#' set.seed(123)
+#' n <- 1000
+#' feature <- sample(letters[1:8], n, replace = TRUE)
+#' target <- rbinom(n, 1, prob = ifelse(feature %in% c("a", "b"), 0.7, 0.3))
+#'
+#' # Perform optimal binning
+#' result <- ob_categorical_sab(feature, target)
+#' print(result[c("bin", "woe", "iv", "count")])
+#'
+#' # With custom parameters
+#' result2 <- ob_categorical_sab(
+#'   feature = feature,
+#'   target = target,
+#'   min_bins = 2,
+#'   max_bins = 4,
+#'   initial_temperature = 2.0,
+#'   cooling_rate = 0.99
+#' )
+#'
+#' # Handling missing values
+#' feature_with_na <- feature
+#' feature_with_na[sample(length(feature_with_na), 50)] <- NA
+#' result3 <- ob_categorical_sab(feature_with_na, target)
+#'
+#' @export
+ob_categorical_sab <- function(feature,
+                               target,
+                               min_bins = 3L,
+                               max_bins = 5L,
+                               bin_cutoff = 0.05,
+                               max_n_prebins = 20L,
+                               bin_separator = "%;%",
+                               initial_temperature = 1.0,
+                               cooling_rate = 0.995,
+                               max_iterations = 1000L,
+                               convergence_threshold = 1e-6,
+                               adaptive_cooling = TRUE) {
+  # Input validation and conversion
+  if (!is.character(feature)) {
+    feature <- as.character(feature)
+  }
+
+  # Convert NA values to "NA" string
+  feature[is.na(feature)] <- "NA"
+  target <- as.integer(target)
+
+  # Call the C++ implementation
+  .Call("_OptimalBinningWoE_optimal_binning_categorical_sab",
+    target = target,
+    feature = feature,
+    min_bins = as.integer(min_bins),
+    max_bins = as.integer(max_bins),
+    bin_cutoff = bin_cutoff,
+    max_n_prebins = as.integer(max_n_prebins),
+    bin_separator = bin_separator,
+    initial_temperature = initial_temperature,
+    cooling_rate = cooling_rate,
+    max_iterations = as.integer(max_iterations),
+    convergence_threshold = convergence_threshold,
+    adaptive_cooling = adaptive_cooling,
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

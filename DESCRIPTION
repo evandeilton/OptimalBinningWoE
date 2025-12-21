@@ -1,30 +1,47 @@
 Package: OptimalBinningWoE
-Title: Advanced Feature Binning and Weight of Evidence Calculation for Predictive Modeling
-Version: 0.3.3
-Authors@R: person("Lopes", "J. E", , "evandeilton@gmail.com", role = c("aut", "cre"))
-Description: Implement cutting-edge binning techniques and calculate Weight of Evidence (WoE) for both numerical and categorical variables in predictive modeling tasks. This package offers a comprehensive suite of binning algorithms, including entropy-based, chi-square, genetic algorithms, and dynamic programming approaches. Designed for credit scoring, risk assessment, and general machine learning applications, OptimalBinningWoE enhances feature predictive power while maintaining interpretability. With automatic method selection, robust preprocessing, and support for monotonic binning, it streamlines the feature engineering process for data scientists and analysts working on classification problems.
+Type: Package
+Title: Optimal Binning for Weight of Evidence
+Version: 1.0.0
+Authors@R: c(person(given = "José Evandeilton",
+                    family = "Lopes",
+                    role = c("aut", "cre"),
+                    email = "evandeilton@gmail.com",
+                    comment = c(ORCID = "0009-0007-5887-4084")))
+Description: Implement cutting-edge binning techniques and calculate Weight of 
+    Evidence ('WoE') for both numerical and categorical variables in predictive modeling tasks. 
+    This package offers a comprehensive suite of binning algorithms, including
+    entropy-based, chi-square, genetic algorithms, and dynamic programming approaches.
+    Designed for credit scoring, risk assessment, and general machine learning 
+    applications, 'OptimalBinningWoE' enhances feature predictive power while maintaining 
+    interpretability. With automatic method selection, robust preprocessing, and support
+    for monotonic binning, it streamlines the feature engineering process for data 
+    scientists and analysts working on classification and regression problems.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+LazyData: true
+Imports: 
+    Rcpp (>= 1.0.0),
+    recipes,
+    rlang,
+    tibble,
+    dials
 LinkingTo: 
     Rcpp,
     RcppEigen,
     RcppNumerical
-Imports: 
-    data.table,
-    magrittr,
-    Matrix,
-    pROC,
-    progress,
-    Rcpp,
-    RcppEigen,
-    RcppNumerical,
-    TMB
-Suggests: 
+Suggests:
+    testthat (>= 3.0.0),
+    dplyr,
+    generics,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    tidymodels,
+    workflows,
+    parsnip,
+    pROC,
+    scorecard
 Config/testthat/edition: 3
 URL: https://evandeilton.github.io/OptimalBinningWoE/
+SystemRequirements: C++17
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr

@@ -1,0 +1,161 @@
+#' Optimal Binning for Numerical Variables using Enhanced ChiMerge Algorithm
+#'
+#' Performs supervised discretization of continuous numerical variables using the
+#' ChiMerge algorithm (Kerber, 1992) or the Chi2 algorithm (Liu & Setiono, 1995).
+#' This function merges adjacent bins based on Chi-square statistics to maximize
+#' the discrimination of the binary target variable while ensuring monotonicity
+#' and statistical robustness.
+#'
+#' @param feature A numeric vector representing the continuous predictor variable.
+#'   Missing values (NA) are not supported and should be handled before binning.
+#' @param target An integer vector of binary outcomes (0/1) corresponding to
+#'   each observation in \code{feature}. Must have the same length as \code{feature}.
+#' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
+#'   Defaults to 3.
+#' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}
+#'   \code{min_bins}. Defaults to 5.
+#' @param bin_cutoff Numeric. The minimum fraction of total observations required
+#'   for a bin to be considered valid. Bins with frequency < \code{bin_cutoff}
+#'   will be merged. Value must be in (0, 1). Defaults to 0.05.
+#' @param max_n_prebins Integer. The number of initial bins created during the
+#'   pre-binning phase before the merging process begins. Higher values provide
+#'   more granular starting points. Must be \eqn{\ge} \code{max_bins}.
+#'   Defaults to 20.
+#' @param convergence_threshold Numeric. The threshold for the change in total
+#'   IV to determine convergence during the iterative merging process.
+#'   Defaults to 1e-6.
+#' @param max_iterations Integer. Safety limit for the maximum number of merging
+#'   iterations. Defaults to 1000.
+#' @param init_method Character string specifying the initialization method.
+#'   Options are \code{"equal_frequency"} (quantile-based) or \code{"equal_width"}.
+#'   Defaults to \code{"equal_frequency"}.
+#' @param chi_merge_threshold Numeric. The significance level (\eqn{\alpha}) for
+#'   the Chi-square test. Pairs of bins with a p-value > \code{chi_merge_threshold}
+#'   are candidates for merging. Defaults to 0.05.
+#' @param use_chi2_algorithm Logical. If \code{TRUE}, uses the Chi2 algorithm
+#'   variant which performs multi-phase merging with decreasing significance levels
+#'   (0.5, 0.1, 0.05, 0.01, ...). This is often more robust for noisy data.
+#'   Defaults to \code{FALSE}.
+#'
+#' @return A list containing the binning results:
+#'   \itemize{
+#'     \item \code{id}: Integer vector of bin identifiers (1 to k).
+#'     \item \code{bin}: Character vector of bin labels in interval notation.
+#'     \item \code{woe}: Numeric vector of Weight of Evidence for each bin.
+#'     \item \code{iv}: Numeric vector of Information Value contribution per bin.
+#'     \item \code{count}: Integer vector of total observations per bin.
+#'     \item \code{count_pos}: Integer vector of positive cases (target=1).
+#'     \item \code{count_neg}: Integer vector of negative cases (target=0).
+#'     \item \code{cutpoints}: Numeric vector of upper boundaries (excluding Inf).
+#'     \item \code{converged}: Logical indicating if the algorithm converged.
+#'     \item \code{iterations}: Integer count of iterations performed.
+#'     \item \code{total_iv}: The total Information Value of the binned variable.
+#'     \item \code{algorithm}: String identifying the algorithm used ("ChiMerge" or "Chi2").
+#'     \item \code{monotonic}: Logical indicating if the final WoE trend is monotonic.
+#'   }
+#'
+#' @details
+#' The function implements two major discretization strategies:
+#'
+#' \enumerate{
+#'   \item \strong{Standard ChiMerge:}
+#'   \itemize{
+#'     \item Initializes bins using \code{init_method}.
+#'     \item Iteratively merges adjacent bins with the lowest \eqn{\chi^2} statistic.
+#'     \item Merging continues until all adjacent pairs have a p-value less than
+#'           \code{chi_merge_threshold} or the number of bins reaches \code{max_bins}.
+#'   }
+#'   \item \strong{Chi2 Algorithm:}
+#'   \itemize{
+#'     \item Activated when \code{use_chi2_algorithm = TRUE}.
+#'     \item Performs multiple passes with decreasing significance levels
+#'           (0.5 \eqn{\to} 0.001) to automatically select the optimal significance threshold.
+#'     \item Checks for inconsistency rates in the data during the process.
+#'   }
+#' }
+#'
+#' Both methods include post-processing steps to enforce:
+#' \itemize{
+#'   \item \strong{Minimum Bin Size:} Merging rare bins smaller than \code{bin_cutoff}.
+#'   \item \strong{Monotonicity:} Ensuring WoE trend is strictly increasing or decreasing
+#'         to improve model interpretability.
+#' }
+#'
+#' @references
+#' Kerber, R. (1992). ChiMerge: Discretization of numeric attributes.
+#' \emph{Proceedings of the Tenth National Conference on Artificial Intelligence}, 123-128.
+#'
+#' Liu, H., & Setiono, R. (1995). Chi2: Feature selection and discretization of
+#' numeric attributes. \emph{Tools with Artificial Intelligence}, 388-391.
+#'
+#' @examples
+#' # Example 1: Standard ChiMerge
+#' set.seed(123)
+#' feature <- rnorm(1000)
+#' # Create a target with a relationship to the feature
+#' target <- rbinom(1000, 1, plogis(2 * feature))
+#'
+#' res_cm <- ob_numerical_cm(feature, target,
+#'   min_bins = 3,
+#'   max_bins = 6,
+#'   init_method = "equal_frequency"
+#' )
+#'
+#' print(res_cm$bin)
+#' print(res_cm$iv)
+#'
+#' # Example 2: Using the Chi2 Algorithm variant
+#' res_chi2 <- ob_numerical_cm(feature, target,
+#'   min_bins = 3,
+#'   max_bins = 6,
+#'   use_chi2_algorithm = TRUE
+#' )
+#'
+#' cat("Total IV (ChiMerge):", res_cm$total_iv, "\n")
+#' cat("Total IV (Chi2):", res_chi2$total_iv, "\n")
+#'
+#' @export
+ob_numerical_cm <- function(feature, target, min_bins = 3, max_bins = 5,
+                            bin_cutoff = 0.05, max_n_prebins = 20,
+                            convergence_threshold = 1e-6, max_iterations = 1000,
+                            init_method = "equal_frequency",
+                            chi_merge_threshold = 0.05,
+                            use_chi2_algorithm = FALSE) {
+  # Type Coercion & Validation
+  if (!is.numeric(feature)) {
+    warning("Feature converted to numeric for processing.")
+    feature <- as.numeric(feature)
+  }
+
+  if (!is.integer(target)) {
+    target <- as.integer(target)
+  }
+
+  # Input Dimension Check
+  if (length(feature) != length(target)) {
+    stop("Length of 'feature' and 'target' must match.")
+  }
+
+  # Ensure method is valid before C++ to prevent cryptic errors
+  if (!init_method %in% c("equal_frequency", "equal_width")) {
+    warning("Invalid 'init_method'. Defaulting to 'equal_frequency'.")
+    init_method <- "equal_frequency"
+  }
+
+  # Call C++ implementation
+  # NOTE: The C++ signature expects 'target' first, then 'feature'.
+  .Call("_OptimalBinningWoE_optimal_binning_numerical_cm",
+    target,
+    feature,
+    as.integer(min_bins),
+    as.integer(max_bins),
+    as.numeric(bin_cutoff),
+    as.integer(max_n_prebins),
+    as.numeric(convergence_threshold),
+    as.integer(max_iterations),
+    as.character(init_method),
+    as.numeric(chi_merge_threshold),
+    as.logical(use_chi2_algorithm),
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

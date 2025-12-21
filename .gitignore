@@ -2,7 +2,12 @@
 .Rhistory
 .RData
 .Ruserdata
-docs
 inst/doc
-/doc/
 /Meta/
+
+# Compiled files
+src/*.o
+src/*.so
+src/*.dll
+src/**/*.o
+/doc/

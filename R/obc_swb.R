@@ -1,0 +1,176 @@
+#' Optimal Binning for Categorical Variables using Sliding Window Binning (SWB)
+#'
+#' This function performs optimal binning for categorical variables using the
+#' Sliding Window Binning (SWB) algorithm. This approach combines initial
+#' grouping based on frequency thresholds with iterative optimization to achieve
+#' monotonic Weight of Evidence (WoE) while maximizing Information Value (IV).
+#'
+#' The SWB algorithm follows these steps:
+#' \enumerate{
+#'   \item \strong{Initialization}: Categories are initially grouped based on
+#'         frequency thresholds (\code{bin_cutoff}), separating frequent
+#'         categories from rare ones.
+#'   \item \strong{Preprocessing}: Initial bins are sorted by their WoE values
+#'         to establish a baseline ordering.
+#'   \item \strong{Sliding Window Optimization}: An iterative process evaluates
+#'         adjacent bin pairs and merges those that contribute least to the
+#'         overall Information Value or violate monotonicity constraints.
+#'   \item \strong{Constraint Enforcement}: The final binning respects the
+#'         specified \code{min_bins} and \code{max_bins} limits while
+#'         maintaining WoE monotonicity.
+#' }
+#'
+#' Key features of this implementation:
+#' \itemize{
+#'   \item \strong{Frequency-based Pre-grouping}: Automatically identifies and
+#'         groups rare categories to reduce dimensionality.
+#'   \item \strong{Statistical Similarity Measures}: Utilizes Jensen-Shannon
+#'         divergence to determine optimal merge candidates.
+#'   \item \strong{Monotonicity Preservation}: Ensures final bins exhibit
+#'         consistent WoE trends (either increasing or decreasing).
+#'   \item \strong{Laplace Smoothing}: Employs additive smoothing to prevent
+#'         numerical instabilities in WoE/IV calculations.
+#' }
+#'
+#' Mathematical concepts:
+#'
+#' Weight of Evidence (WoE) with Laplace smoothing:
+#' \deqn{WoE = \ln\left(\frac{(p_{pos} + \alpha)/(N_{pos} + 2\alpha)}{(p_{neg} + \alpha)/(N_{neg} + 2\alpha)}\right)}{
+#' WoE = ln(((p_pos + alpha)/(N_pos + 2*alpha))/((p_neg + alpha)/(N_neg + 2*alpha)))}
+#'
+#' Information Value (IV):
+#' \deqn{IV = \left(\frac{p_{pos} + \alpha}{N_{pos} + 2\alpha} - \frac{p_{neg} + \alpha}{N_{neg} + 2\alpha}\right) \times WoE}{
+#' IV = ((p_pos + alpha)/(N_pos + 2*alpha) - (p_neg + alpha)/(N_neg + 2*alpha)) * WoE}
+#'
+#' where \eqn{p_{pos}} and \eqn{p_{neg}} are bin-level counts, \eqn{N_{pos}} and
+#' \eqn{N_{neg}} are dataset-level totals, and \eqn{\alpha} is the smoothing
+#' parameter (default 0.5).
+#'
+#' Jensen-Shannon Divergence between two bins:
+#' \deqn{JSD(P||Q) = \frac{1}{2}\left[KL(P||M) + KL(Q||M)\right]}{
+#' JSD(P||Q) = (1/2)[KL(P||M) + KL(Q||M)]}
+#' where \eqn{M = \frac{1}{2}(P+Q)} and \eqn{KL} represents Kullback-Leibler
+#' divergence.
+#'
+#' @param feature A character vector or factor representing the categorical
+#'   predictor variable. Missing values (NA) will be converted to the string
+#'   "NA" and treated as a separate category.
+#' @param target An integer vector containing binary outcome values (0 or 1).
+#'   Must be the same length as \code{feature}. Cannot contain missing values.
+#' @param min_bins Integer. Minimum number of bins to create. Must be at least
+#'   1. Default is 3.
+#' @param max_bins Integer. Maximum number of bins to create. Must be greater
+#'   than or equal to \code{min_bins}. Default is 5.
+#' @param bin_cutoff Numeric. Minimum relative frequency threshold for
+#'   individual categories. Categories with frequency below this proportion
+#'   will be grouped together into a single "rare" bin. Value must be between
+#'   0 and 1. Default is 0.05 (5\%).
+#' @param max_n_prebins Integer. Maximum number of initial bins created after
+#'   the frequency-based grouping step. Used to control early-stage complexity.
+#'   Default is 20.
+#' @param bin_separator Character string used to separate category names when
+#'   multiple categories are merged into a single bin. Default is "\%;\%".
+#' @param convergence_threshold Numeric. Threshold for determining algorithm
+#'   convergence based on changes in total Information Value between iterations.
+#'   Default is 1e-6.
+#' @param max_iterations Integer. Maximum number of iterations for the
+#'   optimization process. Default is 1000.
+#'
+#' @return A list containing the results of the optimal binning procedure:
+#' \describe{
+#'   \item{\code{id}}{Numeric vector of bin identifiers (1 to n_bins)}
+#'   \item{\code{bin}}{Character vector of bin labels, which are combinations
+#'         of original categories separated by \code{bin_separator}}
+#'   \item{\code{woe}}{Numeric vector of Weight of Evidence values for each bin}
+#'   \item{\code{iv}}{Numeric vector of Information Values for each bin}
+#'   \item{\code{count}}{Integer vector of total observations in each bin}
+#'   \item{\code{count_pos}}{Integer vector of positive outcomes in each bin}
+#'   \item{\code{count_neg}}{Integer vector of negative outcomes in each bin}
+#'   \item{\code{event_rate}}{Numeric vector of the observed event rate in each bin}
+#'   \item{\code{total_iv}}{Numeric scalar. Total Information Value across all
+#'         bins}
+#'   \item{\code{converged}}{Logical. Whether the algorithm converged within
+#'         specified tolerances}
+#'   \item{\code{iterations}}{Integer. Number of iterations performed}
+#' }
+#'
+#' @note
+#' \itemize{
+#'   \item Target variable must contain both 0 and 1 values.
+#'   \item The algorithm prioritizes monotonicity over strict adherence to
+#'         bin count limits when conflicts arise.
+#'   \item For datasets with very few unique categories (< 3), each category
+#'         forms its own bin without optimization.
+#'   \item Rare category grouping helps stabilize WoE estimates for infrequent
+#'         values.
+#' }
+#'
+#' @examples
+#' # Generate sample data with varying category frequencies
+#' set.seed(456)
+#' n <- 5000
+#' # Create categories with power-law frequency distribution
+#' categories <- c(
+#'   rep("A", 1500), rep("B", 1000), rep("C", 800),
+#'   rep("D", 500), rep("E", 300), rep("F", 200),
+#'   sample(letters[7:26], 700, replace = TRUE)
+#' )
+#' feature <- sample(categories, n, replace = TRUE)
+#' # Create target with dependency on top categories
+#' target_probs <- ifelse(feature %in% c("A", "B"), 0.7,
+#'   ifelse(feature %in% c("C", "D"), 0.5, 0.3)
+#' )
+#' target <- rbinom(n, 1, prob = target_probs)
+#'
+#' # Perform sliding window binning
+#' result <- ob_categorical_swb(feature, target)
+#' print(result[c("bin", "woe", "iv", "count")])
+#'
+#' # With stricter bin limits
+#' result_strict <- ob_categorical_swb(
+#'   feature = feature,
+#'   target = target,
+#'   min_bins = 4,
+#'   max_bins = 6
+#' )
+#'
+#' # Handling missing values
+#' feature_with_na <- feature
+#' feature_with_na[sample(length(feature_with_na), 100)] <- NA
+#' result_na <- ob_categorical_swb(feature_with_na, target)
+#'
+#' @export
+ob_categorical_swb <- function(feature,
+                               target,
+                               min_bins = 3L,
+                               max_bins = 5L,
+                               bin_cutoff = 0.05,
+                               max_n_prebins = 20L,
+                               bin_separator = "%;%",
+                               convergence_threshold = 1e-6,
+                               max_iterations = 1000L) {
+  # Input validation and conversion
+  if (!is.character(feature)) {
+    feature <- as.character(feature)
+  }
+
+  # Convert NA values to special string to ensure they are handled as a category
+  feature[is.na(feature)] <- "NA"
+
+  # Ensure target is integer
+  target <- as.integer(target)
+
+  # Call the C++ implementation
+  .Call("_OptimalBinningWoE_optimal_binning_categorical_swb",
+    target = target,
+    feature = feature,
+    min_bins = as.integer(min_bins),
+    max_bins = as.integer(max_bins),
+    bin_cutoff = bin_cutoff,
+    max_n_prebins = as.integer(max_n_prebins),
+    bin_separator = bin_separator,
+    convergence_threshold = convergence_threshold,
+    max_iterations = as.integer(max_iterations),
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

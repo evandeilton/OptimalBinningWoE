@@ -11,32 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// OBApplyWoECat
-DataFrame OBApplyWoECat(const List& obresults, const CharacterVector& feature, const std::string& bin_separator);
-RcppExport SEXP _OptimalBinningWoE_OBApplyWoECat(SEXP obresultsSEXP, SEXP featureSEXP, SEXP bin_separatorSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const List& >::type obresults(obresultsSEXP);
-    Rcpp::traits::input_parameter< const CharacterVector& >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type bin_separator(bin_separatorSEXP);
-    rcpp_result_gen = Rcpp::wrap(OBApplyWoECat(obresults, feature, bin_separator));
-    return rcpp_result_gen;
-END_RCPP
-}
-// OBApplyWoENum
-DataFrame OBApplyWoENum(const List& obresults, const NumericVector& feature, bool include_upper_bound);
-RcppExport SEXP _OptimalBinningWoE_OBApplyWoENum(SEXP obresultsSEXP, SEXP featureSEXP, SEXP include_upper_boundSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const List& >::type obresults(obresultsSEXP);
-    Rcpp::traits::input_parameter< const NumericVector& >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< bool >::type include_upper_bound(include_upper_boundSEXP);
-    rcpp_result_gen = Rcpp::wrap(OBApplyWoENum(obresults, feature, include_upper_bound));
-    return rcpp_result_gen;
-END_RCPP
-}
 // optimal_binning_categorical_cm
 Rcpp::List optimal_binning_categorical_cm(Rcpp::IntegerVector target, Rcpp::CharacterVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string bin_separator, double convergence_threshold, int max_iterations, double chi_merge_threshold, bool use_chi2_algorithm);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_cm(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP bin_separatorSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP, SEXP chi_merge_thresholdSEXP, SEXP use_chi2_algorithmSEXP) {
@@ -352,72 +326,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// OBCheckDistinctsLength
-Rcpp::IntegerVector OBCheckDistinctsLength(SEXP x, Rcpp::IntegerVector target);
-RcppExport SEXP _OptimalBinningWoE_OBCheckDistinctsLength(SEXP xSEXP, SEXP targetSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type target(targetSEXP);
-    rcpp_result_gen = Rcpp::wrap(OBCheckDistinctsLength(x, target));
-    return rcpp_result_gen;
-END_RCPP
-}
-// obcorr
-DataFrame obcorr(DataFrame df, std::string method, int threads);
-RcppExport SEXP _OptimalBinningWoE_obcorr(SEXP dfSEXP, SEXP methodSEXP, SEXP threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
-    Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
-    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(obcorr(df, method, threads));
-    return rcpp_result_gen;
-END_RCPP
-}
-// binning_numerical_cutpoints
-List binning_numerical_cutpoints(NumericVector feature, IntegerVector target, NumericVector cutpoints);
-RcppExport SEXP _OptimalBinningWoE_binning_numerical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type cutpoints(cutpointsSEXP);
-    rcpp_result_gen = Rcpp::wrap(binning_numerical_cutpoints(feature, target, cutpoints));
-    return rcpp_result_gen;
-END_RCPP
-}
-// binning_categorical_cutpoints
-List binning_categorical_cutpoints(CharacterVector feature, IntegerVector target, CharacterVector cutpoints);
-RcppExport SEXP _OptimalBinningWoE_binning_categorical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< CharacterVector >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type cutpoints(cutpointsSEXP);
-    rcpp_result_gen = Rcpp::wrap(binning_categorical_cutpoints(feature, target, cutpoints));
-    return rcpp_result_gen;
-END_RCPP
-}
-// fit_logistic_regression
-List fit_logistic_regression(SEXP X_r, const NumericVector& y_r, int maxit, double eps_f, double eps_g);
-RcppExport SEXP _OptimalBinningWoE_fit_logistic_regression(SEXP X_rSEXP, SEXP y_rSEXP, SEXP maxitSEXP, SEXP eps_fSEXP, SEXP eps_gSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type X_r(X_rSEXP);
-    Rcpp::traits::input_parameter< const NumericVector& >::type y_r(y_rSEXP);
-    Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
-    Rcpp::traits::input_parameter< double >::type eps_f(eps_fSEXP);
-    Rcpp::traits::input_parameter< double >::type eps_g(eps_gSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_logistic_regression(X_r, y_r, maxit, eps_f, eps_g));
-    return rcpp_result_gen;
-END_RCPP
-}
 // optimal_binning_numerical_bb
 Rcpp::List optimal_binning_numerical_bb(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, bool is_monotonic, double convergence_threshold, int max_iterations);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_bb(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP is_monotonicSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
@@ -572,24 +480,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// optimal_binning_numerical_jedi
-List optimal_binning_numerical_jedi(NumericVector target, NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, double convergence_threshold, int max_iterations);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_jedi(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type target(targetSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type feature(featureSEXP);
-    Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
-    Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
-    Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
-    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
-    Rcpp::traits::input_parameter< double >::type convergence_threshold(convergence_thresholdSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_jedi(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations));
-    return rcpp_result_gen;
-END_RCPP
-}
 // optimal_binning_numerical_jedi_mwoe
 Rcpp::List optimal_binning_numerical_jedi_mwoe(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, double convergence_threshold, int max_iterations);
 RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_jedi_mwoe(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
@@ -605,6 +495,24 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type convergence_threshold(convergence_thresholdSEXP);
     Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
     rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_jedi_mwoe(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations));
+    return rcpp_result_gen;
+END_RCPP
+}
+// optimal_binning_numerical_jedi
+List optimal_binning_numerical_jedi(NumericVector target, NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, double convergence_threshold, int max_iterations);
+RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_jedi(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
+    Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
+    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
+    Rcpp::traits::input_parameter< double >::type convergence_threshold(convergence_thresholdSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_jedi(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -820,6 +728,85 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// OBApplyWoECat
+DataFrame OBApplyWoECat(const List& obresults, const CharacterVector& feature, const std::string& bin_separator, Nullable<CharacterVector> missing_values);
+RcppExport SEXP _OptimalBinningWoE_OBApplyWoECat(SEXP obresultsSEXP, SEXP featureSEXP, SEXP bin_separatorSEXP, SEXP missing_valuesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const List& >::type obresults(obresultsSEXP);
+    Rcpp::traits::input_parameter< const CharacterVector& >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type bin_separator(bin_separatorSEXP);
+    Rcpp::traits::input_parameter< Nullable<CharacterVector> >::type missing_values(missing_valuesSEXP);
+    rcpp_result_gen = Rcpp::wrap(OBApplyWoECat(obresults, feature, bin_separator, missing_values));
+    return rcpp_result_gen;
+END_RCPP
+}
+// OBApplyWoENum
+DataFrame OBApplyWoENum(const List& obresults, const NumericVector& feature, bool include_upper_bound, Nullable<NumericVector> missing_values);
+RcppExport SEXP _OptimalBinningWoE_OBApplyWoENum(SEXP obresultsSEXP, SEXP featureSEXP, SEXP include_upper_boundSEXP, SEXP missing_valuesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const List& >::type obresults(obresultsSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< bool >::type include_upper_bound(include_upper_boundSEXP);
+    Rcpp::traits::input_parameter< Nullable<NumericVector> >::type missing_values(missing_valuesSEXP);
+    rcpp_result_gen = Rcpp::wrap(OBApplyWoENum(obresults, feature, include_upper_bound, missing_values));
+    return rcpp_result_gen;
+END_RCPP
+}
+// OBCheckDistinctsLength
+Rcpp::IntegerVector OBCheckDistinctsLength(SEXP x, Rcpp::IntegerVector target);
+RcppExport SEXP _OptimalBinningWoE_OBCheckDistinctsLength(SEXP xSEXP, SEXP targetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type target(targetSEXP);
+    rcpp_result_gen = Rcpp::wrap(OBCheckDistinctsLength(x, target));
+    return rcpp_result_gen;
+END_RCPP
+}
+// obcorr
+DataFrame obcorr(DataFrame df, std::string method, int threads);
+RcppExport SEXP _OptimalBinningWoE_obcorr(SEXP dfSEXP, SEXP methodSEXP, SEXP threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
+    Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< int >::type threads(threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(obcorr(df, method, threads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// binning_numerical_cutpoints
+List binning_numerical_cutpoints(NumericVector feature, IntegerVector target, NumericVector cutpoints);
+RcppExport SEXP _OptimalBinningWoE_binning_numerical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type cutpoints(cutpointsSEXP);
+    rcpp_result_gen = Rcpp::wrap(binning_numerical_cutpoints(feature, target, cutpoints));
+    return rcpp_result_gen;
+END_RCPP
+}
+// binning_categorical_cutpoints
+List binning_categorical_cutpoints(CharacterVector feature, IntegerVector target, CharacterVector cutpoints);
+RcppExport SEXP _OptimalBinningWoE_binning_categorical_cutpoints(SEXP featureSEXP, SEXP targetSEXP, SEXP cutpointsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< CharacterVector >::type feature(featureSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type target(targetSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type cutpoints(cutpointsSEXP);
+    rcpp_result_gen = Rcpp::wrap(binning_categorical_cutpoints(feature, target, cutpoints));
+    return rcpp_result_gen;
+END_RCPP
+}
 // OBDataPreprocessor
 List OBDataPreprocessor(NumericVector target, SEXP feature, double num_miss_value, std::string char_miss_value, std::string outlier_method, bool outlier_process, CharacterVector preprocess, double iqr_k, double zscore_threshold, double grubbs_alpha);
 RcppExport SEXP _OptimalBinningWoE_OBDataPreprocessor(SEXP targetSEXP, SEXP featureSEXP, SEXP num_miss_valueSEXP, SEXP char_miss_valueSEXP, SEXP outlier_methodSEXP, SEXP outlier_processSEXP, SEXP preprocessSEXP, SEXP iqr_kSEXP, SEXP zscore_thresholdSEXP, SEXP grubbs_alphaSEXP) {
@@ -837,6 +824,21 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type zscore_threshold(zscore_thresholdSEXP);
     Rcpp::traits::input_parameter< double >::type grubbs_alpha(grubbs_alphaSEXP);
     rcpp_result_gen = Rcpp::wrap(OBDataPreprocessor(target, feature, num_miss_value, char_miss_value, outlier_method, outlier_process, preprocess, iqr_k, zscore_threshold, grubbs_alpha));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fit_logistic_regression
+List fit_logistic_regression(SEXP X_r, const NumericVector& y_r, int maxit, double eps_f, double eps_g);
+RcppExport SEXP _OptimalBinningWoE_fit_logistic_regression(SEXP X_rSEXP, SEXP y_rSEXP, SEXP maxitSEXP, SEXP eps_fSEXP, SEXP eps_gSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type X_r(X_rSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type y_r(y_rSEXP);
+    Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
+    Rcpp::traits::input_parameter< double >::type eps_f(eps_fSEXP);
+    Rcpp::traits::input_parameter< double >::type eps_g(eps_gSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_logistic_regression(X_r, y_r, maxit, eps_f, eps_g));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -866,8 +868,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_OptimalBinningWoE_OBApplyWoECat", (DL_FUNC) &_OptimalBinningWoE_OBApplyWoECat, 3},
-    {"_OptimalBinningWoE_OBApplyWoENum", (DL_FUNC) &_OptimalBinningWoE_OBApplyWoENum, 3},
     {"_OptimalBinningWoE_optimal_binning_categorical_cm", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_cm, 11},
     {"_OptimalBinningWoE_optimal_binning_categorical_dmiv", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_dmiv, 11},
     {"_OptimalBinningWoE_optimal_binning_categorical_dp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_dp, 10},
@@ -884,11 +884,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_swb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_swb, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_sketch", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sketch, 11},
     {"_OptimalBinningWoE_optimal_binning_categorical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_udt, 9},
-    {"_OptimalBinningWoE_OBCheckDistinctsLength", (DL_FUNC) &_OptimalBinningWoE_OBCheckDistinctsLength, 2},
-    {"_OptimalBinningWoE_obcorr", (DL_FUNC) &_OptimalBinningWoE_obcorr, 3},
-    {"_OptimalBinningWoE_binning_numerical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_numerical_cutpoints, 3},
-    {"_OptimalBinningWoE_binning_categorical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_categorical_cutpoints, 3},
-    {"_OptimalBinningWoE_fit_logistic_regression", (DL_FUNC) &_OptimalBinningWoE_fit_logistic_regression, 5},
     {"_OptimalBinningWoE_optimal_binning_numerical_bb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_bb, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_cm", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_cm, 11},
     {"_OptimalBinningWoE_optimal_binning_numerical_dmiv", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_dmiv, 11},
@@ -897,8 +892,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_numerical_fetb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_fetb, 7},
     {"_OptimalBinningWoE_optimal_binning_numerical_fast_mdlpm", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_fast_mdlpm, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_ir", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_ir, 9},
-    {"_OptimalBinningWoE_optimal_binning_numerical_jedi", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_jedi, 8},
     {"_OptimalBinningWoE_optimal_binning_numerical_jedi_mwoe", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_jedi_mwoe, 8},
+    {"_OptimalBinningWoE_optimal_binning_numerical_jedi", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_jedi, 8},
     {"_OptimalBinningWoE_optimal_binning_numerical_kmb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_kmb, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_ldb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_ldb, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_lpdb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_lpdb, 10},
@@ -910,7 +905,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_numerical_sketch", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_sketch, 10},
     {"_OptimalBinningWoE_optimal_binning_numerical_ubsd", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_ubsd, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_udt", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_udt, 10},
+    {"_OptimalBinningWoE_OBApplyWoECat", (DL_FUNC) &_OptimalBinningWoE_OBApplyWoECat, 4},
+    {"_OptimalBinningWoE_OBApplyWoENum", (DL_FUNC) &_OptimalBinningWoE_OBApplyWoENum, 4},
+    {"_OptimalBinningWoE_OBCheckDistinctsLength", (DL_FUNC) &_OptimalBinningWoE_OBCheckDistinctsLength, 2},
+    {"_OptimalBinningWoE_obcorr", (DL_FUNC) &_OptimalBinningWoE_obcorr, 3},
+    {"_OptimalBinningWoE_binning_numerical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_numerical_cutpoints, 3},
+    {"_OptimalBinningWoE_binning_categorical_cutpoints", (DL_FUNC) &_OptimalBinningWoE_binning_categorical_cutpoints, 3},
     {"_OptimalBinningWoE_OBDataPreprocessor", (DL_FUNC) &_OptimalBinningWoE_OBDataPreprocessor, 10},
+    {"_OptimalBinningWoE_fit_logistic_regression", (DL_FUNC) &_OptimalBinningWoE_fit_logistic_regression, 5},
     {"_OptimalBinningWoE_OBGainsTable", (DL_FUNC) &_OptimalBinningWoE_OBGainsTable, 1},
     {"_OptimalBinningWoE_OBGainsTableFeature", (DL_FUNC) &_OptimalBinningWoE_OBGainsTableFeature, 3},
     {NULL, NULL, 0}
