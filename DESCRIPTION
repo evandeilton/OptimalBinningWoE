@@ -1,26 +1,32 @@
 Package: OptimalBinningWoE
 Type: Package
-Title: Optimal Binning for Weight of Evidence
-Version: 1.0.0
-Authors@R: c(person(given = "José Evandeilton",
-                    family = "Lopes",
-                    role = c("aut", "cre"),
-                    email = "evandeilton@gmail.com",
-                    comment = c(ORCID = "0009-0007-5887-4084")))
-Description: Implement cutting-edge binning techniques and calculate Weight of 
-    Evidence ('WoE') for both numerical and categorical variables in predictive modeling tasks. 
-    This package offers a comprehensive suite of binning algorithms, including
-    entropy-based, chi-square, genetic algorithms, and dynamic programming approaches.
-    Designed for credit scoring, risk assessment, and general machine learning 
-    applications, 'OptimalBinningWoE' enhances feature predictive power while maintaining 
-    interpretability. With automatic method selection, robust preprocessing, and support
-    for monotonic binning, it streamlines the feature engineering process for data 
-    scientists and analysts working on classification and regression problems.
+Title: Optimal Binning and Weight of Evidence Framework for Modeling
+Version: 1.0.1
+Date: 2026-01-08
+Authors@R: 
+    person(given = "José Evandeilton",
+           family = "Lopes",
+           role = c("aut", "cre", "cph"),
+           email = "evandeilton@gmail.com",
+           comment = c(ORCID = "0009-0007-5887-4084"))
+Description: High-performance implementation of 36 optimal binning algorithms 
+    (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation,
+    credit scoring, and risk modeling. Includes advanced methods such as Mixed 
+    Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, 
+    and Monotonic Regression. Features automatic method selection based on 
+    Information Value (IV) maximization, strict monotonicity enforcement, and 
+    efficient handling of large datasets via 'Rcpp'. Fully integrated with the 
+    'tidymodels' ecosystem for building robust machine learning pipelines. 
+    Based on methods described in Siddiqi (2006) <doi:10.1002/9781119201731> 
+    and Navas-Palencia (2020) <doi:10.48550/arXiv.2001.08025>.
 License: MIT + file LICENSE
+URL: https://github.com/evandeilton/OptimalBinningWoE
+BugReports: https://github.com/evandeilton/OptimalBinningWoE/issues
+Depends: 
+    R (>= 4.1.0)
 Encoding: UTF-8
-LazyData: true
 Imports: 
-    Rcpp (>= 1.0.0),
+    Rcpp,
     recipes,
     rlang,
     tibble,
@@ -29,7 +35,7 @@ LinkingTo:
     Rcpp,
     RcppEigen,
     RcppNumerical
-Suggests:
+Suggests: 
     testthat (>= 3.0.0),
     dplyr,
     generics,
@@ -41,7 +47,6 @@ Suggests:
     pROC,
     scorecard
 Config/testthat/edition: 3
-URL: https://evandeilton.github.io/OptimalBinningWoE/
 SystemRequirements: C++17
 RoxygenNote: 7.3.3
 VignetteBuilder: knitr
