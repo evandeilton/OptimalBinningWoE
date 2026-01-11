@@ -290,7 +290,7 @@ Typical performance on a standard laptop:
 
 ## Contributing
 
-Contributions are welcome! Please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome! Please see our [Contributing Guidelines](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CONTRIBUTING.md) and [Code of Conduct](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CODE_OF_CONDUCT.md).
 
 ## Citation
 
