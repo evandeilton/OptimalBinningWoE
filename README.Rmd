@@ -299,8 +299,8 @@ If you use OptimalBinningWoE in your research, please cite:
 ```bibtex
 @software{optimalbinningwoe,
   author = {Lopes, José Evandeilton},
-  title = {OptimalBinningWoE: Optimal Binning for Weight of Evidence},
-  year = {2025},
+  title = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
+  year = {2026},
   url = {https://github.com/evandeilton/OptimalBinningWoE}
 }
 ```
