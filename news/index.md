@@ -1,5 +1,15 @@
 # Changelog
 
+## OptimalBinningWoE 1.0.2
+
+- **CRAN Resubmission**:
+  - Updated `inst/WORDLIST` to include technical terms and author names
+    (MILP, Navas, Palencia) to resolve spelling notes.
+  - Fixed `README.md` links for `CONTRIBUTING.md` and
+    `CODE_OF_CONDUCT.md` to use absolute GitHub URLs, ensuring
+    compliance with CRAN URI checks for ignored files.
+  - Added `Language: en-US` to `DESCRIPTION` metadata.
+
 ## OptimalBinningWoE 1.0.1
 
 - **CRAN Preparation**: Comprehensive updates for CRAN submission
