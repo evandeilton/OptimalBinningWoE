@@ -3,7 +3,7 @@
 Simulated Annealing (SA) optimization algorithm. It maximizes Information
 Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."><meta property="og:description" content="This function performs optimal binning for categorical variables using a
 Simulated Annealing (SA) optimization algorithm. It maximizes Information
-Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."></head><body>
+Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."><meta property="og:image" content="https://evandeilton.github.io/OptimalBinningWoE/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -11,7 +11,7 @@ Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."></head>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -27,6 +27,7 @@ Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."></head>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/evandeilton/OptimalBinningWoE/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -34,9 +35,8 @@ Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends."></head>
 </nav><div class="container template-reference-topic">
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Optimal Binning for Categorical Variables using Simulated Annealing</h1>
-
+      <img src="../logo.png" class="logo" alt=""><h1>Optimal Binning for Categorical Variables using Simulated Annealing</h1>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obc_sab.R" class="external-link"><code>R/obc_sab.R</code></a></small>
       <div class="d-none name"><code>ob_categorical_sab.Rd</code></div>
     </div>
 
@@ -225,16 +225,16 @@ where \(T\) is the current temperature.</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_sab</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "b"         "a"         "d"         "f%;%g"     "c%;%e%;%h"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "c%;%f" "e%;%h" "d"     "a%;%g" "b"    </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  1.4348044  1.1317116 -0.3871070 -0.4158845 -0.5200773</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.6160508 -0.4979681 -0.3871070  0.4367024  1.4348044</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.25663321 0.16489041 0.01633718 0.04189161 0.09466710</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.08435798 0.05880863 0.01633718 0.05152071 0.25663321</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 128 128 114 255 375</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 242 253 114 263 128</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With custom parameters</span></span></span>

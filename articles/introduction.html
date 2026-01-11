@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/evandeilton/OptimalBinningWoE/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -54,14 +55,13 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>OptimalBinningWoE: Practical Guide for Credit Risk Modeling</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>OptimalBinningWoE: Practical Guide for Credit Risk Modeling</h1>
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2025-12-21</h4>
+            <h4 data-toc-skip class="date">2026-01-11</h4>
       
-
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -168,7 +168,7 @@ average<br>
 <h2 id="dataset-german-credit-data">Dataset: German Credit Data<a class="anchor" aria-label="anchor" href="#dataset-german-credit-data"></a>
 </h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://evandeilton.github.io/OptimalBinningWoE/">OptimalBinningWoE</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Load German credit dataset</span></span>
@@ -315,7 +315,7 @@ average<br>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># WoE pattern visualization</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result_single</span>, type <span class="op">=</span> <span class="st">"woe"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="introduction_files/figure-html/quickstart_plot-1.png" class="r-plt" width="768"></p>
+<p><img src="introduction_files/figure-html/quickstart_plot-1.png" class="r-plt" alt="" width="768"></p>
 </div>
 <div class="section level3">
 <h3 id="key-insights-from-single-feature">Key Insights from Single Feature<a class="anchor" aria-label="anchor" href="#key-insights-from-single-feature"></a>
@@ -460,7 +460,7 @@ average<br>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"ks"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"lift"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"woe_iv"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="introduction_files/figure-html/gains_analysis-1.png" class="r-plt" width="768"></p>
+<p><img src="introduction_files/figure-html/gains_analysis-1.png" class="r-plt" alt="" width="768"></p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -788,7 +788,7 @@ workflows.</p>
 <span></span>
 <span><span class="co"># Visualize tuning</span></span>
 <span><span class="fu">autoplot</span><span class="op">(</span><span class="va">tune_results</span>, metric <span class="op">=</span> <span class="st">"roc_auc"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="introduction_files/figure-html/cv_tuning-1.png" class="r-plt" width="768"></p>
+<p><img src="introduction_files/figure-html/cv_tuning-1.png" class="r-plt" alt="" width="768"></p>
 </div>
 <div class="section level3">
 <h3 id="final-model-fitting">Final Model Fitting<a class="anchor" aria-label="anchor" href="#final-model-fitting"></a>
@@ -849,7 +849,7 @@ workflows.</p>
 <span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu">autoplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"ROC Curve - German Credit Model"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="introduction_files/figure-html/model_eval-1.png" class="r-plt" width="768"></p>
+<p><img src="introduction_files/figure-html/model_eval-1.png" class="r-plt" alt="" width="768"></p>
 </div>
 <div class="section level3">
 <h3 id="inspect-learned-binning-rules">Inspect Learned Binning Rules<a class="anchor" aria-label="anchor" href="#inspect-learned-binning-rules"></a>
@@ -1057,7 +1057,7 @@ workflows.</p>
 <span>  main <span class="op">=</span> <span class="st">"Scorecard ROC Curve"</span>,</span>
 <span>  print.auc <span class="op">=</span> <span class="cn">TRUE</span>, print.thres <span class="op">=</span> <span class="st">"best"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><img src="introduction_files/figure-html/scorecard_validation-1.png" class="r-plt" width="768"></p>
+<p><img src="introduction_files/figure-html/scorecard_validation-1.png" class="r-plt" alt="" width="768"></p>
 </div>
 </div>
 <div class="section level2">
@@ -1266,13 +1266,13 @@ Press.</p>
 <span><span class="co">#&gt;  [1] pROC_1.19.0.1           yardstick_1.3.2         workflowsets_1.1.1     </span></span>
 <span><span class="co">#&gt;  [4] workflows_1.3.0         tune_2.0.1              tidyr_1.3.2            </span></span>
 <span><span class="co">#&gt;  [7] tailor_0.1.0            rsample_1.3.1           recipes_1.3.1          </span></span>
-<span><span class="co">#&gt; [10] purrr_1.2.0             parsnip_1.4.0           modeldata_1.5.1        </span></span>
+<span><span class="co">#&gt; [10] purrr_1.2.1             parsnip_1.4.0           modeldata_1.5.1        </span></span>
 <span><span class="co">#&gt; [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            </span></span>
 <span><span class="co">#&gt; [16] dials_1.4.2             scales_1.4.0            broom_1.0.11           </span></span>
-<span><span class="co">#&gt; [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.0</span></span>
+<span><span class="co">#&gt; [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] gridExtra_2.3       rlang_1.1.6         magrittr_2.0.4     </span></span>
+<span><span class="co">#&gt;  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     </span></span>
 <span><span class="co">#&gt;  [4] furrr_0.3.1         compiler_4.5.2      systemfonts_1.3.1  </span></span>
 <span><span class="co">#&gt;  [7] vctrs_0.6.5         lhs_1.2.0           pkgconfig_2.0.3    </span></span>
 <span><span class="co">#&gt; [10] fastmap_1.2.0       backports_1.5.0     labeling_0.4.3     </span></span>
@@ -1280,9 +1280,9 @@ Press.</p>
 <span><span class="co">#&gt; [16] ragg_1.5.0          xfun_0.55           cachem_1.1.0       </span></span>
 <span><span class="co">#&gt; [19] jsonlite_2.0.0      parallel_4.5.2      R6_2.6.1           </span></span>
 <span><span class="co">#&gt; [22] bslib_0.9.0         stringi_1.8.7       RColorBrewer_1.1-3 </span></span>
-<span><span class="co">#&gt; [25] parallelly_1.46.0   rpart_4.1.24        lubridate_1.9.4    </span></span>
+<span><span class="co">#&gt; [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.4    </span></span>
 <span><span class="co">#&gt; [28] jquerylib_0.1.4     Rcpp_1.1.0          iterators_1.0.14   </span></span>
-<span><span class="co">#&gt; [31] knitr_1.50          future.apply_1.20.1 Matrix_1.7-4       </span></span>
+<span><span class="co">#&gt; [31] knitr_1.51          future.apply_1.20.1 Matrix_1.7-4       </span></span>
 <span><span class="co">#&gt; [34] splines_4.5.2       nnet_7.3-20         timechange_0.3.0   </span></span>
 <span><span class="co">#&gt; [37] tidyselect_1.2.1    rstudioapi_0.17.1   yaml_2.3.12        </span></span>
 <span><span class="co">#&gt; [40] timeDate_4051.111   doParallel_1.0.17   codetools_0.2-20   </span></span>
@@ -1292,13 +1292,13 @@ Press.</p>
 <span><span class="co">#&gt; [52] zip_2.3.3           xml2_1.5.1          pillar_1.11.1      </span></span>
 <span><span class="co">#&gt; [55] foreach_1.5.2       generics_0.1.4      globals_0.18.0     </span></span>
 <span><span class="co">#&gt; [58] class_7.3-23        glue_1.8.0          tools_4.5.2        </span></span>
-<span><span class="co">#&gt; [61] data.table_1.17.8   openxlsx_4.2.8.1    gower_1.0.2        </span></span>
+<span><span class="co">#&gt; [61] data.table_1.18.0   openxlsx_4.2.8.1    gower_1.0.2        </span></span>
 <span><span class="co">#&gt; [64] fs_1.6.6            grid_4.5.2          ipred_0.9-15       </span></span>
 <span><span class="co">#&gt; [67] xefun_0.1.5         cli_3.6.5           DiceDesign_1.10    </span></span>
 <span><span class="co">#&gt; [70] textshaping_1.0.4   lava_1.8.2          gtable_0.3.6       </span></span>
 <span><span class="co">#&gt; [73] GPfit_1.0-9         sass_0.4.10         digest_0.6.39      </span></span>
 <span><span class="co">#&gt; [76] farver_2.1.2        htmltools_0.5.9     pkgdown_2.2.0      </span></span>
-<span><span class="co">#&gt; [79] lifecycle_1.0.4     hardhat_1.4.2       MASS_7.3-65        </span></span>
+<span><span class="co">#&gt; [79] lifecycle_1.0.5     hardhat_1.4.2       MASS_7.3-65        </span></span>
 <span><span class="co">#&gt; [82] sparsevctrs_0.3.5</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

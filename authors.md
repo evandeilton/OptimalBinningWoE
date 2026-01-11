@@ -2,19 +2,22 @@
 
 ## Authors
 
-- **José Evandeilton Lopes**. Author, maintainer.
+- **José Evandeilton Lopes**. Author, maintainer, copyright holder.
   [](https://orcid.org/0009-0007-5887-4084)
 
 ## Citation
 
-Lopes J (2025). *OptimalBinningWoE: Optimal Binning for Weight of
-Evidence*. R package version 1.0.0,
-<https://evandeilton.github.io/OptimalBinningWoE/>.
+Source:
+[`DESCRIPTION`](https://github.com/evandeilton/OptimalBinningWoE/blob/main/DESCRIPTION)
+
+Lopes J (2026). *OptimalBinningWoE: Optimal Binning and Weight of
+Evidence Framework for Modeling*. R package version 1.0.1,
+<https://github.com/evandeilton/OptimalBinningWoE>.
 
     @Manual{,
-      title = {OptimalBinningWoE: Optimal Binning for Weight of Evidence},
+      title = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
       author = {José Evandeilton Lopes},
-      year = {2025},
-      note = {R package version 1.0.0},
-      url = {https://evandeilton.github.io/OptimalBinningWoE/},
+      year = {2026},
+      note = {R package version 1.0.1},
+      url = {https://github.com/evandeilton/OptimalBinningWoE},
     }

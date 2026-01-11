@@ -1,5 +1,20 @@
 # Changelog
 
+## OptimalBinningWoE 1.0.1
+
+- **CRAN Preparation**: Comprehensive updates for CRAN submission
+  compliance.
+- **Documentation**:
+  - Enhanced `README.Rmd` with detailed algorithm descriptions,
+    `tidymodels` integration examples, and performance metrics.
+  - Added `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and
+    `CONTRIBUTING.md` guidelines.
+  - Added `inst/WORDLIST` for spell checking.
+- **Metadata**:
+  - Updated `DESCRIPTION` with corrected fields (Authors, BugReports,
+    Depends, References).
+  - Added `cran-comments.md` for submission notes.
+
 ## OptimalBinningWoE 1.0.0
 
 ### Initial Release

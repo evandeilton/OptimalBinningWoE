@@ -7,7 +7,7 @@ enforcement to produce robust, interpretable binning solutions."><meta property=
 Entropy-Driven Information Maximization (JEDI) algorithm. This advanced method
 combines information-theoretic optimization with intelligent bin merging strategies,
 employing Bayesian smoothing for numerical stability and adaptive monotonicity
-enforcement to produce robust, interpretable binning solutions."></head><body>
+enforcement to produce robust, interpretable binning solutions."><meta property="og:image" content="https://evandeilton.github.io/OptimalBinningWoE/logo.png"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -15,7 +15,7 @@ enforcement to produce robust, interpretable binning solutions."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,7 @@ enforcement to produce robust, interpretable binning solutions."></head><body>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/evandeilton/OptimalBinningWoE/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -38,9 +39,8 @@ enforcement to produce robust, interpretable binning solutions."></head><body>
 </nav><div class="container template-reference-topic">
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Optimal Binning for Categorical Variables using JEDI Algorithm</h1>
-
+      <img src="../logo.png" class="logo" alt=""><h1>Optimal Binning for Categorical Variables using JEDI Algorithm</h1>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obc_jedi.R" class="external-link"><code>R/obc_jedi.R</code></a></small>
       <div class="d-none name"><code>ob_categorical_jedi.Rd</code></div>
     </div>
 
@@ -463,7 +463,7 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Final bins:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_jedi_hc</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Final bins: 7 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Execution time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_jedi_hc</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Execution time: 0 seconds</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Execution time: 0.002 seconds</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Total IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result_jedi_hc</span><span class="op">$</span><span class="va">total_iv</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Total IV: 0.1435 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Converged:"</span>, <span class="va">result_jedi_hc</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
