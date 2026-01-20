@@ -158,7 +158,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Simulate credit scoring data
 #' set.seed(42)
 #' n <- 10000

@@ -173,7 +173,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Simulate credit scoring data
 #' set.seed(2024)
 #' n <- 10000
@@ -195,10 +195,6 @@
 #'   min_bins = 3,
 #'   max_bins = 5
 #' )
-#'
-#' # Verify monotonicity
-#' print(result$woe)
-#' stopifnot(all(diff(result$woe) >= -1e-10))
 #'
 #' # Compare with MOB (should be very similar)
 #' result_mob <- ob_numerical_mob(

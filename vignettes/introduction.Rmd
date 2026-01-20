@@ -215,12 +215,12 @@ gains <- obwoe_gains(result_multi, feature = best_num_feature, sort_by = "id")
 print(gains)
 
 # Plot gains curves
-par(mfrow = c(2, 2))
+oldpar <- par(mfrow = c(2, 2))
 plot(gains, type = "cumulative")
 plot(gains, type = "ks")
 plot(gains, type = "lift")
 plot(gains, type = "woe_iv")
-par(mfrow = c(1, 1))
+par(oldpar)
 ```
 
 # Algorithm Comparison

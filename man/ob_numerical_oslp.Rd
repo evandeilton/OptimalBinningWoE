@@ -167,7 +167,7 @@ and is intractable for \eqn{N > 10^4}.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 set.seed(123)
 n <- 5000
 feature <- c(

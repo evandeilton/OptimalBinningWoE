@@ -670,8 +670,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // optimal_binning_numerical_sketch
-Rcpp::List optimal_binning_numerical_sketch(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, std::string special_codes, bool monotonic, double convergence_threshold, int max_iterations, int sketch_k);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_sketch(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP special_codesSEXP, SEXP monotonicSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP, SEXP sketch_kSEXP) {
+Rcpp::List optimal_binning_numerical_sketch(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, bool monotonic, double convergence_threshold, int max_iterations, int sketch_k);
+RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_sketch(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP monotonicSEXP, SEXP convergence_thresholdSEXP, SEXP max_iterationsSEXP, SEXP sketch_kSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -680,12 +680,12 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type min_bins(min_binsSEXP);
     Rcpp::traits::input_parameter< int >::type max_bins(max_binsSEXP);
     Rcpp::traits::input_parameter< double >::type bin_cutoff(bin_cutoffSEXP);
-    Rcpp::traits::input_parameter< std::string >::type special_codes(special_codesSEXP);
+    Rcpp::traits::input_parameter< int >::type max_n_prebins(max_n_prebinsSEXP);
     Rcpp::traits::input_parameter< bool >::type monotonic(monotonicSEXP);
     Rcpp::traits::input_parameter< double >::type convergence_threshold(convergence_thresholdSEXP);
     Rcpp::traits::input_parameter< int >::type max_iterations(max_iterationsSEXP);
     Rcpp::traits::input_parameter< int >::type sketch_k(sketch_kSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_sketch(target, feature, min_bins, max_bins, bin_cutoff, special_codes, monotonic, convergence_threshold, max_iterations, sketch_k));
+    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_sketch(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic, convergence_threshold, max_iterations, sketch_k));
     return rcpp_result_gen;
 END_RCPP
 }

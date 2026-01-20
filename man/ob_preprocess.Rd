@@ -130,7 +130,7 @@ with configurable preprocessing strategies.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Numerical feature with outliers
 set.seed(123)
 feature_num <- c(rnorm(95, 50, 10), NA, NA, 200, -100, 250)

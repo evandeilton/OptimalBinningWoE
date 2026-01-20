@@ -164,7 +164,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Simulate normally distributed credit scores
 #' set.seed(123)
 #' n <- 5000

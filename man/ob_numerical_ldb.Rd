@@ -167,7 +167,7 @@ Two merging criteria are applied sequentially:
 For large datasets (\eqn{n > 10^5}), the KDE phase dominates runtime.
 }
 \examples{
-\dontrun{
+\donttest{
 # Simulate credit scoring data
 set.seed(42)
 n <- 10000

@@ -208,7 +208,7 @@ runtime is dominated by sorting. Pathological cases (highly non-monotonic data)
 may require many iterations to enforce monotonicity.
 }
 \examples{
-\dontrun{
+\donttest{
 # Simulate non-monotonic credit scoring data
 set.seed(123)
 n <- 8000
@@ -262,7 +262,7 @@ cat(sprintf(
 ))
 
 # Visualize binning quality
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 plot(result_auto$woe,
   type = "b", col = "blue", pch = 19,
   xlab = "Bin", ylab = "WoE", main = "Auto-Detected Monotonicity"
@@ -271,6 +271,7 @@ plot(result_forced$woe,
   type = "b", col = "red", pch = 19,
   xlab = "Bin", ylab = "WoE", main = "Forced Decreasing"
 )
+par(oldpar)
 }
 
 }

@@ -154,7 +154,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' set.seed(123)
 #' n <- 5000
 #' feature <- c(

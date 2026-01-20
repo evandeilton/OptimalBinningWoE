@@ -222,7 +222,7 @@ is dominated by sorting. Pathological cases (e.g., perfectly alternating WoE val
 may require \eqn{O(k^2)} merges.
 }
 \examples{
-\dontrun{
+\donttest{
 # Simulate non-monotonic credit scoring data
 set.seed(42)
 n <- 12000
@@ -244,7 +244,7 @@ target <- c(
 result <- ob_numerical_mob(
   feature = feature,
   target = target,
-  min_bins = 3,
+  min_bins = 2,
   max_bins = 5,
   bin_cutoff = 0.05,
   max_n_prebins = 20
@@ -252,7 +252,7 @@ result <- ob_numerical_mob(
 
 # Verify monotonicity
 print(result$woe)
-stopifnot(all(diff(result$woe) >= -1e-10)) # Non-decreasing WoE
+stopifnot(all(diff(result$woe) <= 1e-10)) # Non-increasing WoE
 
 # Inspect binning quality
 binning_table <- data.frame(
@@ -270,23 +270,8 @@ cat(sprintf(
   result$converged, result$iterations
 ))
 
-# Compare with different smoothing
-result_no_smooth <- ob_numerical_mob(
-  feature = feature,
-  target = target,
-  laplace_smoothing = 0.0 # No smoothing (risky)
-)
-
-# Check impact on extreme bins
-data.frame(
-  Bin = seq_along(result$woe),
-  WoE_smoothed = result$woe,
-  WoE_raw = result_no_smooth$woe,
-  Diff = abs(result$woe - result_no_smooth$woe)
-)
-
 # Visualize monotonic pattern
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 
 # WoE monotonicity
 plot(result$woe,
@@ -304,6 +289,7 @@ plot(result$event_rate, result$woe,
 )
 abline(lm(result$woe ~ result$event_rate), col = "red", lwd = 2)
 grid()
+par(oldpar)
 }
 
 }

@@ -175,7 +175,7 @@ If \eqn{k > \text{max\_bins}}, bins are merged to minimize IV loss:
 Identical to MOB/MRBLP: \eqn{O(N + k^2 \times \text{max\_iterations})}
 }
 \examples{
-\dontrun{
+\donttest{
 # Simulate normally distributed credit scores
 set.seed(123)
 n <- 5000

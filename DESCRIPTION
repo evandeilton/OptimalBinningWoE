@@ -1,8 +1,8 @@
 Package: OptimalBinningWoE
 Type: Package
 Title: Optimal Binning and Weight of Evidence Framework for Modeling
-Version: 1.0.2
-Date: 2026-01-08
+Version: 1.0.3
+Date: 2026-01-20
 Authors@R: 
     person(given = "José Evandeilton",
            family = "Lopes",
@@ -17,8 +17,8 @@ Description: High-performance implementation of 36 optimal binning algorithms
     Information Value ('IV') maximization, strict monotonicity enforcement, and 
     efficient handling of large datasets via 'Rcpp'. Fully integrated with the 
     'tidymodels' ecosystem for building robust machine learning pipelines. 
-    Based on methods described in 'Siddiqi' (2006) <doi:10.1002/9781119201731> 
-    and 'Navas-Palencia' (2020) <doi:10.48550/arXiv.2001.08025>.
+    Based on methods described in Siddiqi (2006) <doi:10.1002/9781119201731> 
+    and Navas-Palencia (2020) <doi:10.48550/arXiv.2001.08025>.
 License: MIT + file LICENSE
 URL: https://github.com/evandeilton/OptimalBinningWoE
 BugReports: https://github.com/evandeilton/OptimalBinningWoE/issues

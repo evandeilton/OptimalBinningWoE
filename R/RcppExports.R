@@ -137,8 +137,8 @@ optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_b
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_oslp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
-optimal_binning_numerical_sketch <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, special_codes = "", monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L, sketch_k = 200L) {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sketch`, target, feature, min_bins, max_bins, bin_cutoff, special_codes, monotonic, convergence_threshold, max_iterations, sketch_k)
+optimal_binning_numerical_sketch <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, monotonic = TRUE, convergence_threshold = 1e-6, max_iterations = 1000L, sketch_k = 200L) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_sketch`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic, convergence_threshold, max_iterations, sketch_k)
 }
 
 optimal_binning_numerical_ubsd <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {

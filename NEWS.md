@@ -1,3 +1,22 @@
+# OptimalBinningWoE 1.0.3
+
+*   **Critical Bug Fixes - KLL Sketch Algorithm (2026-01-20)**:
+    *   Fixed **iterator invalidation** in `KLLSketch::compact_level()` - the `compactors.push_back()` call was invalidating references to vector elements, causing crashes with datasets larger than ~200 observations.
+    *   Fixed **parameter order bug** in `calculate_metrics()` calls - swapped `(total_good, total_bad)` to correct order `(total_pos, total_neg)`, fixing incorrect WoE calculations.
+    *   Fixed **half-open interval logic** in bin assignment - added explicit closed interval `[lower, upper]` check for the last bin to ensure boundary values are correctly assigned.
+    *   Fixed **merge direction logic** in `enforce_bin_cutoff()` - corrected iterator invalidation when merging bins by always erasing the higher-indexed bin.
+    *   Added **bounds safety checks** in DP optimization - ensured `k >= 2` and `k < n` to prevent undefined behavior with edge cases.
+    *   Added **underflow guard** in compaction loop - check for `compactor.size() < 2` before iteration.
+    *   Added **input validation** for non-finite values (Inf, NaN) in sketch updates.
+    *   Improved **documentation** in `ob_numerical_sketch()` with clearer parameter descriptions and simplified examples.
+    *   Replaced `special_codes` parameter with `max_n_prebins` for consistency with other algorithms.
+
+*   **CRAN Reviewer Feedback (2026-01-17)**:
+    *   Removed single quotes from author names (`Siddiqi`, `Navas-Palencia`) in DESCRIPTION.
+    *   Removed commented-out code from examples in `obwoe_apply`.
+    *   Replaced all `\dontrun{}` with `\donttest{}` in 12 function examples.
+    *   Added proper `par()` restoration in examples and vignettes.
+
 # OptimalBinningWoE 1.0.2
 
 *   **CRAN Resubmission**:

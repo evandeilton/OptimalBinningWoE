@@ -41,7 +41,7 @@ converting missings to a placeholder (e.g., \code{"-999"} for numeric,
 \code{"Missing"} for character).
 }
 \examples{
-\dontrun{
+\donttest{
 # Continuous feature with many unique values
 x_continuous <- rnorm(1000)
 target <- sample(0:1, 1000, replace = TRUE)

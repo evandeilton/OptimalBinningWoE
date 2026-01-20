@@ -223,7 +223,7 @@ For typical credit scoring datasets (\eqn{N \sim 10^5}, \eqn{k \sim 5}), runtime
 is dominated by sorting.
 }
 \examples{
-\dontrun{
+\donttest{
 # Simulate overdispersed credit scoring data with noise
 set.seed(2024)
 n <- 10000
@@ -292,7 +292,7 @@ data.frame(
 )
 
 # Visualize binning structure
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 
 # WoE plot
 plot(result$woe,
@@ -310,6 +310,7 @@ barplot(result$iv,
   main = sprintf("Total IV = \%.4f", result$total_iv)
 )
 grid()
+par(oldpar)
 }
 
 }

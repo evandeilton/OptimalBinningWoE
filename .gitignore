@@ -4,10 +4,10 @@
 .Ruserdata
 inst/doc
 /Meta/
-
 # Compiled files
 src/*.o
 src/*.so
 src/*.dll
 src/**/*.o
 /doc/
+.claude

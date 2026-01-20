@@ -216,7 +216,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Simulate overdispersed credit scoring data with noise
 #' set.seed(2024)
 #' n <- 10000
@@ -285,7 +285,7 @@
 #' )
 #'
 #' # Visualize binning structure
-#' par(mfrow = c(1, 2))
+#' oldpar <- par(mfrow = c(1, 2))
 #'
 #' # WoE plot
 #' plot(result$woe,
@@ -303,6 +303,7 @@
 #'   main = sprintf("Total IV = %.4f", result$total_iv)
 #' )
 #' grid()
+#' par(oldpar)
 #' }
 #'
 #' @author

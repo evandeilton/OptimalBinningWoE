@@ -53,7 +53,16 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' # Mock data
+#' train_data <- data.frame(
+#'   income = c(50000, 75000, 30000, 45000, 80000, 60000),
+#'   default = c(0, 0, 1, 1, 0, 0)
+#' )
+#' test_data <- data.frame(
+#'   income = c(55000, 35000, 90000)
+#' )
+#'
 #' # Train binning on training set
 #' train_bins <- ob_numerical_mdlp(
 #'   feature = train_data$income,

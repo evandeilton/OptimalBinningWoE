@@ -104,23 +104,12 @@ new_df <- data.frame(
 scored <- obwoe_apply(new_df, model)
 print(scored)
 
-# =============================================================================
-# Example 2: Production Pipeline
-# =============================================================================
-
-# Save fitted model
-# saveRDS(model, "woe_model.rds")
-
-# Load and score (in production)
-# model <- readRDS("woe_model.rds")
-# scored <- obwoe_apply(production_data, model)
-
-# Use WoE features for logistic regression
+# Use WoE features for downstream modeling
 woe_cols <- grep("_woe$", names(scored), value = TRUE)
-# glm(target ~ ., data = scored[, c("target", woe_cols)], family = binomial)
+print(woe_cols)
 
 # =============================================================================
-# Example 3: Without Original Features
+# Example 2: Without Original Features
 # =============================================================================
 
 scored_compact <- obwoe_apply(new_df, model, keep_original = FALSE)

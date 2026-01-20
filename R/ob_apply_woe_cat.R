@@ -34,7 +34,16 @@
 #' individually.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' # Mock data
+#' train_data <- data.frame(
+#'   category = c("A", "B", "A", "C", "B", "A"),
+#'   default = c(0, 1, 0, 1, 0, 0)
+#' )
+#' test_data <- data.frame(
+#'   category = c("A", "C", "B")
+#' )
+#'
 #' # Train binning on training set
 #' train_bins <- ob_categorical_cm(
 #'   feature = train_data$category,
