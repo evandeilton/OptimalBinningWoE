@@ -30,7 +30,7 @@ ob_numerical_sketch(
   min_bins = 3,
   max_bins = 5,
   bin_cutoff = 0.05,
-  special_codes = "",
+  max_n_prebins = 20,
   monotonic = TRUE,
   convergence_threshold = 1e-06,
   max_iterations = 1000,
@@ -43,13 +43,14 @@ ob_numerical_sketch(
 - feature:
 
   Numeric vector of feature values. Missing values (NA) are **not
-  permitted** and will trigger an error. For streaming applications,
-  pre-filter NAs.
+  permitted** and will trigger an error. Infinite values (Inf, -Inf) and
+  NaN are also not allowed.
 
 - target:
 
   Integer vector of binary target values (must contain only 0 and 1).
-  Must have the same length as `feature`.
+  Must have the same length as `feature`. Missing values are not
+  permitted.
 
 - min_bins:
 
@@ -62,80 +63,92 @@ ob_numerical_sketch(
 - bin_cutoff:
 
   Minimum fraction of total observations per bin (default: 0.05). Must
-  be in (0, 1).
+  be in (0, 1). Bins with fewer observations will be merged with
+  neighbors.
 
-- special_codes:
+- max_n_prebins:
 
-  Character string for special value handling (default: ""). Currently
-  unused; reserved for future extensions.
+  Maximum number of pre-bins to generate from quantiles (default: 20).
+  This parameter controls the initial granularity of binning candidates.
+  Higher values provide more flexibility but increase computational
+  cost.
 
 - monotonic:
 
   Logical flag to enforce WoE monotonicity (default: TRUE). Uses PAVA
-  for enforcement.
+  (Pool Adjacent Violators Algorithm) for enforcement. Direction
+  (increasing/ decreasing) is automatically detected from the data.
 
 - convergence_threshold:
 
-  Convergence threshold for IV change (default: 1e-6).
+  Convergence threshold for IV change (default: 1e-6). Optimization
+  stops when the change in total IV between iterations falls below this
+  value.
 
 - max_iterations:
 
-  Maximum iterations for bin optimization (default: 1000).
+  Maximum iterations for bin optimization (default: 1000). Prevents
+  infinite loops in the optimization process.
 
 - sketch_k:
 
   Integer parameter controlling sketch accuracy (default: 200). Larger
-  values improve quantile precision but increase memory. Typical range:
-  50-500. **Approximation error**: \\\epsilon \approx 1/k\\ (200 → 0.5%
-  error).
+  values improve quantile precision but increase memory usage.
+  **Approximation error**: \\\epsilon \approx 1/k\\ (200 → 0.5% error).
+  **Valid range**: \[10, 1000\]. Typical values: 50 (fast), 200
+  (balanced), 500 (precise).
 
 ## Value
 
-A list containing:
+A list of class `c("OptimalBinningSketch", "OptimalBinning")`
+containing:
 
 - id:
 
-  Integer bin identifiers (1-based).
+  Numeric vector of bin identifiers (1-based indexing).
 
 - bin_lower:
 
-  Numeric lower bounds of bins.
+  Numeric vector of lower bin boundaries (inclusive).
 
 - bin_upper:
 
-  Numeric upper bounds of bins.
+  Numeric vector of upper bin boundaries (inclusive for last bin,
+  exclusive for others).
 
 - woe:
 
-  Numeric WoE values (monotonic if `monotonic = TRUE`).
+  Numeric vector of Weight of Evidence values. Monotonic if
+  `monotonic = TRUE`.
 
 - iv:
 
-  Numeric IV contributions per bin.
+  Numeric vector of Information Value contributions per bin.
 
 - count:
 
-  Integer total observations per bin.
+  Integer vector of total observations per bin.
 
 - count_pos:
 
-  Integer positive class counts.
+  Integer vector of positive class (target = 1) counts per bin.
 
 - count_neg:
 
-  Integer negative class counts.
+  Integer vector of negative class (target = 0) counts per bin.
 
 - cutpoints:
 
-  Numeric vector of bin boundaries (internal splits only).
+  Numeric vector of bin split points (length = number of bins - 1).
+  These are the internal boundaries between bins.
 
 - converged:
 
-  Logical convergence flag.
+  Logical flag indicating whether optimization converged.
 
 - iterations:
 
-  Integer iteration count.
+  Integer number of optimization iterations performed.
 
 ## Details
 
@@ -153,24 +166,13 @@ data distribution:
 
 where each \\\text{Compactor}\_\ell\\ stores items with weight
 \\2^\ell\\. When a compactor exceeds capacity \\k\\ (controlled by
-`sketch_k`), it is compacted:
-
-1.  Sort items in \\\text{Compactor}\_\ell\\
-
-2.  Merge adjacent pairs based on level parity:
-
-    - Even levels (\\\ell \bmod 2 = 0\\): Merge pairs at even indices
-
-    - Odd levels (\\\ell \bmod 2 = 1\\): Merge pairs at odd indices
-
-3.  Promote merged items to \\\text{Compactor}\_{\ell+1}\\
+`sketch_k`), it is compacted.
 
 **Theoretical Guarantees** (Karnin et al., 2016):
 
 For a quantile \\q\\ with estimated value \\\hat{q}\\:
 
-\$\$\|\text{rank}(\hat{q}) - q \cdot N\| \le \epsilon \cdot N \quad
-\text{w.p. } \ge 1 - \delta\$\$
+\$\$\|\text{rank}(\hat{q}) - q \cdot N\| \le \epsilon \cdot N\$\$
 
 where \\\epsilon \approx O(1/k)\\ and space complexity is \\O(k
 \log(N/k))\\.
@@ -178,232 +180,99 @@ where \\\epsilon \approx O(1/k)\\ and space complexity is \\O(k
 **Phase 2: Candidate Extraction**
 
 Approximately 40 quantiles are extracted from the sketch using a
-non-uniform grid:
-
-- **Tail regions** (0.01-0.1, 0.9-0.99): 10 quantiles per tail (step
-  0.01)
-
-- **Central region** (0.1-0.9): 17 quantiles (step 0.05)
-
-This adaptive grid ensures higher resolution in distribution tails where
-extreme values may significantly impact WoE.
+non-uniform grid with higher resolution in distribution tails.
 
 **Phase 3: Optimal Cutpoint Selection**
 
-Two strategies are employed based on dataset size:
-
-**3a. Dynamic Programming (N \<= 50)**:
-
-For small datasets, an exact DP solution maximizes total IV:
-
-\$\$\text{dp}\[i\]\[j\] = \max\_{l \< i} \left\\ \text{dp}\[l\]\[j-1\] +
-\text{IV}(\text{bin from } l+1 \text{ to } i) \right\\\$\$
-
-where \\\text{dp}\[i\]\[j\]\\ is the maximum IV using \\i\\ observations
-in \\j\\ bins.
-
-**Note**: The DP implementation has known bugs for \\N \> 50\\
-(conservative limit to prevent crashes). For larger datasets, fallback
-uses uniform quantiles.
-
-**3b. Greedy IV-based Selection (N \> 50)**:
-
-For each candidate cutpoint \\c\\, compute the split IV:
-
-\$\$\text{IV}\_{\text{split}}(c) = \text{IV}\_{\text{left}} +
-\text{IV}\_{\text{right}}\$\$
-
-where left/right refer to observations \\\le c\\ and \\\> c\\,
-respectively.
-
-Candidates are ranked by \\\text{IV}\_{\text{split}}\\ (descending), and
-the top `max_bins - 1` are selected.
+For small datasets (N \<= 50), Dynamic Programming maximizes total IV.
+For larger datasets, a greedy IV-based selection is used.
 
 **Phase 4: Bin Refinement**
 
-**4a. Frequency Constraint Enforcement**:
-
-Bins with count \\\< \text{bin\\cutoff} \times N\\ are merged with the
-adjacent bin having the most similar event rate:
-
-\$\$\text{merge\\with} = \arg\min\_{j \in \\i-1, i+1\\}
-\|\text{event\\rate}\_i - \text{event\\rate}\_j\|\$\$
-
-**4b. Monotonicity Enforcement (PAVA)**:
-
-If `monotonic = TRUE`, the Pool Adjacent Violators Algorithm ensures:
-
-\$\$\text{WoE}\_1 \le \text{WoE}\_2 \le \cdots \le \text{WoE}\_k \quad
-\text{(increasing)}\$\$
-
-or the reverse for decreasing patterns. Direction is auto-detected via:
-
-\$\$\text{increasing} = \begin{cases} \text{TRUE} & \text{if }
-\text{WoE}\_{\text{last}} \ge \text{WoE}\_{\text{first}} \\ \text{FALSE}
-& \text{otherwise} \end{cases}\$\$
-
-Violations are resolved by merging adjacent bins iteratively.
-
-**4c. Bin Count Optimization**:
-
-If the number of bins exceeds `max_bins`, bins are merged to minimize IV
-loss:
-
-\$\$\Delta \text{IV}\_{i,i+1} = \text{IV}\_i + \text{IV}\_{i+1} -
-\text{IV}\_{\text{merged}}\$\$
-
-The pair with smallest \\\Delta \text{IV}\\ is merged iteratively until
-\\k \le \text{max\\bins}\\.
+Bins are refined through frequency constraint enforcement, monotonicity
+enforcement (if requested), and bin count optimization to minimize IV
+loss.
 
 **Computational Complexity**
 
-- **Time**:
+- **Time**: \\O(N \log k + N \times C + k^2 \times I)\\
 
-  - Sketch construction: \\O(N \log k)\\ for \\N\\ updates
-
-  - Candidate evaluation: \\O(N \times C)\\ where \\C \approx 40\\
-
-  - DP (if applicable): \\O(N^2 \times k)\\
-
-  - PAVA: \\O(k^2)\\ worst case
-
-  - **Total**: \\O(N \log k + N \times C + k^2 \times I)\\ where \\I\\
-    is iterations
-
-- **Space**:
-
-  - Sketch: \\O(k \log N)\\ vs \\O(N)\\ for batch methods
-
-  - DP table (if N \<= 50): \\O(N \times k)\\
-
-  - **Total**: \\O(k \log N)\\ for large N
-
-**Comparison with Batch Methods**
-
-|            |            |            |                              |                 |
-|------------|------------|------------|------------------------------|-----------------|
-| **Method** | **Space**  | **Passes** | **Guarantees**               | **Scalability** |
-| Sketch     | O(k log N) | 1          | Probabilistic (\\\epsilon\\) | Streaming-ready |
-| MDLP       | O(N)       | 1          | Deterministic (MDL)          | Batch only      |
-| MOB/MBLP   | O(N)       | Multiple   | Heuristic                    | Batch only      |
+- **Space**: \\O(k \log N)\\ for large N
 
 **When to Use Sketch-based Binning**
 
-- **Use Sketch**: For very large datasets (N \> 10^6) where memory is
-  constrained, or for streaming data where single-pass processing is
-  required.
+- **Use**: Large datasets (N \> 10^6) with memory constraints or
+  streaming data
 
-- **Use MDLP**: For moderate datasets (N \< 10^5) where exact quantiles
-  and deterministic results are preferred.
-
-- **Avoid Sketch**: For small datasets (N \< 1000) where approximation
-  error may dominate, or when reproducibility with exact quantiles is
-  critical.
-
-**Tuning sketch_k**
-
-The `sketch_k` parameter controls the accuracy-memory tradeoff:
-
-- **k = 50**: Fast, low memory, \\\epsilon \approx 2\\\\ (suitable for
-  exploration)
-
-- **k = 200** (default): Balanced, \\\epsilon \approx 0.5\\\\
-  (production)
-
-- **k = 500**: High precision, \\\epsilon \approx 0.2\\\\ (critical
-  applications)
+- **Avoid**: Small datasets (N \< 1000) where approximation error may
+  dominate
 
 ## References
 
 - Karnin, Z., Lang, K., & Liberty, E. (2016). "Optimal Quantile
   Approximation in Streams". *Proceedings of the 57th Annual IEEE
-  Symposium on Foundations of Computer Science (FOCS)*, pp. 71-78.
+  Symposium on Foundations of Computer Science (FOCS)*, 71-78.
+  [doi:10.1109/FOCS.2016.20](https://doi.org/10.1109/FOCS.2016.20)
 
 - Greenwald, M., & Khanna, S. (2001). "Space-efficient online
   computation of quantile summaries". *ACM SIGMOD Record*, 30(2), 58-66.
-
-- Cormode, G., & Duffield, N. (2014). "Sampling for Big Data: A
-  Tutorial". *Proceedings of the 20th ACM SIGKDD*, pp. 1975-1975.
-
-- Munro, J. I., & Paterson, M. S. (1980). "Selection and sorting with
-  limited storage". *Theoretical Computer Science*, 12(3), 315-323.
+  [doi:10.1145/376284.375670](https://doi.org/10.1145/376284.375670)
 
 - Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D.
   (1972). *Statistical Inference Under Order Restrictions*. Wiley.
 
-- Siddiqi, N. (2006). *Credit Risk Scorecards*. Wiley.
+- Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and
+  Implementing Intelligent Credit Scoring*. Wiley.
+  [doi:10.1002/9781119201731](https://doi.org/10.1002/9781119201731)
 
 ## See also
 
-[`ob_numerical_mdlp`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md)
-for deterministic binning with exact quantiles,
+[`ob_numerical_mdlp`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md),
 [`ob_numerical_mblp`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mblp.md)
-for batch processing with monotonicity.
 
 ## Author
 
-Lopes, J. E. (KLL Sketch implementation based on Karnin et al., 2016)
+Lopes, J. E.
 
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Simulate large-scale credit scoring data
-set.seed(2024)
-n <- 100000 # Large dataset where sketch shines
+# \donttest{
+# Example 1: Basic usage with simulated data
+set.seed(123)
+feature <- rnorm(500, mean = 100, sd = 20)
+target <- rbinom(500, 1, prob = plogis((feature - 100) / 20))
 
-feature <- c(
-  rnorm(40000, mean = 580, sd = 60),
-  rnorm(40000, mean = 680, sd = 50),
-  rnorm(20000, mean = 750, sd = 40)
-)
-
-target <- c(
-  rbinom(40000, 1, 0.30),
-  rbinom(40000, 1, 0.12),
-  rbinom(20000, 1, 0.04)
-)
-
-# Apply sketch-based binning
 result <- ob_numerical_sketch(
   feature = feature,
   target = target,
   min_bins = 3,
-  max_bins = 5,
-  sketch_k = 200, # Standard accuracy
-  monotonic = TRUE
+  max_bins = 5
 )
 
-# Inspect results
-print(result$woe)
-print(result$cutpoints)
-cat(sprintf(
-  "Converged: %s (iterations: %d)\n",
-  result$converged, result$iterations
+# Display results
+print(data.frame(
+  Bin = result$id,
+  Count = result$count,
+  WoE = round(result$woe, 4),
+  IV = round(result$iv, 4)
 ))
+#>   Bin Count     WoE     IV
+#> 1   1   198 -1.1237 0.4490
+#> 2   2    24  0.0391 0.0001
+#> 3   3   278  0.7424 0.2952
 
-# Compare sketch_k values
-result_k50 <- ob_numerical_sketch(feature, target, sketch_k = 50)
-result_k500 <- ob_numerical_sketch(feature, target, sketch_k = 500)
+# Example 2: Comparing different sketch_k values
+set.seed(456)
+x <- rnorm(1000, 50, 15)
+y <- rbinom(1000, 1, prob = 0.3)
 
-# Check cutpoint stability (higher k → more stable)
-data.frame(
-  k = c(50, 200, 500),
-  N_Bins = c(
-    length(result_k50$woe),
-    length(result$woe),
-    length(result_k500$woe)
-  ),
-  First_Cutpoint = c(
-    result_k50$cutpoints[1],
-    result$cutpoints[1],
-    result_k500$cutpoints[1]
-  )
-)
+result_k50 <- ob_numerical_sketch(x, y, sketch_k = 50)
+result_k200 <- ob_numerical_sketch(x, y, sketch_k = 200)
 
-# Memory comparison (conceptual - not executed)
-# Sketch: ~200 items x 4 levels x 16 bytes = approx 12 KB
-# Batch:  100,000 items x 16 bytes = approx 1.6 MB
-# Ratio:  ~0.75% of batch memory
-} # }
+cat("K=50 IV:", sum(result_k50$iv), "\n")
+#> K=50 IV: 0.0100206 
+cat("K=200 IV:", sum(result_k200$iv), "\n")
+#> K=200 IV: 0.006318715 
+# }
 ```

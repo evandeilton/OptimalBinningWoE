@@ -173,7 +173,7 @@ A list with up to two elements (depending on `preprocess`):
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Numerical feature with outliers
 set.seed(123)
 feature_num <- c(rnorm(95, 50, 10), NA, NA, 200, -100, 250)
@@ -189,6 +189,12 @@ result_iqr <- ob_preprocess(
 )
 
 print(result_iqr$report)
+#>   variable_type missing_count outlier_count
+#> 1       numeric             2             5
+#>                                                                                            original_stats
+#> 1 { min: -100.000000, Q1: 45.061458, median: 50.905956, mean: 52.773778, Q3: 57.210082, max: 250.000000 }
+#>                                                                                     preprocessed_stats
+#> 1 { min: 25.774368, Q1: 44.575383, median: 50.617563, mean: 50.502606, Q3: 56.981770, max: 75.553623 }
 # Shows: missing_count = 2, outlier_count = 3
 
 # Categorical feature
@@ -203,6 +209,13 @@ result_cat <- ob_preprocess(
 
 # Compare original vs preprocessed
 head(result_cat$preprocess)
+#>   feature feature_preprocessed
+#> 1       A                    A
+#> 2       A                    A
+#> 3       A                    A
+#> 4       A                    A
+#> 5       A                    A
+#> 6       A                    A
 # Shows NA replaced with "Missing"
 
 # Return only report (no data)
@@ -221,5 +234,5 @@ result_grubbs <- ob_preprocess(
   outlier_method = "grubbs",
   grubbs_alpha = 0.01 # Very strict
 )
-} # }
+# }
 ```

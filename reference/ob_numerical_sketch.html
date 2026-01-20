@@ -31,7 +31,7 @@ monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA)."><met
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@ monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA).</p>
 <span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>  max_bins <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>  special_codes <span class="op">=</span> <span class="st">""</span>,</span>
+<span>  max_n_prebins <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  monotonic <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  convergence_threshold <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  max_iterations <span class="op">=</span> <span class="fl">1000</span>,</span>
@@ -95,12 +95,13 @@ monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA).</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>Numeric vector of feature values. Missing values (NA) are <strong>not
-permitted</strong> and will trigger an error. For streaming applications, pre-filter NAs.</p></dd>
+permitted</strong> and will trigger an error. Infinite values (Inf, -Inf) and NaN are also
+not allowed.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>Integer vector of binary target values (must contain only 0 and 1).
-Must have the same length as <code>feature</code>.</p></dd>
+Must have the same length as <code>feature</code>. Missing values are not permitted.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -113,67 +114,75 @@ Must have the same length as <code>feature</code>.</p></dd>
 
 <dt id="arg-bin-cutoff">bin_cutoff<a class="anchor" aria-label="anchor" href="#arg-bin-cutoff"></a></dt>
 <dd><p>Minimum fraction of total observations per bin (default: 0.05).
-Must be in (0, 1).</p></dd>
+Must be in (0, 1). Bins with fewer observations will be merged with neighbors.</p></dd>
 
 
-<dt id="arg-special-codes">special_codes<a class="anchor" aria-label="anchor" href="#arg-special-codes"></a></dt>
-<dd><p>Character string for special value handling (default: "").
-Currently unused; reserved for future extensions.</p></dd>
+<dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
+<dd><p>Maximum number of pre-bins to generate from quantiles (default: 20).
+This parameter controls the initial granularity of binning candidates. Higher values
+provide more flexibility but increase computational cost.</p></dd>
 
 
 <dt id="arg-monotonic">monotonic<a class="anchor" aria-label="anchor" href="#arg-monotonic"></a></dt>
 <dd><p>Logical flag to enforce WoE monotonicity (default: TRUE). Uses
-PAVA for enforcement.</p></dd>
+PAVA (Pool Adjacent Violators Algorithm) for enforcement. Direction (increasing/
+decreasing) is automatically detected from the data.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Convergence threshold for IV change (default: 1e-6).</p></dd>
+<dd><p>Convergence threshold for IV change (default: 1e-6).
+Optimization stops when the change in total IV between iterations falls below this value.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
-<dd><p>Maximum iterations for bin optimization (default: 1000).</p></dd>
+<dd><p>Maximum iterations for bin optimization (default: 1000).
+Prevents infinite loops in the optimization process.</p></dd>
 
 
 <dt id="arg-sketch-k">sketch_k<a class="anchor" aria-label="anchor" href="#arg-sketch-k"></a></dt>
 <dd><p>Integer parameter controlling sketch accuracy (default: 200).
-Larger values improve quantile precision but increase memory. Typical range: 50-500.
-<strong>Approximation error</strong>: \(\epsilon \approx 1/k\) (200 → 0.5% error).</p></dd>
+Larger values improve quantile precision but increase memory usage.
+<strong>Approximation error</strong>: \(\epsilon \approx 1/k\) (200 → 0.5% error).
+<strong>Valid range</strong>: [10, 1000]. Typical values: 50 (fast), 200 (balanced), 500 (precise).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list containing:</p><dl><dt>id</dt>
-<dd><p>Integer bin identifiers (1-based).</p></dd>
+    <p>A list of class <code>c("OptimalBinningSketch", "OptimalBinning")</code> containing:</p><dl><dt>id</dt>
+<dd><p>Numeric vector of bin identifiers (1-based indexing).</p></dd>
 
   <dt>bin_lower</dt>
-<dd><p>Numeric lower bounds of bins.</p></dd>
+<dd><p>Numeric vector of lower bin boundaries (inclusive).</p></dd>
 
   <dt>bin_upper</dt>
-<dd><p>Numeric upper bounds of bins.</p></dd>
+<dd><p>Numeric vector of upper bin boundaries (inclusive for last bin,
+    exclusive for others).</p></dd>
 
   <dt>woe</dt>
-<dd><p>Numeric WoE values (monotonic if <code>monotonic = TRUE</code>).</p></dd>
+<dd><p>Numeric vector of Weight of Evidence values. Monotonic if
+    <code>monotonic = TRUE</code>.</p></dd>
 
   <dt>iv</dt>
-<dd><p>Numeric IV contributions per bin.</p></dd>
+<dd><p>Numeric vector of Information Value contributions per bin.</p></dd>
 
   <dt>count</dt>
-<dd><p>Integer total observations per bin.</p></dd>
+<dd><p>Integer vector of total observations per bin.</p></dd>
 
   <dt>count_pos</dt>
-<dd><p>Integer positive class counts.</p></dd>
+<dd><p>Integer vector of positive class (target = 1) counts per bin.</p></dd>
 
   <dt>count_neg</dt>
-<dd><p>Integer negative class counts.</p></dd>
+<dd><p>Integer vector of negative class (target = 0) counts per bin.</p></dd>
 
   <dt>cutpoints</dt>
-<dd><p>Numeric vector of bin boundaries (internal splits only).</p></dd>
+<dd><p>Numeric vector of bin split points (length = number of bins - 1).
+    These are the internal boundaries between bins.</p></dd>
 
   <dt>converged</dt>
-<dd><p>Logical convergence flag.</p></dd>
+<dd><p>Logical flag indicating whether optimization converged.</p></dd>
 
   <dt>iterations</dt>
-<dd><p>Integer iteration count.</p></dd>
+<dd><p>Integer number of optimization iterations performed.</p></dd>
 
 
 </dl></div>
@@ -185,164 +194,90 @@ Larger values improve quantile precision but increase memory. Typical range: 50-
 <p>The KLL Sketch maintains a compressed, multi-level representation of the data distribution:</p>
 <p>$$\text{Sketch} = \{\text{Compactor}_0, \text{Compactor}_1, \ldots, \text{Compactor}_L\}$$</p>
 <p>where each \(\text{Compactor}_\ell\) stores items with weight \(2^\ell\). When a
-compactor exceeds capacity \(k\) (controlled by <code>sketch_k</code>), it is compacted:</p>
-<ol><li><p>Sort items in \(\text{Compactor}_\ell\)</p></li>
-<li><p>Merge adjacent pairs based on level parity:</p><ul><li><p>Even levels (\(\ell \bmod 2 = 0\)): Merge pairs at even indices</p></li>
-<li><p>Odd levels (\(\ell \bmod 2 = 1\)): Merge pairs at odd indices</p></li>
-</ul></li>
-<li><p>Promote merged items to \(\text{Compactor}_{\ell+1}\)</p></li>
-</ol><p><strong>Theoretical Guarantees</strong> (Karnin et al., 2016):</p>
+compactor exceeds capacity \(k\) (controlled by <code>sketch_k</code>), it is compacted.</p>
+<p><strong>Theoretical Guarantees</strong> (Karnin et al., 2016):</p>
 <p>For a quantile \(q\) with estimated value \(\hat{q}\):</p>
-<p>$$|\text{rank}(\hat{q}) - q \cdot N| \le \epsilon \cdot N \quad \text{w.p. } \ge 1 - \delta$$</p>
+<p>$$|\text{rank}(\hat{q}) - q \cdot N| \le \epsilon \cdot N$$</p>
 <p>where \(\epsilon \approx O(1/k)\) and space complexity is \(O(k \log(N/k))\).</p>
 <p><strong>Phase 2: Candidate Extraction</strong></p>
-<p>Approximately 40 quantiles are extracted from the sketch using a non-uniform grid:</p>
-<ul><li><p><strong>Tail regions</strong> (0.01-0.1, 0.9-0.99): 10 quantiles per tail (step 0.01)</p></li>
-<li><p><strong>Central region</strong> (0.1-0.9): 17 quantiles (step 0.05)</p></li>
-</ul><p>This adaptive grid ensures higher resolution in distribution tails where extreme values
-may significantly impact WoE.</p>
+<p>Approximately 40 quantiles are extracted from the sketch using a non-uniform grid
+with higher resolution in distribution tails.</p>
 <p><strong>Phase 3: Optimal Cutpoint Selection</strong></p>
-<p>Two strategies are employed based on dataset size:</p>
-<p><strong>3a. Dynamic Programming (N &lt;= 50)</strong>:</p>
-<p>For small datasets, an exact DP solution maximizes total IV:</p>
-<p>$$\text{dp}[i][j] = \max_{l &lt; i} \left\{ \text{dp}[l][j-1] + \text{IV}(\text{bin from } l+1 \text{ to } i) \right\}$$</p>
-<p>where \(\text{dp}[i][j]\) is the maximum IV using \(i\) observations in \(j\) bins.</p>
-<p><strong>Note</strong>: The DP implementation has known bugs for \(N &gt; 50\) (conservative limit
-to prevent crashes). For larger datasets, fallback uses uniform quantiles.</p>
-<p><strong>3b. Greedy IV-based Selection (N &gt; 50)</strong>:</p>
-<p>For each candidate cutpoint \(c\), compute the split IV:</p>
-<p>$$\text{IV}_{\text{split}}(c) = \text{IV}_{\text{left}} + \text{IV}_{\text{right}}$$</p>
-<p>where left/right refer to observations \(\le c\) and \(&gt; c\), respectively.</p>
-<p>Candidates are ranked by \(\text{IV}_{\text{split}}\) (descending), and the top
-<code>max_bins - 1</code> are selected.</p>
+<p>For small datasets (N &lt;= 50), Dynamic Programming maximizes total IV. For larger
+datasets, a greedy IV-based selection is used.</p>
 <p><strong>Phase 4: Bin Refinement</strong></p>
-<p><strong>4a. Frequency Constraint Enforcement</strong>:</p>
-<p>Bins with count \(&lt; \text{bin\_cutoff} \times N\) are merged with the adjacent bin
-having the most similar event rate:</p>
-<p>$$\text{merge\_with} = \arg\min_{j \in \{i-1, i+1\}} |\text{event\_rate}_i - \text{event\_rate}_j|$$</p>
-<p><strong>4b. Monotonicity Enforcement (PAVA)</strong>:</p>
-<p>If <code>monotonic = TRUE</code>, the Pool Adjacent Violators Algorithm ensures:</p>
-<p>$$\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le \text{WoE}_k \quad \text{(increasing)}$$</p>
-<p>or the reverse for decreasing patterns. Direction is auto-detected via:</p>
-<p>$$\text{increasing} = \begin{cases} \text{TRUE} &amp; \text{if } \text{WoE}_{\text{last}} \ge \text{WoE}_{\text{first}} \\ \text{FALSE} &amp; \text{otherwise} \end{cases}$$</p>
-<p>Violations are resolved by merging adjacent bins iteratively.</p>
-<p><strong>4c. Bin Count Optimization</strong>:</p>
-<p>If the number of bins exceeds <code>max_bins</code>, bins are merged to minimize IV loss:</p>
-<p>$$\Delta \text{IV}_{i,i+1} = \text{IV}_i + \text{IV}_{i+1} - \text{IV}_{\text{merged}}$$</p>
-<p>The pair with smallest \(\Delta \text{IV}\) is merged iteratively until
-\(k \le \text{max\_bins}\).</p>
+<p>Bins are refined through frequency constraint enforcement, monotonicity enforcement
+(if requested), and bin count optimization to minimize IV loss.</p>
 <p><strong>Computational Complexity</strong></p>
-<ul><li><p><strong>Time</strong>:</p><ul><li><p>Sketch construction: \(O(N \log k)\) for \(N\) updates</p></li>
-<li><p>Candidate evaluation: \(O(N \times C)\) where \(C \approx 40\)</p></li>
-<li><p>DP (if applicable): \(O(N^2 \times k)\)</p></li>
-<li><p>PAVA: \(O(k^2)\) worst case</p></li>
-<li><p><strong>Total</strong>: \(O(N \log k + N \times C + k^2 \times I)\) where \(I\) is iterations</p></li>
-</ul></li>
-<li><p><strong>Space</strong>:</p><ul><li><p>Sketch: \(O(k \log N)\) vs \(O(N)\) for batch methods</p></li>
-<li><p>DP table (if N &lt;= 50): \(O(N \times k)\)</p></li>
-<li><p><strong>Total</strong>: \(O(k \log N)\) for large N</p></li>
-</ul></li>
-</ul><p><strong>Comparison with Batch Methods</strong></p>
-<table class="table table"><tr><td><strong>Method</strong></td><td><strong>Space</strong></td><td><strong>Passes</strong></td><td><strong>Guarantees</strong></td><td><strong>Scalability</strong></td></tr><tr><td>Sketch</td><td>O(k log N)</td><td>1</td><td>Probabilistic (\(\epsilon\))</td><td>Streaming-ready</td></tr><tr><td>MDLP</td><td>O(N)</td><td>1</td><td>Deterministic (MDL)</td><td>Batch only</td></tr><tr><td>MOB/MBLP</td><td>O(N)</td><td>Multiple</td><td>Heuristic</td><td>Batch only</td></tr></table><p><strong>When to Use Sketch-based Binning</strong></p>
-<ul><li><p><strong>Use Sketch</strong>: For very large datasets (N &gt; 10^6) where memory is constrained,
-    or for streaming data where single-pass processing is required.</p></li>
-<li><p><strong>Use MDLP</strong>: For moderate datasets (N &lt; 10^5) where exact quantiles and
-    deterministic results are preferred.</p></li>
-<li><p><strong>Avoid Sketch</strong>: For small datasets (N &lt; 1000) where approximation error
-    may dominate, or when reproducibility with exact quantiles is critical.</p></li>
-</ul><p><strong>Tuning sketch_k</strong></p>
-<p>The <code>sketch_k</code> parameter controls the accuracy-memory tradeoff:</p>
-<ul><li><p><strong>k = 50</strong>: Fast, low memory, \(\epsilon \approx 2\%\) (suitable for exploration)</p></li>
-<li><p><strong>k = 200</strong> (default): Balanced, \(\epsilon \approx 0.5\%\) (production)</p></li>
-<li><p><strong>k = 500</strong>: High precision, \(\epsilon \approx 0.2\%\) (critical applications)</p></li>
+<ul><li><p><strong>Time</strong>: \(O(N \log k + N \times C + k^2 \times I)\)</p></li>
+<li><p><strong>Space</strong>: \(O(k \log N)\) for large N</p></li>
+</ul><p><strong>When to Use Sketch-based Binning</strong></p>
+<ul><li><p><strong>Use</strong>: Large datasets (N &gt; 10^6) with memory constraints or streaming data</p></li>
+<li><p><strong>Avoid</strong>: Small datasets (N &lt; 1000) where approximation error may dominate</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
 
 <ul><li><p>Karnin, Z., Lang, K., &amp; Liberty, E. (2016). "Optimal Quantile Approximation in
     Streams". <em>Proceedings of the 57th Annual IEEE Symposium on Foundations of
-    Computer Science (FOCS)</em>, pp. 71-78.</p></li>
+    Computer Science (FOCS)</em>, 71-78. <a href="https://doi.org/10.1109/FOCS.2016.20" class="external-link">doi:10.1109/FOCS.2016.20</a></p></li>
 <li><p>Greenwald, M., &amp; Khanna, S. (2001). "Space-efficient online computation of
-    quantile summaries". <em>ACM SIGMOD Record</em>, 30(2), 58-66.</p></li>
-<li><p>Cormode, G., &amp; Duffield, N. (2014). "Sampling for Big Data: A Tutorial".
-    <em>Proceedings of the 20th ACM SIGKDD</em>, pp. 1975-1975.</p></li>
-<li><p>Munro, J. I., &amp; Paterson, M. S. (1980). "Selection and sorting with limited
-    storage". <em>Theoretical Computer Science</em>, 12(3), 315-323.</p></li>
+    quantile summaries". <em>ACM SIGMOD Record</em>, 30(2), 58-66.
+    <a href="https://doi.org/10.1145/376284.375670" class="external-link">doi:10.1145/376284.375670</a></p></li>
 <li><p>Barlow, R. E., Bartholomew, D. J., Bremner, J. M., &amp; Brunk, H. D. (1972).
     <em>Statistical Inference Under Order Restrictions</em>. Wiley.</p></li>
-<li><p>Siddiqi, N. (2006). <em>Credit Risk Scorecards</em>. Wiley.</p></li>
+<li><p>Siddiqi, N. (2006). <em>Credit Risk Scorecards: Developing and Implementing
+    Intelligent Credit Scoring</em>. Wiley. <a href="https://doi.org/10.1002/9781119201731" class="external-link">doi:10.1002/9781119201731</a></p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="ob_numerical_mdlp.html">ob_numerical_mdlp</a></code> for deterministic binning with exact quantiles,
-<code><a href="ob_numerical_mblp.html">ob_numerical_mblp</a></code> for batch processing with monotonicity.</p></div>
+    <div class="dont-index"><p><code><a href="ob_numerical_mdlp.html">ob_numerical_mdlp</a></code>, <code><a href="ob_numerical_mblp.html">ob_numerical_mblp</a></code></p></div>
     </div>
     <div class="section level2">
     <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
-    <p>Lopes, J. E. (KLL Sketch implementation based on Karnin et al., 2016)</p>
+    <p>Lopes, J. E.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Simulate large-scale credit scoring data</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">100000</span> <span class="co"># Large dataset where sketch shines</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="co"># Example 1: Basic usage with simulated data</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">500</span>, mean <span class="op">=</span> <span class="fl">100</span>, sd <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">500</span>, <span class="fl">1</span>, prob <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="op">(</span><span class="va">feature</span> <span class="op">-</span> <span class="fl">100</span><span class="op">)</span> <span class="op">/</span> <span class="fl">20</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">40000</span>, mean <span class="op">=</span> <span class="fl">580</span>, sd <span class="op">=</span> <span class="fl">60</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">40000</span>, mean <span class="op">=</span> <span class="fl">680</span>, sd <span class="op">=</span> <span class="fl">50</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">20000</span>, mean <span class="op">=</span> <span class="fl">750</span>, sd <span class="op">=</span> <span class="fl">40</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">40000</span>, <span class="fl">1</span>, <span class="fl">0.30</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">40000</span>, <span class="fl">1</span>, <span class="fl">0.12</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">20000</span>, <span class="fl">1</span>, <span class="fl">0.04</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Apply sketch-based binning</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_sketch</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  feature <span class="op">=</span> <span class="va">feature</span>,</span></span>
 <span class="r-in"><span>  target <span class="op">=</span> <span class="va">target</span>,</span></span>
 <span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span></span>
-<span class="r-in"><span>  max_bins <span class="op">=</span> <span class="fl">5</span>,</span></span>
-<span class="r-in"><span>  sketch_k <span class="op">=</span> <span class="fl">200</span>, <span class="co"># Standard accuracy</span></span></span>
-<span class="r-in"><span>  monotonic <span class="op">=</span> <span class="cn">TRUE</span></span></span>
+<span class="r-in"><span>  max_bins <span class="op">=</span> <span class="fl">5</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Inspect results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">cutpoints</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="st">"Converged: %s (iterations: %d)\n"</span>,</span></span>
-<span class="r-in"><span>  <span class="va">result</span><span class="op">$</span><span class="va">converged</span>, <span class="va">result</span><span class="op">$</span><span class="va">iterations</span></span></span>
+<span class="r-in"><span><span class="co"># Display results</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  Bin <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">id</span>,</span></span>
+<span class="r-in"><span>  Count <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">count</span>,</span></span>
+<span class="r-in"><span>  WoE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>, <span class="fl">4</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">iv</span>, <span class="fl">4</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin Count     WoE     IV</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1   1   198 -1.1237 0.4490</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2   2    24  0.0391 0.0001</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3   3   278  0.7424 0.2952</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Compare sketch_k values</span></span></span>
-<span class="r-in"><span><span class="va">result_k50</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_sketch</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span>, sketch_k <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result_k500</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_sketch</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span>, sketch_k <span class="op">=</span> <span class="fl">500</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># Example 2: Comparing different sketch_k values</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">456</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">50</span>, <span class="fl">15</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">1</span>, prob <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Check cutpoint stability (higher k → more stable)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">50</span>, <span class="fl">200</span>, <span class="fl">500</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  N_Bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_k50</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_k500</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span>,</span></span>
-<span class="r-in"><span>  First_Cutpoint <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    <span class="va">result_k50</span><span class="op">$</span><span class="va">cutpoints</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span></span>
-<span class="r-in"><span>    <span class="va">result</span><span class="op">$</span><span class="va">cutpoints</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span></span>
-<span class="r-in"><span>    <span class="va">result_k500</span><span class="op">$</span><span class="va">cutpoints</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result_k50</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_sketch</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span>, sketch_k <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result_k200</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_sketch</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span>, sketch_k <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Memory comparison (conceptual - not executed)</span></span></span>
-<span class="r-in"><span><span class="co"># Sketch: ~200 items x 4 levels x 16 bytes = approx 12 KB</span></span></span>
-<span class="r-in"><span><span class="co"># Batch:  100,000 items x 16 bytes = approx 1.6 MB</span></span></span>
-<span class="r-in"><span><span class="co"># Ratio:  ~0.75% of batch memory</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"K=50 IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result_k50</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> K=50 IV: 0.0100206 </span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"K=200 IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result_k200</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> K=200 IV: 0.006318715 </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

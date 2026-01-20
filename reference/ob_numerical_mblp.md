@@ -326,7 +326,7 @@ Lopes, J. E. (implemented algorithm based on Mironchyk & Tchistiakov,
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate non-monotonic credit scoring data
 set.seed(123)
 n <- 8000
@@ -355,7 +355,9 @@ result_auto <- ob_numerical_mblp(
 )
 
 print(result_auto$monotonicity) # Check detected direction
+#> [1] "decreasing"
 print(result_auto$total_iv) # Should be > 0.1 for predictive features
+#> [1] 0.2360193
 
 # Force decreasing monotonicity (higher score = lower WoE = lower risk)
 result_forced <- ob_numerical_mblp(
@@ -374,13 +376,15 @@ cat(sprintf(
   "Auto mode: %d iterations, IV = %.4f\n",
   result_auto$iterations, result_auto$total_iv
 ))
+#> Auto mode: 2 iterations, IV = 0.2360
 cat(sprintf(
   "Forced mode: %d iterations, IV = %.4f\n",
   result_forced$iterations, result_forced$total_iv
 ))
+#> Forced mode: 2 iterations, IV = 0.2658
 
 # Visualize binning quality
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 plot(result_auto$woe,
   type = "b", col = "blue", pch = 19,
   xlab = "Bin", ylab = "WoE", main = "Auto-Detected Monotonicity"
@@ -389,5 +393,7 @@ plot(result_forced$woe,
   type = "b", col = "red", pch = 19,
   xlab = "Bin", ylab = "WoE", main = "Forced Decreasing"
 )
-} # }
+
+par(oldpar)
+# }
 ```

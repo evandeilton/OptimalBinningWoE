@@ -273,7 +273,7 @@ Lopes, J. E.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate normally distributed credit scores
 set.seed(123)
 n <- 5000
@@ -301,5 +301,8 @@ data.frame(
   N_Bins = c(length(result$woe), length(result_mdlp$woe)),
   Total_IV = c(result$total_iv, result_mdlp$total_iv)
 )
-} # }
+#>   Method N_Bins Total_IV
+#> 1   UBSD      5 2.030524
+#> 2   MDLP      3 1.065396
+# }
 ```

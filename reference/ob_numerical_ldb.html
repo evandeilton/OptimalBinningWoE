@@ -13,7 +13,7 @@ and Information Value (IV) for binary classification tasks."><meta property="og:
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -252,7 +252,7 @@ feature values and credit risk.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Simulate credit scoring data</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">10000</span></span></span>
@@ -280,13 +280,16 @@ feature values and credit risk.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Inspect binning quality</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span> <span class="co"># Should be &gt; 0.1 for predictive features</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1914946</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">monotonicity</span><span class="op">)</span> <span class="co"># Should indicate direction</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "decreasing"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Visualize WoE pattern</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>,</span></span>
 <span class="r-in"><span>  type <span class="op">=</span> <span class="st">"b"</span>, xlab <span class="op">=</span> <span class="st">"Bin"</span>, ylab <span class="op">=</span> <span class="st">"WoE"</span>,</span></span>
 <span class="r-in"><span>  main <span class="op">=</span> <span class="st">"Monotonic WoE Trend"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="ob_numerical_ldb-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Generate scorecard transformation</span></span></span>
 <span class="r-in"><span><span class="va">bin_mapping</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
@@ -295,7 +298,11 @@ feature values and credit risk.</p>
 <span class="r-in"><span>  iv <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">iv</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">bin_mapping</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                       bin        woe          iv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       (-Inf;660.733735]  0.4827072 0.094830755</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 (660.733735;726.780204] -0.1320751 0.005514779</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3       (726.780204;+Inf] -0.5891944 0.091149091</span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

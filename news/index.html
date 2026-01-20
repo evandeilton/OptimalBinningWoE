@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,28 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.3" id="optimalbinningwoe-103">OptimalBinningWoE 1.0.3<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-103"></a></h2>
+<ul><li>
+<strong>Critical Bug Fixes - KLL Sketch Algorithm (2026-01-20)</strong>:
+<ul><li>Fixed <strong>iterator invalidation</strong> in <code>KLLSketch::compact_level()</code> - the <code>compactors.push_back()</code> call was invalidating references to vector elements, causing crashes with datasets larger than ~200 observations.</li>
+<li>Fixed <strong>parameter order bug</strong> in <code>calculate_metrics()</code> calls - swapped <code>(total_good, total_bad)</code> to correct order <code>(total_pos, total_neg)</code>, fixing incorrect WoE calculations.</li>
+<li>Fixed <strong>half-open interval logic</strong> in bin assignment - added explicit closed interval <code>[lower, upper]</code> check for the last bin to ensure boundary values are correctly assigned.</li>
+<li>Fixed <strong>merge direction logic</strong> in <code>enforce_bin_cutoff()</code> - corrected iterator invalidation when merging bins by always erasing the higher-indexed bin.</li>
+<li>Added <strong>bounds safety checks</strong> in DP optimization - ensured <code>k &gt;= 2</code> and <code>k &lt; n</code> to prevent undefined behavior with edge cases.</li>
+<li>Added <strong>underflow guard</strong> in compaction loop - check for <code>compactor.size() &lt; 2</code> before iteration.</li>
+<li>Added <strong>input validation</strong> for non-finite values (Inf, NaN) in sketch updates.</li>
+<li>Improved <strong>documentation</strong> in <code><a href="../reference/ob_numerical_sketch.html">ob_numerical_sketch()</a></code> with clearer parameter descriptions and simplified examples.</li>
+<li>Replaced <code>special_codes</code> parameter with <code>max_n_prebins</code> for consistency with other algorithms.</li>
+</ul></li>
+<li>
+<strong>CRAN Reviewer Feedback (2026-01-17)</strong>:
+<ul><li>Removed single quotes from author names (<code>Siddiqi</code>, <code>Navas-Palencia</code>) in DESCRIPTION.</li>
+<li>Removed commented-out code from examples in <code>obwoe_apply</code>.</li>
+<li>Replaced all <code>\dontrun{}</code> with <code>\donttest{}</code> in 12 function examples.</li>
+<li>Added proper <code><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par()</a></code> restoration in examples and vignettes.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.2" id="optimalbinningwoe-102">OptimalBinningWoE 1.0.2<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-102"></a></h2>
 <ul><li>

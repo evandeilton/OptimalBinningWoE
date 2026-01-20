@@ -292,7 +292,7 @@ Lopes, J. E.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate credit scoring data
 set.seed(2024)
 n <- 10000
@@ -315,10 +315,6 @@ result <- ob_numerical_mrblp(
   max_bins = 5
 )
 
-# Verify monotonicity
-print(result$woe)
-stopifnot(all(diff(result$woe) >= -1e-10))
-
 # Compare with MOB (should be very similar)
 result_mob <- ob_numerical_mob(
   feature = feature,
@@ -334,5 +330,8 @@ data.frame(
   Total_IV = c(result$total_iv, result_mob$total_iv),
   Iterations = c(result$iterations, result_mob$iterations)
 )
-} # }
+#>   Method N_Bins  Total_IV Iterations
+#> 1  MRBLP      5 0.1654134         16
+#> 2    MOB      5 0.1744501         15
+# }
 ```

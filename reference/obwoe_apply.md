@@ -155,23 +155,13 @@ print(scored)
 #> 2 -0.03653409        MA            MA   -0.09570827
 #> 3 -0.04630457       PhD           PhD    0.19851891
 
-# =============================================================================
-# Example 2: Production Pipeline
-# =============================================================================
-
-# Save fitted model
-# saveRDS(model, "woe_model.rds")
-
-# Load and score (in production)
-# model <- readRDS("woe_model.rds")
-# scored <- obwoe_apply(production_data, model)
-
-# Use WoE features for logistic regression
+# Use WoE features for downstream modeling
 woe_cols <- grep("_woe$", names(scored), value = TRUE)
-# glm(target ~ ., data = scored[, c("target", woe_cols)], family = binomial)
+print(woe_cols)
+#> [1] "age_woe"       "income_woe"    "education_woe"
 
 # =============================================================================
-# Example 3: Without Original Features
+# Example 2: Without Original Features
 # =============================================================================
 
 scored_compact <- obwoe_apply(new_df, model, keep_original = FALSE)

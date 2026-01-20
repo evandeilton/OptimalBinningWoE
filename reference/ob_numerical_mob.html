@@ -23,7 +23,7 @@ that the final binning satisfies: \(\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -294,7 +294,7 @@ constraints.</p></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Simulate non-monotonic credit scoring data</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">12000</span></span></span>
@@ -316,7 +316,7 @@ constraints.</p></div>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_mob</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  feature <span class="op">=</span> <span class="va">feature</span>,</span></span>
 <span class="r-in"><span>  target <span class="op">=</span> <span class="va">target</span>,</span></span>
-<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span></span>
+<span class="r-in"><span>  min_bins <span class="op">=</span> <span class="fl">2</span>,</span></span>
 <span class="r-in"><span>  max_bins <span class="op">=</span> <span class="fl">5</span>,</span></span>
 <span class="r-in"><span>  bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span></span>
 <span class="r-in"><span>  max_n_prebins <span class="op">=</span> <span class="fl">20</span></span></span>
@@ -324,7 +324,8 @@ constraints.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Verify monotonicity</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">-</span><span class="fl">1e-10</span><span class="op">)</span><span class="op">)</span> <span class="co"># Non-decreasing WoE</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  0.77178577 -0.05402436</span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="op">&lt;=</span> <span class="fl">1e-10</span><span class="op">)</span><span class="op">)</span> <span class="co"># Non-increasing WoE</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Inspect binning quality</span></span></span>
 <span class="r-in"><span><span class="va">binning_table</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
@@ -335,30 +336,21 @@ constraints.</p></div>
 <span class="r-in"><span>  EventRate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">event_rate</span>, <span class="fl">4</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">binning_table</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                 Bin     WoE     IV Count EventRate</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 [-Inf;547.286049)  0.7718 0.0388   600    0.2533</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 [547.286049;+Inf) -0.0540 0.0027 11400    0.1296</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"\nTotal IV: %.4f\n"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV: 0.0416</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  <span class="st">"Converged: %s (iterations: %d)\n"</span>,</span></span>
 <span class="r-in"><span>  <span class="va">result</span><span class="op">$</span><span class="va">converged</span>, <span class="va">result</span><span class="op">$</span><span class="va">iterations</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Compare with different smoothing</span></span></span>
-<span class="r-in"><span><span class="va">result_no_smooth</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_mob</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  feature <span class="op">=</span> <span class="va">feature</span>,</span></span>
-<span class="r-in"><span>  target <span class="op">=</span> <span class="va">target</span>,</span></span>
-<span class="r-in"><span>  laplace_smoothing <span class="op">=</span> <span class="fl">0.0</span> <span class="co"># No smoothing (risky)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Check impact on extreme bins</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  Bin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  WoE_smoothed <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">woe</span>,</span></span>
-<span class="r-in"><span>  WoE_raw <span class="op">=</span> <span class="va">result_no_smooth</span><span class="op">$</span><span class="va">woe</span>,</span></span>
-<span class="r-in"><span>  Diff <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span> <span class="op">-</span> <span class="va">result_no_smooth</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Converged: TRUE (iterations: 18)</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Visualize monotonic pattern</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># WoE monotonicity</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>,</span></span>
@@ -376,7 +368,9 @@ constraints.</p></div>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/abline.html" class="external-link">abline</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span> <span class="op">~</span> <span class="va">result</span><span class="op">$</span><span class="va">event_rate</span><span class="op">)</span>, col <span class="op">=</span> <span class="st">"red"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/grid.html" class="external-link">grid</a></span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-plt img"><img src="ob_numerical_mob-1.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">oldpar</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

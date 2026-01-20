@@ -52,27 +52,31 @@ category, preprocess `x` by converting missings to a placeholder (e.g.,
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Continuous feature with many unique values
 x_continuous <- rnorm(1000)
 target <- sample(0:1, 1000, replace = TRUE)
 ob_check_distincts(x_continuous, target)
+#> [1] 1000    1
 # Returns: ~1000 (approximately all unique due to floating point)
 
 # Low-cardinality feature
 x_binary <- sample(c("Yes", "No"), 1000, replace = TRUE)
 ob_check_distincts(x_binary, target)
+#> [1] 2 2
 # Returns: 2
 
 # Feature with missing values
 x_with_na <- c(1, 2, NA, 2, 3, NA, 1)
 target_short <- c(1, 0, 1, 0, 1, 0, 1)
 ob_check_distincts(x_with_na, target_short)
+#> [1] 3 1
 # Returns: 3 (counts: 1, 2, 3; NAs excluded)
 
 # Empty or all-NA feature
 x_empty <- rep(NA, 100)
 ob_check_distincts(x_empty, sample(0:1, 100, replace = TRUE))
+#> [1] 0 0
 # Returns: 0
-} # }
+# }
 ```

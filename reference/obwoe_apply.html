@@ -13,7 +13,7 @@ observations to bins and maps them to their corresponding WoE values."><meta pro
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -191,23 +191,13 @@ Intelligent Credit Scoring. <em>John Wiley &amp; Sons</em>.
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2 -0.03653409        MA            MA   -0.09570827</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3 -0.04630457       PhD           PhD    0.19851891</span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Production Pipeline</span></span></span>
-<span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Save fitted model</span></span></span>
-<span class="r-in"><span><span class="co"># saveRDS(model, "woe_model.rds")</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Load and score (in production)</span></span></span>
-<span class="r-in"><span><span class="co"># model &lt;- readRDS("woe_model.rds")</span></span></span>
-<span class="r-in"><span><span class="co"># scored &lt;- obwoe_apply(production_data, model)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Use WoE features for logistic regression</span></span></span>
+<span class="r-in"><span><span class="co"># Use WoE features for downstream modeling</span></span></span>
 <span class="r-in"><span><span class="va">woe_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"_woe$"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">scored</span><span class="op">)</span>, value <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># glm(target ~ ., data = scored[, c("target", woe_cols)], family = binomial)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">woe_cols</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "age_woe"       "income_woe"    "education_woe"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
-<span class="r-in"><span><span class="co"># Example 3: Without Original Features</span></span></span>
+<span class="r-in"><span><span class="co"># Example 2: Without Original Features</span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">scored_compact</span> <span class="op">&lt;-</span> <span class="fu">obwoe_apply</span><span class="op">(</span><span class="va">new_df</span>, <span class="va">model</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>

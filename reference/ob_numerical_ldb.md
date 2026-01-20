@@ -270,7 +270,7 @@ Lopes, J. E. (implemented algorithm)
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate credit scoring data
 set.seed(42)
 n <- 10000
@@ -298,13 +298,16 @@ result <- ob_numerical_ldb(
 
 # Inspect binning quality
 print(result$total_iv) # Should be > 0.1 for predictive features
+#> [1] 0.1914946
 print(result$monotonicity) # Should indicate direction
+#> [1] "decreasing"
 
 # Visualize WoE pattern
 plot(result$woe,
   type = "b", xlab = "Bin", ylab = "WoE",
   main = "Monotonic WoE Trend"
 )
+
 
 # Generate scorecard transformation
 bin_mapping <- data.frame(
@@ -313,5 +316,9 @@ bin_mapping <- data.frame(
   iv = result$iv
 )
 print(bin_mapping)
-} # }
+#>                       bin        woe          iv
+#> 1       (-Inf;660.733735]  0.4827072 0.094830755
+#> 2 (660.733735;726.780204] -0.1320751 0.005514779
+#> 3       (726.780204;+Inf] -0.5891944 0.091149091
+# }
 ```

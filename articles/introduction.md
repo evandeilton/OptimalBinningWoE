@@ -347,7 +347,7 @@ print(gains)
 #>       (39.000000;+Inf]    87   51.72%  0.9136 0.1602      100.0%  0.0% 0.32
 
 # Plot gains curves
-par(mfrow = c(2, 2))
+oldpar <- par(mfrow = c(2, 2))
 plot(gains, type = "cumulative")
 plot(gains, type = "ks")
 plot(gains, type = "lift")
@@ -357,7 +357,7 @@ plot(gains, type = "woe_iv")
 ![](introduction_files/figure-html/gains_analysis-1.png)
 
 ``` r
-par(mfrow = c(1, 1))
+par(oldpar)
 ```
 
 ## Algorithm Comparison
@@ -1060,30 +1060,30 @@ sessionInfo()
 #>  [1] pROC_1.19.0.1           yardstick_1.3.2         workflowsets_1.1.1     
 #>  [4] workflows_1.3.0         tune_2.0.1              tidyr_1.3.2            
 #>  [7] tailor_0.1.0            rsample_1.3.1           recipes_1.3.1          
-#> [10] purrr_1.2.1             parsnip_1.4.0           modeldata_1.5.1        
+#> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
 #> [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            
 #> [16] dials_1.4.2             scales_1.4.0            broom_1.0.11           
-#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.2
+#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.3
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     
 #>  [4] furrr_0.3.1         compiler_4.5.2      systemfonts_1.3.1  
-#>  [7] vctrs_0.6.5         lhs_1.2.0           pkgconfig_2.0.3    
+#>  [7] vctrs_0.7.0         lhs_1.2.0           pkgconfig_2.0.3    
 #> [10] fastmap_1.2.0       backports_1.5.0     labeling_0.4.3     
 #> [13] utf8_1.2.6          rmarkdown_2.30      prodlim_2025.04.28 
-#> [16] ragg_1.5.0          xfun_0.55           cachem_1.1.0       
+#> [16] ragg_1.5.0          xfun_0.56           cachem_1.1.0       
 #> [19] jsonlite_2.0.0      parallel_4.5.2      R6_2.6.1           
 #> [22] bslib_0.9.0         stringi_1.8.7       RColorBrewer_1.1-3 
 #> [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.4    
-#> [28] jquerylib_0.1.4     Rcpp_1.1.0          iterators_1.0.14   
+#> [28] jquerylib_0.1.4     Rcpp_1.1.1          iterators_1.0.14   
 #> [31] knitr_1.51          future.apply_1.20.1 Matrix_1.7-4       
 #> [34] splines_4.5.2       nnet_7.3-20         timechange_0.3.0   
-#> [37] tidyselect_1.2.1    rstudioapi_0.17.1   yaml_2.3.12        
+#> [37] tidyselect_1.2.1    rstudioapi_0.18.0   yaml_2.3.12        
 #> [40] timeDate_4051.111   doParallel_1.0.17   codetools_0.2-20   
-#> [43] listenv_0.10.0      lattice_0.22-7      tibble_3.3.0       
+#> [43] listenv_0.10.0      lattice_0.22-7      tibble_3.3.1       
 #> [46] withr_3.0.2         S7_0.2.1            evaluate_1.0.5     
-#> [49] future_1.68.0       desc_1.4.3          survival_3.8-3     
-#> [52] zip_2.3.3           xml2_1.5.1          pillar_1.11.1      
+#> [49] future_1.69.0       desc_1.4.3          survival_3.8-3     
+#> [52] zip_2.3.3           xml2_1.5.2          pillar_1.11.1      
 #> [55] foreach_1.5.2       generics_0.1.4      globals_0.18.0     
 #> [58] class_7.3-23        glue_1.8.0          tools_4.5.2        
 #> [61] data.table_1.18.0   openxlsx_4.2.8.1    gower_1.0.2        

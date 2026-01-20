@@ -267,7 +267,7 @@ Lopes, J. E.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 set.seed(123)
 n <- 5000
 feature <- c(
@@ -289,7 +289,9 @@ result <- ob_numerical_oslp(
 )
 
 print(result$woe)
+#> [1]  0.8025010  0.5114407 -0.2910587 -1.2743136 -1.3945886
 print(result$total_iv)
+#> [1] 0.3691969
 
 # Compare with MRBLP (should be nearly identical)
 result_mrblp <- ob_numerical_mrblp(
@@ -304,5 +306,8 @@ data.frame(
   Total_IV = c(result$total_iv, result_mrblp$total_iv),
   N_Bins = c(length(result$woe), length(result_mrblp$woe))
 )
-} # }
+#>   Method  Total_IV N_Bins
+#> 1   OSLP 0.3691969      5
+#> 2  MRBLP 0.3847959      5
+# }
 ```

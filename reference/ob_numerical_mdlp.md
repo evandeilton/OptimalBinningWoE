@@ -327,7 +327,7 @@ Lopes, J. E. (algorithm implementation based on Fayyad & Irani, 1993)
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate overdispersed credit scoring data with noise
 set.seed(2024)
 n <- 10000
@@ -359,20 +359,31 @@ result <- ob_numerical_mdlp(
 
 # Inspect results
 print(result$bin)
+#> [1] "[-Inf;732.055011)"       "[732.055011;778.058805)"
+#> [3] "[778.058805;+Inf)"      
 print(data.frame(
   Bin = result$bin,
   WoE = round(result$woe, 4),
   IV = round(result$iv, 4),
   Count = result$count
 ))
+#>                       Bin     WoE     IV Count
+#> 1       [-Inf;732.055011)  0.1350 0.0152  8000
+#> 2 [732.055011;778.058805) -0.7283 0.0618  1500
+#> 3       [778.058805;+Inf) -0.7213 0.0203   500
 
 cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
+#> 
+#> Total IV: 0.0973
 cat(sprintf("Converged: %s\n", result$converged))
+#> Converged: TRUE
 cat(sprintf("Iterations: %d\n", result$iterations))
+#> Iterations: 16
 
 # Verify monotonicity
 is_monotonic <- all(diff(result$woe) >= -1e-10)
 cat(sprintf("WoE Monotonic: %s\n", is_monotonic))
+#> WoE Monotonic: FALSE
 
 # Compare with different Laplace smoothing
 result_nosmooth <- ob_numerical_mdlp(
@@ -394,9 +405,13 @@ data.frame(
   WoE_no_smooth = result_nosmooth$woe,
   WoE_high_smooth = result_highsmooth$woe
 )
+#>   Bin WoE_default WoE_no_smooth WoE_high_smooth
+#> 1   1   0.1349518     0.1354243       0.1335385
+#> 2   2  -0.7283036    -0.7310697      -0.7200885
+#> 3   3  -0.7213401    -0.7310697      -0.6929202
 
 # Visualize binning structure
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 
 # WoE plot
 plot(result$woe,
@@ -414,5 +429,7 @@ barplot(result$iv,
   main = sprintf("Total IV = %.4f", result$total_iv)
 )
 grid()
-} # }
+
+par(oldpar)
+# }
 ```
