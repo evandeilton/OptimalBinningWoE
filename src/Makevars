@@ -6,7 +6,7 @@ PKG_CPPFLAGS = -I.
 
 # Optimization for smaller binary size (CRAN NOTE fix)
 # -Os: Optimize for size (safe, standard flag)
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_CXXFLAGS) -Os
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -Os
 
-# Combine all flags
-PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_LIBS)
+# Linker flags
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)

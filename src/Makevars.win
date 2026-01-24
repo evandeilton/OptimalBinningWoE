@@ -8,5 +8,5 @@ PKG_CPPFLAGS = -I.
 # -Os: Optimize for size
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -Os
 
-# Combine all flags
+# Linker flags
 PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
