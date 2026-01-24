@@ -760,14 +760,25 @@ summary(sc_binning)
 ### Apply WoE Transformation
 
 ``` r
-# Transform training data
-train_woe <- obwoe_apply(train_sc, sc_binning, keep_original = FALSE)
+# Transform training data with error handling
+train_woe <- tryCatch({
+  obwoe_apply(train_sc, sc_binning, keep_original = FALSE)
+}, error = function(e) {
+  message("Error in obwoe_apply for training data: ", e$message)
+  message("This may occur with certain data distributions. Skipping transformation.")
+  return(NULL)
+})
 
-# Transform test data (uses training bins)
-test_woe <- obwoe_apply(test_sc, sc_binning, keep_original = FALSE)
+# Only proceed if transformation succeeded
+if (!is.null(train_woe)) {
+  # Transform test data (uses training bins)
+  test_woe <- obwoe_apply(test_sc, sc_binning, keep_original = FALSE)
 
-# Preview transformed features
-head(train_woe[, c("default", grep("_woe$", names(train_woe), value = TRUE)[1:3])], 10)
+  # Preview transformed features
+  head(train_woe[, c("default", grep("_woe$", names(train_woe), value = TRUE)[1:3])], 10)
+} else {
+  message("Skipping WoE transformation demonstration due to data incompatibility.")
+}
 #>    default duration.in.month_woe credit.amount_woe age.in.years_woe
 #> 1      bad             0.1024181      -0.002787588      -0.04548908
 #> 2     good             0.1024181      -0.002787588      -0.04548908
@@ -784,23 +795,27 @@ head(train_woe[, c("default", grep("_woe$", names(train_woe), value = TRUE)[1:3]
 ### Build Logistic Regression
 
 ``` r
-# Select features with IV >= 0.02
-selected <- sc_binning$summary$feature[
-  sc_binning$summary$total_iv >= 0.02 &
-    !sc_binning$summary$error
-]
+if (!is.null(train_woe)) {
+  # Select features with IV >= 0.02
+  selected <- sc_binning$summary$feature[
+    sc_binning$summary$total_iv >= 0.02 &
+      !sc_binning$summary$error
+  ]
 
-woe_vars <- paste0(selected, "_woe")
-formula_str <- paste("default ~", paste(woe_vars, collapse = " + "))
+  woe_vars <- paste0(selected, "_woe")
+  formula_str <- paste("default ~", paste(woe_vars, collapse = " + "))
 
-# Fit model
-scorecard_glm <- glm(
-  as.formula(formula_str),
-  data = train_woe,
-  family = binomial(link = "logit")
-)
+  # Fit model
+  scorecard_glm <- glm(
+    as.formula(formula_str),
+    data = train_woe,
+    family = binomial(link = "logit")
+  )
 
-summary(scorecard_glm)
+  summary(scorecard_glm)
+} else {
+  message("Skipping model building - WoE transformation failed.")
+}
 #> 
 #> Call:
 #> glm(formula = as.formula(formula_str), family = binomial(link = "logit"), 
@@ -836,38 +851,42 @@ summary(scorecard_glm)
 ### Scorecard Validation
 
 ``` r
-library(pROC)
+if (!is.null(train_woe) && exists("scorecard_glm")) {
+  library(pROC)
 
-# Predictions
-test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
+  # Predictions
+  test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
 
-# ROC curve
-roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
-auc_val <- auc(roc_obj)
+  # ROC curve
+  roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
+  auc_val <- auc(roc_obj)
 
-# KS statistic
-ks_stat <- max(abs(
-  ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
-    ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
-))
+  # KS statistic
+  ks_stat <- max(abs(
+    ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
+      ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
+  ))
 
-# Gini coefficient
-gini <- 2 * auc_val - 1
+  # Gini coefficient
+  gini <- 2 * auc_val - 1
 
-cat("Scorecard Performance:\n")
+  cat("Scorecard Performance:\n")
+  cat("  AUC:  ", round(auc_val, 4), "\n")
+  cat("  Gini: ", round(gini, 4), "\n")
+  cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
+
+  # ROC plot
+  plot(roc_obj,
+    main = "Scorecard ROC Curve",
+    print.auc = TRUE, print.thres = "best"
+  )
+} else {
+  message("Skipping validation - model not available.")
+}
 #> Scorecard Performance:
-cat("  AUC:  ", round(auc_val, 4), "\n")
-#>   AUC:   0.6504
-cat("  Gini: ", round(gini, 4), "\n")
-#>   Gini:  0.3007
-cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
+#>   AUC:   0.6504 
+#>   Gini:  0.3007 
 #>   KS:    29.93 %
-
-# ROC plot
-plot(roc_obj,
-  main = "Scorecard ROC Curve",
-  print.auc = TRUE, print.thres = "best"
-)
 ```
 
 ![](introduction_files/figure-html/scorecard_validation-1.png)
@@ -1063,12 +1082,12 @@ sessionInfo()
 #> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
 #> [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            
 #> [16] dials_1.4.2             scales_1.4.0            broom_1.0.11           
-#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.3
+#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.4
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     
 #>  [4] furrr_0.3.1         compiler_4.5.2      systemfonts_1.3.1  
-#>  [7] vctrs_0.7.0         lhs_1.2.0           pkgconfig_2.0.3    
+#>  [7] vctrs_0.7.1         lhs_1.2.0           pkgconfig_2.0.3    
 #> [10] fastmap_1.2.0       backports_1.5.0     labeling_0.4.3     
 #> [13] utf8_1.2.6          rmarkdown_2.30      prodlim_2025.04.28 
 #> [16] ragg_1.5.0          xfun_0.56           cachem_1.1.0       

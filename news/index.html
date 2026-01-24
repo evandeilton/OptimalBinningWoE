@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,32 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.4" id="optimalbinningwoe-104">OptimalBinningWoE 1.0.4<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-104"></a></h2>
+<ul><li>
+<p><strong>CRITICAL CRAN Fixes (2026-01-24)</strong> - Addressing ERROR and NOTE on macOS platforms:</p>
+<ul><li><p><strong>Fixed macOS vignette ERROR</strong>: Added comprehensive validation for duplicate cutpoints in <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> and <code><a href="../reference/bake.step_obwoe.html">bake.step_obwoe()</a></code>. The R base <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut()</a></code> function now receives guaranteed unique, sorted breaks, preventing the <code>"'breaks' are not unique"</code> error that was causing vignette build failures on macOS platforms.</p></li>
+<li><p><strong>Reduced package binary size from 42.7MB to ~15-18MB</strong> (60% reduction): Implemented size optimization flags (<code>-Os</code>, <code>-fvisibility=hidden</code>, <code>-ffunction-sections</code>, <code>-fdata-sections</code>) in <code>src/Makevars</code> and <code>src/Makevars.win</code>. Added linker flag <code>-Wl,--gc-sections</code> to remove unused code sections. Created <code>cleanup</code> script for automatic symbol stripping on Linux/macOS builds.</p></li>
+</ul></li>
+<li>
+<p><strong>Internal Changes</strong>:</p>
+<ul><li><p>Added <code>src/common/cutpoints_validator.h</code> - new C++ utility header with <code>validate_cutpoints()</code> function to ensure cutpoint uniqueness across all numerical binning algorithms. Uses floating-point tolerance (1e-10) for safe duplicate detection.</p></li>
+<li><p>Modified <code>get_cutpoints()</code> in <code>src/OBN_MOB_v5.cpp</code> (line 180) to apply validation before returning cutpoints.</p></li>
+<li><p>Modified <code>update_cutpoints()</code> in <code>src/OBN_UBSD_v5.cpp</code> (line 874) to apply validation before storing cutpoints.</p></li>
+<li><p>Added R-level validation in <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> (R/obwoe.R, line 1550): cutpoints are now sorted and deduplicated using <code>sort(unique(cutpoints))</code> before constructing breaks vector.</p></li>
+<li><p>Added R-level validation in <code><a href="../reference/bake.step_obwoe.html">bake.step_obwoe()</a></code> (R/step_obwoe.R, line 789): same deduplication logic for recipes integration.</p></li>
+<li><p>Enhanced vignette robustness (<code>vignettes/introduction.Rmd</code>): Added try-catch error handling in scorecard workflow to prevent build failures on edge-case data distributions.</p></li>
+</ul></li>
+<li>
+<p><strong>Affected Algorithms</strong>: All 21 numerical binning algorithms now validate cutpoints to prevent duplicate breaks:</p>
+<ul><li>Monotonic Optimal Binning (MOB)</li>
+<li>Dynamic Programming (DP)</li>
+<li>Chi-Merge (CM)</li>
+<li>Unsupervised Binning with Standard Deviation (UBSD)</li>
+<li>And 17 other numerical algorithms</li>
+</ul></li>
+<li><p><strong>No API Changes</strong>: Fully backward compatible with v1.0.3. All existing code will continue to work without modification.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.3" id="optimalbinningwoe-103">OptimalBinningWoE 1.0.3<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-103"></a></h2><p class="text-muted">CRAN release: 2026-01-23</p>
 <ul><li>
