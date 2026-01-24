@@ -2,6 +2,8 @@
 
 ## OptimalBinningWoE 1.0.3
 
+CRAN release: 2026-01-23
+
 - **Critical Bug Fixes - KLL Sketch Algorithm (2026-01-20)**:
   - Fixed **iterator invalidation** in `KLLSketch::compact_level()` -
     the `compactors.push_back()` call was invalidating references to
