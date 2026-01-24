@@ -1,6 +1,12 @@
 # Set C++ standard
 CXX_STD = CXX17
 
-# Base flags
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+# Add current directory to include path
+PKG_CPPFLAGS = -I.
+
+# Optimization flags for Windows (CRAN NOTE fix)
+# -Os: Optimize for size
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -Os
+
+# Combine all flags
 PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)

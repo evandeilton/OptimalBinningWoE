@@ -19,6 +19,7 @@ using namespace Rcpp;
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/cutpoints_validator.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -180,13 +181,16 @@ public:
   std::vector<double> get_cutpoints() const {
     std::vector<double> cp;
     cp.reserve(bins.size() - 1);  // There are n-1 cutpoints for n bins
-    
+
     for (size_t i = 0; i < bins.size() - 1; i++) {
       if (std::isfinite(bins[i].upper_bound)) {
         cp.push_back(bins[i].upper_bound);
       }
     }
-    
+
+    // Validate and remove duplicates (CRAN fix for 'breaks are not unique' error)
+    cp = validate_cutpoints(cp);
+
     return cp;
   }
   

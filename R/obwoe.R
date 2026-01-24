@@ -1546,6 +1546,20 @@ obwoe_apply <- function(data,
         result[[bin_col]] <- bins[1]
         result[[woe_col]] <- woe[1]
       } else {
+        # CRAN fix: Validate cutpoints to ensure uniqueness
+        cutpoints <- sort(unique(cutpoints))
+
+        # Verify cutpoints remain after deduplication
+        if (length(cutpoints) == 0) {
+          result[[bin_col]] <- bins[1]
+          result[[woe_col]] <- woe[1]
+          warning(sprintf(
+            "Feature '%s': All cutpoints were duplicates. Treating as single bin.",
+            feat
+          ))
+          next
+        }
+
         # Create breaks including -Inf and Inf
         breaks <- c(-Inf, cutpoints, Inf)
 

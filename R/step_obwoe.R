@@ -785,21 +785,33 @@ bake.step_obwoe <- function(object, new_data, ...) {
         vec_bin[na_mask] <- NA_character_
       } else {
         # Multiple bins
-        breaks <- c(-Inf, res$cutpoints, Inf)
-        vals_num <- as.numeric(vals)
+        # CRAN fix: Validate cutpoints to ensure uniqueness
+        cp <- sort(unique(res$cutpoints))
 
-        idx <- cut(
-          vals_num,
-          breaks = breaks,
-          labels = FALSE,
-          include.lowest = TRUE,
-          right = TRUE
-        )
+        if (length(cp) == 0L) {
+          # All cutpoints were duplicates - fallback to single bin
+          vec_bin <- rep(res$bin[1L], n)
+          vec_woe <- rep(res$woe[1L], n)
+          na_mask <- is.na(vals)
+          vec_woe[na_mask] <- object$na_woe
+          vec_bin[na_mask] <- NA_character_
+        } else {
+          breaks <- c(-Inf, cp, Inf)
+          vals_num <- as.numeric(vals)
 
-        valid <- !is.na(idx)
-        vec_bin[valid] <- res$bin[idx[valid]]
-        vec_woe[valid] <- res$woe[idx[valid]]
-        # NAs already have na_woe from initialization
+          idx <- cut(
+            vals_num,
+            breaks = breaks,
+            labels = FALSE,
+            include.lowest = TRUE,
+            right = TRUE
+          )
+
+          valid <- !is.na(idx)
+          vec_bin[valid] <- res$bin[idx[valid]]
+          vec_woe[valid] <- res$woe[idx[valid]]
+          # NAs already have na_woe from initialization
+        }
       }
     } else {
       # Categorical transformation using pre-computed mapping

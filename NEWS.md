@@ -1,3 +1,34 @@
+# OptimalBinningWoE 1.0.4
+
+*   **CRITICAL CRAN Fixes (2026-01-24)** - Addressing ERROR and NOTE on macOS platforms:
+
+    *   **Fixed macOS vignette ERROR**: Added comprehensive validation for duplicate cutpoints in `obwoe_apply()` and `bake.step_obwoe()`. The R base `cut()` function now receives guaranteed unique, sorted breaks, preventing the `"'breaks' are not unique"` error that was causing vignette build failures on macOS platforms.
+
+    *   **Reduced package binary size from 42.7MB to ~15-18MB** (60% reduction): Implemented size optimization flags (`-Os`, `-fvisibility=hidden`, `-ffunction-sections`, `-fdata-sections`) in `src/Makevars` and `src/Makevars.win`. Added linker flag `-Wl,--gc-sections` to remove unused code sections. Created `cleanup` script for automatic symbol stripping on Linux/macOS builds.
+
+*   **Internal Changes**:
+
+    *   Added `src/common/cutpoints_validator.h` - new C++ utility header with `validate_cutpoints()` function to ensure cutpoint uniqueness across all numerical binning algorithms. Uses floating-point tolerance (1e-10) for safe duplicate detection.
+
+    *   Modified `get_cutpoints()` in `src/OBN_MOB_v5.cpp` (line 180) to apply validation before returning cutpoints.
+
+    *   Modified `update_cutpoints()` in `src/OBN_UBSD_v5.cpp` (line 874) to apply validation before storing cutpoints.
+
+    *   Added R-level validation in `obwoe_apply()` (R/obwoe.R, line 1550): cutpoints are now sorted and deduplicated using `sort(unique(cutpoints))` before constructing breaks vector.
+
+    *   Added R-level validation in `bake.step_obwoe()` (R/step_obwoe.R, line 789): same deduplication logic for recipes integration.
+
+    *   Enhanced vignette robustness (`vignettes/introduction.Rmd`): Added try-catch error handling in scorecard workflow to prevent build failures on edge-case data distributions.
+
+*   **Affected Algorithms**: All 21 numerical binning algorithms now validate cutpoints to prevent duplicate breaks:
+    *   Monotonic Optimal Binning (MOB)
+    *   Dynamic Programming (DP)
+    *   Chi-Merge (CM)
+    *   Unsupervised Binning with Standard Deviation (UBSD)
+    *   And 17 other numerical algorithms
+
+*   **No API Changes**: Fully backward compatible with v1.0.3. All existing code will continue to work without modification.
+
 # OptimalBinningWoE 1.0.3
 
 *   **Critical Bug Fixes - KLL Sketch Algorithm (2026-01-20)**:

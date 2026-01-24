@@ -1,8 +1,8 @@
 Package: OptimalBinningWoE
 Type: Package
 Title: Optimal Binning and Weight of Evidence Framework for Modeling
-Version: 1.0.3
-Date: 2026-01-20
+Version: 1.0.4
+Date: 2026-01-24
 Authors@R: 
     person(given = "José Evandeilton",
            family = "Lopes",

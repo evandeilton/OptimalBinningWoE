@@ -17,6 +17,7 @@ using namespace Rcpp;
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/cutpoints_validator.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -872,12 +873,15 @@ private:
    */
   void update_cutpoints() {
     cutpoints.clear();
-    
+
     for (size_t i = 1; i < bins.size(); i++) {
       if(std::isfinite(bins[i].lower_bound)) {
         cutpoints.push_back(bins[i].lower_bound);
       }
     }
+
+    // Validate and remove duplicates (CRAN fix for 'breaks are not unique' error)
+    cutpoints = validate_cutpoints(cutpoints);
   }
   
   /**
