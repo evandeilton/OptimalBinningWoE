@@ -4,14 +4,9 @@ CXX_STD = CXX17
 # Add current directory to include path
 PKG_CPPFLAGS = -I.
 
-# Optimization flags for smaller binary size (CRAN NOTE fix)
-# -Os: Optimize for size
-# -fvisibility=hidden: Hide symbols by default (reduces binary size)
-# -ffunction-sections -fdata-sections: Place each function/data in separate section
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_CXXFLAGS) \
-               -Os -fvisibility=hidden \
-               -ffunction-sections -fdata-sections
+# Optimization for smaller binary size (CRAN NOTE fix)
+# -Os: Optimize for size (safe, standard flag)
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_CXXFLAGS) -Os
 
-# Linker flags to remove unused sections
-PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_LIBS) \
-           -Wl,--gc-sections
+# Combine all flags
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(ARCH_SPECIFIC_LIBS)
