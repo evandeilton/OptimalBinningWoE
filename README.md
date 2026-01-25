@@ -274,15 +274,15 @@ test_pred <- augment(final_fit, test_data)
 # Performance metrics
 metrics <- metric_set(roc_auc, accuracy)
 metrics(test_pred,
-  truth = default, 
+  truth = default,
   estimate = .pred_class,
-  .pred_bad, 
+  .pred_bad,
   event_level = "second"
 )
 
 # ROC curve
 roc_curve(test_pred,
-  truth = default, 
+  truth = default,
   .pred_bad,
   event_level = "second"
 ) %>%
@@ -555,8 +555,10 @@ test_data <- german_model[-train_idx, ]
 
 cat("Training set:", nrow(train_data), "observations\n")
 cat("Test set:", nrow(test_data), "observations\n")
-cat("Training default rate:", 
-    round(mean(train_data$default == "bad") * 100, 2), "%\n")
+cat(
+  "Training default rate:",
+  round(mean(train_data$default == "bad") * 100, 2), "%\n"
+)
 
 # ============================================
 # 2. Fit Optimal Binning Model
@@ -604,8 +606,10 @@ test_woe <- obwoe_apply(test_data, sc_binning, keep_original = FALSE)
 
 # Preview transformed features
 cat("\nTransformed training data (first 5 rows):\n")
-print(head(train_woe[, c("default", 
-                          paste0(selected_features[1:3], "_woe"))], 5))
+print(head(train_woe[, c(
+  "default",
+  paste0(selected_features[1:3], "_woe")
+)], 5))
 
 # ============================================
 # 5. Build Logistic Regression Model
@@ -639,7 +643,7 @@ auc_val <- auc(roc_obj)
 # KS statistic
 ks_stat <- max(abs(
   ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
-  ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
+    ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
 ))
 
 # Gini coefficient
@@ -683,8 +687,8 @@ library(OptimalBinningWoE)
 # Simulate problematic feature
 set.seed(2024)
 problematic_feature <- c(
-  rnorm(800, 5000, 2000),   # Normal values
-  rep(NA, 100),             # Missing values
+  rnorm(800, 5000, 2000), # Normal values
+  rep(NA, 100), # Missing values
   runif(100, -10000, 50000) # Outliers
 )
 target_sim <- rbinom(1000, 1, 0.3)
@@ -726,30 +730,33 @@ german$default <- factor(
 algorithms <- c("jedi", "mob", "mdlp", "ewb", "cm")
 
 compare_results <- lapply(algorithms, function(algo) {
-  tryCatch({
-    fit <- obwoe(
-      data = german,
-      target = "default",
-      feature = "credit.amount",
-      algorithm = algo,
-      min_bins = 3,
-      max_bins = 6
-    )
-    
-    data.frame(
-      Algorithm = algo,
-      N_Bins = fit$summary$n_bins[1],
-      IV = round(fit$summary$total_iv[1], 4),
-      Converged = fit$summary$converged[1]
-    )
-  }, error = function(e) {
-    data.frame(
-      Algorithm = algo,
-      N_Bins = NA,
-      IV = NA,
-      Converged = FALSE
-    )
-  })
+  tryCatch(
+    {
+      fit <- obwoe(
+        data = german,
+        target = "default",
+        feature = "credit.amount",
+        algorithm = algo,
+        min_bins = 3,
+        max_bins = 6
+      )
+
+      data.frame(
+        Algorithm = algo,
+        N_Bins = fit$summary$n_bins[1],
+        IV = round(fit$summary$total_iv[1], 4),
+        Converged = fit$summary$converged[1]
+      )
+    },
+    error = function(e) {
+      data.frame(
+        Algorithm = algo,
+        N_Bins = NA,
+        IV = NA,
+        Converged = FALSE
+      )
+    }
+  )
 })
 
 # Combine and display results
