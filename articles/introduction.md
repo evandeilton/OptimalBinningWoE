@@ -761,13 +761,16 @@ summary(sc_binning)
 
 ``` r
 # Transform training data with error handling
-train_woe <- tryCatch({
-  obwoe_apply(train_sc, sc_binning, keep_original = FALSE)
-}, error = function(e) {
-  message("Error in obwoe_apply for training data: ", e$message)
-  message("This may occur with certain data distributions. Skipping transformation.")
-  return(NULL)
-})
+train_woe <- tryCatch(
+  {
+    obwoe_apply(train_sc, sc_binning, keep_original = FALSE)
+  },
+  error = function(e) {
+    message("Error in obwoe_apply for training data: ", e$message)
+    message("This may occur with certain data distributions. Skipping transformation.")
+    return(NULL)
+  }
+)
 
 # Only proceed if transformation succeeded
 if (!is.null(train_woe)) {

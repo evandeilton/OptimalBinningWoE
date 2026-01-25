@@ -347,15 +347,15 @@
 <span><span class="co"># Performance metrics</span></span>
 <span><span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu">metric_set</span><span class="op">(</span><span class="va">roc_auc</span>, <span class="va">accuracy</span><span class="op">)</span></span>
 <span><span class="fu">metrics</span><span class="op">(</span><span class="va">test_pred</span>,</span>
-<span>  truth <span class="op">=</span> <span class="va">default</span>, </span>
+<span>  truth <span class="op">=</span> <span class="va">default</span>,</span>
 <span>  estimate <span class="op">=</span> <span class="va">.pred_class</span>,</span>
-<span>  <span class="va">.pred_bad</span>, </span>
+<span>  <span class="va">.pred_bad</span>,</span>
 <span>  event_level <span class="op">=</span> <span class="st">"second"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># ROC curve</span></span>
 <span><span class="fu">roc_curve</span><span class="op">(</span><span class="va">test_pred</span>,</span>
-<span>  truth <span class="op">=</span> <span class="va">default</span>, </span>
+<span>  truth <span class="op">=</span> <span class="va">default</span>,</span>
 <span>  <span class="va">.pred_bad</span>,</span>
 <span>  event_level <span class="op">=</span> <span class="st">"second"</span></span>
 <span><span class="op">)</span> <span class="op">%&gt;%</span></span>
@@ -966,8 +966,10 @@
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Training set:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">train_data</span><span class="op">)</span>, <span class="st">"observations\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Test set:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">test_data</span><span class="op">)</span>, <span class="st">"observations\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Training default rate:"</span>, </span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">train_data</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span></span>
+<span>  <span class="st">"Training default rate:"</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">train_data</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># ============================================</span></span>
 <span><span class="co"># 2. Fit Optimal Binning Model</span></span>
@@ -1015,8 +1017,10 @@
 <span></span>
 <span><span class="co"># Preview transformed features</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nTransformed training data (first 5 rows):\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">train_woe</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, </span>
-<span>                          <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">selected_features</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span>, <span class="st">"_woe"</span><span class="op">)</span><span class="op">)</span><span class="op">]</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">train_woe</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"default"</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">selected_features</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span>, <span class="st">"_woe"</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">]</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># ============================================</span></span>
 <span><span class="co"># 5. Build Logistic Regression Model</span></span>
@@ -1050,7 +1054,7 @@
 <span><span class="co"># KS statistic</span></span>
 <span><span class="va">ks_stat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"good"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"good"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Gini coefficient</span></span>
@@ -1093,8 +1097,8 @@
 <span><span class="co"># Simulate problematic feature</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
 <span><span class="va">problematic_feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">5000</span>, <span class="fl">2000</span><span class="op">)</span>,   <span class="co"># Normal values</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">100</span><span class="op">)</span>,             <span class="co"># Missing values</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">5000</span>, <span class="fl">2000</span><span class="op">)</span>, <span class="co"># Normal values</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">100</span><span class="op">)</span>, <span class="co"># Missing values</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">100</span>, <span class="op">-</span><span class="fl">10000</span>, <span class="fl">50000</span><span class="op">)</span> <span class="co"># Outliers</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">target_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">1</span>, <span class="fl">0.3</span><span class="op">)</span></span>
@@ -1135,30 +1139,33 @@
 <span><span class="va">algorithms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"jedi"</span>, <span class="st">"mob"</span>, <span class="st">"mdlp"</span>, <span class="st">"ewb"</span>, <span class="st">"cm"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">compare_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">algorithms</span>, <span class="kw">function</span><span class="op">(</span><span class="va">algo</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="op">{</span></span>
-<span>    <span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>      data <span class="op">=</span> <span class="va">german</span>,</span>
-<span>      target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>      feature <span class="op">=</span> <span class="st">"credit.amount"</span>,</span>
-<span>      algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>      min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>      max_bins <span class="op">=</span> <span class="fl">6</span></span>
-<span>    <span class="op">)</span></span>
-<span>    </span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>      Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>      N_Bins <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">n_bins</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
-<span>      IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">total_iv</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>      Converged <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">converged</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">}</span>, error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>      Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>      N_Bins <span class="op">=</span> <span class="cn">NA</span>,</span>
-<span>      IV <span class="op">=</span> <span class="cn">NA</span>,</span>
-<span>      Converged <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">}</span><span class="op">)</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
+<span>    <span class="op">{</span></span>
+<span>      <span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
+<span>        data <span class="op">=</span> <span class="va">german</span>,</span>
+<span>        target <span class="op">=</span> <span class="st">"default"</span>,</span>
+<span>        feature <span class="op">=</span> <span class="st">"credit.amount"</span>,</span>
+<span>        algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
+<span>        min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>        max_bins <span class="op">=</span> <span class="fl">6</span></span>
+<span>      <span class="op">)</span></span>
+<span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>        Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
+<span>        N_Bins <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">n_bins</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
+<span>        IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">total_iv</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>        Converged <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">converged</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span>      <span class="op">)</span></span>
+<span>    <span class="op">}</span>,</span>
+<span>    error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>        Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
+<span>        N_Bins <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>        IV <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>        Converged <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>      <span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Combine and display results</span></span>
