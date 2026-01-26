@@ -1085,7 +1085,7 @@ sessionInfo()
 #> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
 #> [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            
 #> [16] dials_1.4.2             scales_1.4.0            broom_1.0.11           
-#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.4
+#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.5
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     

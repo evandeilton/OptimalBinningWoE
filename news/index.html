@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,20 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.5" id="optimalbinningwoe-105">OptimalBinningWoE 1.0.5<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-105"></a></h2>
+<ul><li>
+<p><strong>CRAN Fix (2026-01-25)</strong> - Resolving ERROR on macOS platforms during vignette re-build:</p>
+<ul><li><p><strong>Fixed <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> “breaks are not unique” error</strong>: Enhanced cutpoint deduplication logic to properly handle cases where <code>sort(unique(cutpoints))</code> reduces the number of intervals. When the deduplicated cutpoint count doesn’t match the original bin count, the function now uses a fallback mapping with dynamically generated interval labels and mean WoE values, avoiding the <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut.default()</a></code> error.</p></li>
+<li><p>This addresses the vignette build failure reported on r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64, and r-oldrel-macos-x86_64 platforms.</p></li>
+</ul></li>
+<li>
+<p><strong>Internal Changes</strong>:</p>
+<ul><li>Added interval count validation after cutpoint deduplication (R/obwoe.R)</li>
+<li>Fallback to mean WoE when bin/interval mismatch occurs</li>
+<li>Dynamic interval label generation for edge cases</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.4" id="optimalbinningwoe-104">OptimalBinningWoE 1.0.4<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-104"></a></h2>
 <ul><li>
