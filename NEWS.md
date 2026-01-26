@@ -1,3 +1,16 @@
+# OptimalBinningWoE 1.0.5
+
+*   **CRAN Fix (2026-01-25)** - Resolving ERROR on macOS platforms during vignette re-build:
+
+    *   **Fixed `obwoe_apply()` "breaks are not unique" error**: Enhanced cutpoint deduplication logic to properly handle cases where `sort(unique(cutpoints))` reduces the number of intervals. When the deduplicated cutpoint count doesn't match the original bin count, the function now uses a fallback mapping with dynamically generated interval labels and mean WoE values, avoiding the `cut.default()` error.
+
+    *   This addresses the vignette build failure reported on r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64, and r-oldrel-macos-x86_64 platforms.
+
+*   **Internal Changes**:
+    *   Added interval count validation after cutpoint deduplication (R/obwoe.R)
+    *   Fallback to mean WoE when bin/interval mismatch occurs
+    *   Dynamic interval label generation for edge cases
+
 # OptimalBinningWoE 1.0.4
 
 *   **CRITICAL CRAN Fixes (2026-01-24)** - Addressing ERROR and NOTE on macOS platforms:

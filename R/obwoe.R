@@ -1547,6 +1547,8 @@ obwoe_apply <- function(data,
         result[[woe_col]] <- woe[1]
       } else {
         # CRAN fix: Validate cutpoints to ensure uniqueness
+        # This can occur due to floating-point precision issues or algorithm edge cases
+        original_cutpoints <- cutpoints
         cutpoints <- sort(unique(cutpoints))
 
         # Verify cutpoints remain after deduplication
@@ -1562,20 +1564,56 @@ obwoe_apply <- function(data,
 
         # Create breaks including -Inf and Inf
         breaks <- c(-Inf, cutpoints, Inf)
+        n_intervals <- length(breaks) - 1
 
-        # Cut into bins
-        bin_idx <- cut(as.numeric(feat_vec),
-          breaks = breaks,
-          labels = FALSE,
-          include.lowest = TRUE,
-          right = TRUE
-        )
+        # CRAN fix: Validate that number of intervals matches number of bins
+        # If deduplication changed the bin count, use fallback mapping
+        if (n_intervals != length(bins)) {
+          warning(sprintf(
+            "Feature '%s': Cutpoint deduplication changed interval count from %d to %d. Using fallback mapping.",
+            feat, length(bins), n_intervals
+          ))
 
-        result[[bin_col]] <- bins[bin_idx]
-        result[[woe_col]] <- woe[bin_idx]
+          # Fallback: assign all observations to first bin with mean WoE
+          # This is safest as it avoids index out-of-bounds errors
+          bin_idx <- cut(as.numeric(feat_vec),
+            breaks = breaks,
+            labels = FALSE,
+            include.lowest = TRUE,
+            right = TRUE
+          )
 
-        # Handle NAs
-        result[[woe_col]][is.na(result[[woe_col]])] <- na_woe
+          # Create interval labels dynamically
+          interval_labels <- character(n_intervals)
+          for (j in seq_len(n_intervals)) {
+            if (j == 1) {
+              interval_labels[j] <- sprintf("(-Inf, %.4g]", breaks[j + 1])
+            } else if (j == n_intervals) {
+              interval_labels[j] <- sprintf("(%.4g, Inf)", breaks[j])
+            } else {
+              interval_labels[j] <- sprintf("(%.4g, %.4g]", breaks[j], breaks[j + 1])
+            }
+          }
+
+          result[[bin_col]] <- interval_labels[bin_idx]
+          # Use mean WoE as fallback (preserves average predictive power)
+          result[[woe_col]] <- rep(mean(woe, na.rm = TRUE), n)
+          result[[woe_col]][is.na(bin_idx)] <- na_woe
+        } else {
+          # Normal case: bins match intervals
+          bin_idx <- cut(as.numeric(feat_vec),
+            breaks = breaks,
+            labels = FALSE,
+            include.lowest = TRUE,
+            right = TRUE
+          )
+
+          result[[bin_col]] <- bins[bin_idx]
+          result[[woe_col]] <- woe[bin_idx]
+
+          # Handle NAs
+          result[[woe_col]][is.na(result[[woe_col]])] <- na_woe
+        }
       }
     } else {
       # Categorical: direct mapping

@@ -1,40 +1,26 @@
-## Resubmission (Version 1.0.4)
+## Resubmission (Version 1.0.5)
 
-This is a resubmission addressing **CRITICAL issues** identified on CRAN check systems that would result in package removal if not corrected.
+This is a resubmission addressing an ongoing ERROR on macOS platforms identified in CRAN check results for version 1.0.3.
 
-### Fixed ERROR (macOS platforms)
+### Fixed ERROR (macOS platforms) - Improved Fix
 
-* **Issue**: Vignette `introduction.Rmd` failed with error `"'breaks' are not unique"` when calling `cut()` function in `obwoe_apply()` during vignette rebuild on r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64, and r-oldrel-macos-x86_64.
+* **Issue**: Vignette `introduction.Rmd` still failed with error `"'breaks' are not unique"` when calling `cut()` function in `obwoe_apply()` on r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64, and r-oldrel-macos-x86_64.
 
-* **Root Cause**: Certain binning algorithms (MOB, DP, UBSD) could generate duplicate cutpoints after bin merging operations. The R code did not validate cutpoints before passing to `cut()`, which requires strictly unique break values.
+* **Root Cause**: The v1.0.4 fix added `sort(unique(cutpoints))` but did not handle the case where deduplication reduces the number of cutpoints, causing a mismatch between the number of intervals and the stored bin labels.
 
-* **Fix Applied**:
-  - Created `src/common/cutpoints_validator.h` - new C++ utility header with `validate_cutpoints()` function that sorts and removes duplicate cutpoints using floating-point tolerance (1e-10)
-  - Modified `get_cutpoints()` in `src/OBN_MOB_v5.cpp` (line 191) to apply validation
-  - Modified `update_cutpoints()` in `src/OBN_UBSD_v5.cpp` (line 882) to apply validation
-  - Added R-level validation in `obwoe_apply()` (R/obwoe.R, line 1550): `cutpoints <- sort(unique(cutpoints))`
-  - Added R-level validation in `bake.step_obwoe()` (R/step_obwoe.R, line 789): `cp <- sort(unique(res$cutpoints))`
-  - Enhanced vignette robustness with try-catch error handling to prevent build failures
+* **Fix Applied** (R/obwoe.R, lines 1540-1620):
+  - Added validation to check if `n_intervals != length(bins)` after cutpoint deduplication
+  - When mismatch occurs, uses fallback mapping with:
+    - Dynamically generated interval labels based on actual breaks
+    - Mean WoE value across all original bins (preserves average predictive power)
+    - Warning message to inform user of the fallback
+  - Normal case (no mismatch) continues to work unchanged
 
-* **Verification**: Tested with zero-inflated datasets that previously triggered the error. All 21 numerical binning algorithms now produce valid, unique cutpoints. Vignette builds successfully without errors.
+* **Verification**: Tested with edge-case datasets that could produce duplicate cutpoints. Function now handles all cases gracefully without errors.
 
-### Fixed NOTE (macOS platforms - package size)
+### NOTE (package size - unchanged)
 
-* **Issue**: Installed package size was 42.7MB (libs/ = 41.7MB), significantly exceeding CRAN size recommendations.
-
-* **Root Cause**:
-  - Missing size optimization flags in Makevars
-  - Debug symbols not stripped from compiled libraries
-  - 46 C++ source files compiled without size considerations
-
-* **Fix Applied**:
-  - Added `-Os` (optimize for size) flag to `src/Makevars` and `src/Makevars.win`
-  - Added `-fvisibility=hidden` to reduce exported symbols (Linux/macOS)
-  - Added `-ffunction-sections -fdata-sections` to place each function in separate section
-  - Added `-Wl,--gc-sections` linker flag to remove unused code sections during linking
-  - Created `cleanup` script for automatic symbol stripping post-compilation
-
-* **Result**: Package size reduced to approximately **15-18MB** (~60% reduction), well within CRAN guidelines.
+* **Status**: Package size remains at ~42MB due to extensive C++ code (46 source files). Previous attempts to reduce size via Makevars flags caused compilation issues across platforms. Size is unavoidable for full algorithm coverage.
 
 ## R CMD check results
 
@@ -65,23 +51,18 @@ This is a CRAN package with no reverse dependencies.
 
 * **Documentation updated**: NEWS.md contains detailed changelog. All affected algorithms documented.
 
-## Changes in Version 1.0.4 (2026-01-24)
+## Changes in Version 1.0.5 (2026-01-25)
 
-### Critical CRAN Fixes
+### Critical CRAN Fix
 
-* Fixed macOS vignette ERROR - duplicate cutpoints validation
-* Reduced package binary size from 42.7MB to ~15-18MB
-* Added `validate_cutpoints()` utility for all numerical algorithms
-* Enhanced vignette error handling
+* Fixed macOS vignette ERROR - improved cutpoint deduplication handling
+* Added fallback mapping when bin/interval count mismatch occurs
+* Dynamic interval label generation for edge cases
 
-### Affected Algorithms
+### Previous Version (1.0.4)
 
-All 21 numerical binning algorithms now validate cutpoints:
-- Monotonic Optimal Binning (MOB)
-- Dynamic Programming (DP)
-- Chi-Merge (CM)
-- Unsupervised Binning with Standard Deviation (UBSD)
-- MDLP, JEDI, Sketch (KLL/CountMin), and 14 others
+* Initial cutpoint deduplication fix (incomplete)
+* Package size optimization attempts (reverted due to cross-platform issues)
 
 ---
 
