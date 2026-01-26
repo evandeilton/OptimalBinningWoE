@@ -1,5 +1,27 @@
 # Changelog
 
+## OptimalBinningWoE 1.0.6
+
+- **CRAN Fix (2026-01-26)** - Resolving AddressSanitizer memory safety
+  errors:
+
+  - **Fixed heap-buffer-overflow in `OBN_CM_v5.cpp`**: The
+    `calculate_inconsistency_rate()` function was accessing `bins[j-1]`
+    when `j=0` and `bins.size()==1`, causing invalid memory access.
+    Restructured bin-finding loop to avoid negative index access.
+
+  - **Fixed uninitialized bool in `OBC_MBA_v5.cpp`**: The
+    `MergeCache::enabled` member was not explicitly initialized, causing
+    “load of value 128, which is not a valid value for type ‘bool’”
+    runtime error. Added explicit `bool enabled = false` initialization.
+
+- **Affected Files**:
+
+  - `src/OBN_CM_v5.cpp` (lines 863-887): Safe bin-finding logic
+  - `src/OBC_MBA_v5.cpp` (line 26): Explicit bool initialization
+
+- **No API Changes**: Fully backward compatible with v1.0.5.
+
 ## OptimalBinningWoE 1.0.5
 
 - **CRAN Fix (2026-01-25)** - Resolving ERROR on macOS platforms during

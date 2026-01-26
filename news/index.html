@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,22 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.6" id="optimalbinningwoe-106">OptimalBinningWoE 1.0.6<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-106"></a></h2>
+<ul><li>
+<p><strong>CRAN Fix (2026-01-26)</strong> - Resolving AddressSanitizer memory safety errors:</p>
+<ul><li><p><strong>Fixed heap-buffer-overflow in <code>OBN_CM_v5.cpp</code></strong>: The <code>calculate_inconsistency_rate()</code> function was accessing <code>bins[j-1]</code> when <code>j=0</code> and <code>bins.size()==1</code>, causing invalid memory access. Restructured bin-finding loop to avoid negative index access.</p></li>
+<li><p><strong>Fixed uninitialized bool in <code>OBC_MBA_v5.cpp</code></strong>: The <code>MergeCache::enabled</code> member was not explicitly initialized, causing “load of value 128, which is not a valid value for type ‘bool’” runtime error. Added explicit <code>bool enabled = false</code> initialization.</p></li>
+</ul></li>
+<li>
+<p><strong>Affected Files</strong>:</p>
+<ul><li>
+<code>src/OBN_CM_v5.cpp</code> (lines 863-887): Safe bin-finding logic</li>
+<li>
+<code>src/OBC_MBA_v5.cpp</code> (line 26): Explicit bool initialization</li>
+</ul></li>
+<li><p><strong>No API Changes</strong>: Fully backward compatible with v1.0.5.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.5" id="optimalbinningwoe-105">OptimalBinningWoE 1.0.5<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-105"></a></h2>
 <ul><li>
