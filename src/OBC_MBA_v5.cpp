@@ -23,7 +23,7 @@ using namespace OptimalBinning;
 class MergeCache {
 private:
   std::vector<std::vector<double>> iv_loss_cache;
-  bool enabled;
+  bool enabled = false;  // Explicit initialization to prevent undefined behavior
   
 public:
   MergeCache(size_t max_size, bool use_cache = true) : enabled(use_cache) {
