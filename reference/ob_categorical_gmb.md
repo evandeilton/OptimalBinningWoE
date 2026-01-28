@@ -324,11 +324,11 @@ cat("\nPerformance comparison (high cardinality):\n")
 #> 
 #> Performance comparison (high cardinality):
 cat("  GMB time:", round(time_gmb[3], 3), "seconds\n")
-#>   GMB time: 0.002 seconds
+#>   GMB time: 0.001 seconds
 cat("  DP time:", round(time_dp[3], 3), "seconds\n")
 #>   DP time: 0.001 seconds
 cat("  Speedup:", round(time_dp[3] / time_gmb[3], 1), "x\n")
-#>   Speedup: 0.5 x
+#>   Speedup: 1 x
 cat("\n  GMB IV:", round(result_gmb_hc$total_iv, 4), "\n")
 #> 
 #>   GMB IV: 0.0431 
