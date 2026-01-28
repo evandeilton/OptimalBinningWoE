@@ -246,18 +246,18 @@ Discovery, 15(2), 107-144.</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_sketch</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"                 "u%;%v%;%y%;%l%;%m"            </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "n%;%p%;%x%;%w%;%r%;%s%;%q"     "h%;%j%;%f%;%g%;%b%;%d%;%c%;%i"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [5] "a%;%e"                        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"             "u%;%v%;%y%;%l%;%m%;%h%;%j"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "n%;%p%;%x%;%w%;%r%;%s%;%q" "a%;%e%;%f%;%g"            </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [5] "b%;%d%;%c%;%i"            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.0042752 -0.8308164 -0.8519467  0.8438619  0.8290098</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.0042752 -0.2281161 -0.8519467  0.8340825  0.8840775</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.12617874 0.12118256 0.11522899 0.27409018 0.06727459</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1261787 0.0151721 0.1152290 0.1365398 0.1440209</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1354 1855 1682 4075 1034</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1354 2928 1682 2075 1961</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With custom sketch parameters for higher accuracy</span></span></span>
