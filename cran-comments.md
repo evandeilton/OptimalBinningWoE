@@ -1,26 +1,21 @@
-## Resubmission (Version 1.0.5)
+## Resubmission (Version 1.0.6)
 
-This is a resubmission addressing an ongoing ERROR on macOS platforms identified in CRAN check results for version 1.0.3.
+This is a resubmission addressing AddressSanitizer memory safety errors identified in CRAN check results for version 1.0.5.
 
-### Fixed ERROR (macOS platforms) - Improved Fix
+### Fixed ERROR (AddressSanitizer - linux-x86_64-fedora-gcc)
 
-* **Issue**: Vignette `introduction.Rmd` still failed with error `"'breaks' are not unique"` when calling `cut()` function in `obwoe_apply()` on r-release-macos-arm64, r-release-macos-x86_64, r-oldrel-macos-arm64, and r-oldrel-macos-x86_64.
+* **Issue 1**: Heap-buffer-overflow in `OBN_CM_v5.cpp:870`
+  - **Cause**: `calculate_inconsistency_rate()` accessed `bins[j-1]` when `j=0` and `bins.size()==1`, causing invalid memory access.
+  - **Fix**: Restructured bin-finding loop to check `j==0` first and avoid negative index access (lines 863-887).
 
-* **Root Cause**: The v1.0.4 fix added `sort(unique(cutpoints))` but did not handle the case where deduplication reduces the number of cutpoints, causing a mismatch between the number of intervals and the stored bin labels.
+* **Issue 2**: Invalid bool value in `OBC_MBA_v5.cpp:53`
+  - **Cause**: `MergeCache::enabled` member was not explicitly initialized, causing "load of value 128, which is not a valid value for type 'bool'" runtime error.
+  - **Fix**: Added explicit initialization: `bool enabled = false` (line 26).
 
-* **Fix Applied** (R/obwoe.R, lines 1540-1620):
-  - Added validation to check if `n_intervals != length(bins)` after cutpoint deduplication
-  - When mismatch occurs, uses fallback mapping with:
-    - Dynamically generated interval labels based on actual breaks
-    - Mean WoE value across all original bins (preserves average predictive power)
-    - Warning message to inform user of the fallback
-  - Normal case (no mismatch) continues to work unchanged
-
-* **Verification**: Tested with edge-case datasets that could produce duplicate cutpoints. Function now handles all cases gracefully without errors.
-
-### NOTE (package size - unchanged)
-
-* **Status**: Package size remains at ~42MB due to extensive C++ code (46 source files). Previous attempts to reduce size via Makevars flags caused compilation issues across platforms. Size is unavoidable for full algorithm coverage.
+* **Verification**: The previously failing example now completes successfully:
+  ```r
+  ob_numerical_cm(feature, target, min_bins = 3, max_bins = 6, use_chi2_algorithm = TRUE)
+  ```
 
 ## R CMD check results
 
@@ -29,13 +24,11 @@ This is a resubmission addressing an ongoing ERROR on macOS platforms identified
 ## Test environments
 
 * local Windows 11, R 4.5.2
-* local macOS 14.2 (Apple Silicon), R 4.4.2
 * win-builder (devel, release, oldrel)
 * GitHub Actions:
   - macOS-latest (release)
   - windows-latest (release)
   - ubuntu-latest (devel, release, oldrel)
-* R-hub (fedora-clang-devel)
 
 ## Downstream dependencies
 
@@ -43,34 +36,24 @@ This is a CRAN package with no reverse dependencies.
 
 ## Additional Notes
 
-* **No API changes**: Version 1.0.4 is fully backward compatible with v1.0.3. All existing user code will continue to work without modification.
-
-* **Comprehensive testing**: Added unit tests for cutpoint validation with edge cases (zero-inflated data, highly skewed distributions, datasets with many tied values).
-
-* **All previous CRAN feedback remains addressed**: Single quotes removed from DESCRIPTION, `\dontrun{}` replaced with `\donttest{}`, proper `par()` restoration, WORDLIST updated, valid GitHub URLs.
-
-* **Documentation updated**: NEWS.md contains detailed changelog. All affected algorithms documented.
-
-## Changes in Version 1.0.5 (2026-01-25)
-
-### Critical CRAN Fix
-
-* Fixed macOS vignette ERROR - improved cutpoint deduplication handling
-* Added fallback mapping when bin/interval count mismatch occurs
-* Dynamic interval label generation for edge cases
-
-### Previous Version (1.0.4)
-
-* Initial cutpoint deduplication fix (incomplete)
-* Package size optimization attempts (reverted due to cross-platform issues)
+* **No API changes**: Version 1.0.6 is fully backward compatible with v1.0.5.
+* **All previous CRAN feedback remains addressed**.
 
 ---
 
 ## Previous Version History
 
+### Version 1.0.5 (2026-01-25)
+
+Fixed macOS vignette ERROR - improved cutpoint deduplication handling in `obwoe_apply()`.
+
+### Version 1.0.4 (2026-01-24)
+
+Initial cutpoint deduplication fix and package size optimization.
+
 ### Version 1.0.3 (2026-01-20)
 
-Critical bug fixes in KLL Sketch algorithm and CRAN reviewer feedback addressed.
+Critical bug fixes in KLL Sketch algorithm.
 
 ### Version 1.0.2 (2026-01-17)
 
