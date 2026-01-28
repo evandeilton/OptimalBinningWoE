@@ -1,4 +1,4 @@
-## Resubmission (Version 1.0.7)
+## Resubmission (Version 1.0.8)
 
 This is a resubmission addressing persistent AddressSanitizer (UBSAN) memory safety errors identified in CRAN check results.
 
@@ -11,6 +11,10 @@ This is a resubmission addressing persistent AddressSanitizer (UBSAN) memory saf
 
 * **Issue (from v1.0.6)**: Heap-buffer-overflow in `OBN_CM_v5.cpp`
   - **Fix**: Restructured bin-finding logic to strictly prevent negative index access (fixed in v1.0.6, included here).
+
+* **Issue**: LTO Warning regarding "One Definition Rule" (ODR) for `struct IVCache`.
+  - **Cause**: Helper classes `IVCache` were defined in multiple `.cpp` files (`OBC_GMB_v5.cpp`, `OBC_IVB_v5.cpp`, `OBC_JEDI_v5.cpp`) with conflicting definitions in the global namespace.
+  - **Fix**: Wrapped these internal helper classes in **anonymous namespaces** to ensure internal linkage and prevent ODR violations during LTO compilation.
 
 ### Verification
 * Local limits checks passed.

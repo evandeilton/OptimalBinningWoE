@@ -32,6 +32,7 @@ constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 
 
 // Class for incremental IV calculation caching
+namespace {
 class IVCache {
 private:
   std::vector<std::vector<double>> cache;
@@ -73,6 +74,7 @@ public:
     }
   }
 };
+}
 
 class OBC_GMB {
 private:
