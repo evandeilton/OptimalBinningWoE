@@ -1084,8 +1084,8 @@ sessionInfo()
 #>  [7] tailor_0.1.0            rsample_1.3.1           recipes_1.3.1          
 #> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
 #> [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            
-#> [16] dials_1.4.2             scales_1.4.0            broom_1.0.11           
-#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.7
+#> [16] dials_1.4.2             scales_1.4.0            broom_1.0.12           
+#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.8
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     
@@ -1108,12 +1108,12 @@ sessionInfo()
 #> [52] zip_2.3.3           xml2_1.5.2          pillar_1.11.1      
 #> [55] foreach_1.5.2       generics_0.1.4      globals_0.18.0     
 #> [58] class_7.3-23        glue_1.8.0          tools_4.5.2        
-#> [61] data.table_1.18.0   openxlsx_4.2.8.1    gower_1.0.2        
+#> [61] data.table_1.18.2.1 openxlsx_4.2.8.1    gower_1.0.2        
 #> [64] fs_1.6.6            grid_4.5.2          ipred_0.9-15       
 #> [67] xefun_0.1.5         cli_3.6.5           DiceDesign_1.10    
 #> [70] textshaping_1.0.4   lava_1.8.2          gtable_0.3.6       
 #> [73] GPfit_1.0-9         sass_0.4.10         digest_0.6.39      
 #> [76] farver_2.1.2        htmltools_0.5.9     pkgdown_2.2.0      
 #> [79] lifecycle_1.0.5     hardhat_1.4.2       MASS_7.3-65        
-#> [82] sparsevctrs_0.3.5
+#> [82] sparsevctrs_0.3.6
 ```

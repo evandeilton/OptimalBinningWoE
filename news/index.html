@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.7</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,9 +32,17 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.0.7/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.8" id="optimalbinningwoe-108">OptimalBinningWoE 1.0.8<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-108"></a></h2>
+<ul><li>
+<strong>CRAN Fix (2026-01-28)</strong> - LTO/ODR Compliance:
+<ul><li>
+<strong>Fixed One Definition Rule (ODR) violations</strong>: Wrapped internal helper classes <code>IVCache</code> and <code>CumulativeStatsCache</code> in anonymous namespaces within <code>OBC_GMB_v5.cpp</code>, <code>OBC_IVB_v5.cpp</code>, and <code>OBC_JEDI_v5.cpp</code>. This resolves Link-Time Optimization (LTO) warnings/errors on CRAN checks.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.7" id="optimalbinningwoe-107">OptimalBinningWoE 1.0.7<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-107"></a></h2>
 <ul><li>

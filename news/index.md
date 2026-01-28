@@ -1,5 +1,14 @@
 # Changelog
 
+## OptimalBinningWoE 1.0.8
+
+- **CRAN Fix (2026-01-28)** - LTO/ODR Compliance:
+  - **Fixed One Definition Rule (ODR) violations**: Wrapped internal
+    helper classes `IVCache` and `CumulativeStatsCache` in anonymous
+    namespaces within `OBC_GMB_v5.cpp`, `OBC_IVB_v5.cpp`, and
+    `OBC_JEDI_v5.cpp`. This resolves Link-Time Optimization (LTO)
+    warnings/errors on CRAN checks.
+
 ## OptimalBinningWoE 1.0.7
 
 - **UBSAN Investigation Fix (2026-01-27)** - Addressing persistent
