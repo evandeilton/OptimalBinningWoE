@@ -8,7 +8,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/evandeilton/OptimalBinningWoE/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/evandeilton/OptimalBinningWoE/blob/v1.0.7/DESCRIPTION)
 
 Lopes J (2026). *OptimalBinningWoE: Optimal Binning and Weight of
 Evidence Framework for Modeling*. R package version 1.0.7,
