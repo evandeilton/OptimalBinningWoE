@@ -2,6 +2,8 @@
 
 ## OptimalBinningWoE 1.0.8
 
+CRAN release: 2026-01-29
+
 - **CRAN Fix (2026-01-28)** - LTO/ODR Compliance:
   - **Fixed One Definition Rule (ODR) violations**: Wrapped internal
     helper classes `IVCache` and `CumulativeStatsCache` in anonymous
