@@ -10,6 +10,8 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
+# Vignette uses Suggested packages: scorecard (data), tidymodels, pROC.
+# Without tidymodels the build stops before "Production Pipeline"; without pROC the ROC plot is skipped.
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -69,8 +71,8 @@ $$\text{IV} = \sum_{i=1}^{k} \left(\frac{n_{i,1}}{N_1} - \frac{n_{i,0}}{N_0}\rig
 # From GitHub
 devtools::install_github("evandeilton/OptimalBinningWoE")
 
-# Install dependencies for this vignette
-install.packages(c("scorecard", "tidymodels", "pROC"))
+# Optional: install Suggested packages for full vignette (tidymodels, pROC, scorecard)
+install.packages(c("tidymodels", "pROC", "scorecard"))
 ```
 
 # Dataset: German Credit Data
@@ -335,6 +337,9 @@ print(algo_info[
 The most powerful application is integrating WoE into production ML workflows.
 
 ```{r tidymodels_setup, message=FALSE}
+if (!requireNamespace("tidymodels", quietly = TRUE)) {
+  knitr::knit_exit()
+}
 library(tidymodels)
 
 # Train/test split with stratification
@@ -558,34 +563,38 @@ if (!is.null(train_woe)) {
 
 ```{r scorecard_validation}
 if (!is.null(train_woe) && exists("scorecard_glm")) {
-  library(pROC)
+  if (requireNamespace("pROC", quietly = TRUE)) {
+    library(pROC)
 
-  # Predictions
-  test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
+    # Predictions
+    test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
 
-  # ROC curve
-  roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
-  auc_val <- auc(roc_obj)
+    # ROC curve
+    roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
+    auc_val <- auc(roc_obj)
 
-  # KS statistic
-  ks_stat <- max(abs(
-    ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
-      ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
-  ))
+    # KS statistic
+    ks_stat <- max(abs(
+      ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
+        ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
+    ))
 
-  # Gini coefficient
-  gini <- 2 * auc_val - 1
+    # Gini coefficient
+    gini <- 2 * auc_val - 1
 
-  cat("Scorecard Performance:\n")
-  cat("  AUC:  ", round(auc_val, 4), "\n")
-  cat("  Gini: ", round(gini, 4), "\n")
-  cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
+    cat("Scorecard Performance:\n")
+    cat("  AUC:  ", round(auc_val, 4), "\n")
+    cat("  Gini: ", round(gini, 4), "\n")
+    cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
 
-  # ROC plot
-  plot(roc_obj,
-    main = "Scorecard ROC Curve",
-    print.auc = TRUE, print.thres = "best"
-  )
+    # ROC plot
+    plot(roc_obj,
+      main = "Scorecard ROC Curve",
+      print.auc = TRUE, print.thres = "best"
+    )
+  } else {
+    message("Package 'pROC' not installed. Install it for ROC/AUC validation.")
+  }
 } else {
   message("Skipping validation - model not available.")
 }

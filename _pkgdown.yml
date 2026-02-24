@@ -1,4 +1,21 @@
 url: https://evandeilton.github.io/OptimalBinningWoE/
+
+development:
+  mode: auto
+
 template:
   bootstrap: 5
+  bootswatch: litera
+  bslib:
+    primary: "#1a5276"
+    base_font:
+      google: "Source Sans 3"
+    heading_font:
+      google: "Source Serif 4"
+
+articles:
+  - title: "Getting Started"
+    navbar: ~
+    contents:
+      - introduction
 

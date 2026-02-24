@@ -20,7 +20,8 @@ Description: High-performance implementation of 36 optimal binning algorithms
     Based on methods described in Siddiqi (2006) <doi:10.1002/9781119201731> 
     and Navas-Palencia (2020) <doi:10.48550/arXiv.2001.08025>.
 License: MIT + file LICENSE
-URL: https://github.com/evandeilton/OptimalBinningWoE
+URL: https://github.com/evandeilton/OptimalBinningWoE,
+    https://evandeilton.github.io/OptimalBinningWoE
 BugReports: https://github.com/evandeilton/OptimalBinningWoE/issues
 Depends: 
     R (>= 4.1.0)
