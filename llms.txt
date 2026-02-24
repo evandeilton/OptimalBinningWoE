@@ -1003,7 +1003,7 @@ MIT License © 2026 José Evandeilton Lopes
 
 # Articles
 
-### All vignettes
+### Getting Started
 
 - [OptimalBinningWoE: Practical Guide for Credit Risk
   Modeling](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.md):

@@ -6,11 +6,19 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>OptimalBinningWoE: Practical Guide for Credit Risk Modeling • OptimalBinningWoE</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_3-0.4.10/font.css" rel="stylesheet">
+<link href="../deps/Source_Serif_4-0.4.10/font.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="OptimalBinningWoE: Practical Guide for Credit Risk Modeling">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
+<meta property="og:title" content="OptimalBinningWoE: Practical Guide for Credit Risk Modeling">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,9 +67,9 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-01-29</h4>
+            <h4 data-toc-skip class="date">2026-02-24</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.0.8/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -161,8 +169,8 @@ average<br>
 <code class="sourceCode R"><span><span class="co"># From GitHub</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"evandeilton/OptimalBinningWoE"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Install dependencies for this vignette</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"scorecard"</span>, <span class="st">"tidymodels"</span>, <span class="st">"pROC"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Optional: install Suggested packages for full vignette (tidymodels, pROC, scorecard)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"tidymodels"</span>, <span class="st">"pROC"</span>, <span class="st">"scorecard"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="dataset-german-credit-data">Dataset: German Credit Data<a class="anchor" aria-label="anchor" href="#dataset-german-credit-data"></a>
@@ -690,7 +698,10 @@ trends.</td>
 <p>The most powerful application is integrating WoE into production ML
 workflows.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidymodels.tidymodels.org" class="external-link">tidymodels</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"tidymodels"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/knit_exit.html" class="external-link">knit_exit</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidymodels.tidymodels.org" class="external-link">tidymodels</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Train/test split with stratification</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
@@ -1044,34 +1055,38 @@ workflows.</p>
 </h3>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">train_woe</span><span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="fu"><a href="https://rdrr.io/r/base/exists.html" class="external-link">exists</a></span><span class="op">(</span><span class="st">"scorecard_glm"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://xrobin.github.io/pROC/" class="external-link">pROC</a></span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"pROC"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://xrobin.github.io/pROC/" class="external-link">pROC</a></span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># Predictions</span></span>
-<span>  <span class="va">test_woe</span><span class="op">$</span><span class="va">score</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">scorecard_glm</span>, newdata <span class="op">=</span> <span class="va">test_woe</span>, type <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
+<span>    <span class="co"># Predictions</span></span>
+<span>    <span class="va">test_woe</span><span class="op">$</span><span class="va">score</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">scorecard_glm</span>, newdata <span class="op">=</span> <span class="va">test_woe</span>, type <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># ROC curve</span></span>
-<span>  <span class="va">roc_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/roc.html" class="external-link">roc</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span>, <span class="va">test_woe</span><span class="op">$</span><span class="va">score</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span>  <span class="va">auc_val</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/auc.html" class="external-link">auc</a></span><span class="op">(</span><span class="va">roc_obj</span><span class="op">)</span></span>
+<span>    <span class="co"># ROC curve</span></span>
+<span>    <span class="va">roc_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/roc.html" class="external-link">roc</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span>, <span class="va">test_woe</span><span class="op">$</span><span class="va">score</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>    <span class="va">auc_val</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/auc.html" class="external-link">auc</a></span><span class="op">(</span><span class="va">roc_obj</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># KS statistic</span></span>
-<span>  <span class="va">ks_stat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"good"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="co"># KS statistic</span></span>
+<span>    <span class="va">ks_stat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span></span>
+<span>        <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"good"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># Gini coefficient</span></span>
-<span>  <span class="va">gini</span> <span class="op">&lt;-</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">auc_val</span> <span class="op">-</span> <span class="fl">1</span></span>
+<span>    <span class="co"># Gini coefficient</span></span>
+<span>    <span class="va">gini</span> <span class="op">&lt;-</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">auc_val</span> <span class="op">-</span> <span class="fl">1</span></span>
 <span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Scorecard Performance:\n"</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  AUC:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">auc_val</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Gini: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">gini</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  KS:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ks_stat</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Scorecard Performance:\n"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  AUC:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">auc_val</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Gini: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">gini</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  KS:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ks_stat</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
 <span></span>
-<span>  <span class="co"># ROC plot</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">roc_obj</span>,</span>
-<span>    main <span class="op">=</span> <span class="st">"Scorecard ROC Curve"</span>,</span>
-<span>    print.auc <span class="op">=</span> <span class="cn">TRUE</span>, print.thres <span class="op">=</span> <span class="st">"best"</span></span>
-<span>  <span class="op">)</span></span>
+<span>    <span class="co"># ROC plot</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">roc_obj</span>,</span>
+<span>      main <span class="op">=</span> <span class="st">"Scorecard ROC Curve"</span>,</span>
+<span>      print.auc <span class="op">=</span> <span class="cn">TRUE</span>, print.thres <span class="op">=</span> <span class="st">"best"</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"Package 'pROC' not installed. Install it for ROC/AUC validation."</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
 <span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"Skipping validation - model not available."</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -1287,11 +1302,11 @@ Press.</p>
 <span><span class="co">#&gt; other attached packages:</span></span>
 <span><span class="co">#&gt;  [1] pROC_1.19.0.1           yardstick_1.3.2         workflowsets_1.1.1     </span></span>
 <span><span class="co">#&gt;  [4] workflows_1.3.0         tune_2.0.1              tidyr_1.3.2            </span></span>
-<span><span class="co">#&gt;  [7] tailor_0.1.0            rsample_1.3.1           recipes_1.3.1          </span></span>
+<span><span class="co">#&gt;  [7] tailor_0.1.0            rsample_1.3.2           recipes_1.3.1          </span></span>
 <span><span class="co">#&gt; [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        </span></span>
-<span><span class="co">#&gt; [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            </span></span>
+<span><span class="co">#&gt; [13] infer_1.1.0             ggplot2_4.0.2           dplyr_1.2.0            </span></span>
 <span><span class="co">#&gt; [16] dials_1.4.2             scales_1.4.0            broom_1.0.12           </span></span>
-<span><span class="co">#&gt; [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.8</span></span>
+<span><span class="co">#&gt; [19] tidymodels_1.4.1        scorecard_0.4.6         OptimalBinningWoE_1.0.8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     </span></span>
@@ -1302,17 +1317,17 @@ Press.</p>
 <span><span class="co">#&gt; [16] ragg_1.5.0          xfun_0.56           cachem_1.1.0       </span></span>
 <span><span class="co">#&gt; [19] jsonlite_2.0.0      parallel_4.5.2      R6_2.6.1           </span></span>
 <span><span class="co">#&gt; [22] bslib_0.10.0        stringi_1.8.7       RColorBrewer_1.1-3 </span></span>
-<span><span class="co">#&gt; [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.4    </span></span>
+<span><span class="co">#&gt; [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.5    </span></span>
 <span><span class="co">#&gt; [28] jquerylib_0.1.4     Rcpp_1.1.1          iterators_1.0.14   </span></span>
-<span><span class="co">#&gt; [31] knitr_1.51          future.apply_1.20.1 Matrix_1.7-4       </span></span>
-<span><span class="co">#&gt; [34] splines_4.5.2       nnet_7.3-20         timechange_0.3.0   </span></span>
+<span><span class="co">#&gt; [31] knitr_1.51          future.apply_1.20.2 Matrix_1.7-4       </span></span>
+<span><span class="co">#&gt; [34] splines_4.5.2       nnet_7.3-20         timechange_0.4.0   </span></span>
 <span><span class="co">#&gt; [37] tidyselect_1.2.1    rstudioapi_0.18.0   yaml_2.3.12        </span></span>
 <span><span class="co">#&gt; [40] timeDate_4052.112   doParallel_1.0.17   codetools_0.2-20   </span></span>
 <span><span class="co">#&gt; [43] listenv_0.10.0      lattice_0.22-7      tibble_3.3.1       </span></span>
 <span><span class="co">#&gt; [46] withr_3.0.2         S7_0.2.1            evaluate_1.0.5     </span></span>
 <span><span class="co">#&gt; [49] future_1.69.0       desc_1.4.3          survival_3.8-3     </span></span>
 <span><span class="co">#&gt; [52] zip_2.3.3           xml2_1.5.2          pillar_1.11.1      </span></span>
-<span><span class="co">#&gt; [55] foreach_1.5.2       generics_0.1.4      globals_0.18.0     </span></span>
+<span><span class="co">#&gt; [55] foreach_1.5.2       generics_0.1.4      globals_0.19.0     </span></span>
 <span><span class="co">#&gt; [58] class_7.3-23        glue_1.8.0          tools_4.5.2        </span></span>
 <span><span class="co">#&gt; [61] data.table_1.18.2.1 openxlsx_4.2.8.1    gower_1.0.2        </span></span>
 <span><span class="co">#&gt; [64] fs_1.6.6            grid_4.5.2          ipred_0.9-15       </span></span>

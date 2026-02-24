@@ -51,8 +51,8 @@ $$\text{IV} = \sum\limits_{i = 1}^{k}\left( \frac{n_{i,1}}{N_{1}} - \frac{n_{i,0
 # From GitHub
 devtools::install_github("evandeilton/OptimalBinningWoE")
 
-# Install dependencies for this vignette
-install.packages(c("scorecard", "tidymodels", "pROC"))
+# Optional: install Suggested packages for full vignette (tidymodels, pROC, scorecard)
+install.packages(c("tidymodels", "pROC", "scorecard"))
 ```
 
 ## Dataset: German Credit Data
@@ -499,6 +499,9 @@ The most powerful application is integrating WoE into production ML
 workflows.
 
 ``` r
+if (!requireNamespace("tidymodels", quietly = TRUE)) {
+  knitr::knit_exit()
+}
 library(tidymodels)
 
 # Train/test split with stratification
@@ -855,34 +858,38 @@ if (!is.null(train_woe)) {
 
 ``` r
 if (!is.null(train_woe) && exists("scorecard_glm")) {
-  library(pROC)
+  if (requireNamespace("pROC", quietly = TRUE)) {
+    library(pROC)
 
-  # Predictions
-  test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
+    # Predictions
+    test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
 
-  # ROC curve
-  roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
-  auc_val <- auc(roc_obj)
+    # ROC curve
+    roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
+    auc_val <- auc(roc_obj)
 
-  # KS statistic
-  ks_stat <- max(abs(
-    ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
-      ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
-  ))
+    # KS statistic
+    ks_stat <- max(abs(
+      ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
+        ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
+    ))
 
-  # Gini coefficient
-  gini <- 2 * auc_val - 1
+    # Gini coefficient
+    gini <- 2 * auc_val - 1
 
-  cat("Scorecard Performance:\n")
-  cat("  AUC:  ", round(auc_val, 4), "\n")
-  cat("  Gini: ", round(gini, 4), "\n")
-  cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
+    cat("Scorecard Performance:\n")
+    cat("  AUC:  ", round(auc_val, 4), "\n")
+    cat("  Gini: ", round(gini, 4), "\n")
+    cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
 
-  # ROC plot
-  plot(roc_obj,
-    main = "Scorecard ROC Curve",
-    print.auc = TRUE, print.thres = "best"
-  )
+    # ROC plot
+    plot(roc_obj,
+      main = "Scorecard ROC Curve",
+      print.auc = TRUE, print.thres = "best"
+    )
+  } else {
+    message("Package 'pROC' not installed. Install it for ROC/AUC validation.")
+  }
 } else {
   message("Skipping validation - model not available.")
 }
@@ -1081,11 +1088,11 @@ sessionInfo()
 #> other attached packages:
 #>  [1] pROC_1.19.0.1           yardstick_1.3.2         workflowsets_1.1.1     
 #>  [4] workflows_1.3.0         tune_2.0.1              tidyr_1.3.2            
-#>  [7] tailor_0.1.0            rsample_1.3.1           recipes_1.3.1          
+#>  [7] tailor_0.1.0            rsample_1.3.2           recipes_1.3.1          
 #> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
-#> [13] infer_1.1.0             ggplot2_4.0.1           dplyr_1.1.4            
+#> [13] infer_1.1.0             ggplot2_4.0.2           dplyr_1.2.0            
 #> [16] dials_1.4.2             scales_1.4.0            broom_1.0.12           
-#> [19] tidymodels_1.4.1        scorecard_0.4.5         OptimalBinningWoE_1.0.8
+#> [19] tidymodels_1.4.1        scorecard_0.4.6         OptimalBinningWoE_1.0.8
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     
@@ -1096,17 +1103,17 @@ sessionInfo()
 #> [16] ragg_1.5.0          xfun_0.56           cachem_1.1.0       
 #> [19] jsonlite_2.0.0      parallel_4.5.2      R6_2.6.1           
 #> [22] bslib_0.10.0        stringi_1.8.7       RColorBrewer_1.1-3 
-#> [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.4    
+#> [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.5    
 #> [28] jquerylib_0.1.4     Rcpp_1.1.1          iterators_1.0.14   
-#> [31] knitr_1.51          future.apply_1.20.1 Matrix_1.7-4       
-#> [34] splines_4.5.2       nnet_7.3-20         timechange_0.3.0   
+#> [31] knitr_1.51          future.apply_1.20.2 Matrix_1.7-4       
+#> [34] splines_4.5.2       nnet_7.3-20         timechange_0.4.0   
 #> [37] tidyselect_1.2.1    rstudioapi_0.18.0   yaml_2.3.12        
 #> [40] timeDate_4052.112   doParallel_1.0.17   codetools_0.2-20   
 #> [43] listenv_0.10.0      lattice_0.22-7      tibble_3.3.1       
 #> [46] withr_3.0.2         S7_0.2.1            evaluate_1.0.5     
 #> [49] future_1.69.0       desc_1.4.3          survival_3.8-3     
 #> [52] zip_2.3.3           xml2_1.5.2          pillar_1.11.1      
-#> [55] foreach_1.5.2       generics_0.1.4      globals_0.18.0     
+#> [55] foreach_1.5.2       generics_0.1.4      globals_0.19.0     
 #> [58] class_7.3-23        glue_1.8.0          tools_4.5.2        
 #> [61] data.table_1.18.2.1 openxlsx_4.2.8.1    gower_1.0.2        
 #> [64] fs_1.6.6            grid_4.5.2          ipred_0.9-15       
