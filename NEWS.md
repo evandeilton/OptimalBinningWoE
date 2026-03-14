@@ -1,3 +1,9 @@
+# OptimalBinningWoE 1.0.9
+
+*   **CRAN Fix (2026-03-14)** - Replaced `Rf_error` with `Rcpp::stop`:
+    *   **Fixed C++ Exception Handling**: Addressed an issue reported by @Enchufa2 regarding the usage of `::Rf_error` inside `catch(...)` blocks. Updated all instances to use `Rcpp::stop` to ensure proper C++ stack unwinding and avoid memory leaks.
+    *   **Affected Files**: `src/OBN_LPDB_v5.cpp`, `src/OBN_EWB_v5.cpp`, `src/OBN_KMB_v5.cpp`, `src/OBN_LDB_v5.cpp`, `src/OBN_MBLP_v5.cpp`.
+
 # OptimalBinningWoE 1.0.8
 
 *   **CRAN Fix (2026-01-28)** - LTO/ODR Compliance:

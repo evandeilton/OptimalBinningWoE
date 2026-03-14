@@ -915,7 +915,7 @@ Rcpp::List optimal_binning_numerical_ldb(
   } catch(std::exception &e) {
     forward_exception_to_r(e);
   } catch(...) {
-    ::Rf_error("Unknown C++ exception in optimal_binning_numerical_ldb");
+    Rcpp::stop("Unknown C++ exception in optimal_binning_numerical_ldb");
   }
   
   // Should never reach here

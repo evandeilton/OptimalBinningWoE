@@ -1,6 +1,19 @@
-## Resubmission (Version 1.0.8)
+## Resubmission (Version 1.0.9)
 
-This is a resubmission addressing persistent AddressSanitizer (UBSAN) memory safety errors identified in CRAN check results.
+This is a resubmission addressing the usage of `::Rf_error` in C++ exception handling.
+
+### Fixed ERROR
+
+* **Issue (from @Enchufa2)**: Usage of `::Rf_error` inside `catch(...)` blocks in C++ code prevents proper stack unwinding and can lead to memory leaks.
+  - **Fix**: Replaced all instances of `::Rf_error` with `Rcpp::stop` across the `src/` directory.
+
+---
+
+## Previous Version History
+
+### Version 1.0.8 (2026-01-28)
+
+This was a resubmission addressing AddressSanitizer (UBSAN) memory safety errors identified in CRAN check results.
 
 ### Fixed ERROR (AddressSanitizer)
 

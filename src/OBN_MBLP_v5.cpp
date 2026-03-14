@@ -986,7 +986,7 @@ List optimal_binning_numerical_mblp(
   } catch(std::exception &e) {
     forward_exception_to_r(e);
   } catch(...) {
-    ::Rf_error("Unknown C++ exception in optimal_binning_numerical_mblp");
+    Rcpp::stop("Unknown C++ exception in optimal_binning_numerical_mblp");
   }
   
   // Should never reach here

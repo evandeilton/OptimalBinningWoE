@@ -735,7 +735,7 @@ Rcpp::List optimal_binning_numerical_ewb(
   } catch(std::exception &ex) {
     forward_exception_to_r(ex);
   } catch(...) {
-    ::Rf_error("Unknown C++ exception in optimal_binning_numerical_ewb");
+    Rcpp::stop("Unknown C++ exception in optimal_binning_numerical_ewb");
   }
   
   // Should never reach here
