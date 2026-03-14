@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,16 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.0.9" id="optimalbinningwoe-109">OptimalBinningWoE 1.0.9<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-109"></a></h2>
+<ul><li>
+<strong>CRAN Fix (2026-03-14)</strong> - Replaced <code>Rf_error</code> with <code>Rcpp::stop</code>:
+<ul><li>
+<strong>Fixed C++ Exception Handling</strong>: Addressed an issue reported by <a href="https://github.com/Enchufa2" class="external-link">@Enchufa2</a> regarding the usage of <code>::Rf_error</code> inside <code>catch(...)</code> blocks. Updated all instances to use <code>Rcpp::stop</code> to ensure proper C++ stack unwinding and avoid memory leaks.</li>
+<li>
+<strong>Affected Files</strong>: <code>src/OBN_LPDB_v5.cpp</code>, <code>src/OBN_EWB_v5.cpp</code>, <code>src/OBN_KMB_v5.cpp</code>, <code>src/OBN_LDB_v5.cpp</code>, <code>src/OBN_MBLP_v5.cpp</code>.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.8" id="optimalbinningwoe-108">OptimalBinningWoE 1.0.8<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-108"></a></h2><p class="text-muted">CRAN release: 2026-01-29</p>
 <ul><li>
