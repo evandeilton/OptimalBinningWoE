@@ -11,3 +11,4 @@ src/*.dll
 src/**/*.o
 /doc/
 .claude
+.positai
