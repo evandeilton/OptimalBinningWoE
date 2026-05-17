@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,67 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.10.0" id="optimalbinningwoe-1100">OptimalBinningWoE 1.10.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1100"></a></h2>
+<div class="section level3">
+<h3 id="c-engine--comprehensive-audit--hardening-1-10-0">C++ Engine — Comprehensive Audit &amp; Hardening (2026-05-17)<a class="anchor" aria-label="anchor" href="#c-engine--comprehensive-audit--hardening-1-10-0"></a></h3>
+<p>This release is the result of a full static audit of the C++ engine covering all 36 binning algorithms. No public R API was changed.</p>
+<div class="section level4">
+<h4 id="bug-fixes-1-10-0">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-10-0"></a></h4>
+<ul><li>
+<strong><code>OB_LogisticRegression</code></strong> — Replaced exact <code>det != 0</code> singularity guard with a threshold-based check (<code>|det| &gt; 1e-10 × ‖H‖</code>); replaced <code>hessian.inverse()</code> with <code>Eigen::LDLT</code> decomposition for numerical stability; added <code>.cwiseMax(0.0)</code> before <code><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt()</a></code> to prevent <code>NaN</code> standard errors from near-zero diagonal entries.</li>
+<li>
+<strong><code>OBN_MDLP</code> — monotonicity direction bug</strong> — <code>is_monotonic()</code> and <code>enforce_monotonicity()</code> previously hardcoded ascending direction, causing unnecessary merges on negatively-correlated features. Both now auto-detect the dominant trend via Welford’s slope algorithm before checking/enforcing monotonicity.</li>
+<li>
+<strong><code>OBC_DP</code> — DP backtracking out-of-bounds</strong> — Added guard before <code>static_cast&lt;size_t&gt;(prev_j)</code> in <code>backtrack_optimal_bins()</code>; invalid predecessor index now raises a descriptive runtime error instead of silent undefined behaviour.</li>
+<li>
+<strong><code>OBN_DP</code> — push before validate</strong> — Target value validation in <code>optimal_binning_numerical_dp()</code> now fires before the value is appended to <code>target_vec</code>, preventing insertion of invalid data.</li>
+<li>
+<strong><code>OBN_MDLP</code> — <code>log2(0)</code> in MDL cost</strong> — Guard added for the single-bin case where <code>log2(k-1)</code> would evaluate to <code>log2(0) = -Inf</code>.</li>
+<li>
+<strong><code>NumericalBin</code> constructor invariant</strong> — The 7-arg constructor now derives <code>count = count_pos + count_neg</code> regardless of the <code>c</code> argument, enforcing the <code>count == total()</code> invariant at construction time.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="performance-improvements-1-10-0">Performance Improvements<a class="anchor" aria-label="anchor" href="#performance-improvements-1-10-0"></a></h4>
+<ul><li>
+<strong><code>OBC_DP</code> — DP outer loop removed</strong> — The deterministic DP in <code>perform_dynamic_programming()</code> was wrapped in a redundant <code>max_iterations</code> outer loop (default 1000). Removing it yields up to <strong>1000× speedup</strong> for the categorical DP algorithm.</li>
+<li>
+<strong><code>OBC_DP::ensure_max_prebins()</code></strong> — O(m² log m) full re-sort per merge step replaced with O(m log m + m²) <code>std::lower_bound + insert</code>.</li>
+<li>
+<strong><code>OBN_MDLP::apply_mdl_merging()</code></strong> — O(k³) full-vector copy per candidate merge eliminated; MDL delta is now computed analytically from bin statistics in O(k²) per outer step.</li>
+<li>
+<strong><code>OBN_BB::quantile()</code></strong> — Per-call sort-copy O(n_prebins × n log n) eliminated; <code>prebinning()</code> sorts once and passes the sorted vector to a stateless <code><a href="https://rdrr.io/r/stats/quantile.html" class="external-link">quantile()</a></code>.</li>
+<li>
+<strong><code>monotonicity_utils.h</code> — Welford index allocation</strong> — Removed unnecessary <code>std::vector&lt;double&gt; indices(n)</code> heap allocation; loop index cast directly to <code>double</code>.</li>
+<li>
+<strong><code>OBN_DP</code> — Pearson correlation instability</strong> — Replaced naive two-pass Pearson formula (catastrophic cancellation risk) with <code>detect_trend_from_correlation()</code> using Welford’s online algorithm.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="cran--odr-safety-1-10-0">CRAN / ODR Safety<a class="anchor" aria-label="anchor" href="#cran--odr-safety-1-10-0"></a></h4>
+<ul><li>
+<strong><code>safe_math.h</code></strong> — All 6 functions changed from <code>constexpr</code> to <code>inline</code>; <code>std::log</code>, <code>std::exp</code>, <code>std::abs</code> and <code>std::isfinite</code> are not guaranteed <code>constexpr</code> in C++11/14, risking compilation failure on SOLARIS/Studio.</li>
+<li>
+<strong><code>chi_square_utils.h</code></strong> — <code>CHI_SQUARE_CRITICAL_VALUES</code> namespace-scope <code>const</code> replaced with a function returning a <code>static</code> local instance (one shared copy per process, C++11 thread-safe init).</li>
+<li>
+<strong><code>entropy_utils.h</code></strong> — <code>ENTROPY_LUT</code> (~81 KB) replaced with <code>entropy_lut_instance()</code> returning a <code>static</code> local; eliminates one copy per translation unit.</li>
+<li>
+<strong><code>OBC_CM_v5</code></strong> — Duplicate <code>ChiSquareCache</code> class (global namespace) removed; file now uses <code>OptimalBinning::ChiSquareCache</code> from <code>chi_square_utils.h</code>.</li>
+<li>
+<strong>35 <code>.cpp</code> files</strong> — Duplicate <code>using namespace Rcpp</code> appearing before <code>#include "common/"</code> headers removed, preventing potential name-resolution ordering issues.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="code-quality-1-10-0">Code Quality<a class="anchor" aria-label="anchor" href="#code-quality-1-10-0"></a></h4>
+<ul><li>
+<strong><code>OBC_DP</code></strong> — Dead commented-out code blocks (<code>// struct CategoryStats</code>, <code>// Local CategoricalBin definition removed</code>) deleted.</li>
+<li>
+<strong><code>OBN_DP</code></strong> — Local variable <code>total_count</code> renamed to <code>rare_total</code> to fix shadowing of the class member with the same name.</li>
+<li>
+<strong><code>OBN_IR</code></strong> — <code>[[Rcpp::plugins(cpp17)]]</code> standardised to <code>cpp11</code> for consistency with the rest of the package.</li>
+<li>
+<strong><code>OBC_DP</code></strong> — Auto-detection of monotonicity direction (<code>monotonic_trend = "auto"</code>) implemented in <code>compute_and_sort_event_rates()</code> via <code>detect_trend_welford_woe()</code>.</li>
+</ul><hr></div>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.9" id="optimalbinningwoe-109">OptimalBinningWoE 1.0.9<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-109"></a></h2>
 <ul><li>

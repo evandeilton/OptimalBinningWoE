@@ -1,5 +1,94 @@
 # Changelog
 
+## OptimalBinningWoE 1.10.0
+
+### C++ Engine — Comprehensive Audit & Hardening (2026-05-17)
+
+This release is the result of a full static audit of the C++ engine
+covering all 36 binning algorithms. No public R API was changed.
+
+#### Bug Fixes
+
+- **`OB_LogisticRegression`** — Replaced exact `det != 0` singularity
+  guard with a threshold-based check (`|det| > 1e-10 × ‖H‖`); replaced
+  `hessian.inverse()` with `Eigen::LDLT` decomposition for numerical
+  stability; added `.cwiseMax(0.0)` before
+  [`sqrt()`](https://rdrr.io/r/base/MathFun.html) to prevent `NaN`
+  standard errors from near-zero diagonal entries.
+- **`OBN_MDLP` — monotonicity direction bug** — `is_monotonic()` and
+  `enforce_monotonicity()` previously hardcoded ascending direction,
+  causing unnecessary merges on negatively-correlated features. Both now
+  auto-detect the dominant trend via Welford’s slope algorithm before
+  checking/enforcing monotonicity.
+- **`OBC_DP` — DP backtracking out-of-bounds** — Added guard before
+  `static_cast<size_t>(prev_j)` in `backtrack_optimal_bins()`; invalid
+  predecessor index now raises a descriptive runtime error instead of
+  silent undefined behaviour.
+- **`OBN_DP` — push before validate** — Target value validation in
+  `optimal_binning_numerical_dp()` now fires before the value is
+  appended to `target_vec`, preventing insertion of invalid data.
+- **`OBN_MDLP` — `log2(0)` in MDL cost** — Guard added for the
+  single-bin case where `log2(k-1)` would evaluate to `log2(0) = -Inf`.
+- **`NumericalBin` constructor invariant** — The 7-arg constructor now
+  derives `count = count_pos + count_neg` regardless of the `c`
+  argument, enforcing the `count == total()` invariant at construction
+  time.
+
+#### Performance Improvements
+
+- **`OBC_DP` — DP outer loop removed** — The deterministic DP in
+  `perform_dynamic_programming()` was wrapped in a redundant
+  `max_iterations` outer loop (default 1000). Removing it yields up to
+  **1000× speedup** for the categorical DP algorithm.
+- **`OBC_DP::ensure_max_prebins()`** — O(m² log m) full re-sort per
+  merge step replaced with O(m log m + m²) `std::lower_bound + insert`.
+- **`OBN_MDLP::apply_mdl_merging()`** — O(k³) full-vector copy per
+  candidate merge eliminated; MDL delta is now computed analytically
+  from bin statistics in O(k²) per outer step.
+- **`OBN_BB::quantile()`** — Per-call sort-copy O(n_prebins × n log n)
+  eliminated; `prebinning()` sorts once and passes the sorted vector to
+  a stateless [`quantile()`](https://rdrr.io/r/stats/quantile.html).
+- **`monotonicity_utils.h` — Welford index allocation** — Removed
+  unnecessary `std::vector<double> indices(n)` heap allocation; loop
+  index cast directly to `double`.
+- **`OBN_DP` — Pearson correlation instability** — Replaced naive
+  two-pass Pearson formula (catastrophic cancellation risk) with
+  `detect_trend_from_correlation()` using Welford’s online algorithm.
+
+#### CRAN / ODR Safety
+
+- **`safe_math.h`** — All 6 functions changed from `constexpr` to
+  `inline`; `std::log`, `std::exp`, `std::abs` and `std::isfinite` are
+  not guaranteed `constexpr` in C++11/14, risking compilation failure on
+  SOLARIS/Studio.
+- **`chi_square_utils.h`** — `CHI_SQUARE_CRITICAL_VALUES`
+  namespace-scope `const` replaced with a function returning a `static`
+  local instance (one shared copy per process, C++11 thread-safe init).
+- **`entropy_utils.h`** — `ENTROPY_LUT` (~81 KB) replaced with
+  `entropy_lut_instance()` returning a `static` local; eliminates one
+  copy per translation unit.
+- **`OBC_CM_v5`** — Duplicate `ChiSquareCache` class (global namespace)
+  removed; file now uses `OptimalBinning::ChiSquareCache` from
+  `chi_square_utils.h`.
+- **35 `.cpp` files** — Duplicate `using namespace Rcpp` appearing
+  before `#include "common/"` headers removed, preventing potential
+  name-resolution ordering issues.
+
+#### Code Quality
+
+- **`OBC_DP`** — Dead commented-out code blocks
+  (`// struct CategoryStats`,
+  `// Local CategoricalBin definition removed`) deleted.
+- **`OBN_DP`** — Local variable `total_count` renamed to `rare_total` to
+  fix shadowing of the class member with the same name.
+- **`OBN_IR`** — `[[Rcpp::plugins(cpp17)]]` standardised to `cpp11` for
+  consistency with the rest of the package.
+- **`OBC_DP`** — Auto-detection of monotonicity direction
+  (`monotonic_trend = "auto"`) implemented in
+  `compute_and_sort_event_rates()` via `detect_trend_welford_woe()`.
+
+------------------------------------------------------------------------
+
 ## OptimalBinningWoE 1.0.9
 
 - **CRAN Fix (2026-03-14)** - Replaced `Rf_error` with `Rcpp::stop`:

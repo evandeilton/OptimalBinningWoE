@@ -1119,13 +1119,13 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#>  [1] pROC_1.19.0.1           yardstick_1.4.0         workflowsets_1.1.1     
-#>  [4] workflows_1.3.0         tune_2.1.0              tidyr_1.3.2            
-#>  [7] tailor_0.1.0            rsample_1.3.2           recipes_1.3.2          
-#> [10] purrr_1.2.2             parsnip_1.6.0           modeldata_1.5.1        
-#> [13] infer_1.1.0             ggplot2_4.0.3           dplyr_1.2.1            
-#> [16] dials_1.4.3             scales_1.4.0            broom_1.0.13           
-#> [19] tidymodels_1.5.0        scorecard_0.4.6         OptimalBinningWoE_1.0.9
+#>  [1] pROC_1.19.0.1            yardstick_1.4.0          workflowsets_1.1.1      
+#>  [4] workflows_1.3.0          tune_2.1.0               tidyr_1.3.2             
+#>  [7] tailor_0.1.0             rsample_1.3.2            recipes_1.3.2           
+#> [10] purrr_1.2.2              parsnip_1.6.0            modeldata_1.5.1         
+#> [13] infer_1.1.0              ggplot2_4.0.3            dplyr_1.2.1             
+#> [16] dials_1.4.3              scales_1.4.0             broom_1.0.13            
+#> [19] tidymodels_1.5.0         scorecard_0.4.6          OptimalBinningWoE_1.10.0
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] tidyselect_1.2.1    timeDate_4052.112   farver_2.1.2       
