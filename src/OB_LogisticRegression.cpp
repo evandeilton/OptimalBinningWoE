@@ -63,52 +63,65 @@ List fit_logistic_regression_template(const MatrixType& X, const Map<VectorXd>& 
   VectorXd beta = VectorXd::Zero(X.cols());
   double fopt;
 
-  int iter_count = 0;
-
   int status = optim_lbfgs(f, beta, fopt, maxit, eps_f, eps_g);
 
-  iter_count = maxit; // Replace with actual iteration count if available
+  // iter_count: optim_lbfgs does not expose the actual step count; use
+  // maxit as an upper bound but signal non-convergence via the status field.
+  int iter_count = maxit;
 
   VectorXd final_grad(X.cols());
   f.f_grad(beta, final_grad);
   MatrixXd hessian = f.hessian(beta);
 
+  // Threshold-based singularity guard (replaces exact det != 0 comparison).
+  double threshold = 1e-10 * hessian.norm();
   double det = hessian.determinant();
-  if (det != 0) {
-    VectorXd se = hessian.inverse().diagonal().array().sqrt();
+  bool hessian_ok = std::abs(det) > threshold;
 
-    VectorXd z_scores = beta.array() / se.array();
-    VectorXd p_values(z_scores.size());
-    for (int i = 0; i < z_scores.size(); ++i) {
-      p_values(i) = 2.0 * (1.0 - R::pnorm(std::abs(z_scores(i)), 0.0, 1.0, true, false));
+  if (hessian_ok) {
+    // Eigen LDLT is numerically safer than explicit inverse() for
+    // near-positive-definite matrices.
+    Eigen::LDLT<MatrixXd> ldlt(hessian);
+    hessian_ok = (ldlt.info() == Eigen::Success);
+
+    if (hessian_ok) {
+      MatrixXd H_inv = ldlt.solve(MatrixXd::Identity(hessian.rows(), hessian.cols()));
+      // cwiseMax(0) prevents sqrt(negative) NaN from tiny numerical errors.
+      VectorXd se = H_inv.diagonal().cwiseMax(0.0).array().sqrt();
+
+      VectorXd z_scores = beta.array() / se.array();
+      VectorXd p_values(z_scores.size());
+      for (int i = 0; i < z_scores.size(); ++i) {
+        p_values(i) = 2.0 * (1.0 - R::pnorm(std::abs(z_scores(i)), 0.0, 1.0, true, false));
+      }
+
+      return List::create(
+        Named("coefficients") = beta,
+        Named("se") = se,
+        Named("z_scores") = z_scores,
+        Named("p_values") = p_values,
+        Named("loglikelihood") = -fopt,
+        Named("gradient") = final_grad,
+        Named("hessian") = hessian,
+        Named("convergence") = (status >= 0),
+        Named("iterations") = iter_count,
+        Named("message") = (status >= 0 ? "converged" : "not converged")
+      );
     }
-
-    return List::create(
-      Named("coefficients") = beta,
-      Named("se") = se,
-      Named("z_scores") = z_scores,
-      Named("p_values") = p_values,
-      Named("loglikelihood") = -fopt,
-      Named("gradient") = final_grad,
-      Named("hessian") = hessian,
-      Named("convergence") = (status >= 0),
-      Named("iterations") = iter_count,
-      Named("message") = (status >= 0 ? "converged" : "not converged")
-    );
-  } else {
-    return List::create(
-      Named("coefficients") = beta,
-      Named("se") = NA_REAL,
-      Named("z_scores") = NA_REAL,
-      Named("p_values") = NA_REAL,
-      Named("loglikelihood") = -fopt,
-      Named("gradient") = final_grad,
-      Named("hessian") = hessian,
-      Named("convergence") = (status >= 0),
-      Named("iterations") = iter_count,
-      Named("message") = (status >= 0 ? "converged" : "not converged")
-    );
   }
+
+  return List::create(
+    Named("coefficients") = beta,
+    Named("se") = NA_REAL,
+    Named("z_scores") = NA_REAL,
+    Named("p_values") = NA_REAL,
+    Named("loglikelihood") = -fopt,
+    Named("gradient") = final_grad,
+    Named("hessian") = hessian,
+    Named("convergence") = (status >= 0),
+    Named("iterations") = iter_count,
+    Named("message") = (status >= 0 ? "converged (singular hessian)" : "not converged")
+  );
 }
 
 // [[Rcpp::export]]

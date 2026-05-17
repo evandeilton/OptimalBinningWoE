@@ -18,6 +18,7 @@
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
 #include "common/entropy_utils.h"
+#include "common/monotonicity_utils.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -235,42 +236,50 @@ private:
   
   /**
    * @brief Check if bins have monotonic WoE values
-   * 
-   * Monotonicity means that WoE values consistently increase (or decrease) across bins.
-   * This is often desired for interpretability and stability in credit scoring models.
-   * 
-   * @return bool True if WoE values are monotonically increasing
+   *
+   * Auto-detects trend direction via Welford slope and then verifies
+   * monotonicity in that direction. Fixes the earlier bug where only
+   * ascending direction was checked, causing unnecessary merges when the
+   * true relationship is negative.
+   *
+   * @return bool True if WoE values are monotonic in the detected direction
    */
   bool is_monotonic() const {
-    if (bins.empty()) return true;
-    
-    double prev_woe = bins[0].woe;
-    for (size_t i = 1; i < bins.size(); ++i) {
-      if (bins[i].woe < prev_woe) {
-        return false;
-      }
-      prev_woe = bins[i].woe;
-    }
-    return true;
+    if (bins.size() < 2) return true;
+
+    std::vector<double> woe_vals;
+    woe_vals.reserve(bins.size());
+    for (const auto& b : bins) woe_vals.push_back(b.woe);
+
+    MonotonicTrend trend = detect_monotonic_direction(woe_vals);
+    return OptimalBinning::is_monotonic(woe_vals, trend);
   }
   
   /**
    * @brief Enforce monotonicity by merging bins
-   * 
-   * If WoE values are not monotonically increasing, this function merges bins
-   * to achieve monotonicity, prioritizing minimal information loss.
+   *
+   * Detects the dominant trend direction first (ascending or descending) and
+   * then merges bins that violate it. Previously only ascending was enforced.
    */
   void enforce_monotonicity() {
-    if (bins.size() <= 1) return; // Nothing to enforce if 0 or 1 bin
-    
+    if (bins.size() <= 1) return;
+
+    // Detect direction once before the loop
+    std::vector<double> woe_vals;
+    woe_vals.reserve(bins.size());
+    for (const auto& b : bins) woe_vals.push_back(b.woe);
+    bool ascending = (detect_monotonic_direction(woe_vals) == MonotonicTrend::ASCENDING);
+
     bool monotonic = false;
     while (!monotonic && iterations_run < max_iterations) {
       iterations_run++;
       monotonic = true;
-      
+
       // Find and merge bin pairs that violate monotonicity
       for (size_t i = 1; i < bins.size(); ++i) {
-        if (bins[i].woe < bins[i - 1].woe) {
+        bool violation = ascending ? (bins[i].woe < bins[i - 1].woe)
+                                   : (bins[i].woe > bins[i - 1].woe);
+        if (violation) {
           // Determine which merge causes less information loss
           double iv_loss_left = bins[i-1].iv + bins[i].iv;
           
@@ -885,58 +894,58 @@ public:
   
   /**
    * @brief Apply MDLP-based merging
-   * 
-   * Iteratively merges bins to minimize the MDL cost
+   *
+   * Iteratively merges bins to minimize MDL cost.  Each candidate merge is
+   * evaluated by computing the MDL delta analytically — no full-vector copy
+   * is needed, reducing complexity from O(k² × k) to O(k²) per outer step.
    */
   void apply_mdl_merging() {
-    // Iterate until minimum bins reached or no more beneficial merges
     while (bins.size() > (size_t)min_bins && iterations_run < max_iterations) {
+      size_t k = bins.size();
       double current_mdl = calculate_mdl_cost(bins);
-      double best_mdl = current_mdl;
-      size_t best_merge_index = bins.size();
-      
-      // Try merging each adjacent pair of bins
-      for (size_t i = 0; i < bins.size() - 1; ++i) {
-        // Create temporary bins for this merge scenario
-        std::vector<NumericalBin> temp_bins = bins;
-        
-        // Merge bins i and i+1
-        NumericalBin& left = temp_bins[i];
-        NumericalBin& right = temp_bins[i + 1];
-        
-        left.upper_bound = right.upper_bound;
-        left.count += right.count;
-        left.count_pos += right.count_pos;
-        left.count_neg += right.count_neg;
-        
-        temp_bins.erase(temp_bins.begin() + i + 1);
-        
-        // Calculate MDL cost after this merge
-        double new_mdl = calculate_mdl_cost(temp_bins);
-        
-        // Keep track of best merge
-        if (new_mdl < best_mdl) {
-          best_mdl = new_mdl;
+      double best_delta = 0.0;   // only accept merges that reduce MDL
+      size_t best_merge_index = k; // sentinel
+
+      // Pre-compute current model_cost term once
+      double cur_model = (k > 1) ? std::log2(static_cast<double>(k - 1)) : 0.0;
+      double new_model = (k > 2) ? std::log2(static_cast<double>(k - 2)) : 0.0;
+      double model_delta = new_model - cur_model;
+
+      for (size_t i = 0; i < k - 1; ++i) {
+        const NumericalBin& b_i  = bins[i];
+        const NumericalBin& b_i1 = bins[i + 1];
+
+        int m_pos = b_i.count_pos + b_i1.count_pos;
+        int m_neg = b_i.count_neg + b_i1.count_neg;
+        int m_cnt = b_i.count    + b_i1.count;
+
+        // data_cost delta: merged bin contribution replaces two individual ones
+        double data_delta =
+          m_cnt   * calculate_entropy(m_pos,      m_neg)
+          - b_i.count  * calculate_entropy(b_i.count_pos,  b_i.count_neg)
+          - b_i1.count * calculate_entropy(b_i1.count_pos, b_i1.count_neg);
+
+        double delta = model_delta + data_delta;
+
+        if (delta < best_delta) {
+          best_delta = delta;
           best_merge_index = i;
         }
       }
-      
-      // If a beneficial merge was found, execute it
-      if (best_merge_index < bins.size()) {
+
+      if (best_merge_index < k) {
         merge_bins(best_merge_index);
       } else {
-        // No beneficial merge found, stop
         break;
       }
-      
-      // Stop if we've reached the maximum number of bins
+
       if (bins.size() <= (size_t)max_bins) {
         break;
       }
-      
+
       iterations_run++;
     }
-    
+
     if (iterations_run >= max_iterations) {
       converged = false;
       Rcpp::warning("MDL merging did not complete within %d iterations", max_iterations);

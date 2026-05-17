@@ -27,44 +27,6 @@ using namespace OptimalBinning;
 // Local constant removed (uses shared definition)
 constexpr double NEGATIVE_INFINITY = -std::numeric_limits<double>::infinity();
 
-/**
- * @brief Structure to store information about a category
- * 
- * This structure maintains count statistics for each category,
- * including total observations, positive events, and event rate.
- */
-// struct CategoryStats {
-//   int count;          // Total count of observations
-//   int pos_count;      // Count of positive events (target=1)
-//   int neg_count;      // Count of negative events (target=0)
-//   double event_rate;  // Ratio of positive events to total count
-//   
-//   // Default constructor
-//   CategoryStats() : count(0), pos_count(0), neg_count(0), event_rate(0.0) {}
-//   
-//   /**
-//    * @brief Update category statistics with a new observation
-//    * 
-//    * @param is_positive Boolean indicating if the observation is a positive event
-//    */
-//   void update(int is_positive) {
-//     count++;
-//     if (is_positive) {
-//       pos_count++;
-//     } else {
-//       neg_count++;
-//     }
-//     event_rate = static_cast<double>(pos_count) / static_cast<double>(count);
-//   }
-// };
-
-/**
- * @brief Structure to store information about a bin
- * 
- * Contains all the relevant metrics for a bin in the final binning solution,
- * including WoE (Weight of Evidence) and IV (Information Value).
- */
-// Local CategoricalBin definition removed
 
 
 /**
@@ -584,15 +546,17 @@ private:
         category_mapping[cat] = merged_bin;
       }
       
-      // Remove the two merged bins and add the new one
+      // Remove the two merged bins.
       bins_with_counts.erase(bins_with_counts.begin(), bins_with_counts.begin() + 2);
-      bins_with_counts.emplace_back(merged_bin, merged_counts);
-      
-      // Re-sort by count
-      std::sort(bins_with_counts.begin(), bins_with_counts.end(),
-                [](const auto& a, const auto& b) {
-                  return a.second.first < b.second.first;
-                });
+
+      // Insert merged bin at the correct sorted position (binary search, O(log m + m))
+      // instead of full re-sort (O(m log m)).
+      auto cmp_count = [](const auto& a, const auto& b) {
+        return a.second.first < b.second.first;
+      };
+      auto ins_pos = std::lower_bound(bins_with_counts.begin(), bins_with_counts.end(),
+                                      std::make_pair(merged_bin, merged_counts), cmp_count);
+      bins_with_counts.insert(ins_pos, {merged_bin, merged_counts});
     }
     
     // Update merged_categories with final result

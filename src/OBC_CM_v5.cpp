@@ -18,6 +18,7 @@
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/chi_square_utils.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -71,85 +72,6 @@ inline double clamp(double value, double min_val, double max_val) {
  */
 // Local CategoricalBin definition removed
 
-
-// =============================================================================
-// CHI-SQUARE CACHE CLASS (ENHANCED)
-// =============================================================================
-
-/**
- * @brief Efficient cache for chi-square calculations with validation
- */
-class ChiSquareCache {
-private:
-  std::vector<double> cache;
-  size_t num_bins;
-  static constexpr double INVALID_VALUE = -1.0;
-  
-public:
-  ChiSquareCache() : num_bins(0) {}
-  
-  /**
-   * @brief Resize cache for n bins (stores n-1 adjacent pairs)
-   * @param n Number of bins
-   */
-  void resize(size_t n) {
-    num_bins = n;
-    size_t cache_size = (n > 1) ? (n - 1) : 0;
-    cache.assign(cache_size, INVALID_VALUE);
-  }
-  
-  /**
-   * @brief Get cached chi-square value for adjacent bins i and i+1
-   * @param i First bin index
-   * @return Chi-square value or INVALID_VALUE if not cached
-   */
-  double get(size_t i) const {
-    if (i >= num_bins - 1 || i >= cache.size()) {
-      return INVALID_VALUE;
-    }
-    return cache[i];
-  }
-  
-  /**
-   * @brief Store chi-square value for adjacent bins i and i+1
-   * @param i First bin index
-   * @param value Chi-square value (must be >= 0)
-   */
-  void set(size_t i, double value) {
-    if (i < cache.size() && value >= 0) {
-      cache[i] = value;
-    }
-  }
-  
-  /**
-   * @brief Invalidate cache entries after merge at index
-   * @param merge_index Index where merge occurred
-   */
-  void invalidate_after_merge(size_t merge_index) {
-    // Invalidate the pair before the merge point
-    if (merge_index > 0 && merge_index - 1 < cache.size()) {
-      cache[merge_index - 1] = INVALID_VALUE;
-    }
-    // Invalidate the pair at the merge point
-    if (merge_index < cache.size()) {
-      cache[merge_index] = INVALID_VALUE;
-    }
-  }
-  
-  /**
-   * @brief Completely invalidate the cache
-   */
-  void clear() {
-    std::fill(cache.begin(), cache.end(), INVALID_VALUE);
-  }
-  
-  /**
-   * @brief Check if value is valid
-   */
-  static bool is_valid(double value) {
-    return value >= 0;
-  }
-};
 
 // =============================================================================
 // OPTIMAL BINNING CATEGORICAL CLASS (ENHANCED)

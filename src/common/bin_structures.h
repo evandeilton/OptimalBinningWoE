@@ -34,9 +34,11 @@ struct NumericalBin {
   // Default constructor
   NumericalBin() = default;
 
-  // Main constructor with all parameters - delegates to this one
-  NumericalBin(double lower, double upper, int c, int p, int n, double w, double i)
-    : lower_bound(lower), upper_bound(upper), count(c), count_pos(p), count_neg(n),
+  // Main constructor with all parameters - delegates to this one.
+  // count is always derived from p+n to enforce the invariant count==count_pos+count_neg.
+  // The c parameter is accepted for API compatibility but ignored.
+  NumericalBin(double lower, double upper, int /*c*/, int p, int n, double w, double i)
+    : lower_bound(lower), upper_bound(upper), count(p + n), count_pos(p), count_neg(n),
       woe(w), iv(i), entropy(0.0), divergence(0.0), centroid((lower + upper) / 2.0) {}
 
   // 2-arg Constructor (lower, upper) - delegates to main

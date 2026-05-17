@@ -118,34 +118,35 @@ private:
   }
   
   /**
-   * Compute a quantile from a sorted vector
-   * 
-   * @param data Vector of values
+   * Compute a quantile from an ALREADY SORTED vector (no copy/sort overhead).
+   * Call quantile_unsorted() if the vector is not yet sorted.
+   *
+   * @param sorted_data Sorted vector of values
    * @param q Quantile value between 0 and 1
    * @return The q-th quantile value
    */
-  double quantile(const std::vector<double>& data, double q) {
-    if (data.empty()) return 0.0;
-    
-    std::vector<double> temp = data;
-    std::sort(temp.begin(), temp.end());
-    
-    if (q <= 0.0) return temp.front();
-    if (q >= 1.0) return temp.back();
-    
-    // Calculate index with interpolation
-    double idx_exact = q * (temp.size() - 1);
+  static double quantile(const std::vector<double>& sorted_data, double q) {
+    if (sorted_data.empty()) return 0.0;
+    if (q <= 0.0) return sorted_data.front();
+    if (q >= 1.0) return sorted_data.back();
+
+    double idx_exact = q * (sorted_data.size() - 1);
     size_t idx_lower = static_cast<size_t>(std::floor(idx_exact));
     size_t idx_upper = static_cast<size_t>(std::ceil(idx_exact));
-    
-    // Handle edge cases
-    if (idx_lower == idx_upper) return temp[idx_lower];
-    
-    // Linear interpolation
+
+    if (idx_lower == idx_upper) return sorted_data[idx_lower];
+
     double weight_upper = idx_exact - idx_lower;
     double weight_lower = 1.0 - weight_upper;
-    
-    return weight_lower * temp[idx_lower] + weight_upper * temp[idx_upper];
+    return weight_lower * sorted_data[idx_lower] + weight_upper * sorted_data[idx_upper];
+  }
+
+  /// Convenience wrapper that sorts a copy before computing the quantile.
+  static double quantile_unsorted(const std::vector<double>& data, double q) {
+    if (data.empty()) return 0.0;
+    std::vector<double> temp = data;
+    std::sort(temp.begin(), temp.end());
+    return quantile(temp, q);
   }
   
   /**
@@ -194,13 +195,16 @@ private:
         bins.push_back(bin);
       }
     } else {
-      // Use quantile-based initial binning for better distribution
+      // Use quantile-based initial binning for better distribution.
+      // Sort once here so quantile() doesn't re-sort on each of the n_prebins calls.
       int n_prebins = std::min(static_cast<int>(unique_values.size()), max_n_prebins);
-      
+      std::vector<double> sorted_feature = clean_feature;
+      std::sort(sorted_feature.begin(), sorted_feature.end());
+
       std::vector<double> quantiles;
       for (int i = 1; i < n_prebins; ++i) {
         double q = static_cast<double>(i) / n_prebins;
-        double qval = quantile(clean_feature, q);
+        double qval = quantile(sorted_feature, q);
         quantiles.push_back(qval);
       }
       
