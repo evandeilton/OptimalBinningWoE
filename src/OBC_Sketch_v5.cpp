@@ -13,7 +13,6 @@
 #include <unordered_set>
 #include <vector>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/bin_structures.h"

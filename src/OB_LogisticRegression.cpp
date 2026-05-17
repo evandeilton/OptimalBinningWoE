@@ -8,7 +8,6 @@
 // #pragma GCC diagnostic ignored "-Wignored-attributes"
 
 using namespace Numer;
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

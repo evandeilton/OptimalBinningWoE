@@ -18,8 +18,8 @@ using namespace Rcpp;
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
 #include "common/woe_iv_utils.h"
+#include "common/monotonicity_utils.h"
 
-using namespace Rcpp;
 using namespace OptimalBinning;
 
 
@@ -536,38 +536,15 @@ private:
    */
   void determine_monotonic_direction() {
     if (woe_values.size() <= 2) {
-      // Default to ascending with insufficient data
       monotonic_trend = "ascending";
       return;
     }
-    
-    // Compute correlation between feature values and target
-    double feature_sum = 0.0;
-    double feature_sq_sum = 0.0;
-    double target_sum = 0.0;
-    double target_sq_sum = 0.0;
-    double cross_sum = 0.0;
-    
-    for (size_t i = 0; i < feature.size(); ++i) {
-      feature_sum += feature[i];
-      feature_sq_sum += feature[i] * feature[i];
-      target_sum += static_cast<double>(target[i]);
-      target_sq_sum += static_cast<double>(target[i]) * static_cast<double>(target[i]);
-      cross_sum += feature[i] * static_cast<double>(target[i]);
-    }
-    
-    double n = static_cast<double>(feature.size());
-    double numerator = n * cross_sum - feature_sum * target_sum;
-    double denom1 = std::sqrt(n * feature_sq_sum - feature_sum * feature_sum);
-    double denom2 = std::sqrt(n * target_sq_sum - target_sum * target_sum);
-    
-    double correlation = 0.0;
-    if (denom1 > EPSILON && denom2 > EPSILON) {
-      correlation = numerator / (denom1 * denom2);
-    }
-    
-    // Set monotonic trend based on correlation
-    monotonic_trend = (correlation >= 0) ? "ascending" : "descending";
+    // P3.6 fix (2026-05-16): replaced naive Pearson formula (catastrophic
+    // cancellation for large-magnitude features) with Welford's numerically
+    // stable algorithm already available in monotonicity_utils.h.
+    std::vector<double> feat_double(feature.begin(), feature.end());
+    MonotonicTrend trend = detect_trend_from_correlation(feat_double, target);
+    monotonic_trend = (trend == MonotonicTrend::DESCENDING) ? "descending" : "ascending";
   }
   
   /**
@@ -700,7 +677,8 @@ private:
    * Bins with fewer observations than bin_cutoff proportion are merged
    */
   void handle_rare_bins() {
-    double total_count = std::accumulate(counts.begin(), counts.end(), 0.0);
+    // P6.1 fix (2026-05-16): renamed local to avoid shadowing class member total_count
+    double rare_total = std::accumulate(counts.begin(), counts.end(), 0.0);
     bool merged = true;
     int iterations = 0;
     
@@ -709,7 +687,7 @@ private:
       merged = false;
       
       for (size_t i = 0; i < counts.size(); ++i) {
-        double proportion = total_count > 0.0 ? (counts[i] / total_count) : 0.0;
+        double proportion = rare_total > 0.0 ? (counts[i] / rare_total) : 0.0;
         
         if (proportion < bin_cutoff && counts.size() > static_cast<size_t>(min_bins)) {
           int merge_idx;
@@ -783,23 +761,17 @@ Rcpp::List optimal_binning_numerical_dp(
  std::vector<unsigned int> target_vec; 
  target_vec.reserve(target.size());
  
- // Convert and validate target values
- bool has_invalid = false;
+ // Validate and convert target values — validate BEFORE push to avoid
+ // inserting unsigned-wrapped garbage into target_vec (P1.2 fix 2026-05-16)
  for (int i = 0; i < target.size(); ++i) {
    if (IntegerVector::is_na(target[i])) {
      Rcpp::stop("Target cannot contain NA values");
    }
-   
    int val = target[i];
    if (val != 0 && val != 1) {
-     has_invalid = true;
+     Rcpp::stop("Target must contain only values 0 and 1");
    }
-   
    target_vec.push_back(static_cast<unsigned int>(val));
- }
- 
- if (has_invalid) {
-   Rcpp::stop("Target must contain only values 0 and 1");
  }
  
  // Run the binning algorithm

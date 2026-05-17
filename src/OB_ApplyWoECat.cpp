@@ -9,7 +9,6 @@
 #include <cctype>
 #include <limits>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

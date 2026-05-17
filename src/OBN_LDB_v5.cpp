@@ -21,7 +21,6 @@
  * while maximizing predictive power.
  */
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

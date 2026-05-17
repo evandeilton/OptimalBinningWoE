@@ -23,7 +23,6 @@
  * binning problem as an optimization task with monotonicity constraints.
  */
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

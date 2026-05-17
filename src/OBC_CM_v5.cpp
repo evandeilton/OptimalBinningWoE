@@ -14,7 +14,6 @@
 #include <iomanip>
 #include <chrono>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

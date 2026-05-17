@@ -78,8 +78,13 @@ public:
   }
 };
 
-// Global LUT instance (initialized once)
-static const EntropyLUT ENTROPY_LUT;
+// P4.2 fix (2026-05-16): replaced "static const EntropyLUT ENTROPY_LUT" at
+// namespace scope (one copy per TU, ~81KB each) with a function returning
+// a reference to a static local — one shared instance, C++11-safe init.
+inline const EntropyLUT& entropy_lut_instance() {
+  static const EntropyLUT instance;
+  return instance;
+}
 
 // =============================================================================
 // BASIC ENTROPY FUNCTIONS (with LUT optimization)
@@ -98,8 +103,8 @@ static const EntropyLUT ENTROPY_LUT;
  */
 inline double entropy_binary(int pos, int neg) {
   // Use LUT for small counts (30-50% speedup)
-  if (ENTROPY_LUT.in_range(pos, neg)) {
-    return ENTROPY_LUT.get(pos, neg);
+  if (entropy_lut_instance().in_range(pos, neg)) {
+    return entropy_lut_instance().get(pos, neg);
   }
 
   // Fallback for large counts

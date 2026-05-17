@@ -13,49 +13,57 @@
 
 namespace OptimalBinning {
 
-/// Chi-square critical values for DF=1 at various significance levels
-const std::unordered_map<double, double> CHI_SQUARE_CRITICAL_VALUES = {
-  {0.995, 7.879},
-  {0.99, 6.635},
-  {0.975, 5.024},
-  {0.95, 3.841},
-  {0.90, 2.706},
-  {0.80, 1.642},
-  {0.70, 1.074},
-  {0.50, 0.455},
-  {0.30, 0.148},
-  {0.20, 0.064},
-  {0.10, 0.016},
-  {0.05, 0.004},
-  {0.01, 0.0002},
-  {0.001, 0.00001}
-};
+// P4.1 fix (2026-05-16): moved from const at namespace scope (one copy per TU)
+// to a function returning a static local (one shared copy, C++11-safe).
+// A const at namespace scope in a header causes duplicate copies in each
+// translation unit, wasting memory and initialization time.
 
 /**
- * @brief Get chi-square critical value for given significance level
- * 
+ * @brief Get the chi-square critical value table (DF=1)
+ * Initialized once as a static local — C++11 guarantees thread-safe init.
+ */
+inline const std::unordered_map<double, double>& chi_square_critical_values_table() {
+  static const std::unordered_map<double, double> table = {
+    {0.995, 7.879},
+    {0.99,  6.635},
+    {0.975, 5.024},
+    {0.95,  3.841},
+    {0.90,  2.706},
+    {0.80,  1.642},
+    {0.70,  1.074},
+    {0.50,  0.455},
+    {0.30,  0.148},
+    {0.20,  0.064},
+    {0.10,  0.016},
+    {0.05,  0.004},
+    {0.01,  0.0002},
+    {0.001, 0.00001}
+  };
+  return table;
+}
+
+/**
+ * @brief Get chi-square critical value for given significance level (DF=1)
  * @param significance Significance level (alpha)
- * @return Critical value for DF=1
+ * @return Critical value
  */
 inline double get_chi_critical_value(double significance) {
-  auto it = CHI_SQUARE_CRITICAL_VALUES.find(significance);
-  if (it != CHI_SQUARE_CRITICAL_VALUES.end()) {
+  const auto& table = chi_square_critical_values_table();
+  auto it = table.find(significance);
+  if (it != table.end()) {
     return it->second;
   }
-  
   // Find closest threshold
-  double closest = 0.95;
+  double closest_val = 3.841; // default to 0.95
   double min_diff = std::numeric_limits<double>::max();
-  
-  for (const auto& [thresh, val] : CHI_SQUARE_CRITICAL_VALUES) {
-    double diff = std::abs(thresh - significance);
+  for (const auto& kv : table) {
+    double diff = std::abs(kv.first - significance);
     if (diff < min_diff) {
       min_diff = diff;
-      closest = thresh;
+      closest_val = kv.second;
     }
   }
-  
-  return CHI_SQUARE_CRITICAL_VALUES.at(closest);
+  return closest_val;
 }
 
 /**

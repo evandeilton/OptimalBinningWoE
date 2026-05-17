@@ -22,18 +22,6 @@
 namespace OptimalBinning {
 
 /**
- * @brief Detect monotonic trend direction from WoE values (uses Welford)
- *
- * Uses Welford's algorithm for numerically stable slope calculation.
- *
- * @param woe_values Vector of WoE values in bin order
- * @return Detected trend (ASCENDING or DESCENDING)
- */
-inline MonotonicTrend detect_monotonic_direction(const std::vector<double>& woe_values) {
-  return detect_trend_welford_woe(woe_values);
-}
-
-/**
  * @brief Detect monotonic trend from feature-target correlation (Welford's algorithm)
  *
  * Uses Welford's online algorithm for numerically stable computation of
@@ -123,19 +111,14 @@ inline MonotonicTrend detect_trend_welford_woe(const std::vector<double>& woe_va
 
   size_t n = woe_values.size();
 
-  // Create index vector [0, 1, 2, ..., n-1]
-  std::vector<double> indices(n);
-  for (size_t i = 0; i < n; ++i) {
-    indices[i] = static_cast<double>(i);
-  }
-
-  // Use Welford's algorithm
+  // P3.5 fix (2026-05-16): eliminated redundant indices[] allocation —
+  // loop index cast directly to double avoids O(n) heap allocation.
   double mean_x = 0.0, mean_y = 0.0;
   double M2_x = 0.0, M2_y = 0.0;
   double M_xy = 0.0;
 
   for (size_t i = 0; i < n; ++i) {
-    double x = indices[i];
+    double x = static_cast<double>(i);
     double y = woe_values[i];
 
     double delta_x = x - mean_x;
@@ -160,6 +143,14 @@ inline MonotonicTrend detect_trend_welford_woe(const std::vector<double>& woe_va
   double slope = M_xy / M2_x;
 
   return (slope >= 0) ? MonotonicTrend::ASCENDING : MonotonicTrend::DESCENDING;
+}
+
+/**
+ * @brief Detect monotonic trend direction from WoE values (delegates to Welford)
+ * Declared after detect_trend_welford_woe to avoid forward-reference error.
+ */
+inline MonotonicTrend detect_monotonic_direction(const std::vector<double>& woe_values) {
+  return detect_trend_welford_woe(woe_values);
 }
 
 /**

@@ -20,7 +20,6 @@
  * using equal-width binning with subsequent optimization for predictive modeling.
  */
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

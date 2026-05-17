@@ -12,7 +12,6 @@
 #include <memory>
 #include <numeric>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

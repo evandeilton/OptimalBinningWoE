@@ -1,4 +1,4 @@
-// [[Rcpp::plugins(cpp17)]]
+// [[Rcpp::plugins(cpp11)]]
 // [[Rcpp::depends(Rcpp)]]
 
 #include <Rcpp.h>
@@ -22,7 +22,6 @@
  * applications where monotonicity is a desirable property.
  */
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

@@ -19,8 +19,6 @@
  * using a hybrid approach inspired by K-means clustering and information theory metrics.
  */
 
-using namespace Rcpp;
-
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"

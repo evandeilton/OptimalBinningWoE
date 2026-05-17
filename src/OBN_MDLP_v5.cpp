@@ -13,7 +13,6 @@
 #include <numeric>
 #include <unordered_map>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"
@@ -125,7 +124,10 @@ private:
     
     // Model cost: Cost of encoding the model complexity (number of bins)
     // More bins = higher complexity = higher cost
-    double model_cost = std::log2(static_cast<double>(current_bins.size()) - 1.0);
+    // Guard against log2(0) when size == 1
+    double model_cost = (current_bins.size() > 1)
+      ? std::log2(static_cast<double>(current_bins.size() - 1))
+      : 0.0;
     
     // Data cost: Initial entropy of all data
     double data_cost = total_count * calculate_entropy(total_pos, total_neg);

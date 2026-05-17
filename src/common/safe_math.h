@@ -29,7 +29,12 @@ namespace OptimalBinning {
  * @param epsilon Minimum value before log (default: EPSILON)
  * @return log(max(x, epsilon))
  */
-constexpr double safe_log(double x, double epsilon = EPSILON) {
+// NOTE: These are declared inline (not constexpr) for C++11/14 compatibility.
+// std::log, std::exp, std::abs, std::isfinite are not guaranteed constexpr
+// in C++11/14; using constexpr caused compilation failures on strict compilers
+// (CRAN/SOLARIS, CLANG macOS). Changed 2026-05-16.
+
+inline double safe_log(double x, double epsilon = EPSILON) {
   return std::log(x > epsilon ? x : epsilon);
 }
 
@@ -39,7 +44,7 @@ constexpr double safe_log(double x, double epsilon = EPSILON) {
  * @param max_exp Maximum exponent (default: 700.0 for double)
  * @return exp(min(x, max_exp))
  */
-constexpr double safe_exp(double x, double max_exp = 700.0) {
+inline double safe_exp(double x, double max_exp = 700.0) {
   return std::exp(x < max_exp ? x : max_exp);
 }
 
@@ -50,7 +55,7 @@ constexpr double safe_exp(double x, double max_exp = 700.0) {
  * @param epsilon Minimum denominator magnitude
  * @return num/denom with protection against division by zero
  */
-constexpr double safe_divide(double num, double denom, double epsilon = EPSILON) {
+inline double safe_divide(double num, double denom, double epsilon = EPSILON) {
   return (std::abs(denom) > epsilon) ? (num / denom) : 0.0;
 }
 
@@ -61,7 +66,7 @@ constexpr double safe_divide(double num, double denom, double epsilon = EPSILON)
  * @param max_val Maximum allowed value
  * @return Clamped value
  */
-constexpr double clamp(double value, double min_val, double max_val) {
+inline double clamp(double value, double min_val, double max_val) {
   return (value < min_val) ? min_val : ((value > max_val) ? max_val : value);
 }
 
@@ -70,7 +75,7 @@ constexpr double clamp(double value, double min_val, double max_val) {
  * @param value Value to check
  * @return true if value is finite and not NaN
  */
-constexpr bool is_valid_number(double value) {
+inline bool is_valid_number(double value) {
   return std::isfinite(value) && !std::isnan(value);
 }
 
@@ -79,7 +84,7 @@ constexpr bool is_valid_number(double value) {
  * @param value Reference value for scale
  * @return Epsilon appropriate for the value's magnitude
  */
-constexpr double adaptive_epsilon(double value) {
+inline double adaptive_epsilon(double value) {
   double scale_eps = std::numeric_limits<double>::epsilon() * std::abs(value);
   return (scale_eps > EPSILON) ? scale_eps : EPSILON;
 }

@@ -9,7 +9,6 @@
 #include <sstream>
 #include <unordered_set>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"

@@ -9,7 +9,6 @@
 #include <limits>
 #include <unordered_map>
 
-using namespace Rcpp;
 
 // Include shared headers
 #include "common/optimal_binning_common.h"
