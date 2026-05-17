@@ -14,3 +14,5 @@
 ^\.claude$
 ^\.Rhistory$
 .claude
+^\.positai$
+^TODO\.md$
