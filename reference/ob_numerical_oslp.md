@@ -214,13 +214,13 @@ Gurobi) and is intractable for \\N \> 10^4\\.
 
 **Comparison with Related Methods**
 
-|            |                        |                |                         |                 |
-|------------|------------------------|----------------|-------------------------|-----------------|
-| **Method** | **Pre-binning**        | **Direction**  | **Merge (max_bins)**    | **Target Type** |
-| OSLP       | Quantile (unique vals) | Majority vote  | Min (IV(i) + IV(i+1))   | double          |
-| MRBLP      | Equal-frequency        | Majority vote  | Min \|IV(i) - IV(i+1)\| | int             |
-| MOB        | Equal-frequency        | First two bins | Min IV loss             | int             |
-| MBLP       | Quantile (data)        | Correlation    | Min IV loss             | int             |
+|  |  |  |  |  |
+|----|----|----|----|----|
+| **Method** | **Pre-binning** | **Direction** | **Merge (max_bins)** | **Target Type** |
+| OSLP | Quantile (unique vals) | Majority vote | Min (IV(i) + IV(i+1)) | double |
+| MRBLP | Equal-frequency | Majority vote | Min \|IV(i) - IV(i+1)\| | int |
+| MOB | Equal-frequency | First two bins | Min IV loss | int |
+| MBLP | Quantile (data) | Correlation | Min IV loss | int |
 
 **When to Use OSLP**
 

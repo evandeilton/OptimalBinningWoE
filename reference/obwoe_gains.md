@@ -162,27 +162,27 @@ as risk score increases.
 
 ### Bin-Level Statistics (18 metrics)
 
-|                |                                |                                  |
-|----------------|--------------------------------|----------------------------------|
-| **Column**     | **Formula**                    | **Description**                  |
-| `bin`          | \-                             | Bin label or interval            |
-| `count`        | \\n_i\\                        | Total observations in bin        |
-| `count_pct`    | \\n_i / N\\                    | Proportion of total population   |
-| `pos_count`    | \\n\_{i,1}\\                   | Event count (Bad, target=1)      |
-| `neg_count`    | \\n\_{i,0}\\                   | Non-event count (Good, target=0) |
-| `pos_rate`     | \\n\_{i,1} / n_i\\             | Event rate (Bad rate) in bin     |
-| `neg_rate`     | \\n\_{i,0} / n_i\\             | Non-event rate (Good rate)       |
-| `pos_pct`      | \\n\_{i,1} / N_1\\             | Distribution of events           |
-| `neg_pct`      | \\n\_{i,0} / N_0\\             | Distribution of non-events       |
-| `odds`         | \\n\_{i,1} / n\_{i,0}\\        | Odds of event                    |
-| `log_odds`     | \\\ln(\text{odds})\\           | Log-odds (logit)                 |
-| `woe`          | \\\ln(p_i / q_i)\\             | Weight of Evidence               |
-| `iv`           | \\(p_i - q_i) \cdot WoE_i\\    | Information Value contribution   |
-| `cum_pos_pct`  | \\\sum\_{j \le i} p_j\\        | Cumulative events captured       |
-| `cum_neg_pct`  | \\\sum\_{j \le i} q_j\\        | Cumulative non-events            |
-| `ks`           | \\\|F_1(i) - F_0(i)\|\\        | KS statistic at bin              |
-| `lift`         | \\\text{pos\\rate} / \bar{p}\\ | Lift over random                 |
-| `capture_rate` | \\cum\\pos\\pct\\              | Cumulative capture rate          |
+|  |  |  |
+|----|----|----|
+| **Column** | **Formula** | **Description** |
+| `bin` | \- | Bin label or interval |
+| `count` | \\n_i\\ | Total observations in bin |
+| `count_pct` | \\n_i / N\\ | Proportion of total population |
+| `pos_count` | \\n\_{i,1}\\ | Event count (Bad, target=1) |
+| `neg_count` | \\n\_{i,0}\\ | Non-event count (Good, target=0) |
+| `pos_rate` | \\n\_{i,1} / n_i\\ | Event rate (Bad rate) in bin |
+| `neg_rate` | \\n\_{i,0} / n_i\\ | Non-event rate (Good rate) |
+| `pos_pct` | \\n\_{i,1} / N_1\\ | Distribution of events |
+| `neg_pct` | \\n\_{i,0} / N_0\\ | Distribution of non-events |
+| `odds` | \\n\_{i,1} / n\_{i,0}\\ | Odds of event |
+| `log_odds` | \\\ln(\text{odds})\\ | Log-odds (logit) |
+| `woe` | \\\ln(p_i / q_i)\\ | Weight of Evidence |
+| `iv` | \\(p_i - q_i) \cdot WoE_i\\ | Information Value contribution |
+| `cum_pos_pct` | \\\sum\_{j \le i} p_j\\ | Cumulative events captured |
+| `cum_neg_pct` | \\\sum\_{j \le i} q_j\\ | Cumulative non-events |
+| `ks` | \\\|F_1(i) - F_0(i)\|\\ | KS statistic at bin |
+| `lift` | \\\text{pos\\rate} / \bar{p}\\ | Lift over random |
+| `capture_rate` | \\cum\\pos\\pct\\ | Cumulative capture rate |
 
 ### Global Performance Metrics
 

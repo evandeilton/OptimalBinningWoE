@@ -12,8 +12,8 @@
 <link rel="icon" sizes="any" href="favicon.ico">
 <link rel="manifest" href="site.webmanifest">
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/Source_Sans_3-0.4.10/font.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/Source_Sans_3-0.4.10/font.css" rel="stylesheet">
 <link href="deps/Source_Serif_4-0.4.10/font.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
@@ -81,28 +81,28 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Feature</th>
 <th>Benefit</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>36 Algorithms</strong></td>
 <td>Choose the best method for your data characteristics</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>C++ Performance</strong></td>
 <td>Process millions of records efficiently via Rcpp/RcppEigen</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>tidymodels Ready</strong></td>
 <td>Seamless integration with modern ML pipelines</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Regulatory Compliance</strong></td>
 <td>Monotonic binning for Basel/IFRS 9 requirements</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Production Quality</strong></td>
 <td>Comprehensive testing and documentation</td>
 </tr>
@@ -451,7 +451,7 @@
 <h3 id="weight-of-evidence-woe">Weight of Evidence (WoE)<a class="anchor" aria-label="anchor" href="#weight-of-evidence-woe"></a>
 </h3>
 <p>WoE quantifies the predictive power of each bin by measuring the log-odds ratio:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mo>=</mo><mo>ln</mo><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mtext mathvariant="normal">Distribution of Goods</mtext><mi>i</mi></msub><msub><mtext mathvariant="normal">Distribution of Bads</mtext><mi>i</mi></msub></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{WoE}_i = \ln\left(\frac{\text{Distribution of Goods}_i}{\text{Distribution of Bads}_i}\right)</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mtext mathvariant="normal">Distribution of Goods</mtext><mi>i</mi></msub><msub><mtext mathvariant="normal">Distribution of Bads</mtext><mi>i</mi></msub></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{WoE}_i = \ln\left(\frac{\text{Distribution of Goods}_i}{\text{Distribution of Bads}_i}\right)</annotation></semantics></math></p>
 <p><strong>Interpretation:</strong></p>
 <ul>
 <li>
@@ -466,35 +466,35 @@
 <h3 id="information-value-iv">Information Value (IV)<a class="anchor" aria-label="anchor" href="#information-value-iv"></a>
 </h3>
 <p>IV measures the overall predictive power of a feature:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">IV</mtext><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mrow><mo stretchy="true" form="prefix">(</mo><msub><mtext mathvariant="normal">Dist. Goods</mtext><mi>i</mi></msub><mo>−</mo><msub><mtext mathvariant="normal">Dist. Bads</mtext><mi>i</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\text{IV} = \sum_{i=1}^{n} (\text{Dist. Goods}_i - \text{Dist. Bads}_i) \times \text{WoE}_i</annotation></semantics></math></p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">IV</mtext><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">Dist. Goods</mtext><mi>i</mi></msub><mo>−</mo><msub><mtext mathvariant="normal">Dist. Bads</mtext><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>×</mo><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\text{IV} = \sum_{i=1}^{n} (\text{Dist. Goods}_i - \text{Dist. Bads}_i) \times \text{WoE}_i</annotation></semantics></math></p>
 <table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>IV Range</th>
 <th>Predictive Power</th>
 <th>Recommendation</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>&lt; 0.02</td>
 <td>Unpredictive</td>
 <td>Exclude</td>
 </tr>
-<tr class="even">
+<tr>
 <td>0.02 – 0.10</td>
 <td>Weak</td>
 <td>Use cautiously</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>0.10 – 0.30</td>
 <td>Medium</td>
 <td>Good predictor</td>
 </tr>
-<tr class="even">
+<tr>
 <td>0.30 – 0.50</td>
 <td>Strong</td>
 <td>Excellent predictor</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>&gt; 0.50</td>
 <td>Suspicious</td>
 <td>Check for data leakage</td>
@@ -516,33 +516,33 @@
 <col width="33%">
 <col width="33%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Algorithm</th>
 <th>Function</th>
 <th>Best For</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>JEDI</strong></td>
 <td><code><a href="reference/ob_numerical_jedi.html">ob_numerical_jedi()</a></code></td>
 <td>General purpose, balanced performance</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>MOB</strong></td>
 <td><code><a href="reference/ob_numerical_mob.html">ob_numerical_mob()</a></code></td>
 <td>Regulatory compliance (monotonic)</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>ChiMerge</strong></td>
 <td><code><a href="reference/ob_numerical_cm.html">ob_numerical_cm()</a></code></td>
 <td>Statistical significance-based merging</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>DP</strong></td>
 <td><code><a href="reference/ob_numerical_dp.html">ob_numerical_dp()</a></code></td>
 <td>Optimal partitioning with constraints</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Sketch</strong></td>
 <td><code><a href="reference/ob_numerical_sketch.html">ob_numerical_sketch()</a></code></td>
 <td>Large-scale / streaming data</td>
@@ -559,33 +559,33 @@
 <col width="30%">
 <col width="55%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Algorithm</th>
 <th>Function</th>
 <th>Specialty</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>MDLP</strong></td>
 <td><code><a href="reference/ob_numerical_mdlp.html">ob_numerical_mdlp()</a></code></td>
 <td>Entropy-based discretization</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>MBLP</strong></td>
 <td><code><a href="reference/ob_numerical_mblp.html">ob_numerical_mblp()</a></code></td>
 <td>Monotonic binning via linear programming</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>IR</strong></td>
 <td><code><a href="reference/ob_numerical_ir.html">ob_numerical_ir()</a></code></td>
 <td>Isotonic regression binning</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>EWB</strong></td>
 <td><code><a href="reference/ob_numerical_ewb.html">ob_numerical_ewb()</a></code></td>
 <td>Fast equal-width binning</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>KMB</strong></td>
 <td><code><a href="reference/ob_numerical_kmb.html">ob_numerical_kmb()</a></code></td>
 <td>K-means clustering approach</td>
@@ -594,113 +594,113 @@
 </table>
 <details><summary><strong>View all 20 numerical algorithms</strong>
 </summary><table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Acronym</th>
 <th>Full Name</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>BB</td>
 <td>Branch and Bound</td>
 <td>Exact optimization</td>
 </tr>
-<tr class="even">
+<tr>
 <td>CM</td>
 <td>ChiMerge</td>
 <td>Chi-square merging</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>DMIV</td>
 <td>Decision Tree MIV</td>
 <td>Recursive partitioning</td>
 </tr>
-<tr class="even">
+<tr>
 <td>DP</td>
 <td>Dynamic Programming</td>
 <td>Optimal partitioning</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>EWB</td>
 <td>Equal Width</td>
 <td>Fixed-width bins</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Fast-MDLP</td>
 <td>Fast MDLP</td>
 <td>Optimized entropy</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>FETB</td>
 <td>Fisher’s Exact Test</td>
 <td>Statistical significance</td>
 </tr>
-<tr class="even">
+<tr>
 <td>IR</td>
 <td>Isotonic Regression</td>
 <td>Order-preserving</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>JEDI</td>
 <td>Joint Entropy-Driven</td>
 <td>Information maximization</td>
 </tr>
-<tr class="even">
+<tr>
 <td>JEDI-MWoE</td>
 <td>JEDI Multinomial</td>
 <td>Multi-class targets</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>KMB</td>
 <td>K-Means Binning</td>
 <td>Clustering-based</td>
 </tr>
-<tr class="even">
+<tr>
 <td>LDB</td>
 <td>Local Density</td>
 <td>Density estimation</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>LPDB</td>
 <td>Local Polynomial</td>
 <td>Smooth density</td>
 </tr>
-<tr class="even">
+<tr>
 <td>MBLP</td>
 <td>Monotonic LP</td>
 <td>LP optimization</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>MDLP</td>
 <td>Min Description Length</td>
 <td>Entropy-based</td>
 </tr>
-<tr class="even">
+<tr>
 <td>MOB</td>
 <td>Monotonic Optimal</td>
 <td>IV-optimal + monotonic</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>MRBLP</td>
 <td>Monotonic Regression LP</td>
 <td>Regression + LP</td>
 </tr>
-<tr class="even">
+<tr>
 <td>OSLP</td>
 <td>Optimal Supervised LP</td>
 <td>Supervised learning</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>Sketch</td>
 <td>KLL Sketch</td>
 <td>Streaming quantiles</td>
 </tr>
-<tr class="even">
+<tr>
 <td>UBSD</td>
 <td>Unsupervised StdDev</td>
 <td>Standard deviation</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>UDT</td>
 <td>Unsupervised DT</td>
 <td>Decision tree</td>
@@ -712,28 +712,28 @@
 <h3 id="categorical-only-algorithms-16">Categorical-Only Algorithms (16)<a class="anchor" aria-label="anchor" href="#categorical-only-algorithms-16"></a>
 </h3>
 <table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Algorithm</th>
 <th>Function</th>
 <th>Specialty</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>SBLP</strong></td>
 <td><code><a href="reference/ob_categorical_sblp.html">ob_categorical_sblp()</a></code></td>
 <td>Similarity-based grouping</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>IVB</strong></td>
 <td><code><a href="reference/ob_categorical_ivb.html">ob_categorical_ivb()</a></code></td>
 <td>IV maximization</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>GMB</strong></td>
 <td><code><a href="reference/ob_categorical_gmb.html">ob_categorical_gmb()</a></code></td>
 <td>Greedy monotonic</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>SAB</strong></td>
 <td><code><a href="reference/ob_categorical_sab.html">ob_categorical_sab()</a></code></td>
 <td>Simulated annealing</td>
@@ -742,88 +742,88 @@
 </table>
 <details><summary><strong>View all 16 categorical algorithms</strong>
 </summary><table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Acronym</th>
 <th>Full Name</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>CM</td>
 <td>ChiMerge</td>
 <td>Chi-square merging</td>
 </tr>
-<tr class="even">
+<tr>
 <td>DMIV</td>
 <td>Decision Tree MIV</td>
 <td>Recursive partitioning</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>DP</td>
 <td>Dynamic Programming</td>
 <td>Optimal partitioning</td>
 </tr>
-<tr class="even">
+<tr>
 <td>FETB</td>
 <td>Fisher’s Exact Test</td>
 <td>Statistical significance</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>GMB</td>
 <td>Greedy Monotonic</td>
 <td>Greedy monotonic binning</td>
 </tr>
-<tr class="even">
+<tr>
 <td>IVB</td>
 <td>Information Value</td>
 <td>IV maximization</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>JEDI</td>
 <td>Joint Entropy-Driven</td>
 <td>Information maximization</td>
 </tr>
-<tr class="even">
+<tr>
 <td>JEDI-MWoE</td>
 <td>JEDI Multinomial</td>
 <td>Multi-class targets</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>MBA</td>
 <td>Modified Binning</td>
 <td>Modified approach</td>
 </tr>
-<tr class="even">
+<tr>
 <td>MILP</td>
 <td>Mixed Integer LP</td>
 <td>LP optimization</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>MOB</td>
 <td>Monotonic Optimal</td>
 <td>IV-optimal + monotonic</td>
 </tr>
-<tr class="even">
+<tr>
 <td>SAB</td>
 <td>Simulated Annealing</td>
 <td>Stochastic optimization</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>SBLP</td>
 <td>Similarity-Based LP</td>
 <td>Similarity grouping</td>
 </tr>
-<tr class="even">
+<tr>
 <td>Sketch</td>
 <td>Count-Min Sketch</td>
 <td>Streaming counts</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>SWB</td>
 <td>Sliding Window</td>
 <td>Window-based</td>
 </tr>
-<tr class="even">
+<tr>
 <td>UDT</td>
 <td>Unsupervised DT</td>
 <td>Decision tree</td>
@@ -841,48 +841,48 @@
 <col width="33%">
 <col width="33%">
 </colgroup>
-<thead><tr class="header">
+<thead><tr>
 <th>Use Case</th>
 <th>Recommended</th>
 <th>Rationale</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><strong>General Credit Scoring</strong></td>
 <td>
 <code>jedi</code>, <code>mob</code>
 </td>
 <td>Best balance of speed and predictive power</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Regulatory Compliance</strong></td>
 <td>
 <code>mob</code>, <code>mblp</code>, <code>ir</code>
 </td>
 <td>Guaranteed monotonic WoE patterns</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Large Datasets (&gt;1M rows)</strong></td>
 <td>
 <code>sketch</code>, <code>ewb</code>
 </td>
 <td>Sublinear memory, single-pass</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>High Cardinality Categorical</strong></td>
 <td>
 <code>sblp</code>, <code>gmb</code>, <code>ivb</code>
 </td>
 <td>Intelligent category grouping</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><strong>Interpretability Focus</strong></td>
 <td>
 <code>dp</code>, <code>mdlp</code>
 </td>
 <td>Clear, explainable bins</td>
 </tr>
-<tr class="even">
+<tr>
 <td><strong>Multi-class Targets</strong></td>
 <td><code>jedi_mwoe</code></td>
 <td>Multinomial WoE support</td>
@@ -894,36 +894,36 @@
 <h2 id="key-functions">Key Functions<a class="anchor" aria-label="anchor" href="#key-functions"></a>
 </h2>
 <table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Function</th>
 <th>Purpose</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/obwoe.html">obwoe()</a></code></td>
 <td>Main interface for optimal binning and WoE</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/obwoe_apply.html">obwoe_apply()</a></code></td>
 <td>Apply learned binning to new data</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/obwoe_gains.html">obwoe_gains()</a></code></td>
 <td>Compute gains table with KS, Gini, lift</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/step_obwoe.html">step_obwoe()</a></code></td>
 <td>tidymodels recipe step</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/ob_preprocess.html">ob_preprocess()</a></code></td>
 <td>Data preprocessing with outlier handling</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code></td>
 <td>List all available algorithms</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code><a href="reference/control.obwoe.html">control.obwoe()</a></code></td>
 <td>Create control parameters</td>
 </tr>
@@ -1201,20 +1201,20 @@
 </ul>
 <p>Typical performance on a standard laptop:</p>
 <table class="table">
-<thead><tr class="header">
+<thead><tr>
 <th>Data Size</th>
 <th>Processing Time</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>100K rows</td>
 <td>&lt; 1 second</td>
 </tr>
-<tr class="even">
+<tr>
 <td>1M rows</td>
 <td>2-5 seconds</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>10M rows</td>
 <td>20-60 seconds</td>
 </tr>

@@ -266,13 +266,13 @@ Information Value is computed as:
 
 **Comparison with Other Methods**
 
-|            |                                  |                                           |
-|------------|----------------------------------|-------------------------------------------|
-| **Method** | **Stopping Criterion**           | **Optimality**                            |
-| MDLP       | Information-theoretic (MDL cost) | Local optimum with theoretical guarantees |
-| LDB        | Heuristic (density minima)       | No formal optimality                      |
-| MBLP       | Heuristic (IV loss threshold)    | Greedy approximation                      |
-| ChiMerge   | Statistical (\\\chi^2\\ test)    | Dependent on significance level           |
+|  |  |  |
+|----|----|----|
+| **Method** | **Stopping Criterion** | **Optimality** |
+| MDLP | Information-theoretic (MDL cost) | Local optimum with theoretical guarantees |
+| LDB | Heuristic (density minima) | No formal optimality |
+| MBLP | Heuristic (IV loss threshold) | Greedy approximation |
+| ChiMerge | Statistical (\\\chi^2\\ test) | Dependent on significance level |
 
 **Computational Complexity**
 
@@ -359,26 +359,36 @@ result <- ob_numerical_mdlp(
 
 # Inspect results
 print(result$bin)
-#> [1] "[-Inf;732.055011)"       "[732.055011;778.058805)"
-#> [3] "[778.058805;+Inf)"      
+#>  [1] "[-Inf;510.556301)"       "[510.556301;540.913802)"
+#>  [3] "[540.913802;603.708101)" "[603.708101;619.014429)"
+#>  [5] "[619.014429;644.895540)" "[644.895540;667.859256)"
+#>  [7] "[667.859256;689.246870)" "[689.246870;721.529535)"
+#>  [9] "[721.529535;732.055011)" "[732.055011;+Inf)"      
 print(data.frame(
   Bin = result$bin,
   WoE = round(result$woe, 4),
   IV = round(result$iv, 4),
   Count = result$count
 ))
-#>                       Bin     WoE     IV Count
-#> 1       [-Inf;732.055011)  0.1350 0.0152  8000
-#> 2 [732.055011;778.058805) -0.7283 0.0618  1500
-#> 3       [778.058805;+Inf) -0.7213 0.0203   500
+#>                        Bin     WoE     IV Count
+#> 1        [-Inf;510.556301)  0.7655 0.0371   500
+#> 2  [510.556301;540.913802)  0.5656 0.0191   500
+#> 3  [540.913802;603.708101)  0.5036 0.0447  1500
+#> 4  [603.708101;619.014429)  0.3205 0.0057   500
+#> 5  [619.014429;644.895540)  0.1820 0.0035  1000
+#> 6  [644.895540;667.859256)  0.0467 0.0002  1000
+#> 7  [667.859256;689.246870) -0.2590 0.0061  1000
+#> 8  [689.246870;721.529535) -0.3791 0.0189  1500
+#> 9  [721.529535;732.055011) -0.6498 0.0169   500
+#> 10       [732.055011;+Inf) -0.7309 0.0828  2000
 
 cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
 #> 
-#> Total IV: 0.0973
+#> Total IV: 0.2350
 cat(sprintf("Converged: %s\n", result$converged))
 #> Converged: TRUE
 cat(sprintf("Iterations: %d\n", result$iterations))
-#> Iterations: 16
+#> Iterations: 11
 
 # Verify monotonicity
 is_monotonic <- all(diff(result$woe) >= -1e-10)
@@ -405,10 +415,17 @@ data.frame(
   WoE_no_smooth = result_nosmooth$woe,
   WoE_high_smooth = result_highsmooth$woe
 )
-#>   Bin WoE_default WoE_no_smooth WoE_high_smooth
-#> 1   1   0.1349518     0.1354243       0.1335385
-#> 2   2  -0.7283036    -0.7310697      -0.7200885
-#> 3   3  -0.7213401    -0.7310697      -0.6929202
+#>    Bin WoE_default WoE_no_smooth WoE_high_smooth
+#> 1    1  0.76549198    0.76599463      0.76398177
+#> 2    2  0.56564951    0.56554994      0.56592204
+#> 3    3  0.50361549    0.50515112      0.49905210
+#> 4    4  0.32048349    0.31950171      0.32336040
+#> 5    5  0.18195850    0.18240335      0.18063842
+#> 6    6  0.04666501    0.04678627     -0.07387743
+#> 7    7 -0.25895384   -0.25973227     -0.16911608
+#> 8    8 -0.37910677   -0.37909390     -0.37913855
+#> 9    9 -0.64978796   -0.65704227     -0.62864841
+#> 10  10 -0.73089636   -0.73106975     -0.73037256
 
 # Visualize binning structure
 oldpar <- par(mfrow = c(1, 2))

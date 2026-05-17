@@ -211,13 +211,13 @@ If \\k \> \text{max\\bins}\\, bins are merged to minimize IV loss:
 
 **Comparison with Related Methods**
 
-|            |                                   |                         |                      |
-|------------|-----------------------------------|-------------------------|----------------------|
-| **Method** | **Initialization**                | **Truly Unsupervised?** | **Best For**         |
-| UBSD       | \\\mu \pm k\sigma\\ + equal-width | No (1 pct unsup)        | Normal distributions |
-| MOB/MRBLP  | Equal-frequency                   | No (0 pct unsup)        | General use          |
-| MDLP       | Equal-frequency                   | No (0 pct unsup)        | Information theory   |
-| Sketch     | KLL Sketch quantiles              | No (0 pct unsup)        | Streaming data       |
+|  |  |  |  |
+|----|----|----|----|
+| **Method** | **Initialization** | **Truly Unsupervised?** | **Best For** |
+| UBSD | \\\mu \pm k\sigma\\ + equal-width | No (1 pct unsup) | Normal distributions |
+| MOB/MRBLP | Equal-frequency | No (0 pct unsup) | General use |
+| MDLP | Equal-frequency | No (0 pct unsup) | Information theory |
+| Sketch | KLL Sketch quantiles | No (0 pct unsup) | Streaming data |
 
 **When to Use UBSD**
 
@@ -303,6 +303,6 @@ data.frame(
 )
 #>   Method N_Bins Total_IV
 #> 1   UBSD      5 2.030524
-#> 2   MDLP      3 1.065396
+#> 2   MDLP     19 2.265876
 # }
 ```

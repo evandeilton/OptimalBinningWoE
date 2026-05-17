@@ -8,17 +8,18 @@ credit scoring, risk assessment, and predictive modeling applications.
 
 ### Why OptimalBinningWoE?
 
-| Feature                   | Benefit                                                    |
-|---------------------------|------------------------------------------------------------|
-| **36 Algorithms**         | Choose the best method for your data characteristics       |
-| **C++ Performance**       | Process millions of records efficiently via Rcpp/RcppEigen |
-| **tidymodels Ready**      | Seamless integration with modern ML pipelines              |
-| **Regulatory Compliance** | Monotonic binning for Basel/IFRS 9 requirements            |
-| **Production Quality**    | Comprehensive testing and documentation                    |
+| Feature | Benefit |
+|----|----|
+| **36 Algorithms** | Choose the best method for your data characteristics |
+| **C++ Performance** | Process millions of records efficiently via Rcpp/RcppEigen |
+| **tidymodels Ready** | Seamless integration with modern ML pipelines |
+| **Regulatory Compliance** | Monotonic binning for Basel/IFRS 9 requirements |
+| **Production Quality** | Comprehensive testing and documentation |
 
 ## Installation
 
 ``` r
+
 # Install from CRAN
 install.packages("OptimalBinningWoE")
 
@@ -32,6 +33,7 @@ pak::pak("evandeilton/OptimalBinningWoE")
 ### Basic Usage with German Credit Data
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -80,6 +82,7 @@ binning_results$results$duration.in.month
 ### Single Feature Binning
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -119,6 +122,7 @@ data.frame(
 ### Apply WoE Transformation to New Data
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -157,6 +161,7 @@ head(train_woe[, c("default", "duration.in.month_woe", "credit.amount_woe")])
 ### Gains Table Analysis
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -198,6 +203,7 @@ par(mfrow = c(1, 1))
 **OptimalBinningWoE** integrates seamlessly with `tidymodels` recipes.
 
 ``` r
+
 library(tidymodels)
 library(OptimalBinningWoE)
 library(scorecard)
@@ -278,6 +284,7 @@ roc_curve(test_pred,
 ### Hyperparameter Tuning
 
 ``` r
+
 library(tidymodels)
 library(OptimalBinningWoE)
 library(scorecard)
@@ -356,7 +363,9 @@ autoplot(tune_results, metric = "roc_auc")
 WoE quantifies the predictive power of each bin by measuring the
 log-odds ratio:
 
-$$\text{WoE}_{i} = \ln\left( \frac{\text{Distribution of Goods}_{i}}{\text{Distribution of Bads}_{i}} \right)$$
+``` math
+\text{WoE}_i = \ln\left(\frac{\text{Distribution of Goods}_i}{\text{Distribution of Bads}_i}\right)
+```
 
 **Interpretation:**
 
@@ -368,7 +377,9 @@ $$\text{WoE}_{i} = \ln\left( \frac{\text{Distribution of Goods}_{i}}{\text{Distr
 
 IV measures the overall predictive power of a feature:
 
-$$\text{IV} = \sum\limits_{i = 1}^{n}\left( \text{Dist. Goods}_{i} - \text{Dist. Bads}_{i} \right) \times \text{WoE}_{i}$$
+``` math
+\text{IV} = \sum_{i=1}^{n} (\text{Dist. Goods}_i - \text{Dist. Bads}_i) \times \text{WoE}_i
+```
 
 | IV Range    | Predictive Power | Recommendation         |
 |-------------|------------------|------------------------|
@@ -385,23 +396,23 @@ scenarios:
 
 ### Universal Algorithms (Numerical & Categorical)
 
-| Algorithm    | Function                                                                                                    | Best For                               |
-|--------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------|
-| **JEDI**     | [`ob_numerical_jedi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_jedi.md)     | General purpose, balanced performance  |
-| **MOB**      | [`ob_numerical_mob()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mob.md)       | Regulatory compliance (monotonic)      |
-| **ChiMerge** | [`ob_numerical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md)         | Statistical significance-based merging |
-| **DP**       | [`ob_numerical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_dp.md)         | Optimal partitioning with constraints  |
-| **Sketch**   | [`ob_numerical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_sketch.md) | Large-scale / streaming data           |
+| Algorithm | Function | Best For |
+|----|----|----|
+| **JEDI** | [`ob_numerical_jedi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_jedi.md) | General purpose, balanced performance |
+| **MOB** | [`ob_numerical_mob()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mob.md) | Regulatory compliance (monotonic) |
+| **ChiMerge** | [`ob_numerical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md) | Statistical significance-based merging |
+| **DP** | [`ob_numerical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_dp.md) | Optimal partitioning with constraints |
+| **Sketch** | [`ob_numerical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_sketch.md) | Large-scale / streaming data |
 
 ### Numerical-Only Algorithms (20)
 
-| Algorithm | Function                                                                                                | Specialty                                |
-|-----------|---------------------------------------------------------------------------------------------------------|------------------------------------------|
-| **MDLP**  | [`ob_numerical_mdlp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md) | Entropy-based discretization             |
-| **MBLP**  | [`ob_numerical_mblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mblp.md) | Monotonic binning via linear programming |
-| **IR**    | [`ob_numerical_ir()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ir.md)     | Isotonic regression binning              |
-| **EWB**   | [`ob_numerical_ewb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ewb.md)   | Fast equal-width binning                 |
-| **KMB**   | [`ob_numerical_kmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_kmb.md)   | K-means clustering approach              |
+| Algorithm | Function | Specialty |
+|----|----|----|
+| **MDLP** | [`ob_numerical_mdlp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md) | Entropy-based discretization |
+| **MBLP** | [`ob_numerical_mblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mblp.md) | Monotonic binning via linear programming |
+| **IR** | [`ob_numerical_ir()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ir.md) | Isotonic regression binning |
+| **EWB** | [`ob_numerical_ewb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ewb.md) | Fast equal-width binning |
+| **KMB** | [`ob_numerical_kmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_kmb.md) | K-means clustering approach |
 
 **View all 20 numerical algorithms**
 
@@ -431,12 +442,12 @@ scenarios:
 
 ### Categorical-Only Algorithms (16)
 
-| Algorithm | Function                                                                                                    | Specialty                 |
-|-----------|-------------------------------------------------------------------------------------------------------------|---------------------------|
-| **SBLP**  | [`ob_categorical_sblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sblp.md) | Similarity-based grouping |
-| **IVB**   | [`ob_categorical_ivb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_ivb.md)   | IV maximization           |
-| **GMB**   | [`ob_categorical_gmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_gmb.md)   | Greedy monotonic          |
-| **SAB**   | [`ob_categorical_sab()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sab.md)   | Simulated annealing       |
+| Algorithm | Function | Specialty |
+|----|----|----|
+| **SBLP** | [`ob_categorical_sblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sblp.md) | Similarity-based grouping |
+| **IVB** | [`ob_categorical_ivb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_ivb.md) | IV maximization |
+| **GMB** | [`ob_categorical_gmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_gmb.md) | Greedy monotonic |
+| **SAB** | [`ob_categorical_sab()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sab.md) | Simulated annealing |
 
 **View all 16 categorical algorithms**
 
@@ -461,32 +472,33 @@ scenarios:
 
 ## Algorithm Selection Guide
 
-| Use Case                         | Recommended          | Rationale                                  |
-|----------------------------------|----------------------|--------------------------------------------|
-| **General Credit Scoring**       | `jedi`, `mob`        | Best balance of speed and predictive power |
-| **Regulatory Compliance**        | `mob`, `mblp`, `ir`  | Guaranteed monotonic WoE patterns          |
-| **Large Datasets (\>1M rows)**   | `sketch`, `ewb`      | Sublinear memory, single-pass              |
-| **High Cardinality Categorical** | `sblp`, `gmb`, `ivb` | Intelligent category grouping              |
-| **Interpretability Focus**       | `dp`, `mdlp`         | Clear, explainable bins                    |
-| **Multi-class Targets**          | `jedi_mwoe`          | Multinomial WoE support                    |
+| Use Case | Recommended | Rationale |
+|----|----|----|
+| **General Credit Scoring** | `jedi`, `mob` | Best balance of speed and predictive power |
+| **Regulatory Compliance** | `mob`, `mblp`, `ir` | Guaranteed monotonic WoE patterns |
+| **Large Datasets (\>1M rows)** | `sketch`, `ewb` | Sublinear memory, single-pass |
+| **High Cardinality Categorical** | `sblp`, `gmb`, `ivb` | Intelligent category grouping |
+| **Interpretability Focus** | `dp`, `mdlp` | Clear, explainable bins |
+| **Multi-class Targets** | `jedi_mwoe` | Multinomial WoE support |
 
 ## Key Functions
 
-| Function                                                                                              | Purpose                                    |
-|-------------------------------------------------------------------------------------------------------|--------------------------------------------|
-| [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md)                       | Main interface for optimal binning and WoE |
-| [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)           | Apply learned binning to new data          |
-| [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md)           | Compute gains table with KS, Gini, lift    |
-| [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md)             | tidymodels recipe step                     |
-| [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_preprocess.md)       | Data preprocessing with outlier handling   |
-| [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md) | List all available algorithms              |
-| [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md)       | Create control parameters                  |
+| Function | Purpose |
+|----|----|
+| [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md) | Main interface for optimal binning and WoE |
+| [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md) | Apply learned binning to new data |
+| [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md) | Compute gains table with KS, Gini, lift |
+| [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) | tidymodels recipe step |
+| [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_preprocess.md) | Data preprocessing with outlier handling |
+| [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md) | List all available algorithms |
+| [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md) | Create control parameters |
 
 ## Complete Workflow Example
 
 Here is a complete end-to-end credit scoring workflow:
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 library(pROC)
@@ -653,6 +665,7 @@ plot(gains, type = "woe_iv")
 Handle missing values and outliers before binning:
 
 ``` r
+
 library(OptimalBinningWoE)
 
 # Simulate problematic feature
@@ -685,6 +698,7 @@ cleaned_feature <- preproc_result$preprocess$feature_preprocessed
 Compare different algorithms on the same feature:
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -773,6 +787,7 @@ Typical performance on a standard laptop:
 ### Common Pitfalls to Avoid
 
 ``` r
+
 # RONG: Bin on full dataset before splitting (causes data leakage!)
 bad_approach <- obwoe(full_data, target = "default")
 train_woe <- obwoe_apply(train_data, bad_approach)

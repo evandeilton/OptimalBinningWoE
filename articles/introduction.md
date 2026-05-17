@@ -21,9 +21,11 @@ The package provides:
 
 #### Weight of Evidence (WoE)
 
-For bin $i$, WoE quantifies the logarithmic odds ratio:
+For bin $`i`$, WoE quantifies the logarithmic odds ratio:
 
-$$\text{WoE}_{i} = \ln\left( \frac{\text{Distribution of Events}_{i}}{\text{Distribution of Non-Events}_{i}} \right) = \ln\left( \frac{n_{i,1}/N_{1}}{n_{i,0}/N_{0}} \right)$$
+``` math
+\text{WoE}_i = \ln\left(\frac{\text{Distribution of Events}_i}{\text{Distribution of Non-Events}_i}\right) = \ln\left(\frac{n_{i,1}/N_1}{n_{i,0}/N_0}\right)
+```
 
 **Interpretation**: - WoE \> 0: Higher risk than population average -
 WoE \< 0: Lower risk than population average  
@@ -33,7 +35,9 @@ WoE \< 0: Lower risk than population average
 
 IV measures total predictive power:
 
-$$\text{IV} = \sum\limits_{i = 1}^{k}\left( \frac{n_{i,1}}{N_{1}} - \frac{n_{i,0}}{N_{0}} \right) \times \text{WoE}_{i}$$
+``` math
+\text{IV} = \sum_{i=1}^{k} \left(\frac{n_{i,1}}{N_1} - \frac{n_{i,0}}{N_0}\right) \times \text{WoE}_i
+```
 
 **Benchmarks** (Siddiqi, 2006):
 
@@ -48,6 +52,7 @@ $$\text{IV} = \sum\limits_{i = 1}^{k}\left( \frac{n_{i,1}}{N_{1}} - \frac{n_{i,0
 ## Installation
 
 ``` r
+
 # From GitHub
 devtools::install_github("evandeilton/OptimalBinningWoE")
 
@@ -58,6 +63,7 @@ install.packages(c("tidymodels", "pROC", "scorecard"))
 ## Dataset: German Credit Data
 
 ``` r
+
 library(OptimalBinningWoE)
 library(scorecard)
 
@@ -91,6 +97,7 @@ cat("\nDefault rate:", round(mean(germancredit$creditability == "bad") * 100, 2)
 ### Data Preparation
 
 ``` r
+
 # Create binary target (must be a factor for tidymodels classification)
 german <- germancredit
 german$default <- factor(
@@ -135,6 +142,7 @@ sapply(german_model[, features_cat], function(x) length(unique(x)))
 ## Quick Start: Single Feature Binning
 
 ``` r
+
 # Bin credit amount with JEDI algorithm
 result_single <- obwoe(
   data = german_model,
@@ -204,6 +212,7 @@ result_single$results$credit.amount
 ### Visualize Binning Results
 
 ``` r
+
 # WoE pattern visualization
 plot(result_single, type = "woe")
 ```
@@ -213,6 +222,7 @@ plot(result_single, type = "woe")
 ### Key Insights from Single Feature
 
 ``` r
+
 # Extract metrics
 bins <- result_single$results$credit.amount
 
@@ -244,6 +254,7 @@ print(bins_summary)
 ## Multiple Features: Automated Binning
 
 ``` r
+
 # Bin all features simultaneously
 result_multi <- obwoe(
   data = german_model,
@@ -295,6 +306,7 @@ summary(result_multi)
 ### Feature Selection by IV
 
 ``` r
+
 # Extract IV summary
 iv_summary <- result_multi$summary[!result_multi$summary$error, ]
 iv_summary <- iv_summary[order(-iv_summary$total_iv), ]
@@ -321,6 +333,7 @@ cat("\n\nFeatures with IV >= 0.02:", length(strong_features), "\n")
 ### Gains Table Analysis
 
 ``` r
+
 # Compute gains for best numerical feature
 best_num_feature <- iv_summary$feature[
   iv_summary$feature %in% features_num
@@ -357,6 +370,7 @@ plot(gains, type = "woe_iv")
 ![](introduction_files/figure-html/gains_analysis-1.png)
 
 ``` r
+
 par(oldpar)
 ```
 
@@ -366,6 +380,7 @@ Different algorithms excel in different scenarios. Let’s compare
 performance.
 
 ``` r
+
 # Test multiple algorithms on credit.amount
 algorithms <- c("jedi", "mdlp", "mob", "ewb", "cm")
 
@@ -419,16 +434,17 @@ cat("Algorithm Comparison on 'credit.amount':\n\n")
 #> Algorithm Comparison on 'credit.amount':
 print(comp_result[order(-comp_result$IV), ])
 #>   Algorithm N_Bins     IV Converged
+#> 2      mdlp      5 0.1356      TRUE
 #> 3       mob      5 0.0917      TRUE
 #> 4       ewb      3 0.0735      TRUE
 #> 5        cm      3 0.0617      TRUE
-#> 2      mdlp      3 0.0107      TRUE
 #> 1      jedi      3 0.0023      TRUE
 ```
 
 ### Algorithm Selection Guide
 
 ``` r
+
 # View algorithm capabilities
 algo_info <- obwoe_algorithms()
 
@@ -472,23 +488,23 @@ print(algo_info[
 
 ### Algorithm Selection by Use Case
 
-| Use Case                       | Recommended Algorithm | Rationale                                                            |
-|--------------------------------|-----------------------|----------------------------------------------------------------------|
-| **General credit scoring**     | `jedi`, `mob`         | Best balance of speed and predictive power.                          |
-| **Monotonicity mandatory**     | `mob`, `mblp`, `ir`   | Guaranteed monotonic WoE profile for regulatory compliance.          |
-| **Large datasets (\>1M rows)** | `sketch`, `ewb`       | Constant or sublinear memory footprint.                              |
-| **Non-linear associations**    | `dp`, `cm`            | Optimal partitioning (Dynamic Programming) capturing complex trends. |
-| **Mixed data types**           | `jedi_mwoe`, `udt`    | Handles both numerical and categorical features uniformly.           |
-| **Outlier robustness**         | `mdlp`, `fetb`        | Entropy-based discretization less sensitive to extreme values.       |
-| **Sparse categorical data**    | `gmb`, `ivb`, `swb`   | Groups infrequent categories based on similar risk profiles.         |
+| Use Case | Recommended Algorithm | Rationale |
+|----|----|----|
+| **General credit scoring** | `jedi`, `mob` | Best balance of speed and predictive power. |
+| **Monotonicity mandatory** | `mob`, `mblp`, `ir` | Guaranteed monotonic WoE profile for regulatory compliance. |
+| **Large datasets (\>1M rows)** | `sketch`, `ewb` | Constant or sublinear memory footprint. |
+| **Non-linear associations** | `dp`, `cm` | Optimal partitioning (Dynamic Programming) capturing complex trends. |
+| **Mixed data types** | `jedi_mwoe`, `udt` | Handles both numerical and categorical features uniformly. |
+| **Outlier robustness** | `mdlp`, `fetb` | Entropy-based discretization less sensitive to extreme values. |
+| **Sparse categorical data** | `gmb`, `ivb`, `swb` | Groups infrequent categories based on similar risk profiles. |
 
 #### Complete Algorithm List (36 Algorithms)
 
-| Type                 | Algorithms                                                                                    |
-|----------------------|-----------------------------------------------------------------------------------------------|
-| **Universal (9)**    | `jedi`, `jedi_mwoe`, `cm`, `dp`, `dmiv`, `fetb`, `mob`, `sketch`, `udt`                       |
-| **Numerical (12)**   | `bb`, `ewb`, `fast_mdlp`, `ir`, `kmb`, `ldb`, `lpdb`, `mblp`, `mdlp`, `mrblp`, `oslp`, `ubsd` |
-| **Categorical (15)** | `gmb`, `ivb`, `mba`, `milp`, `sab`, `sblp`, `swb` (and others)                                |
+| Type | Algorithms |
+|----|----|
+| **Universal (9)** | `jedi`, `jedi_mwoe`, `cm`, `dp`, `dmiv`, `fetb`, `mob`, `sketch`, `udt` |
+| **Numerical (12)** | `bb`, `ewb`, `fast_mdlp`, `ir`, `kmb`, `ldb`, `lpdb`, `mblp`, `mdlp`, `mrblp`, `oslp`, `ubsd` |
+| **Categorical (15)** | `gmb`, `ivb`, `mba`, `milp`, `sab`, `sblp`, `swb` (and others) |
 
 *Full mapping can be inspected via
 [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md).*
@@ -499,6 +515,7 @@ The most powerful application is integrating WoE into production ML
 workflows.
 
 ``` r
+
 if (!requireNamespace("tidymodels", quietly = TRUE)) {
   knitr::knit_exit()
 }
@@ -521,6 +538,7 @@ cat("Train default rate:", round(mean(train_data$default == "bad") * 100, 2), "%
 ### Define Preprocessing Recipe
 
 ``` r
+
 # Create recipe with WoE transformation
 rec_woe <- recipe(default ~ ., data = train_data) %>%
   step_obwoe(
@@ -541,6 +559,7 @@ rec_woe
 ### Model Specification and Workflow
 
 ``` r
+
 # Logistic regression specification
 lr_spec <- logistic_reg() %>%
   set_engine("glm") %>%
@@ -570,6 +589,7 @@ wf_credit
 ### Hyperparameter Tuning
 
 ``` r
+
 # Define tuning grid
 tune_grid <- tibble(max_bins = c(4, 6, 8))
 
@@ -608,6 +628,7 @@ autoplot(tune_results, metric = "roc_auc")
 ### Final Model Fitting
 
 ``` r
+
 # Select best parameters
 best_params <- select_best(tune_results, metric = "roc_auc")
 cat("Optimal max_bins:", best_params$max_bins, "\n\n")
@@ -638,6 +659,7 @@ final_fit %>%
 ### Model Evaluation
 
 ``` r
+
 # Predictions on test set
 test_pred <- augment(final_fit, test_data)
 
@@ -670,6 +692,7 @@ roc_curve(test_pred,
 ### Inspect Learned Binning Rules
 
 ``` r
+
 # Extract trained recipe
 trained_rec <- extract_recipe(final_fit)
 woe_step <- trained_rec$steps[[1]]
@@ -696,6 +719,7 @@ For traditional credit scorecards outside tidymodels.
 ### Train-Test Split
 
 ``` r
+
 set.seed(789)
 n_total <- nrow(german_model)
 train_idx <- sample(1:n_total, size = 0.7 * n_total)
@@ -707,6 +731,7 @@ test_sc <- german_model[-train_idx, ]
 ### Fit Optimal Binning
 
 ``` r
+
 # Use monotonic binning for regulatory compliance
 sc_binning <- obwoe(
   data = train_sc,
@@ -763,6 +788,7 @@ summary(sc_binning)
 ### Apply WoE Transformation
 
 ``` r
+
 # Transform training data with error handling
 train_woe <- tryCatch(
   {
@@ -801,6 +827,7 @@ if (!is.null(train_woe)) {
 ### Build Logistic Regression
 
 ``` r
+
 if (!is.null(train_woe)) {
   # Select features with IV >= 0.02
   selected <- sc_binning$summary$feature[
@@ -857,6 +884,7 @@ if (!is.null(train_woe)) {
 ### Scorecard Validation
 
 ``` r
+
 if (!is.null(train_woe) && exists("scorecard_glm")) {
   if (requireNamespace("pROC", quietly = TRUE)) {
     library(pROC)
@@ -908,6 +936,7 @@ Proper preprocessing improves binning quality.
 ### Handling Missing Values and Outliers
 
 ``` r
+
 # Simulate feature with issues
 set.seed(2024)
 problematic <- c(
@@ -965,6 +994,7 @@ cat("  Mean:", round(mean(cleaned), 2), "\n")
 ### Model Serialization
 
 ``` r
+
 # Add metadata to model
 sc_binning$metadata <- list(
   creation_date = Sys.time(),
@@ -985,6 +1015,7 @@ loaded_model <- readRDS("credit_scorecard_v1_20250101.rds")
 ### Production Scoring Function
 
 ``` r
+
 score_applications <- function(new_data, model_file) {
   # Load binning model
   binning_model <- readRDS(model_file)
@@ -1027,6 +1058,7 @@ score_applications <- function(new_data, model_file) {
 ### Common Pitfalls to Avoid
 
 ``` r
+
 # ❌ Don't bin on full dataset before splitting
 # This causes data leakage!
 bad_approach <- obwoe(full_data, target = "y")
@@ -1064,10 +1096,11 @@ for Retail Credit Risk Management*. Oxford University Press.
 ## Session Information
 
 ``` r
+
 sessionInfo()
-#> R version 4.5.3 (2026-03-11)
+#> R version 4.6.0 (2026-04-24)
 #> Platform: x86_64-pc-linux-gnu
-#> Running under: Ubuntu 24.04.3 LTS
+#> Running under: Ubuntu 24.04.4 LTS
 #> 
 #> Matrix products: default
 #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
@@ -1086,41 +1119,40 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#>  [1] pROC_1.19.0.1           yardstick_1.3.2         workflowsets_1.1.1     
-#>  [4] workflows_1.3.0         tune_2.0.1              tidyr_1.3.2            
-#>  [7] tailor_0.1.0            rsample_1.3.2           recipes_1.3.1          
-#> [10] purrr_1.2.1             parsnip_1.4.1           modeldata_1.5.1        
-#> [13] infer_1.1.0             ggplot2_4.0.2           dplyr_1.2.0            
-#> [16] dials_1.4.2             scales_1.4.0            broom_1.0.12           
-#> [19] tidymodels_1.4.1        scorecard_0.4.6         OptimalBinningWoE_1.0.9
+#>  [1] pROC_1.19.0.1           yardstick_1.4.0         workflowsets_1.1.1     
+#>  [4] workflows_1.3.0         tune_2.1.0              tidyr_1.3.2            
+#>  [7] tailor_0.1.0            rsample_1.3.2           recipes_1.3.2          
+#> [10] purrr_1.2.2             parsnip_1.6.0           modeldata_1.5.1        
+#> [13] infer_1.1.0             ggplot2_4.0.3           dplyr_1.2.1            
+#> [16] dials_1.4.3             scales_1.4.0            broom_1.0.13           
+#> [19] tidymodels_1.5.0        scorecard_0.4.6         OptimalBinningWoE_1.0.9
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] gridExtra_2.3       rlang_1.1.7         magrittr_2.0.4     
-#>  [4] furrr_0.3.1         compiler_4.5.3      systemfonts_1.3.2  
-#>  [7] vctrs_0.7.1         lhs_1.2.1           pkgconfig_2.0.3    
-#> [10] fastmap_1.2.0       backports_1.5.0     labeling_0.4.3     
-#> [13] utf8_1.2.6          rmarkdown_2.30      prodlim_2026.03.11 
-#> [16] ragg_1.5.1          xfun_0.56           cachem_1.1.0       
-#> [19] jsonlite_2.0.0      parallel_4.5.3      R6_2.6.1           
-#> [22] bslib_0.10.0        stringi_1.8.7       RColorBrewer_1.1-3 
-#> [25] parallelly_1.46.1   rpart_4.1.24        lubridate_1.9.5    
-#> [28] jquerylib_0.1.4     Rcpp_1.1.1          iterators_1.0.14   
-#> [31] knitr_1.51          future.apply_1.20.2 Matrix_1.7-4       
-#> [34] splines_4.5.3       nnet_7.3-20         timechange_0.4.0   
-#> [37] tidyselect_1.2.1    rstudioapi_0.18.0   yaml_2.3.12        
-#> [40] timeDate_4052.112   doParallel_1.0.17   codetools_0.2-20   
-#> [43] listenv_0.10.1      lattice_0.22-9      tibble_3.3.1       
-#> [46] withr_3.0.2         S7_0.2.1            evaluate_1.0.5     
-#> [49] future_1.69.0       desc_1.4.3          survival_3.8-6     
-#> [52] zip_2.3.3           xml2_1.5.2          pillar_1.11.1      
-#> [55] foreach_1.5.2       generics_0.1.4      globals_0.19.1     
-#> [58] class_7.3-23        glue_1.8.0          tools_4.5.3        
-#> [61] data.table_1.18.2.1 openxlsx_4.2.8.1    gower_1.0.2        
-#> [64] fs_1.6.7            grid_4.5.3          ipred_0.9-15       
-#> [67] xefun_0.1.5         cli_3.6.5           DiceDesign_1.10    
-#> [70] textshaping_1.0.5   lava_1.8.2          gtable_0.3.6       
-#> [73] GPfit_1.0-9         sass_0.4.10         digest_0.6.39      
-#> [76] farver_2.1.2        htmltools_0.5.9     pkgdown_2.2.0      
-#> [79] lifecycle_1.0.5     hardhat_1.4.2       MASS_7.3-65        
-#> [82] sparsevctrs_0.3.6
+#>  [1] tidyselect_1.2.1    timeDate_4052.112   farver_2.1.2       
+#>  [4] S7_0.2.2            fastmap_1.2.0       digest_0.6.39      
+#>  [7] rpart_4.1.27        timechange_0.4.0    lifecycle_1.0.5    
+#> [10] survival_3.8-6      magrittr_2.0.5      compiler_4.6.0     
+#> [13] rlang_1.2.0         sass_0.4.10         tools_4.6.0        
+#> [16] utf8_1.2.6          yaml_2.3.12         data.table_1.18.4  
+#> [19] knitr_1.51          labeling_0.4.3      xml2_1.5.2         
+#> [22] DiceDesign_1.10     RColorBrewer_1.1-3  withr_3.0.2        
+#> [25] desc_1.4.3          nnet_7.3-20         grid_4.6.0         
+#> [28] sparsevctrs_0.3.6   future_1.70.0       globals_0.19.1     
+#> [31] iterators_1.0.14    MASS_7.3-65         cli_3.6.6          
+#> [34] rmarkdown_2.31      ragg_1.5.2          generics_0.1.4     
+#> [37] rstudioapi_0.18.0   future.apply_1.20.2 cachem_1.1.0       
+#> [40] splines_4.6.0       parallel_4.6.0      vctrs_0.7.3        
+#> [43] hardhat_1.4.3       Matrix_1.7-5        jsonlite_2.0.0     
+#> [46] listenv_0.10.1      systemfonts_1.3.2   foreach_1.5.2      
+#> [49] gower_1.0.2         jquerylib_0.1.4     glue_1.8.1         
+#> [52] parallelly_1.47.0   pkgdown_2.2.0       codetools_0.2-20   
+#> [55] lubridate_1.9.5     stringi_1.8.7       gtable_0.3.6       
+#> [58] tibble_3.3.1        furrr_0.4.0         xefun_0.1.5        
+#> [61] pillar_1.11.1       htmltools_0.5.9     ipred_0.9-15       
+#> [64] lava_1.9.1          R6_2.6.1            textshaping_1.0.5  
+#> [67] doParallel_1.0.17   evaluate_1.0.5      lattice_0.22-9     
+#> [70] backports_1.5.1     openxlsx_4.2.8.1    bslib_0.11.0       
+#> [73] class_7.3-23        Rcpp_1.1.1-1.1      zip_2.3.3          
+#> [76] gridExtra_2.3       prodlim_2026.03.11  xfun_0.57          
+#> [79] fs_2.1.0            pkgconfig_2.0.3
 ```

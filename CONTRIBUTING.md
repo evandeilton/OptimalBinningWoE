@@ -74,6 +74,7 @@ Please add tests for any new functionality. We use `testthat` for
 testing.
 
 ``` r
+
 devtools::test()
 ```
 
