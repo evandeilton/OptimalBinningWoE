@@ -12,3 +12,4 @@ src/**/*.o
 /doc/
 .claude
 .positai
+^TODO\.md$
