@@ -312,10 +312,20 @@ private:
       bins_.emplace_back(edges[i], edges[i+1], n_classes_);
     }
     
-    // Se (int)bins_.size() < min_bins_, tentar split extra
+    // Se (int)bins_.size() < min_bins_, tentar split extra.
+    // split_bin() desiste silenciosamente de dividir um intervalo cujo ponto
+    // medio nao e finito, e este trecho roda antes de assign_bins(), com todas
+    // as contagens ainda em 0 -- find_largest_bin() retornava sempre o indice 0,
+    // o intervalo (-Inf, e1], que nunca pode ser dividido. Isso fazia o laco
+    // girar indefinidamente, sem checagem de interrupcao, sempre que min_bins_
+    // excedia o numero de valores distintos da feature. Considera apenas bins
+    // realmente divisiveis e para assim que nao houver progresso possivel.
     while((int)bins_.size() < min_bins_) {
-      size_t idx = find_largest_bin(); 
+      size_t idx = find_largest_splittable_bin();
+      if(idx >= bins_.size()) break;
+      size_t before = bins_.size();
       split_bin(idx);
+      if(bins_.size() == before) break;
     }
   }
   
@@ -587,6 +597,24 @@ private:
       if(bins_[i].total_count > max_count) {
         idx = i;
         max_count = bins_[i].total_count;
+      }
+    }
+    return idx;
+  }
+
+  // Maior bin que split_bin() consegue de fato dividir, isto é, cujo ponto
+  // medio e finito. Os dois intervalos externos sao ilimitados e portanto nunca
+  // sao divisiveis; retorna bins_.size() quando nenhum bin se qualifica.
+  size_t find_largest_splittable_bin() const {
+    size_t idx = bins_.size();
+    int max_count = -1;
+    for(size_t i = 0; i < bins_.size(); i++) {
+      double mid = (bins_[i].lower_bound + bins_[i].upper_bound) / 2.0;
+      if(!std::isfinite(mid)) continue;
+      if(mid <= bins_[i].lower_bound || mid >= bins_[i].upper_bound) continue;
+      if(bins_[i].total_count > max_count) {
+        max_count = bins_[i].total_count;
+        idx = i;
       }
     }
     return idx;

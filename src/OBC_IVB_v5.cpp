@@ -328,12 +328,22 @@ private:
               });
   }
 
+  // Build the cumulative statistics cache if it does not exist yet.
+  // The cache is consumed unconditionally when the result is assembled, so it
+  // must also be available on the "few enough categories" fast path that skips
+  // the dynamic programming stage entirely.
+  void ensure_stats_cache() {
+    if (!stats_cache) {
+      stats_cache = std::make_shared<CumulativeStatsCache>(category_stats);
+    }
+  }
+
   // Initialize dynamic programming structures with optimized memory usage
   void initialize_dp_structures() {
     int n = static_cast<int>(category_stats.size());
 
     // Initialize caches for efficient calculations
-    stats_cache = std::make_shared<CumulativeStatsCache>(category_stats);
+    ensure_stats_cache();
     iv_cache = std::make_unique<IVCache>(n, stats_cache, n > 20);
 
     // Initialize DP tables with pre-allocation
@@ -643,6 +653,11 @@ public:
         max_bins = min_bins;
 
       std::vector<int> optimal_bins;
+
+      // The result assembly below reads from stats_cache on every path, so the
+      // cache must be built before branching (the fast path never runs
+      // initialize_dp_structures()). category_stats is final at this point.
+      ensure_stats_cache();
 
       // Special case: already have few enough bins
       if (ncat <= max_bins) {

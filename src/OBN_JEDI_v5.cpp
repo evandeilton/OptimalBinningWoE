@@ -259,11 +259,21 @@ private:
     for (size_t i=0;i<edges.size()-1;i++){
       bins.emplace_back(edges[i],edges[i+1]);
     }
-    // Ensure at least min_bins
+    // Ensure at least min_bins.
+    // split_bin() silently declines to split an interval whose midpoint is not
+    // finite, and this runs before assign_bins() so every count is still 0 --
+    // find_largest_bin() therefore always returned index 0, the (-Inf, e1]
+    // interval, which can never be split. That made this loop spin forever with
+    // no interrupt check whenever min_bins exceeded the number of distinct
+    // feature values. Only consider bins that can actually be split, and stop
+    // as soon as no progress is possible: such a feature simply cannot support
+    // min_bins bins.
     while((int)bins.size()<min_bins) {
-      // If less, split the largest bin
-      size_t large_idx=find_largest_bin();
+      size_t large_idx=find_largest_splittable_bin();
+      if(large_idx>=bins.size()) break;
+      size_t before=bins.size();
       split_bin(large_idx);
+      if(bins.size()==before) break;
     }
   }
   
@@ -428,6 +438,24 @@ private:
     size_t idx=0;
     int max_count=bins[0].count;
     for(size_t i=1;i<bins.size();i++){
+      if(bins[i].count>max_count) {
+        max_count=bins[i].count;
+        idx=i;
+      }
+    }
+    return idx;
+  }
+
+  // Largest bin that split_bin() can actually divide, i.e. one whose midpoint
+  // is finite. The two outer intervals are unbounded, so they are never
+  // splittable; returns bins.size() when no bin qualifies.
+  size_t find_largest_splittable_bin() const {
+    size_t idx=bins.size();
+    int max_count=-1;
+    for(size_t i=0;i<bins.size();i++){
+      double mid=(bins[i].lower_bound+bins[i].upper_bound)/2.0;
+      if(!std::isfinite(mid)) continue;
+      if(mid<=bins[i].lower_bound||mid>=bins[i].upper_bound) continue;
       if(bins[i].count>max_count) {
         max_count=bins[i].count;
         idx=i;

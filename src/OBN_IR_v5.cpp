@@ -465,14 +465,24 @@ private:
    * Either split large bins or merge similar bins
    */
   void ensureMinMaxBins() {
-    // Add bins if below min_bins
+    // Add bins if below min_bins.
+    // splitLargestBin() is a silent no-op whenever no bin can actually be
+    // divided (every bin holds a single observation, or the candidate split
+    // point coincides with a boundary). Without a progress check this loop spun
+    // forever -- and with no R_CheckUserInterrupt() in it, the session could not
+    // even be interrupted -- for any feature whose distinct-value count is below
+    // min_bins. Stop as soon as a pass fails to add a bin.
     while (bin_info.size() < static_cast<size_t>(min_bins) && bin_info.size() > 1) {
+      size_t before = bin_info.size();
       splitLargestBin();
+      if (bin_info.size() == before) break;
     }
-    
-    // Merge bins if above max_bins
+
+    // Merge bins if above max_bins (same progress guard, for symmetry)
     while (bin_info.size() > static_cast<size_t>(max_bins)) {
+      size_t before = bin_info.size();
       mergeSimilarBins();
+      if (bin_info.size() == before) break;
     }
   }
   
