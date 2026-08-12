@@ -298,7 +298,9 @@ test_that("ob_numerical_oslp works with basic inputs", {
 # ob_numerical_sketch - Sketch-based Binning
 # ==============================================================================
 test_that("ob_numerical_sketch works with basic inputs", {
-  skip("Skipping ob_numerical_sketch - Segfault in C++ with n>=500 (needs deeper debugging)")
+  # Re-enabled in the 2026-08 audit. The historical segfault came from the
+  # MergeCache class, which was removed in an earlier round; this case was
+  # re-verified clean under -fsanitize=address,undefined at n = 500/1000/2000/5000.
   data <- generate_test_data(n = 500, seed = 116)
 
   result <- test_numerical("ob_numerical_sketch",

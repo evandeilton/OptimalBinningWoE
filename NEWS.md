@@ -1,3 +1,137 @@
+# OptimalBinningWoE 1.11.0
+
+## C++ Engine — Runtime Audit (2026-08-12)
+
+Follow-up to the 1.10.0 static audit, this time driven by instrumented builds
+(`-fsanitize=address,undefined`), a degenerate-input stress harness, and a
+golden-output regression suite covering all 37 exported algorithms
+(~3,200 result comparisons). All fixes below are covered by new tests in
+`tests/testthat/test-regression-audit.R`, each of which fails on 1.10.0.
+
+### Bug Fixes — crashes and hangs
+
+*   **`ob_categorical_ivb` crashed the R session** (segmentation fault, not a
+    catchable error) for **any feature with no more categories than
+    `max_bins`** — with the default `max_bins = 5` this meant every 2-, 3-, 4-
+    or 5-level predictor, i.e. sex, marital status, region, education. In
+    `perform_binning()` the `ncat <= max_bins` fast path skipped
+    `initialize_dp_structures()`, the only place `stats_cache` was created,
+    while result assembly dereferenced it unconditionally. The cache is now
+    built before the branch.
+
+*   **`ob_numerical_ir`, `ob_numerical_jedi`, `ob_numerical_jedi_mwoe` hung
+    forever** whenever `min_bins` exceeded the number of distinct feature
+    values — a routine situation when one `min_bins` is applied across a whole
+    feature set. The "ensure at least `min_bins`" loops called a split routine
+    that silently declines to split unbounded intervals (and, in JEDI, ran
+    before counts existed, so it always targeted the unsplittable `(-Inf, e1]`
+    bin), making no progress and never terminating. Since these loops contained
+    no `R_CheckUserInterrupt()`, the hang could not even be interrupted with
+    Ctrl-C. The loops now consider only splittable bins and stop as soon as no
+    progress is possible.
+
+### Reproducibility
+
+*   **`ob_categorical_sab` is now reproducible under `set.seed()`.** It was
+    seeded from `std::random_device`, so identical input returned a different
+    binning on every call with no way to control it — unusable for auditable
+    or regulated models, and unreliable on some MinGW toolchains. The
+    simulated-annealing search is now seeded from R's own RNG stream.
+    **This changes `ob_categorical_sab` results**, which were previously
+    random and therefore had no stable baseline to preserve.
+
+### Output consistency
+
+*   **`ob_numerical_sketch` now returns the `bin` label field** (plus
+    `total_iv`) like every other numerical algorithm. Its absence broke
+    generic consumers, including this package's own test helper. `bin_lower`
+    and `bin_upper` are retained, so the change is purely additive; no numeric
+    output changed.
+
+*   The `ob_numerical_sketch` test disabled since 1.0.7 for a segfault has been
+    **re-enabled**: the underlying `MergeCache` defect was removed in an earlier
+    round, and the case was re-verified clean under
+    `-fsanitize=address,undefined` at n = 500/1000/2000/5000.
+
+### Parallelism (`obcorr`) — CRAN policy and determinism
+
+*   **`obcorr()` no longer seizes every core.** With the default `threads = 0`
+    it called `omp_set_num_threads(std::thread::hardware_concurrency())`,
+    taking all available cores. CRAN Repository Policy requires a package never
+    to use more than two cores simultaneously by default, since the check farm
+    is a shared resource; this was an archival risk. The default is now at most
+    2 threads, honouring any lower limit already set through `OMP_NUM_THREADS`,
+    and capped by `omp_get_num_procs()`. An explicit positive `threads` is
+    still respected.
+
+*   **`obcorr()` returned its rows in a non-deterministic order.** Per-thread
+    result buffers were spliced together inside an `omp critical` block, so the
+    row order depended on thread scheduling — two runs on the same data with
+    the same thread count could return the pairs in different orders. Any
+    caller using `head()`, positional indexing, or a positional join saw
+    different numbers between runs. Each iteration now writes to its own slot
+    in a pre-sized vector, which is deterministic, independent of the thread
+    count, and removes the critical section. Correlation *values* are
+    unchanged; only the row order is now stable.
+
+### Build hygiene
+
+*   Removed eight stale Dropbox conflict copies (`*Cópia em conflito*.cpp/.h`)
+    from `src/`. `R CMD build` would have shipped and compiled them, producing
+    duplicate symbols. Guards added to `.gitignore` and `.Rbuildignore`.
+
+### Interval convention — standardised on `(a, b]` (changes numeric output)
+
+The package previously disagreed with itself about what a bin *is*. Bin labels
+advertised `(a;b]`, but many algorithms assigned observations as `[a;b)`;
+`ob_apply_woe_num()` had its two binary searches swapped, so *both* settings of
+`include_upper_bound` did the opposite of what the argument documents; and
+several equal-frequency pre-binners split runs of tied values, so their reported
+counts could not be derived from their own reported cutpoints under any
+convention. A value landing exactly on a cutpoint — routine for integer, rounded
+or currency features — could be scored into a different bin than the one it was
+trained in.
+
+Measured across 63 algorithm/dataset combinations, **31 violated the documented
+`(a, b]` convention before this release; 0 do now.**
+
+*   `ob_apply_woe_num()`: `include_upper_bound = TRUE` now really means `(a, b]`
+    (`lower_bound` search) and `FALSE` really means `[a, b)` (`upper_bound`).
+    The two were previously exchanged.
+*   `ob_numerical_dp`, `_fetb`, `_ldb`, `_oslp`: bin lookup switched from
+    `upper_bound` to `lower_bound`, so boundary values stay in the bin below.
+*   `ob_numerical_bb`, `_dmiv`: dropped an `+ EPSILON` added to the search key,
+    which silently turned the documented `upper >= value` test into a strict one.
+*   `ob_numerical_sketch`: interval test changed from `[lower, upper)` to
+    `(lower, upper]` (first bin remains closed on the left, so the minimum is
+    included).
+*   `ob_numerical_mob`, `_mdlp`, `_mrblp`: equal-frequency pre-binning is now
+    tie-aware — a run of identical values is never split across two pre-bins —
+    and boundaries are the last value *in* the bin rather than the first value
+    of the next. Their labels changed from `[a;b)` to `(a;b]` to match.
+*   `ob_numerical_fast_mdlp`: the `force_min_bins()` fallback picked a split at
+    a raw index midpoint, which could land inside a run of tied observations.
+    It now moves the split to a genuine value boundary, as the MDL recursion
+    already did.
+
+**`ob_numerical_cm` silently discarded observations.** Its equal-frequency
+pre-binner, on hitting a tie that straddled a bin boundary, advanced past the
+tied records without ever assigning them to a bin. On tied or discrete features
+this dropped a large share of the data — 26% on an integer feature and 40% on a
+coarse one in testing — and the reported WoE/IV were computed from the surviving
+subset. The tied records are now absorbed into the preceding bin.
+
+### Known issues (not yet fixed)
+
+*   `ob_categorical_dp` and `ob_categorical_fetb` report `WoE = IV = 0` for
+    perfectly separating bins instead of applying smoothing.
+*   Return fields are not uniform across algorithms: `event_rate` is present in
+    only 13 of 37, `total_iv` in 28 of 37, and `iv` is missing from both
+    `_dmiv` variants.
+*   `ob_apply_woe_num()` does not support the multinomial `*_jedi_mwoe`
+    variants, whose output carries per-class counts rather than `count_pos` /
+    `count_neg`.
+
 # OptimalBinningWoE 1.10.0
 
 ## C++ Engine — Comprehensive Audit & Hardening (2026-05-17)

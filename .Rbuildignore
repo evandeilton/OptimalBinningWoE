@@ -16,3 +16,4 @@
 .claude
 ^\.positai$
 ^TODO\.md$
+^src/.*C.pia em conflito.*$

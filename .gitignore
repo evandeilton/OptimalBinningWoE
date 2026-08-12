@@ -13,3 +13,7 @@ src/**/*.o
 .claude
 .positai
 ^TODO\.md$
+
+# Dropbox conflict copies must never reach src/ (R CMD build would compile them)
+*Cópia em conflito*
+*Conflicted copy*
