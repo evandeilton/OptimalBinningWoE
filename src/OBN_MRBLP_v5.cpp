@@ -183,15 +183,15 @@ public:
       oss << std::fixed << std::setprecision(6);
       
       if (std::isinf(bins[i].lower_bound) && bins[i].lower_bound < 0) {
-        oss << "[-Inf;";
+        oss << "(-Inf;";
       } else {
-        oss << "[" << bins[i].lower_bound << ";";
+        oss << "(" << bins[i].lower_bound << ";";
       }
       
       if (std::isinf(bins[i].upper_bound)) {
-        oss << "+Inf)";
+        oss << "+Inf]";
       } else {
-        oss << bins[i].upper_bound << ")";
+        oss << bins[i].upper_bound << "]";
       }
       
       bin_names[i] = oss.str();
@@ -453,21 +453,36 @@ private:
     
     // Create initial bins
     bins.clear();
-    for (size_t i = 0; i < data.size(); i += bin_size) {
+    for (size_t i = 0; i < data.size(); ) {
       size_t end = std::min(i + bin_size, data.size());
-      
+
+      // Never split a run of tied values across two pre-bins. Otherwise the
+      // reported boundary sits in the middle of a group of identical
+      // observations, and the emitted counts cannot be reproduced from the
+      // reported cutpoints by any interval convention.
+      while (end < data.size() && data[end].first == data[end - 1].first) {
+        ++end;
+      }
+
       NumericalBin b;
-      b.lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity() : data[i].first;
-      b.upper_bound = (end == data.size()) ? std::numeric_limits<double>::infinity() : data[end].first;
+      // Right-closed (lower, upper] bins, contiguous by construction.
+      b.lower_bound = bins.empty()
+                          ? -std::numeric_limits<double>::infinity()
+                          : bins.back().upper_bound;
+      // last value belonging to this bin, not the first of the next one
+      b.upper_bound = (end == data.size())
+                          ? std::numeric_limits<double>::infinity()
+                          : data[end - 1].first;
       b.count = 0; b.count_pos = 0; b.count_neg = 0;
-      
+
       for (size_t j = i; j < end; j++) {
         b.count++;
         if (data[j].second == 1) b.count_pos++; else b.count_neg++;
       }
-      
+
       // b.event_rate() assignment removed (calculated dynamically)
       bins.push_back(b);
+      i = end;
     }
     
     // Ensure no empty bins

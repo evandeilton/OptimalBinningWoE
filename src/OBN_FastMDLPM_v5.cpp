@@ -494,11 +494,35 @@ void force_min_bins(
     // Add a split in the middle of the largest gap
     if (largest_gap > 1) {
       int new_split = gap_start + largest_gap / 2;
-      if (new_split > 0 && new_split < N - 1) {
-        splits.push_back(new_split);
+
+      // A split must fall BETWEEN two different feature values, exactly as
+      // mdlp_recursion() requires. A raw index midpoint can land inside a run
+      // of tied observations, which produces bin counts that cannot be
+      // reproduced from the reported cutpoints under any interval convention.
+      // Walk forward to the end of the tied run; if that leaves the gap, walk
+      // backward instead; if the whole gap holds a single value, no valid split
+      // exists there.
+      const int gap_end = gap_start + largest_gap;
+      int adj = new_split;
+      while (adj < gap_end && adj < N - 1 &&
+             feature_sorted[adj] == feature_sorted[adj + 1]) {
+        ++adj;
+      }
+      if (adj >= gap_end || adj >= N - 1 ||
+          feature_sorted[adj] == feature_sorted[adj + 1]) {
+        adj = new_split;
+        while (adj > gap_start &&
+               feature_sorted[adj] == feature_sorted[adj + 1]) {
+          --adj;
+        }
+      }
+
+      if (adj > gap_start && adj > 0 && adj < N - 1 &&
+          feature_sorted[adj] != feature_sorted[adj + 1]) {
+        splits.push_back(adj);
         std::sort(splits.begin(), splits.end());
       } else {
-        break; // Can't add more splits
+        break; // no split point inside this gap separates two distinct values
       }
     } else {
       break; // Can't add more splits

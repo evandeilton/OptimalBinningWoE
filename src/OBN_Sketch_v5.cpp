@@ -744,18 +744,18 @@ private:
       
       bool assigned = false;
       
-      // CRITICAL FIX: Correct handling of boundary values
+      // Right-closed (lower, upper] bins, matching the emitted labels and the
+      // rest of the package. The first bin is additionally closed on the left
+      // so that the smallest observed value is included.
       for (size_t b = 0; b < bins.size(); ++b) {
         bool in_bin = false;
-        
-        if (b == bins.size() - 1) {
-          // Last bin: closed interval [lower, upper]
+
+        if (b == 0) {
           in_bin = (value >= bins[b].lower_bound && value <= bins[b].upper_bound);
         } else {
-          // Other bins: half-open interval [lower, upper)
-          in_bin = bins[b].contains(value);
+          in_bin = (value > bins[b].lower_bound && value <= bins[b].upper_bound);
         }
-        
+
         if (in_bin) {
           bins[b].add_value(is_positive);
           assigned = true;
@@ -1055,7 +1055,14 @@ public:
       IntegerVector bin_count_pos(n_bins);
       IntegerVector bin_count_neg(n_bins);
       NumericVector ids(n_bins);
-      
+      // This algorithm was the only numerical one that returned no "bin" label
+      // field, so generic consumers (including this package's own test helper
+      // and downstream pipelines) could not handle its output. Emit the same
+      // "(lower;upper]" label every sibling algorithm produces; bin_lower and
+      // bin_upper are retained so existing callers keep working.
+      CharacterVector bin_labels(n_bins);
+      double total_iv_value = 0.0;
+
       for (size_t i = 0; i < n_bins; ++i) {
         bin_lower[i] = bins[i].lower_bound;
         bin_upper[i] = bins[i].upper_bound;
@@ -1065,10 +1072,25 @@ public:
         bin_count_pos[i] = bins[i].count_pos;
         bin_count_neg[i] = bins[i].count_neg;
         ids[i] = static_cast<double>(i + 1);
+        total_iv_value += bins[i].iv;
+
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(6);
+        const double left = bins[i].lower_bound;
+        const double right = bins[i].upper_bound;
+        if (std::isinf(left) && left < 0) {
+          oss << "(-Inf;" << right << "]";
+        } else if (std::isinf(right) && right > 0) {
+          oss << "(" << left << ";+Inf]";
+        } else {
+          oss << "(" << left << ";" << right << "]";
+        }
+        bin_labels[i] = oss.str();
       }
-      
+
       return Rcpp::List::create(
         Named("id") = ids,
+        Named("bin") = bin_labels,
         Named("bin_lower") = bin_lower,
         Named("bin_upper") = bin_upper,
         Named("woe") = bin_woe,
@@ -1076,6 +1098,7 @@ public:
         Named("count") = bin_count,
         Named("count_pos") = bin_count_pos,
         Named("count_neg") = bin_count_neg,
+        Named("total_iv") = total_iv_value,
         Named("cutpoints") = cutpoints,
         Named("converged") = converged_flag,
         Named("iterations") = iterations_done);

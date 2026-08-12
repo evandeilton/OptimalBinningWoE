@@ -529,27 +529,29 @@ private:
     size_t bin_size = n / n_prebins;
     if (bin_size < 1) bin_size = 1;
     
-    for (size_t i = 0; i < n; i += bin_size) {
+    for (size_t i = 0; i < n; ) {
       size_t end = std::min(i + bin_size, n);
-      
-      NumericalBin bin;
-      
-      // Set bin boundaries
-      if (i == 0) {
-        bin.lower_bound = -std::numeric_limits<double>::infinity();
-      } else {
-        // Ensure no gaps between bins
-        if (!bins.empty()) {
-          bin.lower_bound = bins.back().upper_bound;
-        } else {
-          bin.lower_bound = sorted_data[i].first;
-        }
+
+      // Never split a run of tied values across two prebins. Otherwise the
+      // reported boundary sits in the middle of a group of identical
+      // observations, and the emitted counts cannot be reproduced from the
+      // reported cutpoints by any interval convention.
+      while (end < n && sorted_data[end].first == sorted_data[end - 1].first) {
+        ++end;
       }
-      
+
+      NumericalBin bin;
+
+      // Right-closed (lower, upper] bins, contiguous by construction.
+      bin.lower_bound = bins.empty()
+                            ? -std::numeric_limits<double>::infinity()
+                            : bins.back().upper_bound;
+
       if (end == n) {
         bin.upper_bound = std::numeric_limits<double>::infinity();
       } else {
-        bin.upper_bound = sorted_data[end].first;
+        // last value belonging to this bin, not the first of the next one
+        bin.upper_bound = sorted_data[end - 1].first;
       }
       
       // Collect bin statistics
@@ -566,10 +568,11 @@ private:
       }
       
       // bin.event_rate() assignment removed (calculated dynamically)
-      
+
       bins.push_back(bin);
+      i = end;
     }
-    
+
     // Ensure monotonicity of bin boundaries
     fix_bin_boundaries();
   }
@@ -1036,16 +1039,19 @@ List optimal_binning_numerical_mob(IntegerVector target,
    std::ostringstream oss;
    oss << std::fixed << std::setprecision(6);
    
+   // Right-closed (lower; upper], matching the assignment rule and the rest of
+   // the package. These labels previously read "[lower; upper)", which did not
+   // describe how values on a boundary were actually binned.
    if (b.lower_bound == -std::numeric_limits<double>::infinity()) {
-     oss << "[-Inf";
+     oss << "(-Inf";
    } else {
-     oss << "[" << b.lower_bound;
+     oss << "(" << b.lower_bound;
    }
    oss << ";";
    if (b.upper_bound == std::numeric_limits<double>::infinity()) {
-     oss << "+Inf)";
+     oss << "+Inf]";
    } else {
-     oss << b.upper_bound << ")";
+     oss << b.upper_bound << "]";
    }
    
    bin_labels.push_back(oss.str());

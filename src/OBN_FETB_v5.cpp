@@ -136,8 +136,15 @@ private:
     
     for (size_t i = 0; i < x_.size(); ++i) {
       double v = x_[i];
-      size_t b = std::upper_bound(edges_.begin(), edges_.end(), v) - edges_.begin() - 1;
-      b = std::min(b, B - 1);
+      // Bins are right-closed (a, b], as the emitted labels state, so a value
+      // sitting exactly on an edge belongs to the bin BELOW it: lower_bound
+      // (first edge >= v), not upper_bound. The index is computed as a signed
+      // value first: subtracting 1 from position 0 would wrap a size_t around
+      // and then clamp to the LAST bin instead of the first.
+      std::ptrdiff_t pos =
+        std::lower_bound(edges_.begin(), edges_.end(), v) - edges_.begin() - 1;
+      if (pos < 0) pos = 0;
+      size_t b = std::min(static_cast<size_t>(pos), B - 1);
       ++cnt_[b];
       if (y_[i]) ++pos_[b]; else ++neg_[b];
     }

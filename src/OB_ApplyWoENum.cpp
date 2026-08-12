@@ -175,24 +175,26 @@ DataFrame OBApplyWoENum(const List& obresults,
      // Process non-missing values
      size_t bin_index;
      
+     // The two searches were previously swapped, so a value landing exactly on
+     // a cutpoint was scored into the neighbouring bin under BOTH settings.
+     //
+     // For right-closed (a, b] bins, x belongs to bin j where j is the number
+     // of cutpoints strictly BELOW x, i.e. the first cutpoint >= x, which is
+     // std::lower_bound. For left-closed [a, b) bins, x belongs to the bin
+     // indexed by the number of cutpoints <= x, i.e. std::upper_bound.
      if (include_upper_bound) {
-       // Use std::upper_bound for (a, b] intervals
-       auto it = std::upper_bound(cutpoints.begin(), cutpoints.end(), x);
-       bin_index = std::distance(cutpoints.begin(), it);
-       
-       // Ensure bin_index is within valid range
-       if (bin_index >= num_bins) {
-         bin_index = num_bins - 1;
-       }
-     } else {
-       // Use std::lower_bound for [a, b) intervals
+       // (a, b] : x <= cutpoints[j] keeps x in bin j
        auto it = std::lower_bound(cutpoints.begin(), cutpoints.end(), x);
        bin_index = std::distance(cutpoints.begin(), it);
-       
-       // Adjust for the last bin
-       if (bin_index >= num_bins) {
-         bin_index = num_bins - 1;
-       }
+     } else {
+       // [a, b) : x >= cutpoints[j-1] moves x into bin j
+       auto it = std::upper_bound(cutpoints.begin(), cutpoints.end(), x);
+       bin_index = std::distance(cutpoints.begin(), it);
+     }
+
+     // Ensure bin_index is within valid range
+     if (bin_index >= num_bins) {
+       bin_index = num_bins - 1;
      }
      
      // Assign values

@@ -264,8 +264,12 @@ private:
       int tgt = clean_target[i];
       
       // Binary search for the correct bin:
-      // Find the first bin with upper boundary >= value
-      auto it = std::lower_bound(uppers.begin(), uppers.end(), val + EPSILON);
+      // Find the first bin with upper boundary >= value.
+      // The "+ EPSILON" that used to be added here turned the comparison into a
+      // strict one, so a value landing exactly on a bin's upper boundary was
+      // pushed into the NEXT bin -- i.e. [a, b) behaviour, contradicting both
+      // this comment and the emitted "(a;b]" labels.
+      auto it = std::lower_bound(uppers.begin(), uppers.end(), val);
       size_t idx = it - uppers.begin();
       
       // Count by target value

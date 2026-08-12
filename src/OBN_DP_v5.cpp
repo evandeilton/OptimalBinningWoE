@@ -517,8 +517,11 @@ private:
    * @return int The bin index that contains the value
    */
   int find_bin(double value) const {
-    // Locate bin via upper_bound
-    auto it = std::upper_bound(bin_edges.begin(), bin_edges.end(), value);
+    // Bins are right-closed (a, b], as the emitted labels state, so a value
+    // sitting exactly on an edge belongs to the bin BELOW it. That is
+    // lower_bound (first edge >= value); upper_bound would implement [a, b)
+    // and push boundary values one bin up.
+    auto it = std::lower_bound(bin_edges.begin(), bin_edges.end(), value);
     int bin_idx = static_cast<int>(std::distance(bin_edges.begin(), it)) - 1;
     
     // Ensure bin_idx is within valid range

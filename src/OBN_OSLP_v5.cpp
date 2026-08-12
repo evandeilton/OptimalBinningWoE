@@ -662,7 +662,10 @@ private:
    * @return int Index of the bin
    */
   int findBin(double val) const {
-    auto it = std::upper_bound(bin_edges.begin(), bin_edges.end(), val);
+    // Bins are right-closed (a, b], as the emitted labels state, so a value
+    // sitting exactly on an edge belongs to the bin BELOW it: lower_bound
+    // (first edge >= val), not upper_bound.
+    auto it = std::lower_bound(bin_edges.begin(), bin_edges.end(), val);
     int idx = static_cast<int>(std::distance(bin_edges.begin(), it)) - 1;
     
     // Handle edge cases

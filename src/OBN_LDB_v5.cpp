@@ -215,8 +215,10 @@ private:
       return bin_edges.size() - 2; // Last bin
     }
     
-    // Binary search for the bin
-    auto it = std::upper_bound(bin_edges.begin(), bin_edges.end(), value);
+    // Binary search for the bin. Bins are right-closed (a, b], as the emitted
+    // labels state, so a value sitting exactly on an edge belongs to the bin
+    // BELOW it: lower_bound (first edge >= value), not upper_bound.
+    auto it = std::lower_bound(bin_edges.begin(), bin_edges.end(), value);
     size_t idx = std::distance(bin_edges.begin(), it) - 1;
     
     return idx;

@@ -828,23 +828,31 @@ public:
     int records_per_bin = std::max(1, static_cast<int>(sorted_data.size()) / max_n_prebins);
     
     // Create pre-bins by frequency
-    for (size_t i = 0; i < sorted_data.size(); i += records_per_bin) {
+    for (size_t i = 0; i < sorted_data.size(); ) {
       size_t end = std::min(i + records_per_bin, sorted_data.size());
-      
+
+      // Never split a run of tied values across two pre-bins. Otherwise the
+      // reported boundary sits in the middle of a group of identical
+      // observations, and the emitted counts cannot be reproduced from the
+      // reported cutpoints by any interval convention.
+      while (end < sorted_data.size() &&
+             sorted_data[end].first == sorted_data[end - 1].first) {
+        ++end;
+      }
+
       // Create new bin
       NumericalBin bin;
-      
-      // Set bin boundaries
-      if (i == 0) {
-        bin.lower_bound = -std::numeric_limits<double>::infinity();
-      } else {
-        bin.lower_bound = sorted_data[i].first;
-      }
-      
+
+      // Right-closed (lower, upper] bins, contiguous by construction.
+      bin.lower_bound = bins.empty()
+                            ? -std::numeric_limits<double>::infinity()
+                            : bins.back().upper_bound;
+
       if (end == sorted_data.size()) {
         bin.upper_bound = std::numeric_limits<double>::infinity();
       } else {
-        bin.upper_bound = sorted_data[end].first;
+        // last value belonging to this bin, not the first of the next one
+        bin.upper_bound = sorted_data[end - 1].first;
       }
       
       // Set bin statistics
@@ -862,10 +870,11 @@ public:
       
       // Calculate bin entropy
       bin.entropy = calculate_entropy(bin.count_pos, bin.count_neg);
-      
+
       bins.push_back(bin);
+      i = end;
     }
-    
+
     // Fix potential issues with bin boundaries
     fix_bin_boundaries();
   }
@@ -983,15 +992,15 @@ public:
       
       // Format bin label as interval
       if (bins[i].lower_bound == -std::numeric_limits<double>::infinity()) {
-        oss << "[-Inf";
+        oss << "(-Inf";
       } else {
-        oss << "[" << bins[i].lower_bound;
+        oss << "(" << bins[i].lower_bound;
       }
       oss << ";";
       if (bins[i].upper_bound == std::numeric_limits<double>::infinity()) {
-        oss << "+Inf)";
+        oss << "+Inf]";
       } else {
-        oss << bins[i].upper_bound << ")";
+        oss << bins[i].upper_bound << "]";
         cutpoints.push_back(bins[i].upper_bound);
       }
       
