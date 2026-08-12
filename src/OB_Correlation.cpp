@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
-#include <thread>
 #include <unordered_set> // (needed if using set; in V6 we use sort for unique)
 #include <limits>
 #ifdef _OPENMP
@@ -427,12 +426,25 @@ SoA extract_soa(const DataFrame& df) {
 DataFrame obcorr(DataFrame df, std::string method="all", int threads=0) {
    
 #ifdef _OPENMP
-   if (threads>0) omp_set_num_threads(threads);
-   else {
-     int h = std::max(1, (int)std::thread::hardware_concurrency());
-     omp_set_num_threads(h);
+   // CRAN Repository Policy: a package must never use more than two cores
+   // simultaneously by default, and the user must remain in control. This code
+   // previously defaulted (threads = 0) to
+   // omp_set_num_threads(std::thread::hardware_concurrency()), i.e. it seized
+   // every core on the machine, which is an archival-risk policy violation on
+   // the shared check farm.
+   //
+   // Now: an explicit positive `threads` wins; otherwise use at most 2, and
+   // never more than the environment already allows (omp_get_max_threads()
+   // reflects OMP_NUM_THREADS and any earlier omp_set_num_threads()).
+   int n_threads;
+   if (threads > 0) {
+     n_threads = threads;
+   } else {
+     n_threads = std::min(2, omp_get_max_threads());
    }
-   int max_threads = omp_get_max_threads();
+   n_threads = std::max(1, std::min(n_threads, omp_get_num_procs()));
+   omp_set_num_threads(n_threads);
+   int max_threads = n_threads;
 #else
    int max_threads = 1;
    if (threads>1) Rcpp::warning("OpenMP not available; running on 1 thread.");
@@ -455,14 +467,22 @@ DataFrame obcorr(DataFrame df, std::string method="all", int threads=0) {
    std::vector<std::string> vx, vy;
    std::vector<double> v_pear, v_spear, v_kend, v_hoef, v_dcor, v_bic, v_pb;
    
-   vx.reserve(total_pairs); vy.reserve(total_pairs);
-   if (do_pearson)   v_pear.reserve(total_pairs);
-   if (do_spearman) v_spear.reserve(total_pairs);
-   if (do_kendall)   v_kend.reserve(total_pairs);
-   if (do_hoeffding)v_hoef.reserve(total_pairs);
-   if (do_distance) v_dcor.reserve(total_pairs);
-   if (do_biweight) v_bic.reserve(total_pairs);
-   if (do_pbend)     v_pb .reserve(total_pairs);
+   // Sized (not merely reserved) so each iteration can write to its own slot.
+   // Results used to be appended into thread-local buffers and spliced together
+   // inside an `omp critical` block, which made the ROW ORDER of the returned
+   // data frame depend on thread scheduling: two runs with the same data and
+   // the same thread count could return the pairs in different orders, and any
+   // caller using head(), positional indexing or a positional join saw
+   // different numbers each time. Indexed writes are deterministic, need no
+   // critical section, and are faster.
+   vx.resize(total_pairs); vy.resize(total_pairs);
+   if (do_pearson)   v_pear.resize(total_pairs);
+   if (do_spearman) v_spear.resize(total_pairs);
+   if (do_kendall)   v_kend.resize(total_pairs);
+   if (do_hoeffding)v_hoef.resize(total_pairs);
+   if (do_distance) v_dcor.resize(total_pairs);
+   if (do_biweight) v_bic.resize(total_pairs);
+   if (do_pbend)     v_pb .resize(total_pairs);
    
    const int chunk = std::max(1, total_pairs / (max_threads * 4));
    
@@ -470,50 +490,34 @@ DataFrame obcorr(DataFrame df, std::string method="all", int threads=0) {
 #pragma omp parallel
 #endif
 {
+  // Scratch buffers reused across iterations by this thread only.
   FastRanker rx, ry;
   std::vector<double> Rx, Ry;
-  
-  std::vector<std::string> lx, ly;
-  std::vector<double> lpear, lspear, lkend, lhoef, ldcor, lbic, lpb;
-  
+
 #ifdef _OPENMP
-#pragma omp for schedule(dynamic, chunk) nowait
+#pragma omp for schedule(dynamic, chunk)
 #endif
   for (int idx=0; idx<total_pairs; ++idx) {
     // map linear -> (i,j)
     int i=0, j=1, r=idx;
     while (r >= p-1-i) { r -= (p-1-i); ++i; j=i+1; }
     j += r;
-    
+
     const std::vector<double>& Xi = S.data[i];
     const std::vector<double>& Yj = S.data[j];
-    
-    lx.push_back(S.names[i]);
-    ly.push_back(S.names[j]);
-    
-    if (do_pearson)   lpear.push_back( pearson_fast(Xi, Yj) );
-    if (do_spearman) lspear.push_back( spearman_fast(Xi, Yj, rx, ry, Rx, Ry) );
-    if (do_kendall)   lkend.push_back( kendall_tau_b_fast(Xi, Yj) );
-    if (do_hoeffding)lhoef.push_back( hoeffding_D_v6(Xi, Yj) );
-    if (do_distance) ldcor.push_back( distance_correlation_v6(Xi, Yj) );
-    if (do_biweight) lbic .push_back( bicor_v6(Xi, Yj) );
-    if (do_pbend)     lpb  .push_back( pbend_v6(Xi, Yj) );
+
+    // Each iteration owns slot `idx`, so these writes never race.
+    vx[idx] = S.names[i];
+    vy[idx] = S.names[j];
+
+    if (do_pearson)   v_pear[idx]  = pearson_fast(Xi, Yj);
+    if (do_spearman)  v_spear[idx] = spearman_fast(Xi, Yj, rx, ry, Rx, Ry);
+    if (do_kendall)   v_kend[idx]  = kendall_tau_b_fast(Xi, Yj);
+    if (do_hoeffding) v_hoef[idx]  = hoeffding_D_v6(Xi, Yj);
+    if (do_distance)  v_dcor[idx]  = distance_correlation_v6(Xi, Yj);
+    if (do_biweight)  v_bic[idx]   = bicor_v6(Xi, Yj);
+    if (do_pbend)     v_pb[idx]    = pbend_v6(Xi, Yj);
   }
-  
-#ifdef _OPENMP
-#pragma omp critical
-#endif
-{
-  vx.insert(vx.end(), lx.begin(), lx.end());
-  vy.insert(vy.end(), ly.begin(), ly.end());
-  if (do_pearson)   v_pear.insert(v_pear.end(), lpear.begin(), lpear.end());
-  if (do_spearman) v_spear.insert(v_spear.end(), lspear.begin(), lspear.end());
-  if (do_kendall)   v_kend.insert(v_kend.end(), lkend.begin(), lkend.end());
-  if (do_hoeffding)v_hoef.insert(v_hoef.end(), lhoef.begin(), lhoef.end());
-  if (do_distance) v_dcor.insert(v_dcor.end(), ldcor.begin(), ldcor.end());
-  if (do_biweight) v_bic .insert(v_bic .end(), lbic .begin(), lbic .end());
-  if (do_pbend)     v_pb  .insert(v_pb  .end(), lpb  .begin(), lpb  .end());
-}
 }
 // construct DataFrame
 CharacterVector X(vx.begin(), vx.end()), Y(vy.begin(), vy.end());
