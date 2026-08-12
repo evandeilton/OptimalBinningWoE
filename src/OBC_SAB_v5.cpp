@@ -68,6 +68,10 @@ private:
   
   // Random number generator
   std::mt19937 gen;
+
+  // Seed drawn from R's RNG stream by the exported wrapper, so that set.seed()
+  // in R controls this algorithm's stochastic search.
+  unsigned int seed_from_r;
   
   // Initialize the algorithm with comprehensive error checking
   void initialize() {
@@ -373,12 +377,14 @@ public:
                                double cooling_rate_ = 0.995,
                                int max_iterations_ = 1000,
                                double convergence_threshold_ = 1e-6,
-                               bool adaptive_cooling_ = true)
+                               bool adaptive_cooling_ = true,
+                               unsigned int seed_from_r_ = 42u)
     : feature(feature_), target(target_), min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_), bin_separator(bin_separator_),
       initial_temperature(initial_temperature_), cooling_rate(cooling_rate_),
       max_iterations(max_iterations_), convergence_threshold(convergence_threshold_),
-      adaptive_cooling(adaptive_cooling_), iterations_without_improvement(0) {
+      adaptive_cooling(adaptive_cooling_), iterations_without_improvement(0),
+      seed_from_r(seed_from_r_) {
     
     // Enhanced validation
     if (feature.size() != target.size()) {
@@ -428,11 +434,16 @@ public:
       throw std::invalid_argument("Target must contain both 0 and 1 values");
     }
     
-    // Initialize random number generator with better seed
-    std::random_device rd;
-    std::seed_seq seq{rd(), rd(), rd(), rd(), rd()};
+    // Seed the generator from R's own RNG stream so that set.seed() in R makes
+    // this simulated-annealing search reproducible. Previously it was seeded
+    // from std::random_device, which made every call return a different binning
+    // for identical input with no way to control it -- unusable for auditable
+    // credit models, and std::random_device is additionally unreliable on some
+    // MinGW toolchains. seed_from_r is drawn by the exported wrapper while R's
+    // RNG state is held, so it must not be regenerated here.
+    std::seed_seq seq{seed_from_r};
     gen.seed(seq);
-    
+
     initialize();
   }
   
@@ -769,13 +780,19 @@ Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
                    na_feature_count);
    }
    
+   // Draw the annealing seed from R's RNG stream so that set.seed() makes this
+   // function reproducible. Rcpp restores the RNG state on scope exit.
+   Rcpp::RNGScope rng_scope;
+   unsigned int seed_from_r =
+     static_cast<unsigned int>(R::unif_rand() * 4294967295.0);
+
    // Create and run the binning algorithm
    OBC_SAB binner(feature_vec, target_vec,
                                        min_bins, max_bins, bin_cutoff,
                                        max_n_prebins, bin_separator,
                                        initial_temperature, cooling_rate,
                                        max_iterations, convergence_threshold,
-                                       adaptive_cooling);
+                                       adaptive_cooling, seed_from_r);
    binner.fit();
    
    return binner.get_results();
