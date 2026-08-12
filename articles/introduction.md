@@ -273,10 +273,10 @@ summary(result_multi)
 #> 
 #> Aggregate Statistics:
 #>   Features: 7 total, 7 successful, 0 errors
-#>   Total IV: 1.5179
-#>   Mean IV: 0.2168 (SD: 0.2231)
+#>   Total IV: 1.5475
+#>   Mean IV: 0.2211 (SD: 0.2210)
 #>   Median IV: 0.1897
-#>   IV Range: [0.0018, 0.6624]
+#>   IV Range: [0.0055, 0.6624]
 #>   Mean Bins: 3.6
 #> 
 #> IV Classification (Siddiqi, 2006):
@@ -288,11 +288,11 @@ summary(result_multi)
 #>                              feature        type n_bins    total_iv
 #>  status.of.existing.checking.account categorical      4 0.662430485
 #>                       credit.history categorical      4 0.289999923
-#>                    duration.in.month   numerical      4 0.206606852
+#>                    duration.in.month   numerical      4 0.223646289
 #>            savings.account.and.bonds categorical      3 0.189741384
 #>                              purpose categorical      4 0.161473063
-#>                        credit.amount   numerical      3 0.005917450
-#>                         age.in.years   numerical      3 0.001775917
+#>                         age.in.years   numerical      3 0.014674525
+#>                        credit.amount   numerical      3 0.005511184
 #>      iv_class
 #>    Suspicious
 #>        Medium
@@ -318,7 +318,7 @@ print(head(iv_summary[, c("feature", "total_iv", "n_bins")], 5))
 #>                               feature  total_iv n_bins
 #> 4 status.of.existing.checking.account 0.6624305      4
 #> 5                      credit.history 0.2899999      4
-#> 1                   duration.in.month 0.2066069      4
+#> 1                   duration.in.month 0.2236463      4
 #> 7           savings.account.and.bonds 0.1897414      3
 #> 6                             purpose 0.1614731      4
 
@@ -345,19 +345,19 @@ print(gains)
 #> Gains Table: duration.in.month 
 #> ================================================== 
 #> 
-#> Observations: 487  |  Bins: 4
-#> Total IV: 0.4220
+#> Observations: 1000  |  Bins: 4
+#> Total IV: 0.2249
 #> 
 #> Performance Metrics:
-#>   KS Statistic: 27.55%
-#>   Gini Coefficient: 34.25%
-#>   AUC: 0.3287
+#>   KS Statistic: 15.10%
+#>   Gini Coefficient: 23.41%
+#>   AUC: 0.3830
 #> 
 #>                    bin count pos_rate     woe     iv cum_pos_pct    ks lift
-#>        (-Inf;6.000000]    50   10.00% -1.2676 0.1270        3.3% 10.0% 0.32
-#>   (7.000000;15.000000]   150   18.67% -0.6128 0.1075       22.0% 27.6% 0.32
-#>  (16.000000;36.000000]   200   36.00%  0.2731 0.0274       70.0% 17.5% 0.32
-#>       (39.000000;+Inf]    87   51.72%  0.9136 0.1602      100.0%  0.0% 0.32
+#>        (-Inf;6.000000]    82   10.98% -1.2006 0.0892        3.0%  7.4% 0.37
+#>   (7.000000;12.000000]   277   24.19% -0.2920 0.0224       25.3% 15.1% 0.37
+#>  (13.000000;30.000000]   468   30.13%  0.0062 0.0000       72.3% 14.8% 0.37
+#>       (33.000000;+Inf]   173   47.98%  0.7649 0.1133      100.0%  0.0% 0.37
 
 # Plot gains curves
 oldpar <- par(mfrow = c(2, 2))
@@ -434,10 +434,10 @@ cat("Algorithm Comparison on 'credit.amount':\n\n")
 #> Algorithm Comparison on 'credit.amount':
 print(comp_result[order(-comp_result$IV), ])
 #>   Algorithm N_Bins     IV Converged
-#> 2      mdlp      5 0.1356      TRUE
-#> 3       mob      5 0.0917      TRUE
+#> 2      mdlp      5 0.1166      TRUE
 #> 4       ewb      3 0.0735      TRUE
-#> 5        cm      3 0.0617      TRUE
+#> 5        cm      3 0.0621      TRUE
+#> 3       mob      3 0.0059      TRUE
 #> 1      jedi      3 0.0023      TRUE
 ```
 
@@ -753,36 +753,28 @@ summary(sc_binning)
 #> 
 #> Aggregate Statistics:
 #>   Features: 7 total, 7 successful, 0 errors
-#>   Total IV: 1.8858
-#>   Mean IV: 0.2694 (SD: 0.3355)
-#>   Median IV: 0.1432
-#>   IV Range: [0.0005, 0.9570]
-#>   Mean Bins: 3.7
+#>   Total IV: 2.0148
+#>   Mean IV: 0.2878 (SD: 0.3281)
+#>   Median IV: 0.2501
+#>   IV Range: [0.0109, 0.9570]
+#>   Mean Bins: 4.0
 #> 
 #> IV Classification (Siddiqi, 2006):
-#>   Unpredictive: 2 features
-#>   Weak        : 1 features
+#>   Unpredictive: 1 features
+#>   Weak        : 2 features
 #>   Medium      : 2 features
 #>   Strong      : 1 features
 #>   Suspicious  : 1 features
 #> 
 #> Feature Details:
-#>                              feature        type n_bins    total_iv
-#>  status.of.existing.checking.account categorical      4 0.956958967
-#>            savings.account.and.bonds categorical      5 0.411933550
-#>                       credit.history categorical      5 0.260486195
-#>                    duration.in.month   numerical      3 0.143223080
-#>                              purpose categorical      3 0.095403913
-#>                         age.in.years   numerical      3 0.017231668
-#>                        credit.amount   numerical      3 0.000523977
-#>      iv_class
-#>    Suspicious
-#>        Strong
-#>        Medium
-#>        Medium
-#>          Weak
-#>  Unpredictive
-#>  Unpredictive
+#>                              feature        type n_bins   total_iv     iv_class
+#>  status.of.existing.checking.account categorical      4 0.95695897   Suspicious
+#>            savings.account.and.bonds categorical      5 0.41193355       Strong
+#>                       credit.history categorical      5 0.26048619       Medium
+#>                    duration.in.month   numerical      5 0.25007921       Medium
+#>                              purpose categorical      3 0.09540391         Weak
+#>                         age.in.years   numerical      3 0.02907239         Weak
+#>                        credit.amount   numerical      3 0.01086063 Unpredictive
 ```
 
 ### Apply WoE Transformation
@@ -812,16 +804,16 @@ if (!is.null(train_woe)) {
   message("Skipping WoE transformation demonstration due to data incompatibility.")
 }
 #>    default duration.in.month_woe credit.amount_woe age.in.years_woe
-#> 1      bad             0.1024181      -0.002787588      -0.04548908
-#> 2     good             0.1024181      -0.002787588      -0.04548908
-#> 3     good             0.1024181       0.054981244      -0.04548908
-#> 4     good             0.1024181      -0.002787588      -0.04548908
-#> 5     good             0.1024181      -0.002787588      -0.04548908
-#> 6     good             0.1024181      -0.002787588      -0.04548908
-#> 7     good             0.1024181      -0.002787588       0.31220411
-#> 8     good             0.1024181       0.054981244      -0.04548908
-#> 9     good             0.1024181      -0.002787588      -0.04548908
-#> 10    good             0.1024181      -0.002787588      -0.04548908
+#> 1      bad            0.46902567       -0.02805028       0.39736192
+#> 2     good            0.09734216       -0.02805028      -0.07405762
+#> 3     good            0.09734216       -0.02805028      -0.07405762
+#> 4     good            0.91139533       -0.02805028      -0.07405762
+#> 5     good           -0.35755048       -0.02805028      -0.07405762
+#> 6     good            0.09734216       -0.02805028      -0.07405762
+#> 7     good           -0.35755048       -0.02805028       0.38771166
+#> 8     good            0.46902567        0.42912545      -0.07405762
+#> 9     good            0.09734216       -0.02805028      -0.07405762
+#> 10    good           -0.35755048       -0.02805028      -0.07405762
 ```
 
 ### Build Logistic Regression
@@ -856,15 +848,17 @@ if (!is.null(train_woe)) {
 #> 
 #> Coefficients:
 #>                                         Estimate Std. Error z value Pr(>|z|)
-#> (Intercept)                             -0.79374    0.09883  -8.031 9.65e-16
-#> duration.in.month_woe                    0.72740    0.23363   3.114 0.001849
-#> status.of.existing.checking.account_woe  0.89237    0.10413   8.570  < 2e-16
-#> credit.history_woe                       0.74937    0.19002   3.944 8.03e-05
-#> purpose_woe                              1.02008    0.30818   3.310 0.000933
-#> savings.account.and.bonds_woe            0.75047    0.19641   3.821 0.000133
+#> (Intercept)                              -0.8351     0.1015  -8.230  < 2e-16
+#> duration.in.month_woe                     1.1445     0.2132   5.369 7.92e-08
+#> age.in.years_woe                          0.7672     0.5611   1.367 0.171489
+#> status.of.existing.checking.account_woe   0.8880     0.1080   8.224  < 2e-16
+#> credit.history_woe                        0.7236     0.1944   3.722 0.000198
+#> purpose_woe                               1.1123     0.3181   3.496 0.000472
+#> savings.account.and.bonds_woe             0.7964     0.2104   3.786 0.000153
 #>                                            
 #> (Intercept)                             ***
-#> duration.in.month_woe                   ** 
+#> duration.in.month_woe                   ***
+#> age.in.years_woe                           
 #> status.of.existing.checking.account_woe ***
 #> credit.history_woe                      ***
 #> purpose_woe                             ***
@@ -875,10 +869,10 @@ if (!is.null(train_woe)) {
 #> (Dispersion parameter for binomial family taken to be 1)
 #> 
 #>     Null deviance: 860.23  on 699  degrees of freedom
-#> Residual deviance: 665.59  on 694  degrees of freedom
-#> AIC: 677.59
+#> Residual deviance: 643.11  on 693  degrees of freedom
+#> AIC: 657.11
 #> 
-#> Number of Fisher Scoring iterations: 5
+#> Number of Fisher Scoring iterations: 6
 ```
 
 ### Scorecard Validation
@@ -922,9 +916,9 @@ if (!is.null(train_woe) && exists("scorecard_glm")) {
   message("Skipping validation - model not available.")
 }
 #> Scorecard Performance:
-#>   AUC:   0.6504 
-#>   Gini:  0.3007 
-#>   KS:    29.93 %
+#>   AUC:   0.6882 
+#>   Gini:  0.3763 
+#>   KS:    31.55 %
 ```
 
 ![](introduction_files/figure-html/scorecard_validation-1.png)
@@ -1098,7 +1092,7 @@ for Retail Credit Risk Management*. Oxford University Press.
 ``` r
 
 sessionInfo()
-#> R version 4.6.0 (2026-04-24)
+#> R version 4.6.1 (2026-06-24)
 #> Platform: x86_64-pc-linux-gnu
 #> Running under: Ubuntu 24.04.4 LTS
 #> 
@@ -1121,38 +1115,38 @@ sessionInfo()
 #> other attached packages:
 #>  [1] pROC_1.19.0.1            yardstick_1.4.0          workflowsets_1.1.1      
 #>  [4] workflows_1.3.0          tune_2.1.0               tidyr_1.3.2             
-#>  [7] tailor_0.1.0             rsample_1.3.2            recipes_1.3.2           
+#>  [7] tailor_0.1.0             rsample_1.3.2            recipes_1.3.3           
 #> [10] purrr_1.2.2              parsnip_1.6.0            modeldata_1.5.1         
 #> [13] infer_1.1.0              ggplot2_4.0.3            dplyr_1.2.1             
-#> [16] dials_1.4.3              scales_1.4.0             broom_1.0.13            
-#> [19] tidymodels_1.5.0         scorecard_0.4.6          OptimalBinningWoE_1.10.0
+#> [16] dials_1.4.4              scales_1.4.0             broom_1.0.13            
+#> [19] tidymodels_1.5.0         scorecard_0.4.6          OptimalBinningWoE_1.11.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] tidyselect_1.2.1    timeDate_4052.112   farver_2.1.2       
-#>  [4] S7_0.2.2            fastmap_1.2.0       digest_0.6.39      
-#>  [7] rpart_4.1.27        timechange_0.4.0    lifecycle_1.0.5    
-#> [10] survival_3.8-6      magrittr_2.0.5      compiler_4.6.0     
-#> [13] rlang_1.2.0         sass_0.4.10         tools_4.6.0        
-#> [16] utf8_1.2.6          yaml_2.3.12         data.table_1.18.4  
-#> [19] knitr_1.51          labeling_0.4.3      xml2_1.5.2         
-#> [22] DiceDesign_1.10     RColorBrewer_1.1-3  withr_3.0.2        
-#> [25] desc_1.4.3          nnet_7.3-20         grid_4.6.0         
-#> [28] sparsevctrs_0.3.6   future_1.70.0       globals_0.19.1     
-#> [31] iterators_1.0.14    MASS_7.3-65         cli_3.6.6          
-#> [34] rmarkdown_2.31      ragg_1.5.2          generics_0.1.4     
-#> [37] rstudioapi_0.18.0   future.apply_1.20.2 cachem_1.1.0       
-#> [40] splines_4.6.0       parallel_4.6.0      vctrs_0.7.3        
-#> [43] hardhat_1.4.3       Matrix_1.7-5        jsonlite_2.0.0     
-#> [46] listenv_0.10.1      systemfonts_1.3.2   foreach_1.5.2      
-#> [49] gower_1.0.2         jquerylib_0.1.4     glue_1.8.1         
-#> [52] parallelly_1.47.0   pkgdown_2.2.0       codetools_0.2-20   
-#> [55] lubridate_1.9.5     stringi_1.8.7       gtable_0.3.6       
-#> [58] tibble_3.3.1        furrr_0.4.0         xefun_0.1.5        
-#> [61] pillar_1.11.1       htmltools_0.5.9     ipred_0.9-15       
-#> [64] lava_1.9.1          R6_2.6.1            textshaping_1.0.5  
-#> [67] doParallel_1.0.17   evaluate_1.0.5      lattice_0.22-9     
-#> [70] backports_1.5.1     openxlsx_4.2.8.1    bslib_0.11.0       
-#> [73] class_7.3-23        Rcpp_1.1.1-1.1      zip_2.3.3          
-#> [76] gridExtra_2.3       prodlim_2026.03.11  xfun_0.57          
-#> [79] fs_2.1.0            pkgconfig_2.0.3
+#>  [1] gridExtra_2.3.1     rlang_1.3.0         magrittr_2.0.5     
+#>  [4] furrr_0.4.0         otel_0.2.0          compiler_4.6.1     
+#>  [7] systemfonts_1.3.2   vctrs_0.7.3         pkgconfig_2.0.3    
+#> [10] fastmap_1.2.0       backports_1.5.1     labeling_0.4.3     
+#> [13] utf8_1.2.6          rmarkdown_2.31      prodlim_2026.03.11 
+#> [16] ragg_1.5.2          xfun_0.60           cachem_1.1.0       
+#> [19] jsonlite_2.0.0      parallel_4.6.1      R6_2.6.1           
+#> [22] bslib_0.12.0        stringi_1.8.9       RColorBrewer_1.1-3 
+#> [25] parallelly_1.48.0   rpart_4.1.27        lubridate_1.9.5    
+#> [28] jquerylib_0.1.4     Rcpp_1.1.2          iterators_1.0.14   
+#> [31] knitr_1.51          future.apply_1.20.2 Matrix_1.7-5       
+#> [34] splines_4.6.1       nnet_7.3-20         timechange_0.4.0   
+#> [37] tidyselect_1.2.1    rstudioapi_0.19.0   yaml_2.3.12        
+#> [40] timeDate_4052.112   doParallel_1.0.17   codetools_0.2-20   
+#> [43] listenv_1.0.0       lattice_0.22-9      tibble_3.3.1       
+#> [46] withr_3.0.3         S7_0.2.2            evaluate_1.0.5     
+#> [49] future_1.75.0       desc_1.4.3          survival_3.8-6     
+#> [52] zip_3.0.2           xml2_1.6.0          pillar_1.11.1      
+#> [55] foreach_1.5.2       generics_0.1.4      globals_0.19.1     
+#> [58] class_7.3-23        glue_1.8.1          tools_4.6.1        
+#> [61] data.table_1.18.4   openxlsx_4.2.8.1    gower_1.0.2        
+#> [64] fs_2.1.0            grid_4.6.1          ipred_0.9-15       
+#> [67] xefun_0.1.5         cli_3.6.6           DiceDesign_1.10    
+#> [70] textshaping_1.0.5   lava_1.9.2          gtable_0.3.6       
+#> [73] sass_0.4.10         digest_0.6.39       farver_2.1.2       
+#> [76] htmltools_0.5.9     pkgdown_2.2.1       lifecycle_1.0.5    
+#> [79] hardhat_1.4.3       MASS_7.3-65         sparsevctrs_0.3.6
 ```

@@ -386,8 +386,8 @@ binning_table <- data.frame(
 )
 print(binning_table)
 #>                 Bin     WoE     IV Count EventRate
-#> 1 [-Inf;547.286049)  0.7718 0.0388   600    0.2533
-#> 2 [547.286049;+Inf) -0.0540 0.0027 11400    0.1296
+#> 1 (-Inf;547.248269]  0.7718 0.0388   600    0.2533
+#> 2 (547.248269;+Inf] -0.0540 0.0027 11400    0.1296
 
 cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
 #> 

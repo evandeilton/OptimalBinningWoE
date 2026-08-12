@@ -23,7 +23,7 @@ overfitting in noisy datasets."><meta property="og:image" content="https://evand
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -315,11 +315,11 @@ is dominated by sorting.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Inspect results</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] "[-Inf;510.556301)"       "[510.556301;540.913802)"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [3] "[540.913802;603.708101)" "[603.708101;619.014429)"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [5] "[619.014429;644.895540)" "[644.895540;667.859256)"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [7] "[667.859256;689.246870)" "[689.246870;721.529535)"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [9] "[721.529535;732.055011)" "[732.055011;+Inf)"      </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] "(-Inf;510.448911]"       "(510.448911;540.846967]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [3] "(540.846967;603.704976]" "(603.704976;619.012834]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [5] "(619.012834;644.886992]" "(644.886992;667.853713]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [7] "(667.853713;689.227359]" "(689.227359;721.516875]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [9] "(721.516875;732.048786]" "(732.048786;+Inf]"      </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  Bin <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">bin</span>,</span></span>
 <span class="r-in"><span>  WoE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>, <span class="fl">4</span><span class="op">)</span>,</span></span>
@@ -327,16 +327,16 @@ is dominated by sorting.</p>
 <span class="r-in"><span>  Count <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">count</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                        Bin     WoE     IV Count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1        [-Inf;510.556301)  0.7655 0.0371   500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  [510.556301;540.913802)  0.5656 0.0191   500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3  [540.913802;603.708101)  0.5036 0.0447  1500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4  [603.708101;619.014429)  0.3205 0.0057   500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5  [619.014429;644.895540)  0.1820 0.0035  1000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6  [644.895540;667.859256)  0.0467 0.0002  1000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7  [667.859256;689.246870) -0.2590 0.0061  1000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8  [689.246870;721.529535) -0.3791 0.0189  1500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9  [721.529535;732.055011) -0.6498 0.0169   500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10       [732.055011;+Inf) -0.7309 0.0828  2000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1        (-Inf;510.448911]  0.7655 0.0371   500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  (510.448911;540.846967]  0.5656 0.0191   500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3  (540.846967;603.704976]  0.5036 0.0447  1500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4  (603.704976;619.012834]  0.3205 0.0057   500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5  (619.012834;644.886992]  0.1820 0.0035  1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6  (644.886992;667.853713]  0.0467 0.0002  1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7  (667.853713;689.227359] -0.2590 0.0061  1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8  (689.227359;721.516875] -0.3791 0.0189  1500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9  (721.516875;732.048786] -0.6498 0.0169   500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10       (732.048786;+Inf] -0.7309 0.0828  2000</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"\nTotal IV: %.4f\n"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -417,7 +417,7 @@ is dominated by sorting.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

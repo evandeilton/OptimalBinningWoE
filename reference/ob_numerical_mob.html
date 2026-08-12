@@ -23,7 +23,7 @@ that the final binning satisfies: \(\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -337,8 +337,8 @@ constraints.</p></div>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">binning_table</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                 Bin     WoE     IV Count EventRate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 [-Inf;547.286049)  0.7718 0.0388   600    0.2533</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 [547.286049;+Inf) -0.0540 0.0027 11400    0.1296</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 (-Inf;547.248269]  0.7718 0.0388   600    0.2533</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 (547.248269;+Inf] -0.0540 0.0027 11400    0.1296</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"\nTotal IV: %.4f\n"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -383,7 +383,7 @@ constraints.</p></div>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

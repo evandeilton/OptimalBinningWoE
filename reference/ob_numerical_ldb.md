@@ -298,7 +298,7 @@ result <- ob_numerical_ldb(
 
 # Inspect binning quality
 print(result$total_iv) # Should be > 0.1 for predictive features
-#> [1] 0.1914946
+#> [1] 0.1912603
 print(result$monotonicity) # Should indicate direction
 #> [1] "decreasing"
 
@@ -317,8 +317,8 @@ bin_mapping <- data.frame(
 )
 print(bin_mapping)
 #>                       bin        woe          iv
-#> 1       (-Inf;660.733735]  0.4827072 0.094830755
+#> 1       (-Inf;660.733735]  0.4823607 0.094709827
 #> 2 (660.733735;726.780204] -0.1320751 0.005514779
-#> 3       (726.780204;+Inf] -0.5891944 0.091149091
+#> 3       (726.780204;+Inf] -0.5888786 0.091035700
 # }
 ```

@@ -258,9 +258,9 @@ print(data.frame(
   IV = round(result$iv, 4)
 ))
 #>   Bin Count     WoE     IV
-#> 1   1   198 -1.1237 0.4490
+#> 1   1   199 -1.1027 0.4361
 #> 2   2    24  0.0391 0.0001
-#> 3   3   278  0.7424 0.2952
+#> 3   3   277  0.7370 0.2900
 
 # Example 2: Comparing different sketch_k values
 set.seed(456)
@@ -271,8 +271,8 @@ result_k50 <- ob_numerical_sketch(x, y, sketch_k = 50)
 result_k200 <- ob_numerical_sketch(x, y, sketch_k = 200)
 
 cat("K=50 IV:", sum(result_k50$iv), "\n")
-#> K=50 IV: 0.0100206 
+#> K=50 IV: 0.0126231 
 cat("K=200 IV:", sum(result_k200$iv), "\n")
-#> K=200 IV: 0.006318715 
+#> K=200 IV: 0.008483146 
 # }
 ```

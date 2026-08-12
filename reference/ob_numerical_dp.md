@@ -168,5 +168,5 @@ result <- ob_numerical_dp(feature, target,
 print(result$bin)
 #> [1] "(-Inf;89.189612]"      "(89.189612;95.310121]" "(95.310121;+Inf]"     
 print(result$woe) # Should be strictly decreasing
-#> [1] -0.05783551  0.64413073  0.53267052
+#> [1] -0.05608978  0.53267052  0.61837237
 ```

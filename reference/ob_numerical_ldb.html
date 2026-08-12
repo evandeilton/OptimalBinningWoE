@@ -13,7 +13,7 @@ and Information Value (IV) for binary classification tasks."><meta property="og:
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -280,7 +280,7 @@ feature values and credit risk.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Inspect binning quality</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span> <span class="co"># Should be &gt; 0.1 for predictive features</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1914946</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1912603</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">monotonicity</span><span class="op">)</span> <span class="co"># Should indicate direction</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "decreasing"</span>
 <span class="r-in"><span></span></span>
@@ -299,9 +299,9 @@ feature values and credit risk.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">bin_mapping</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                       bin        woe          iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1       (-Inf;660.733735]  0.4827072 0.094830755</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       (-Inf;660.733735]  0.4823607 0.094709827</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2 (660.733735;726.780204] -0.1320751 0.005514779</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3       (726.780204;+Inf] -0.5891944 0.091149091</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3       (726.780204;+Inf] -0.5888786 0.091035700</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
@@ -315,7 +315,7 @@ feature values and credit risk.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

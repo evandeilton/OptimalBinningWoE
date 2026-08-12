@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,6 +35,63 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.11.0" id="optimalbinningwoe-1110">OptimalBinningWoE 1.11.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1110"></a></h2>
+<div class="section level3">
+<h3 id="c-engine--runtime-audit-1-11-0">C++ Engine — Runtime Audit (2026-08-12)<a class="anchor" aria-label="anchor" href="#c-engine--runtime-audit-1-11-0"></a></h3>
+<p>Follow-up to the 1.10.0 static audit, this time driven by instrumented builds (<code>-fsanitize=address,undefined</code>), a degenerate-input stress harness, and a golden-output regression suite covering all 37 exported algorithms (~3,200 result comparisons). All fixes below are covered by new tests in <code>tests/testthat/test-regression-audit.R</code>, each of which fails on 1.10.0.</p>
+<div class="section level4">
+<h4 id="bug-fixes--crashes-and-hangs-1-11-0">Bug Fixes — crashes and hangs<a class="anchor" aria-label="anchor" href="#bug-fixes--crashes-and-hangs-1-11-0"></a></h4>
+<ul><li><p><strong><code>ob_categorical_ivb</code> crashed the R session</strong> (segmentation fault, not a catchable error) for <strong>any feature with no more categories than <code>max_bins</code></strong> — with the default <code>max_bins = 5</code> this meant every 2-, 3-, 4- or 5-level predictor, i.e. sex, marital status, region, education. In <code>perform_binning()</code> the <code>ncat &lt;= max_bins</code> fast path skipped <code>initialize_dp_structures()</code>, the only place <code>stats_cache</code> was created, while result assembly dereferenced it unconditionally. The cache is now built before the branch.</p></li>
+<li><p><strong><code>ob_numerical_ir</code>, <code>ob_numerical_jedi</code>, <code>ob_numerical_jedi_mwoe</code> hung forever</strong> whenever <code>min_bins</code> exceeded the number of distinct feature values — a routine situation when one <code>min_bins</code> is applied across a whole feature set. The “ensure at least <code>min_bins</code>” loops called a split routine that silently declines to split unbounded intervals (and, in JEDI, ran before counts existed, so it always targeted the unsplittable <code>(-Inf, e1]</code> bin), making no progress and never terminating. Since these loops contained no <code>R_CheckUserInterrupt()</code>, the hang could not even be interrupted with Ctrl-C. The loops now consider only splittable bins and stop as soon as no progress is possible.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="reproducibility-1-11-0">Reproducibility<a class="anchor" aria-label="anchor" href="#reproducibility-1-11-0"></a></h4>
+<ul><li>
+<strong><code>ob_categorical_sab</code> is now reproducible under <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>.</strong> It was seeded from <code>std::random_device</code>, so identical input returned a different binning on every call with no way to control it — unusable for auditable or regulated models, and unreliable on some MinGW toolchains. The simulated-annealing search is now seeded from R’s own RNG stream. <strong>This changes <code>ob_categorical_sab</code> results</strong>, which were previously random and therefore had no stable baseline to preserve.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="output-consistency-1-11-0">Output consistency<a class="anchor" aria-label="anchor" href="#output-consistency-1-11-0"></a></h4>
+<ul><li><p><strong><code>ob_numerical_sketch</code> now returns the <code>bin</code> label field</strong> (plus <code>total_iv</code>) like every other numerical algorithm. Its absence broke generic consumers, including this package’s own test helper. <code>bin_lower</code> and <code>bin_upper</code> are retained, so the change is purely additive; no numeric output changed.</p></li>
+<li><p>The <code>ob_numerical_sketch</code> test disabled since 1.0.7 for a segfault has been <strong>re-enabled</strong>: the underlying <code>MergeCache</code> defect was removed in an earlier round, and the case was re-verified clean under <code>-fsanitize=address,undefined</code> at n = 500/1000/2000/5000.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="parallelism-obcorr--cran-policy-and-determinism-1-11-0">Parallelism (<code>obcorr</code>) — CRAN policy and determinism<a class="anchor" aria-label="anchor" href="#parallelism-obcorr--cran-policy-and-determinism-1-11-0"></a></h4>
+<ul><li><p><strong><code><a href="../reference/obcorr.html">obcorr()</a></code> no longer seizes every core.</strong> With the default <code>threads = 0</code> it called <code>omp_set_num_threads(std::thread::hardware_concurrency())</code>, taking all available cores. CRAN Repository Policy requires a package never to use more than two cores simultaneously by default, since the check farm is a shared resource; this was an archival risk. The default is now at most 2 threads, honouring any lower limit already set through <code>OMP_NUM_THREADS</code>, and capped by <code>omp_get_num_procs()</code>. An explicit positive <code>threads</code> is still respected.</p></li>
+<li><p><strong><code><a href="../reference/obcorr.html">obcorr()</a></code> returned its rows in a non-deterministic order.</strong> Per-thread result buffers were spliced together inside an <code>omp critical</code> block, so the row order depended on thread scheduling — two runs on the same data with the same thread count could return the pairs in different orders. Any caller using <code><a href="https://rdrr.io/r/utils/head.html" class="external-link">head()</a></code>, positional indexing, or a positional join saw different numbers between runs. Each iteration now writes to its own slot in a pre-sized vector, which is deterministic, independent of the thread count, and removes the critical section. Correlation <em>values</em> are unchanged; only the row order is now stable.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="build-hygiene-1-11-0">Build hygiene<a class="anchor" aria-label="anchor" href="#build-hygiene-1-11-0"></a></h4>
+<ul><li>Removed eight stale Dropbox conflict copies (<code>*Cópia em conflito*.cpp/.h</code>) from <code>src/</code>. <code>R CMD build</code> would have shipped and compiled them, producing duplicate symbols. Guards added to <code>.gitignore</code> and <code>.Rbuildignore</code>.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="interval-convention--standardised-on-a-b-changes-numeric-output-1-11-0">Interval convention — standardised on <code>(a, b]</code> (changes numeric output)<a class="anchor" aria-label="anchor" href="#interval-convention--standardised-on-a-b-changes-numeric-output-1-11-0"></a></h4>
+<p>The package previously disagreed with itself about what a bin <em>is</em>. Bin labels advertised <code>(a;b]</code>, but many algorithms assigned observations as <code>[a;b)</code>; <code><a href="../reference/ob_apply_woe_num.html">ob_apply_woe_num()</a></code> had its two binary searches swapped, so <em>both</em> settings of <code>include_upper_bound</code> did the opposite of what the argument documents; and several equal-frequency pre-binners split runs of tied values, so their reported counts could not be derived from their own reported cutpoints under any convention. A value landing exactly on a cutpoint — routine for integer, rounded or currency features — could be scored into a different bin than the one it was trained in.</p>
+<p>Measured across 63 algorithm/dataset combinations, <strong>31 violated the documented <code>(a, b]</code> convention before this release; 0 do now.</strong></p>
+<ul><li>
+<code><a href="../reference/ob_apply_woe_num.html">ob_apply_woe_num()</a></code>: <code>include_upper_bound = TRUE</code> now really means <code>(a, b]</code> (<code>lower_bound</code> search) and <code>FALSE</code> really means <code>[a, b)</code> (<code>upper_bound</code>). The two were previously exchanged.</li>
+<li>
+<code>ob_numerical_dp</code>, <code>_fetb</code>, <code>_ldb</code>, <code>_oslp</code>: bin lookup switched from <code>upper_bound</code> to <code>lower_bound</code>, so boundary values stay in the bin below.</li>
+<li>
+<code>ob_numerical_bb</code>, <code>_dmiv</code>: dropped an <code>+ EPSILON</code> added to the search key, which silently turned the documented <code>upper &gt;= value</code> test into a strict one.</li>
+<li>
+<code>ob_numerical_sketch</code>: interval test changed from <code>[lower, upper)</code> to <code>(lower, upper]</code> (first bin remains closed on the left, so the minimum is included).</li>
+<li>
+<code>ob_numerical_mob</code>, <code>_mdlp</code>, <code>_mrblp</code>: equal-frequency pre-binning is now tie-aware — a run of identical values is never split across two pre-bins — and boundaries are the last value <em>in</em> the bin rather than the first value of the next. Their labels changed from <code>[a;b)</code> to <code>(a;b]</code> to match.</li>
+<li>
+<code>ob_numerical_fast_mdlp</code>: the <code>force_min_bins()</code> fallback picked a split at a raw index midpoint, which could land inside a run of tied observations. It now moves the split to a genuine value boundary, as the MDL recursion already did.</li>
+</ul><p><strong><code>ob_numerical_cm</code> silently discarded observations.</strong> Its equal-frequency pre-binner, on hitting a tie that straddled a bin boundary, advanced past the tied records without ever assigning them to a bin. On tied or discrete features this dropped a large share of the data — 26% on an integer feature and 40% on a coarse one in testing — and the reported WoE/IV were computed from the surviving subset. The tied records are now absorbed into the preceding bin.</p>
+</div>
+<div class="section level4">
+<h4 id="known-issues-not-yet-fixed-1-11-0">Known issues (not yet fixed)<a class="anchor" aria-label="anchor" href="#known-issues-not-yet-fixed-1-11-0"></a></h4>
+<ul><li>
+<code>ob_categorical_dp</code> and <code>ob_categorical_fetb</code> report <code>WoE = IV = 0</code> for perfectly separating bins instead of applying smoothing.</li>
+<li>Return fields are not uniform across algorithms: <code>event_rate</code> is present in only 13 of 37, <code>total_iv</code> in 28 of 37, and <code>iv</code> is missing from both <code>_dmiv</code> variants.</li>
+<li>
+<code><a href="../reference/ob_apply_woe_num.html">ob_apply_woe_num()</a></code> does not support the multinomial <code>*_jedi_mwoe</code> variants, whose output carries per-class counts rather than <code>count_pos</code> / <code>count_neg</code>.</li>
+</ul></div>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.10.0" id="optimalbinningwoe-1100">OptimalBinningWoE 1.10.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1100"></a></h2>
 <div class="section level3">
@@ -296,7 +353,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>
