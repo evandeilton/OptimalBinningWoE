@@ -1,3 +1,145 @@
+# OptimalBinningWoE 1.12.0
+
+## New features (2026-08-19)
+
+Two additions close the gap between a fitted binning and a deployed scorecard:
+deciding which variables deserve to enter the model, and shipping the accepted
+transformation to the database where the data lives.
+
+### `obwoe_select()` — automated variable screening
+
+Screens every binned variable of an `obwoe` model against the two criteria that
+govern variable admission in credit risk practice — **predictive strength**,
+graded with the Siddiqi (2006) Information Value bands, and **guaranteed rank
+ordering**, measured by monotonicity of the bin event rate — and returns a
+verdict for each.
+
+*   **Nothing is ever dropped.** A base with 500 candidate variables yields 500
+    rows. Each carries a `selected` flag, a machine-readable `reason` listing
+    *every* rule it violated, and a `reason_desc` in plain language, so the
+    automatic verdict can be reviewed, overridden, or replaced by the analyst's
+    own triage.
+
+*   **Two levels of detail.** `detail = "summary"` gives one row per variable
+    with its headline metrics; `detail = "full"` expands to one row per variable
+    *and* optimised bin, carrying the complete gains table of
+    `ob_gains_table()` (31 metrics: WoE, IV, lift, cumulative KS, precision,
+    recall, F1, KL and JS divergence, ...) together with the interval bounds of
+    numerical bins and the merged category lists of categorical ones.
+
+*   **Metrics that describe the deployed score.** `ks`, `auc` and `gini` are
+    computed on the WoE actually applied to the data, with bins ranked by that
+    WoE and merged when tied. `auc` uses the tie-corrected Mann-Whitney form,
+    which reproduces the rank-based AUC of the WoE-transformed observations to
+    machine precision. `ks` is therefore the true KS of the transformed
+    variable even when the binning is not monotonic.
+
+*   **An honest treatment of ordering.** For numerical variables the bin
+    sequence is intrinsic, so monotonicity is a genuine constraint. For nominal
+    categories the sequence is a free relabelling, so the default
+    `require_monotonic = "numeric"` applies the constraint only where it means
+    something; `"all"` and `"none"` are available.
+
+*   **Rejects suspicious variables by default.** `iv_max = 0.50` excludes the
+    Siddiqi *Suspicious* band, where a single-variable IV is far more often a
+    symptom of target leakage than of a dominant predictor. On the Statlog
+    German Credit benchmark this is exactly what happens to the
+    checking-account status (IV = 0.67).
+
+*   Further gates for `min_bins`, `max_bins`, minimum bin population share,
+    bins with no events or no non-events, and a `top_n` cut by IV, KS, Gini or
+    AUC. An `Excellent`/`Good`/`Fair`/`Rejected` quality tier summarises how
+    cleanly the algorithm categorised each variable.
+
+*   Returns a `data.table` when that package is installed and an identical
+    `data.frame` otherwise; the table is assembled column-wise in a single
+    pass, so 500 variables are screened in about a second.
+
+### `obwoe_sql()` — SQL code generation
+
+Translates a fitted binning into executable SQL, so the WoE transformation runs
+inside the database with no round trip through R.
+
+*   **Exact interval semantics.** Numerical bins are half-open on the right,
+    `(lower, upper]`, exactly as `obwoe_apply()` assigns them. Boundaries come
+    from the fitted `cutpoints` vector, never parsed back from bin labels,
+    whose formatting varies between algorithms. By default each branch states
+    both of its bounds (`WHEN x > 7 AND x <= 10 THEN ...`) so it is correct in
+    isolation; `explicit_bounds = FALSE` emits the shorter cascading form.
+
+*   **Cut points that survive the round trip.** Literals are written as the
+    shortest fixed-notation decimal that parses back to the identical IEEE 754
+    double, and never in scientific notation. Rounding a boundary such as
+    `4049.5` would silently move observations between bins, so exactness is the
+    default; `digits` makes rounding an explicit choice.
+
+*   **NULL cannot leak.** In SQL, `NULL <= 5` is `NULL`, not `FALSE`, so a
+    missing value matches no comparison and would fall through to `ELSE`. Every
+    generated expression opens with an explicit `WHEN <col> IS NULL` branch,
+    and when the binner folded training missings into a category bin,
+    `null_to_na_bin = TRUE` routes database `NULL`s to that same bin.
+
+*   **Escaping that holds.** Single quotes are doubled per ANSI SQL; on MySQL,
+    MariaDB and the Hive family backslashes are doubled too. Category names are
+    matched byte for byte, whitespace included. Identifiers are quoted with the
+    dialect's own delimiters and, by default, only when the name needs it or
+    collides with a reserved word — which keeps generated code readable on
+    case-folding engines such as Oracle and Snowflake.
+
+*   14 dialects (`ansi`, `postgres`, `mysql`, `mariadb`, `sqlserver`, `oracle`,
+    `spark`, `hive`, `databricks`, `bigquery`, `snowflake`, `redshift`,
+    `duckdb`, `sqlite`), four assembly styles (`select`, `case`, `cte`,
+    `view`), four output modes (`woe`, `bin`, `index`, `both`), an audit header
+    recording package version and algorithm, and direct file output.
+
+*   Accepts an `obwoe` object, a prepped `step_obwoe()` step, or a prepped
+    recipe containing one, and composes with `obwoe_select()` through
+    `features = sel$feature[sel$selected]`.
+
+### Validation
+
+*   **Real benchmark data is bundled.** `inst/extdata/germancredit.csv.gz`
+    holds the Statlog (German Credit) dataset from the UCI Machine Learning
+    Repository (1000 applications, 7 numerical and 13 categorical attributes,
+    CC BY 4.0), in its labelled form — category names carrying spaces, slashes
+    and colons make it a realistic test bed for SQL escaping.
+
+*   `obwoe_select()` reproduces the **published Information Values** of that
+    benchmark to four decimals for the 14 attributes the optimiser keeps
+    ungrouped, and its IV, KS, AUC and Gini match an independent computation
+    made from the raw observations to 1e-10.
+
+*   The generated SQL is validated by **parsing and executing it**: the test
+    suite carries a small `CASE` interpreter that reads the emitted text the
+    way an engine would, and the resulting bin assignment is checked against
+    the counts the binning algorithm itself reported — across five algorithms
+    and all 20 German Credit variables. During development the same statements
+    were additionally run against a live SQLite engine, whose results were
+    identical. Edge cases covered include observations sitting exactly on a cut
+    point, cut points with no exact binary representation, magnitudes from
+    `1e-9` to `1e9`, single-bin variables, degenerate bins, reserved-word
+    column names, and categories containing quotes, backslashes, tabs,
+    accented characters and significant whitespace.
+
+## Notes
+
+*   `data.table` is used when installed, for `rbindlist()` and for the returned
+    table type, and is declared in `Suggests` only: the package has no new hard
+    dependency and behaves identically without it, as the test suite verifies.
+
+*   Known limitation, unchanged in this release: `obwoe_apply()` and
+    `bake.step_obwoe()` trim leading and trailing whitespace from category
+    names when rebuilding their lookup map, so a category such as `"  N/A  "`
+    is not matched and receives `na_woe`. `obwoe_sql()` matches such categories
+    exactly; pass `trim_categories = TRUE` if you need the generated SQL to
+    reproduce the R-side behaviour instead.
+
+*   Known limitation: `ob_numerical_ir()` reports per-bin `count_pos` and
+    `count_neg` that can disagree with its own `cutpoints` by a few
+    observations (the totals and the interval boundaries are correct). Metrics
+    derived from those counts, including `obwoe_select()`'s, inherit the
+    discrepancy for that algorithm.
+
 # OptimalBinningWoE 1.11.0
 
 ## C++ Engine — Runtime Audit (2026-08-12)

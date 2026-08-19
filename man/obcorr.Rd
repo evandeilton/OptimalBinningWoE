@@ -26,8 +26,12 @@ Possible values are:
 }}
 
 \item{threads}{An integer specifying the number of threads to use for parallel
-computation. If 0 (default), uses all available cores. Ignored if OpenMP
-is not available.}
+computation. If 0 (the default), at most 2 threads are used, honouring any
+lower limit already set via \code{OMP_NUM_THREADS}; this follows CRAN
+policy, which requires packages not to use more than two cores by default.
+Pass a positive value to request more explicitly. The number of threads
+never affects the results or their row order. Ignored if OpenMP is not
+available.}
 }
 \value{
 A data frame with the following columns:

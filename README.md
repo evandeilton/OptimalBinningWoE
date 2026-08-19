@@ -23,13 +23,15 @@ credit scoring, risk assessment, and predictive modeling applications.
 
 ### Why OptimalBinningWoE?
 
-| Feature | Benefit |
-|----|----|
-| **36 Algorithms** | Choose the best method for your data characteristics |
-| **C++ Performance** | Process millions of records efficiently via Rcpp/RcppEigen |
-| **tidymodels Ready** | Seamless integration with modern ML pipelines |
-| **Regulatory Compliance** | Monotonic binning for Basel/IFRS 9 requirements |
-| **Production Quality** | Comprehensive testing and documentation |
+| Feature                   | Benefit                                                                                            |
+|---------------------------|----------------------------------------------------------------------------------------------------|
+| **36 Algorithms**         | Choose the best method for your data characteristics                                               |
+| **C++ Performance**       | Process millions of records efficiently via Rcpp/RcppEigen                                         |
+| **tidymodels Ready**      | Seamless integration with modern ML pipelines                                                      |
+| **Regulatory Compliance** | Monotonic binning for Basel/IFRS 9 requirements                                                    |
+| **Automated Screening**   | Rank every candidate variable by IV strength and bin ordering, with the reason behind each verdict |
+| **In-Database Scoring**   | Export the fitted binning as exact SQL `CASE` expressions for 14 dialects                          |
+| **Production Quality**    | Comprehensive testing and documentation                                                            |
 
 ## Installation
 
@@ -207,6 +209,193 @@ plot(gains, type = "lift")
 plot(gains, type = "woe_iv")
 par(mfrow = c(1, 1))
 ```
+
+## Automated Variable Selection
+
+A scorecard rarely uses every variable that was binned. `obwoe_select()`
+screens them against the two criteria that decide admission in credit
+risk practice — **predictive strength** (Information Value, graded with
+the Siddiqi bands) and **guaranteed rank ordering** (monotonicity of the
+bin event rate) — and returns a verdict for each.
+
+Nothing is ever dropped: a base with 500 candidate variables yields 500
+rows, each carrying a selection flag and the exact reason behind the
+decision, so the automatic verdict can always be reviewed or overridden.
+
+``` r
+library(OptimalBinningWoE)
+
+# The Statlog (German Credit) benchmark ships with the package
+german <- read.csv(
+  gzfile(system.file("extdata", "germancredit.csv.gz",
+                     package = "OptimalBinningWoE")),
+  stringsAsFactors = FALSE
+)
+german$default <- 1L - german$credit_risk   # 1 = bad payer (the event)
+german$credit_risk <- NULL
+
+model <- obwoe(german, target = "default", min_bins = 2, max_bins = 6)
+
+# One row per variable, with the headline metrics and the verdict
+sel <- obwoe_select(model)
+head(sel[, c("feature", "n_bins", "total_iv", "iv_class", "ks", "gini",
+             "monotonic", "quality", "selected", "reason")])
+#>           feature n_bins   total_iv iv_class        ks      gini monotonic   quality selected reason
+#> 1: credit_history      5 0.29323355   Medium 0.1804762 0.2536095      TRUE      Good     TRUE     OK
+#> 2:       duration      6 0.27274024   Medium 0.1900000 0.2664714      TRUE Excellent     TRUE     OK
+#> 3:        savings      5 0.19600956   Medium 0.1866667 0.1982571     FALSE      Fair     TRUE     OK
+#> 4:        purpose      6 0.16760048   Medium 0.1790476 0.2211429      TRUE Excellent     TRUE     OK
+#> 5:       property      4 0.11263826   Medium 0.1171429 0.1706571      TRUE Excellent     TRUE     OK
+#> 6:            age      5 0.08868427     Weak 0.1314286 0.1622476      TRUE      Fair     TRUE     OK
+#> ...
+
+# Why a variable was turned down
+head(sel[!sel$selected, c("feature", "total_iv", "reason")])
+#>           feature    total_iv        reason
+#> 1:         status 0.666011503 IV_SUSPICIOUS
+#> 2: number_credits 0.010083557  IV_BELOW_MIN
+#> 3:            job 0.008762766  IV_BELOW_MIN
+#> 4:      telephone 0.006377605  IV_BELOW_MIN
+#> ...
+```
+
+`status` (checking-account balance) is rejected even though it is the
+strongest variable in the file: an Information Value of 0.67 falls in
+the Siddiqi *Suspicious* band, where such strength is far more often a
+symptom of target leakage than of a genuinely dominant predictor. Raise
+`iv_max` to admit it deliberately.
+
+Set `detail = "full"` to get one row per variable **and** optimised bin,
+carrying the complete gains table of every variable:
+
+``` r
+detail <- obwoe_select(model, detail = "full")
+detail[detail$feature == "duration",
+       c("bin", "count", "pos_rate", "woe", "iv", "lift", "ks_bin")]
+#>                      bin count  pos_rate        woe          iv      lift     ks_bin
+#> 1:       (-Inf;7.000000]    87 0.1034483 -1.3121864 0.106849463 0.3448276 0.08142857
+#> 2:  (7.000000;10.000000]    84 0.2142857 -0.4519851 0.015496633 0.7142857 0.11571429
+#> 3: (10.000000;16.000000]   262 0.2404580 -0.3028722 0.022499081 0.8015267 0.19000000
+#> 4: (16.000000;33.000000]   397 0.3224181  0.1046167 0.004433757 1.0747271 0.14761905
+#> 5: (33.000000;39.000000]    88 0.4318182  0.5728610 0.031643751 1.4393939 0.09238095
+#> 6:      (39.000000;+Inf]    82 0.5365854  0.9939013 0.091817552 1.7886179 0.00000000
+```
+
+The screening policy is fully configurable:
+
+``` r
+obwoe_select(
+  model,
+  iv_min            = 0.02,      # drop the Unpredictive band
+  iv_max            = 0.50,      # drop the Suspicious band (leakage risk)
+  require_monotonic = "numeric", # ordering is intrinsic only for numerics
+  monotonicity      = "strict",  # no ties between adjacent bins
+  min_bin_pct       = 0.05,      # every bin holds at least 5% of the base
+  allow_degenerate  = FALSE,     # no bin without events or without non-events
+  top_n             = 15,        # keep the 15 best survivors
+  sort_by           = "ks"
+)
+```
+
+The result is a `data.table` when that package is installed and an
+identical `data.frame` otherwise. Column access (`sel$feature`,
+`sel[, c("a", "b")]`) and logical row filtering (`sel[sel$selected, ]`)
+behave the same either way; only single-argument indexing differs, as it
+always does between the two classes.
+
+## Deploying to SQL
+
+Once the variables are chosen, `obwoe_sql()` translates the fitted
+binning into executable SQL, so the WoE transformation runs where the
+data already lives.
+
+``` r
+obwoe_sql(
+  model,
+  table        = "risk.applications",
+  features     = c("duration", "purpose"),   # or sel$feature[sel$selected]
+  keep_columns = c("application_id", "default"),
+  dialect      = "postgres"
+)
+```
+
+``` sql
+-- ---------------------------------------------------------------
+-- Weight of Evidence transformation
+-- Generated by OptimalBinningWoE 1.12.0
+-- Algorithm(s): jedi
+-- Dialect: postgres
+-- Interval convention: (lower, upper]  -- upper bound inclusive
+-- Variables: 2
+--
+-- Variable                 Type          Bins        IV
+--   duration               numerical        6   0.27274
+--   purpose                categorical      6   0.16671
+-- ---------------------------------------------------------------
+SELECT
+application_id,
+"default",
+CASE
+    WHEN duration IS NULL THEN 0
+    WHEN duration <= 7 THEN -1.3121863889661687
+    WHEN duration > 7 AND duration <= 10 THEN -0.45198512374305744
+    WHEN duration > 10 AND duration <= 16 THEN -0.3028722379457563
+    WHEN duration > 16 AND duration <= 33 THEN 0.10461674470498177
+    WHEN duration > 33 AND duration <= 39 THEN 0.5728610146854435
+    WHEN duration > 39 THEN 0.993901334579079
+    ELSE 0
+END AS duration_woe,
+CASE
+    WHEN purpose IS NULL THEN 0
+    WHEN purpose IN ('business', 'car (used)') THEN -0.8019940993019
+    WHEN purpose = 'domestic appliances' THEN -0.4102018501730504
+    WHEN purpose = 'radio/television' THEN 0.09434664779110719
+    WHEN purpose IN ('others', 'repairs', 'education') THEN 0.23148312351021103
+    WHEN purpose = 'car (new)' THEN 0.357522329106064
+    WHEN purpose IN ('furniture/equipment', 'retraining') THEN 0.5824252658391619
+    ELSE 0
+END AS purpose_woe
+FROM risk.applications;
+```
+
+Points worth knowing:
+
+- **The intervals are exact.** Numerical bins are half-open on the
+  right, `(lower, upper]`, exactly as `obwoe_apply()` assigns them, and
+  the boundaries come from the fitted `cutpoints` vector rather than
+  from parsing bin labels. Cut points are written as the shortest
+  decimal that parses back to the identical `double`, so an observation
+  sitting on a boundary lands in the same bin in R and in the database.
+- **`NULL` cannot leak.** In SQL, `NULL <= 5` is `NULL`, not `FALSE`, so
+  a missing value matches no comparison and would silently fall through
+  to `ELSE`. Every expression therefore opens with an explicit `IS NULL`
+  branch.
+- **Escaping holds.** Single quotes are doubled per ANSI SQL (and
+  backslashes too on MySQL, MariaDB and the Hive family), categories are
+  matched byte for byte, and identifiers are quoted only when they need
+  it or collide with a reserved word — which is why `default` above is
+  quoted and `duration` is not.
+
+Other useful arguments:
+
+``` r
+# A view on Spark, emitting bin labels and WoE side by side
+obwoe_sql(model, table = "risk.applications", output = "both",
+          style = "view", view_name = "v_woe", dialect = "spark")
+
+# Bare CASE expressions to paste into an existing query
+obwoe_sql(model, style = "case", features = "duration")
+
+# Straight to a file, rounded for readability
+obwoe_sql(model, table = "risk.applications", digits = 6,
+          file = "woe_transform.sql")
+```
+
+Dialects: `ansi` (default), `postgres`, `mysql`, `mariadb`, `sqlserver`,
+`oracle`, `spark`, `hive`, `databricks`, `bigquery`, `snowflake`,
+`redshift`, `duckdb`, `sqlite`. `obwoe_sql()` also accepts a prepped
+`step_obwoe()` recipe, so a `tidymodels` pipeline can be exported the
+same way.
 
 ## Integration with tidymodels
 
@@ -400,13 +589,13 @@ scenarios:
 
 ### Universal Algorithms (Numerical & Categorical)
 
-| Algorithm | Function | Best For |
-|----|----|----|
-| **JEDI** | `ob_numerical_jedi()` | General purpose, balanced performance |
-| **MOB** | `ob_numerical_mob()` | Regulatory compliance (monotonic) |
-| **ChiMerge** | `ob_numerical_cm()` | Statistical significance-based merging |
-| **DP** | `ob_numerical_dp()` | Optimal partitioning with constraints |
-| **Sketch** | `ob_numerical_sketch()` | Large-scale / streaming data |
+| Algorithm    | Function                | Best For                               |
+|--------------|-------------------------|----------------------------------------|
+| **JEDI**     | `ob_numerical_jedi()`   | General purpose, balanced performance  |
+| **MOB**      | `ob_numerical_mob()`    | Regulatory compliance (monotonic)      |
+| **ChiMerge** | `ob_numerical_cm()`     | Statistical significance-based merging |
+| **DP**       | `ob_numerical_dp()`     | Optimal partitioning with constraints  |
+| **Sketch**   | `ob_numerical_sketch()` | Large-scale / streaming data           |
 
 ### Numerical-Only Algorithms (20)
 
@@ -419,9 +608,7 @@ scenarios:
 | **KMB**   | `ob_numerical_kmb()`  | K-means clustering approach              |
 
 <details>
-
 <summary>
-
 <strong>View all 20 numerical algorithms</strong>
 </summary>
 
@@ -461,9 +648,7 @@ scenarios:
 | **SAB**   | `ob_categorical_sab()`  | Simulated annealing       |
 
 <details>
-
 <summary>
-
 <strong>View all 16 categorical algorithms</strong>
 </summary>
 
@@ -490,26 +675,28 @@ scenarios:
 
 ## Algorithm Selection Guide
 
-| Use Case | Recommended | Rationale |
-|----|----|----|
-| **General Credit Scoring** | `jedi`, `mob` | Best balance of speed and predictive power |
-| **Regulatory Compliance** | `mob`, `mblp`, `ir` | Guaranteed monotonic WoE patterns |
-| **Large Datasets (\>1M rows)** | `sketch`, `ewb` | Sublinear memory, single-pass |
-| **High Cardinality Categorical** | `sblp`, `gmb`, `ivb` | Intelligent category grouping |
-| **Interpretability Focus** | `dp`, `mdlp` | Clear, explainable bins |
-| **Multi-class Targets** | `jedi_mwoe` | Multinomial WoE support |
+| Use Case                         | Recommended          | Rationale                                  |
+|----------------------------------|----------------------|--------------------------------------------|
+| **General Credit Scoring**       | `jedi`, `mob`        | Best balance of speed and predictive power |
+| **Regulatory Compliance**        | `mob`, `mblp`, `ir`  | Guaranteed monotonic WoE patterns          |
+| **Large Datasets (\>1M rows)**   | `sketch`, `ewb`      | Sublinear memory, single-pass              |
+| **High Cardinality Categorical** | `sblp`, `gmb`, `ivb` | Intelligent category grouping              |
+| **Interpretability Focus**       | `dp`, `mdlp`         | Clear, explainable bins                    |
+| **Multi-class Targets**          | `jedi_mwoe`          | Multinomial WoE support                    |
 
 ## Key Functions
 
-| Function             | Purpose                                    |
-|----------------------|--------------------------------------------|
-| `obwoe()`            | Main interface for optimal binning and WoE |
-| `obwoe_apply()`      | Apply learned binning to new data          |
-| `obwoe_gains()`      | Compute gains table with KS, Gini, lift    |
-| `step_obwoe()`       | tidymodels recipe step                     |
-| `ob_preprocess()`    | Data preprocessing with outlier handling   |
-| `obwoe_algorithms()` | List all available algorithms              |
-| `control.obwoe()`    | Create control parameters                  |
+| Function             | Purpose                                          |
+|----------------------|--------------------------------------------------|
+| `obwoe()`            | Main interface for optimal binning and WoE       |
+| `obwoe_apply()`      | Apply learned binning to new data                |
+| `obwoe_gains()`      | Compute gains table with KS, Gini, lift          |
+| `obwoe_select()`     | Screen variables by IV strength and bin ordering |
+| `obwoe_sql()`        | Generate the equivalent SQL `CASE` expressions   |
+| `step_obwoe()`       | tidymodels recipe step                           |
+| `ob_preprocess()`    | Data preprocessing with outlier handling         |
+| `obwoe_algorithms()` | List all available algorithms                    |
+| `control.obwoe()`    | Create control parameters                        |
 
 ## Complete Workflow Example
 
