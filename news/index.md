@@ -1,5 +1,99 @@
 # Changelog
 
+## OptimalBinningWoE 1.13.0
+
+### New features (2026-08-20)
+
+#### `obwoe_scorecard()` — the pipeline as one artefact
+
+Runs the whole origination workflow in a single call — stratified split,
+binning, screening by Information Value and correlation, model fitting,
+PDO scaling — and returns an object that also writes itself out as an
+`.xlsx` model document. The point is not convenience: each stage records
+why it did what it did, so the workbook is reviewable evidence rather
+than a set of numbers.
+
+- **The binning sees the training rows only.** Binning is supervised:
+  cut points and WoE are both chosen against the target, so fitting them
+  on the full base before splitting leaks the hold-out into the
+  transformation. The split therefore happens first, and the binning is
+  fitted once, on the training rows, and applied everywhere else.
+  Measured on German Credit, the difference is a hold-out AUC of 0.768
+  fitted the leaky way against 0.709 fitted correctly — the leak buys
+  six points of AUC that do not exist.
+
+- **A negative WoE coefficient is a fault, not a result.** The WoE
+  already carries the direction of risk, so a negative slope means the
+  model is reversing a variable to compensate for another. Such
+  variables are dropped one at a time, worst first, and the model
+  refitted, with each removal recorded.
+
+- **The points table is fixed, not per applicant.** Points follow the
+  Siddiqi allocation,
+  `points_ij = Offset/k - Factor(beta_j WoE_ij + alpha/k)`, so a bin is
+  worth the same number of points to everyone. Rounding each bin once
+  costs at most `k/2` points against the unrounded model score; that
+  drift is measured on every sample and reported rather than hidden by
+  re-apportioning the rounding per row, which would make the same bin
+  worth different points to different applicants.
+
+- **The deployment SQL reproduces the R score exactly.** Both the WoE
+  form and the integer-points form are generated, the total computed in
+  an outer `SELECT` over a subquery — referring to a select-list alias
+  within the same `SELECT` is a MySQL extension that ANSI SQL, SQLite,
+  PostgreSQL, SQL Server and Oracle all reject. Verified against live
+  SQLite on all 1000 German Credit rows: maximum difference 0, unseen
+  categories included.
+
+- **A value in no fitted bin scores a defined fallback.** It is counted
+  and warned about, per sample and per variable, but it still produces a
+  score — both in R and in SQL, from one and the same `na_woe` figure. A
+  single unseen category cannot void an application.
+
+- **Thirteen sheets.** Model summary, scorecard, coefficients with
+  standard errors, bin statistics, screening funnel with a reason per
+  rejected variable, correlations before and after pruning, score gains,
+  PSI between samples, cut-off strategy, SQL in both forms, and a
+  reproducibility record.
+
+- **Engines are a three-function contract** — `fit`, `link`, `coef` —
+  with `glm`, the package’s own C++ L-BFGS logistic regression, and
+  `glmnet` registered, and custom engines accepted.
+  [`coef()`](https://rdrr.io/r/stats/coef.html) returning `NULL`
+  declares the model non-additive, and the pipeline then produces no
+  points table rather than fabricating one from a model that has no
+  per-variable decomposition. A missing engine package is an error by
+  default, not a silent substitution: a workbook documenting a model the
+  analyst did not ask for is worse than a call that fails.
+
+#### Supporting functions
+
+- [`obwoe_scale()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scale.md)
+  and
+  [`obwoe_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_score.md)
+  implement PDO scaling, `Factor = PDO/ln 2` and
+  `Offset = Score0 - Factor ln(Odds0)`, in both score directions.
+  Doubling the good:bad odds moves the score by exactly one PDO at every
+  point of the range.
+- [`obwoe_prune()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_prune.md)
+  removes redundant variables iteratively, dropping the worse-ranked
+  member of the strongest surviving pair and recomputing, rather than
+  resolving all pairs against the original matrix at once.
+- [`obwoe_psi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_psi.md)
+  computes the Population Stability Index between two samples, for both
+  binned and continuous inputs, using interior quantiles so that a
+  merely shifted distribution does not produce a degenerate band.
+- [`obwoe_report()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_report.md)
+  writes the workbook for an already-fitted scorecard.
+- [`predict()`](https://rdrr.io/r/stats/predict.html) methods for
+  `"score"`, `"card"`, `"link"`, `"prob"` and `"woe"`, reading only the
+  binning, the coefficients and the scaling.
+
+### Dependencies
+
+`openxlsx` and `glmnet` are added to `Suggests`. Neither is needed
+unless a workbook is written or `engine = "glmnet"` is requested.
+
 ## OptimalBinningWoE 1.12.0
 
 ### New features (2026-08-19)

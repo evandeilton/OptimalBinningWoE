@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,41 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.13.0" id="optimalbinningwoe-1130">OptimalBinningWoE 1.13.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1130"></a></h2>
+<div class="section level3">
+<h3 id="new-features-1-13-0">New features (2026-08-20)<a class="anchor" aria-label="anchor" href="#new-features-1-13-0"></a></h3>
+<div class="section level4">
+<h4 id="obwoe_scorecard--the-pipeline-as-one-artefact-1-13-0">
+<code>obwoe_scorecard()</code> — the pipeline as one artefact<a class="anchor" aria-label="anchor" href="#obwoe_scorecard--the-pipeline-as-one-artefact-1-13-0"></a></h4>
+<p>Runs the whole origination workflow in a single call — stratified split, binning, screening by Information Value and correlation, model fitting, PDO scaling — and returns an object that also writes itself out as an <code>.xlsx</code> model document. The point is not convenience: each stage records why it did what it did, so the workbook is reviewable evidence rather than a set of numbers.</p>
+<ul><li><p><strong>The binning sees the training rows only.</strong> Binning is supervised: cut points and WoE are both chosen against the target, so fitting them on the full base before splitting leaks the hold-out into the transformation. The split therefore happens first, and the binning is fitted once, on the training rows, and applied everywhere else. Measured on German Credit, the difference is a hold-out AUC of 0.768 fitted the leaky way against 0.709 fitted correctly — the leak buys six points of AUC that do not exist.</p></li>
+<li><p><strong>A negative WoE coefficient is a fault, not a result.</strong> The WoE already carries the direction of risk, so a negative slope means the model is reversing a variable to compensate for another. Such variables are dropped one at a time, worst first, and the model refitted, with each removal recorded.</p></li>
+<li><p><strong>The points table is fixed, not per applicant.</strong> Points follow the Siddiqi allocation, <code>points_ij = Offset/k - Factor(beta_j WoE_ij + alpha/k)</code>, so a bin is worth the same number of points to everyone. Rounding each bin once costs at most <code>k/2</code> points against the unrounded model score; that drift is measured on every sample and reported rather than hidden by re-apportioning the rounding per row, which would make the same bin worth different points to different applicants.</p></li>
+<li><p><strong>The deployment SQL reproduces the R score exactly.</strong> Both the WoE form and the integer-points form are generated, the total computed in an outer <code>SELECT</code> over a subquery — referring to a select-list alias within the same <code>SELECT</code> is a MySQL extension that ANSI SQL, SQLite, PostgreSQL, SQL Server and Oracle all reject. Verified against live SQLite on all 1000 German Credit rows: maximum difference 0, unseen categories included.</p></li>
+<li><p><strong>A value in no fitted bin scores a defined fallback.</strong> It is counted and warned about, per sample and per variable, but it still produces a score — both in R and in SQL, from one and the same <code>na_woe</code> figure. A single unseen category cannot void an application.</p></li>
+<li><p><strong>Thirteen sheets.</strong> Model summary, scorecard, coefficients with standard errors, bin statistics, screening funnel with a reason per rejected variable, correlations before and after pruning, score gains, PSI between samples, cut-off strategy, SQL in both forms, and a reproducibility record.</p></li>
+<li><p><strong>Engines are a three-function contract</strong> — <code>fit</code>, <code>link</code>, <code>coef</code> — with <code>glm</code>, the package’s own C++ L-BFGS logistic regression, and <code>glmnet</code> registered, and custom engines accepted. <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code> returning <code>NULL</code> declares the model non-additive, and the pipeline then produces no points table rather than fabricating one from a model that has no per-variable decomposition. A missing engine package is an error by default, not a silent substitution: a workbook documenting a model the analyst did not ask for is worse than a call that fails.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="supporting-functions-1-13-0">Supporting functions<a class="anchor" aria-label="anchor" href="#supporting-functions-1-13-0"></a></h4>
+<ul><li>
+<code><a href="../reference/obwoe_scale.html">obwoe_scale()</a></code> and <code><a href="../reference/obwoe_score.html">obwoe_score()</a></code> implement PDO scaling, <code>Factor = PDO/ln 2</code> and <code>Offset = Score0 - Factor ln(Odds0)</code>, in both score directions. Doubling the good:bad odds moves the score by exactly one PDO at every point of the range.</li>
+<li>
+<code><a href="../reference/obwoe_prune.html">obwoe_prune()</a></code> removes redundant variables iteratively, dropping the worse-ranked member of the strongest surviving pair and recomputing, rather than resolving all pairs against the original matrix at once.</li>
+<li>
+<code><a href="../reference/obwoe_psi.html">obwoe_psi()</a></code> computes the Population Stability Index between two samples, for both binned and continuous inputs, using interior quantiles so that a merely shifted distribution does not produce a degenerate band.</li>
+<li>
+<code><a href="../reference/obwoe_report.html">obwoe_report()</a></code> writes the workbook for an already-fitted scorecard.</li>
+<li>
+<code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> methods for <code>"score"</code>, <code>"card"</code>, <code>"link"</code>, <code>"prob"</code> and <code>"woe"</code>, reading only the binning, the coefficients and the scaling.</li>
+</ul></div>
+</div>
+<div class="section level3">
+<h3 id="dependencies-1-13-0">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies-1-13-0"></a></h3>
+<p><code>openxlsx</code> and <code>glmnet</code> are added to <code>Suggests</code>. Neither is needed unless a workbook is written or <code>engine = "glmnet"</code> is requested.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.12.0" id="optimalbinningwoe-1120">OptimalBinningWoE 1.12.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1120"></a></h2>
 <div class="section level3">

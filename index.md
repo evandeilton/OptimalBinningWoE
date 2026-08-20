@@ -121,6 +121,44 @@ exactly; cut points are written at full round-trip precision; and every
 expression opens with an explicit `IS NULL` branch, because `NULL <= 5`
 is `NULL` in SQL, not `FALSE`.
 
+## The whole pipeline in one call
+
+[`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md)
+runs the four steps above end to end — split, bin, screen by IV and
+correlation, fit, scale to points — and writes the result as an `.xlsx`
+model document.
+
+``` r
+
+card <- obwoe_scorecard(
+  german,
+  target = "default",
+  split  = 0.7,
+  engine = "glm",
+  file   = "scorecard.xlsx"
+)
+
+card
+head(card$points[, c("variable", "bin", "woe", "points")])
+predict(card, german, type = "score")
+```
+
+The workbook holds thirteen sheets: the model summary, the scorecard
+points table, the coefficients with standard errors, the bin statistics
+of the variables that entered, the screening funnel with a reason per
+rejected variable, the correlation matrix before and after pruning,
+score gains, PSI stability between samples, a cut-off strategy table,
+the deployment SQL in both WoE and points form, and a reproducibility
+record.
+
+Three properties are enforced rather than assumed. The binning is fitted
+on the **training rows only**, so the hold-out numbers are not inflated
+by supervised leakage. A variable whose WoE coefficient comes out
+negative — the WoE already carries the direction, so a negative slope
+means the model is reversing it — is dropped and the model refitted. And
+the generated points SQL reproduces the R card score **exactly**, unseen
+categories included.
+
 ## Vignettes
 
 Two long-form articles carry the detailed documentation and worked
@@ -208,6 +246,11 @@ callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
 | [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md) | Apply a fitted binning to new data |
 | [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md) | Gains table with KS, Gini, lift and capture rates |
 | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) | Generate the equivalent SQL `CASE` expressions |
+| [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md) | Run the full pipeline and write the `.xlsx` model document |
+| [`obwoe_report()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_report.md) | Write the workbook for an existing scorecard |
+| [`obwoe_scale()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scale.md) / [`obwoe_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_score.md) | PDO scaling of log-odds to points |
+| [`obwoe_prune()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_prune.md) | Drop redundant variables by correlation in the WoE space |
+| [`obwoe_psi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_psi.md) | Population Stability Index between two samples |
 | [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) | tidymodels recipe step, tunable |
 | [`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obcorr.md) | Fast pairwise correlations for redundancy pruning |
 | [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_preprocess.md) | Missing-value and outlier handling before binning |
