@@ -377,7 +377,12 @@
   base_row$n_neg <- as.integer(n_neg)
   base_row$event_rate <- if (n_obs > 0) n_pos / n_obs else NA_real_
   base_row$total_iv <- sum(gains$iv, na.rm = TRUE)
-  base_row$iv_class <- as.character(.ob_iv_class(base_row$total_iv))
+  # [D10] Not computed here: the caller recomputes iv_class vectorized over
+  # the whole assembled summary table (summ$iv_class <- .ob_iv_class(...)),
+  # so whatever was set on this per-feature row was always discarded and
+  # recomputed anyway -- wasted work, and it also meant the intermediate
+  # column briefly held character (via as.character() here) before being
+  # overwritten with a factor.
   base_row$ks <- disc$ks
   base_row$gini <- disc$gini
   base_row$auc <- disc$auc
