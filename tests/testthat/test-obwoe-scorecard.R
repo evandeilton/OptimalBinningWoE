@@ -506,6 +506,43 @@ test_that("[C2/A-01] score and card agree on na_woe for unseen categories", {
 })
 
 
+test_that("[C3/C-06] drop_negative stops instead of returning silently when every variable is negative", {
+  # The removal loop drops exactly one variable per iteration (the worst
+  # offender) and refits. The old guard,
+  # length(features) - length(negative) < 1L, was also TRUE whenever every
+  # *remaining* variable had a negative coefficient -- not only when
+  # removing one more would empty the feature set -- so a model where every
+  # variable is negative (including the single-variable case) was returned
+  # silently, with only a warning, instead of reaching the documented
+  # stop("Every variable took a negative coefficient...").
+  set.seed(5)
+  n <- 500
+  df <- data.frame(x1 = rnorm(n), x2 = rnorm(n), target = rbinom(n, 1, 0.3))
+
+  # Deterministic mock engine: whatever the data, every slope is negative.
+  negative_engine <- list(
+    fit = function(x, y, args) list(vars = colnames(x)),
+    coef = function(object) {
+      stats::setNames(
+        c(0, rep(-1, length(object$vars))),
+        c("(Intercept)", object$vars)
+      )
+    },
+    link = function(object, x) rep(0, nrow(x)),
+    diagnostics = function(object) list(converged = TRUE)
+  )
+
+  expect_error(
+    suppressWarnings(obwoe_scorecard(df,
+      target = "target", feature = c("x1", "x2"),
+      engine = negative_engine,
+      screening = list(iv_min = 0, require_monotonic = "none")
+    )),
+    "Every variable took a negative coefficient"
+  )
+})
+
+
 test_that("the points fallback follows na_woe", {
   skip_if_no_german()
   df <- german_credit()

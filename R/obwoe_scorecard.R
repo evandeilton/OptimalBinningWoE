@@ -781,8 +781,15 @@ obwoe_scorecard <- function(data,
     # On WoE predictors every slope should be positive: a WoE of +1 is one more
     # log-odds of risk. A negative one means the variable is fighting the model.
     negative <- names(slopes)[slopes < 0]
-    if (length(negative) == 0L || !control$drop_negative ||
-      length(features) - length(negative) < 1L) {
+    # [C-06] The removal loop below drops exactly ONE variable per
+    # iteration (the worst offender) and refits, so the only case that
+    # should stop the loop early with a warning (instead of removing) is
+    # "no negative coefficients left" or "the caller disabled dropping".
+    # The previous extra clause, length(features) - length(negative) < 1L,
+    # is also TRUE whenever every remaining variable has a negative
+    # coefficient -- including the single-variable case -- so it silently
+    # kept a model that should instead have gone on to stop() below.
+    if (length(negative) == 0L || !control$drop_negative) {
       if (length(negative) > 0L) {
         add_warning(sprintf(
           paste(
