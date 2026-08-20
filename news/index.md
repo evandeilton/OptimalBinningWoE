@@ -1,5 +1,38 @@
 # Changelog
 
+## OptimalBinningWoE 1.13.2
+
+### The fitted object now records how it was fitted
+
+- **[`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md)
+  returns the `control` it used**, alongside the effective `min_bins`,
+  `max_bins` and `algorithm`. `call` was never a substitute: it records
+  only the arguments the caller typed, never the defaults that actually
+  applied, so a saved model could not say what produced it.
+
+- **A custom `bin_separator` now works end to end.** Everything that has
+  to split grouped categories out of a bin label reads the separator
+  from the model instead of assuming the package default:
+  [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md),
+  the points table, the points SQL and the WoE SQL emitted into the
+  workbook.
+
+  This was a silent corruption, not a cosmetic gap. Fitting with
+  `control.obwoe(bin_separator = "||")` and applying the model back to
+  its own training data put **754 of 900 rows** on the `na_woe`
+  fallback, because the labels were split on `"%;%"` and never matched.
+  The generated SQL was worse: `a||e||c` came out as
+  `g IN ('a', '|', '|', 'e', '|', '|', 'c')` – broken SQL, no warning.
+  Both are exact now.
+
+- **Models saved by earlier versions keep working.** They carry no
+  `control` element, so the separator falls back to the package default
+  rather than erroring on a missing field.
+
+Nothing changes for the default configuration: `"%;%"` remains the
+default everywhere, so only the custom-separator path – which was broken
+– behaves differently.
+
 ## OptimalBinningWoE 1.13.1
 
 ### Audit fixes (2026-08-20)

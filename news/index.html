@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,19 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.13.2" id="optimalbinningwoe-1132">OptimalBinningWoE 1.13.2<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1132"></a></h2>
+<div class="section level3">
+<h3 id="the-fitted-object-now-records-how-it-was-fitted-1-13-2">The fitted object now records how it was fitted<a class="anchor" aria-label="anchor" href="#the-fitted-object-now-records-how-it-was-fitted-1-13-2"></a></h3>
+<ul><li><p><strong><code><a href="../reference/obwoe.html">obwoe()</a></code> returns the <code>control</code> it used</strong>, alongside the effective <code>min_bins</code>, <code>max_bins</code> and <code>algorithm</code>. <code>call</code> was never a substitute: it records only the arguments the caller typed, never the defaults that actually applied, so a saved model could not say what produced it.</p></li>
+<li>
+<p><strong>A custom <code>bin_separator</code> now works end to end.</strong> Everything that has to split grouped categories out of a bin label reads the separator from the model instead of assuming the package default: <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code>, the points table, the points SQL and the WoE SQL emitted into the workbook.</p>
+<p>This was a silent corruption, not a cosmetic gap. Fitting with <code>control.obwoe(bin_separator = "||")</code> and applying the model back to its own training data put <strong>754 of 900 rows</strong> on the <code>na_woe</code> fallback, because the labels were split on <code>"%;%"</code> and never matched. The generated SQL was worse: <code>a||e||c</code> came out as <code>g IN ('a', '|', '|', 'e', '|', '|', 'c')</code> – broken SQL, no warning. Both are exact now.</p>
+</li>
+<li><p><strong>Models saved by earlier versions keep working.</strong> They carry no <code>control</code> element, so the separator falls back to the package default rather than erroring on a missing field.</p></li>
+</ul><p>Nothing changes for the default configuration: <code>"%;%"</code> remains the default everywhere, so only the custom-separator path – which was broken – behaves differently.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.13.1" id="optimalbinningwoe-1131">OptimalBinningWoE 1.13.1<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1131"></a></h2>
 <div class="section level3">
