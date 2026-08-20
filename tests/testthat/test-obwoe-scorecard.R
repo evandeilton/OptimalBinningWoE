@@ -197,6 +197,45 @@ test_that("the generated points SQL reproduces the card exactly", {
 })
 
 
+test_that("[C7/A-08] .ob_points_sql() skips a feature with inconsistent cutpoints instead of emitting a broken literal", {
+  # obwoe_sql() guards against length(cutpoints) + 1 != n_bins (e.g. a
+  # cutpoint duplicated by floating-point ties, collapsed by unique()):
+  # it warns and skips the feature. .ob_points_sql() re-implemented the
+  # CASE assembly directly, without that guard, so .ob_sql_case() indexed
+  # its per-bin literal vector one past its length, and the out-of-bounds
+  # NA silently became the literal text "NA" in the generated points SQL
+  # (e.g. "WHEN x <= NA THEN ..."), instead of a warning and a skip.
+  set.seed(11)
+  n <- 2000
+  df <- data.frame(
+    x1 = rnorm(n), x2 = rnorm(n),
+    target = rbinom(n, 1, plogis(-0.5 + 0.8 * rnorm(n)))
+  )
+  sc <- suppressWarnings(obwoe_scorecard(df,
+    target = "target", seed = 1,
+    screening = list(iv_min = 0, require_monotonic = "none")
+  ))
+  skip_if(length(sc$final) < 2L, "need at least 2 final variables")
+
+  feat <- sc$final[1]
+  # Simulate the floating-point-tie scenario the guard exists for: every
+  # cutpoint collapses to the same value, so length(unique(cutpoints)) + 1
+  # no longer matches the number of fitted bins.
+  cp <- sc$binning$results[[feat]]$cutpoints
+  sc$binning$results[[feat]]$cutpoints <- rep(cp[1], length(cp))
+
+  expect_warning(
+    sql <- OptimalBinningWoE:::.ob_points_sql(sc,
+      table = "app", dialect = "ansi", keep_columns = NULL
+    ),
+    "inconsistent"
+  )
+
+  expect_false(grepl("NA", sql, fixed = TRUE))
+  expect_false(grepl(sprintf("%s_points", feat), sql, fixed = TRUE))
+})
+
+
 test_that("the model score is not a valid substitute for the card", {
   # Pins the reason both SQL sheets exist: they are not the same number.
   skip_if_no_german()

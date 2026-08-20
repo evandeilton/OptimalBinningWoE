@@ -78,30 +78,75 @@
     items <- .ob_sql_ident(keep_columns, d, "auto")
   }
 
-  exprs <- vapply(x$final, function(feat) {
+  # [C-08/A-08] Reuses the SAME "bins consistent with cutpoints" guard
+  # obwoe_sql() applies (R/obwoe_sql.R, around the "Numerical features must
+  # have a cut-point vector consistent with the bins" comment). Without it,
+  # a duplicated cutpoint (floating-point ties collapsed by unique()) makes
+  # length(cp) + 1L != k, and .ob_sql_case() indexes its per-bin literal
+  # vector one past its length for the affected WHEN branch: R silently
+  # returns NA for the out-of-bounds element, sprintf("%s", NA) renders the
+  # literal text "NA" into the generated SQL, and the branch becomes
+  # `<col> <= NA` -- broken, uncaught SQL instead of a warning. Kept as a
+  # for loop (not vapply) so an inconsistent feature can be skipped, the
+  # same way obwoe_sql() skips it, instead of corrupting the whole
+  # statement.
+  ok_final <- character(0)
+  exprs <- character(0)
+  for (feat in x$final) {
     spec <- specs[[feat]]
     tbl <- x$points[x$points$variable == feat, , drop = FALSE]
     tbl <- tbl[order(tbl$bin_id), , drop = FALSE]
+    k <- nrow(tbl)
 
-    cp <- spec$cutpoints
-    spec$cutpoints <- if (is.null(cp)) numeric(0) else sort(unique(as.numeric(cp)))
+    if (identical(spec$type, "numerical")) {
+      cp <- spec$cutpoints
+      cp <- if (is.null(cp)) numeric(0) else sort(unique(as.numeric(cp)))
+      if (length(cp) + 1L != k && !(k == 1L && length(cp) == 0L)) {
+        warning(sprintf(
+          paste0(
+            "Feature '%s': %d bins are inconsistent with %d distinct cut ",
+            "points, so an exact points SQL mapping cannot be derived. Skipped."
+          ),
+          feat, k, length(cp)
+        ))
+        next
+      }
+      spec$cutpoints <- cp
+    }
 
     # A value in no fitted bin scores this variable's na_woe fallback, read
     # from the points table itself so that SQL and R cannot drift apart.
     neutral <- unname(attr(x$points, "points_na")[[feat]])
 
-    .ob_sql_case(
+    expr <- .ob_sql_case(
       spec = spec, feature = feat,
       col = .ob_sql_ident(feat, d, "auto"), d = d,
       values = .ob_sql_num(tbl$points),
       else_value = .ob_sql_num(neutral),
       null_value = .ob_sql_num(neutral),
       explicit_bounds = TRUE, indent = "    ",
-      bin_separator = "%;%", trim_categories = FALSE
+      # NOTE: "%;%" is hardcoded here, same as obwoe_sql()'s own default
+      # (R/obwoe_sql.R) that R/obwoe_report.R's "10_SQL_WoE" sheet inherits a
+      # few lines below -- this is the existing, systemic convention, not
+      # something unique to this function. The audit asked this be changed
+      # to "the model's real separator", but obwoe()'s returned object does
+      # not currently store the control (in particular bin_separator) it was
+      # fitted with, so there is nothing to propagate without first changing
+      # obwoe()'s return value -- a materially larger, riskier change
+      # affecting every obwoe() caller, not scoped to this fix. Left as-is;
+      # see the audit report for this call.
+      bin_separator = "%;%",
+      trim_categories = FALSE
     )
-  }, character(1))
+    ok_final <- c(ok_final, feat)
+    exprs <- c(exprs, expr)
+  }
 
-  aliases <- .ob_sql_ident(paste0(x$final, "_points"), d, "auto")
+  if (length(ok_final) == 0L) {
+    stop("No variable produced a valid points SQL expression.")
+  }
+
+  aliases <- .ob_sql_ident(paste0(ok_final, "_points"), d, "auto")
   inner <- c(items, sprintf("%s AS %s", exprs, aliases))
 
   # The total is computed in an outer SELECT. Referring to a select-list alias
