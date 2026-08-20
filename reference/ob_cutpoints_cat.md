@@ -40,7 +40,14 @@ A list containing:
 
   Data frame with one row per bin containing:
 
-  - `bin`: The bin definition (original categories joined by "+")
+  - `id`: Sequential bin identifier
+
+  - `bin`: The bin definition – original categories joined by `"%;%"`
+    (**not** the "+" used in the `cutpoints` input; see Details),
+    matching the separator
+    [`ob_apply_woe_cat`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)
+    defaults to and every `ob_categorical_*()` algorithm in the main
+    pipeline emits
 
   - `count`: Total number of observations in the bin
 
@@ -65,6 +72,18 @@ For example, if you want to create two bins from categories "A", "B",
 - Bin 1: "A+B"
 
 - Bin 2: "C+D"
+
+`cutpoints` still uses `"+"` as the input separator (simple to type,
+e.g. `"A+B"`), but `result$woebin` is built so it can be handed straight
+back to
+[`ob_apply_woe_cat`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)
+with its defaults – `ob_apply_woe_cat(result$woebin, new_feature)` – and
+get the same WoE this function itself assigned. Before 1.13.1 the
+emitted `bin` labels echoed the "+"-joined input verbatim and carried no
+`id` column, so a round trip through
+[`ob_apply_woe_cat`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)'s
+default `bin_separator = "%;%"` matched no category and silently fell
+back to a `"Special"`/`NA` bin for every observation.
 
 ## Note
 
@@ -91,12 +110,16 @@ result <- ob_cutpoints_cat(feature, target, cutpoints)
 
 # View bin statistics
 print(result$woebin)
-#>   bin count count_pos count_neg       woe        iv
-#> 1 A+B     4         3         1  1.098612 0.5493061
-#> 2 C+D     4         1         3 -1.098612 0.5493061
+#>   id   bin count count_pos count_neg       woe        iv
+#> 1  1 A%;%B     4         3         1  1.098612 0.5493061
+#> 2  2 C%;%D     4         1         3 -1.098612 0.5493061
 
 # View WoE-transformed feature
 print(result$woefeature)
 #> [1]  1.098612  1.098612 -1.098612 -1.098612  1.098612  1.098612 -1.098612
 #> [8] -1.098612
+
+# Round-trip through ob_apply_woe_cat() with its defaults
+woe_new <- ob_apply_woe_cat(result$woebin, feature)
+stopifnot(isTRUE(all.equal(woe_new$woe, result$woefeature)))
 ```

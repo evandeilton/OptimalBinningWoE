@@ -17,7 +17,7 @@ strategies."><meta property="og:image" content="https://evandeilton.github.io/Op
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,7 @@ strategies."><meta property="og:image" content="https://evandeilton.github.io/Op
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Optimal Binning for Categorical Variables with Multinomial Target using JEDI-MWoE</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/obc_jedi_mwoe.R" class="external-link"><code>R/obc_jedi_mwoe.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obc_jedi_mwoe.R" class="external-link"><code>R/obc_jedi_mwoe.R</code></a></small>
       <div class="d-none name"><code>ob_categorical_jedi_mwoe.Rd</code></div>
     </div>
 
@@ -78,7 +78,7 @@ strategies.</p>
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A character vector or factor representing the categorical
 predictor variable to be binned. Missing values are automatically
-converted to the special category <code>"N/A"</code>.</p></dd>
+converted to the special category <code>"NA"</code>.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -510,7 +510,7 @@ Modern Bayesian Methods</em>. MIT Press.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Locate missing value bin</span></span></span>
-<span class="r-in"><span><span class="va">missing_bin_idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"N/A"</span>, <span class="va">result_mwoe_na</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">missing_bin_idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"NA"</span>, <span class="va">result_mwoe_na</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">missing_bin_idx</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nMissing value handling:\n"</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Missing value bin:"</span>, <span class="va">result_mwoe_na</span><span class="op">$</span><span class="va">bin</span><span class="op">[</span><span class="va">missing_bin_idx</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
@@ -530,7 +530,7 @@ Modern Bayesian Methods</em>. MIT Press.</p>
 <span class="r-in"><span><span class="op">}</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing value handling:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Missing value bin: N/A%;%Standard%;%Economy%;%Premium </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Missing value bin: NA%;%Standard%;%Economy%;%Premium </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing value count: 1129 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Class distribution in missing bin: 510 329 290 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Class 0 rate: 0.452</span>

@@ -49,7 +49,11 @@ obwoe_apply(
 - na_woe:
 
   Numeric value to assign when an observation cannot be mapped to a bin
-  (e.g., new categories not seen during training). Default is 0.
+  (e.g., new categories not seen during training), **and** as the
+  fallback for a missing (`NA`) categorical value when the binner built
+  no dedicated missing-value bin. Default is 0. When a missing-value bin
+  *was* fitted (see Details), `NA` inputs get that bin's WoE instead of
+  `na_woe`.
 
 ## Value
 
@@ -84,6 +88,19 @@ intervals \\(a_i, a\_{i+1}\]\\ where \\a_0 = -\infty\\ and \\a_k =
 **Categorical Features**: Categories are matched directly to bin labels.
 Categories not seen during training are assigned `NA` for bin and
 `na_woe` for WoE.
+
+A missing (`NA`) categorical value is routed to whichever fitted bin
+represents missing values, if the binner built one – categorical
+algorithms (e.g.
+[`ob_categorical_jedi`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_jedi.md))
+map `NA` to the token `"NA"` before fitting, so a bin containing that
+token (alone or merged with other categories) is treated as the
+missing-value bin, exactly as
+[`obwoe_sql`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md)'s
+`null_to_na_bin = TRUE` default does for `IS NULL`. `na_woe` is used for
+`NA` only when no such bin exists. **This changed in 1.13.1**: earlier
+versions always returned `na_woe` for `NA`, ignoring any fitted
+missing-value bin, which disagreed with the generated SQL.
 
 ### Production Deployment
 

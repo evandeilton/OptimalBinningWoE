@@ -11,7 +11,7 @@ and Information Value (IV) for each interval bin."><meta property="og:image" con
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,7 +37,7 @@ and Information Value (IV) for each interval bin."><meta property="og:image" con
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Binning Numerical Variables using Custom Cutpoints</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/ob_binning_cutpoints_num.R" class="external-link"><code>R/ob_binning_cutpoints_num.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/ob_binning_cutpoints_num.R" class="external-link"><code>R/ob_binning_cutpoints_num.R</code></a></small>
       <div class="d-none name"><code>ob_cutpoints_num.Rd</code></div>
     </div>
 
@@ -77,7 +77,8 @@ These will be automatically sorted in ascending order.</p></dd>
         observation in the input <code>feature</code></p></dd>
 
   <dt><code>woebin</code></dt>
-<dd><p>Data frame with one row per bin containing:</p><ul><li><p><code>bin</code>: The bin interval notation (e.g., "[10.00;20.00)")</p></li>
+<dd><p>Data frame with one row per bin containing:</p><ul><li><p><code>id</code>: Sequential bin identifier</p></li>
+<li><p><code>bin</code>: The bin interval notation (e.g., "(10.00;20.00]")</p></li>
 <li><p><code>count</code>: Total number of observations in the bin</p></li>
 <li><p><code>count_pos</code>: Number of positive outcomes (target=1) in the bin</p></li>
 <li><p><code>count_neg</code>: Number of negative outcomes (target=0) in the bin</p></li>
@@ -85,22 +86,50 @@ These will be automatically sorted in ascending order.</p></dd>
 <li><p><code>iv</code>: Information Value contribution of the bin</p></li>
 </ul></dd>
 
+  <dt><code>cutpoints</code></dt>
+<dd><p>The sorted numeric cutpoints, exposed at the top
+    level so this result can be reassembled into
+    <code><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></code>'s <code>obresults</code> argument (see
+    Details)</p></dd>
+
+  <dt><code>id</code></dt>
+<dd><p>Sequential bin identifier, same as <code>woebin$id</code>;
+    duplicated at the top level for the same reason as <code>cutpoints</code></p></dd>
+
 
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The function takes a numeric vector of cutpoints that define the boundaries
-between bins. For <code>n</code> cutpoints, <code>n+1</code> bins are created:</p><ul><li><p>Bin 1: \((-\infty, cutpoint_1)\)</p></li>
-<li><p>Bin 2: \([cutpoint_1, cutpoint_2)\)</p></li>
+between bins. For <code>n</code> cutpoints, <code>n+1</code> bins are created, each
+right-closed – \((a, b]\) – matching <code><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></code>'s
+default (<code>include_upper_bound = TRUE</code>) and the convention
+<code><a href="obwoe.html">obwoe</a></code>/<code><a href="obwoe_apply.html">obwoe_apply</a></code> use throughout the package:</p><ul><li><p>Bin 1: \((-\infty, cutpoint_1]\)</p></li>
+<li><p>Bin 2: \((cutpoint_1, cutpoint_2]\)</p></li>
 <li><p>...</p></li>
-<li><p>Bin n+1: \([cutpoint_n, +\infty)\)</p></li>
-</ul></div>
+<li><p>Bin n+1: \((cutpoint_n, +\infty)\)</p></li>
+</ul><p><code>result</code> does not have the exact shape <code><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></code>
+expects as <code>obresults</code> (which needs top-level <code>cutpoints</code>,
+<code>woe</code> and <code>id</code>), because <code>woebin</code> also carries <code>count</code>/
+<code>iv</code> columns. To round-trip, reassemble it:
+<code>list(cutpoints = result$cutpoints, woe = result$woebin$woe, id =
+result$id, bin = result$woebin$bin)</code>. Before 1.13.1, <code>result</code> carried
+no <code>id</code> or top-level <code>cutpoints</code> at all (so a round trip through
+<code><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></code> was not even possible without reconstructing
+them by hand), and the bin boundaries were left-closed \([a, b)\), the
+opposite of <code><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></code>'s <code>include_upper_bound =
+TRUE</code> default – a value that landed exactly on a cutpoint got a different,
+often sign-flipped, WoE depending on whether it went through the fit or the
+apply side.</p>
+    </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
 
 <ul><li><p>Target variable must contain only 0 and 1 values.</p></li>
 <li><p>Cutpoints are sorted automatically in ascending order.</p></li>
-<li><p>Interval notation uses "[" for inclusive and ")" for exclusive bounds.</p></li>
+<li><p>Interval notation uses "(" for exclusive and "]" for inclusive
+        bounds – a value exactly equal to a cutpoint falls in the bin that
+        <em>ends</em> at that cutpoint.</p></li>
 <li><p>Infinite values in feature are handled appropriately.</p></li>
 </ul></div>
 
@@ -118,15 +147,23 @@ between bins. For <code>n</code> cutpoints, <code>n+1</code> bins are created:</
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View bin statistics</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>             bin count count_pos count_neg        woe        iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  [-Inf;30.00)     3         1         2 -0.6931472 0.1732868</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 [30.00;60.00)     3         3         0  8.9226583 6.6911015</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3  [60.00;+Inf]     2         0         2 -8.5171932 4.2577449</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   id           bin count count_pos count_neg        woe        iv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  1  (-Inf;30.00]     3         1         2 -0.6931472 0.1732868</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  2 (30.00;60.00]     3         3         0  8.9226583 6.6911015</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3  3  (60.00;+Inf]     2         0         2 -8.5171932 4.2577449</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View WoE-transformed feature</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.6931472 -0.6931472 -0.6931472  8.9226583  8.9226583  8.9226583 -8.5171932</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [8] -8.5171932</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Round-trip through ob_apply_woe_num() with its defaults</span></span></span>
+<span class="r-in"><span><span class="va">apply_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  cutpoints <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">cutpoints</span>, woe <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">$</span><span class="va">woe</span>,</span></span>
+<span class="r-in"><span>  id <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">id</span>, bin <span class="op">=</span> <span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">$</span><span class="va">bin</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">woe_new</span> <span class="op">&lt;-</span> <span class="fu"><a href="ob_apply_woe_num.html">ob_apply_woe_num</a></span><span class="op">(</span><span class="va">apply_obj</span>, <span class="va">feature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Logic.html" class="external-link">isTRUE</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">woe_new</span><span class="op">$</span><span class="va">woe</span>, <span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

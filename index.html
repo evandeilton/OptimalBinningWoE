@@ -19,8 +19,8 @@
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Optimal Binning and Weight of Evidence Framework for Modeling">
-<meta name="description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
-<meta property="og:description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
+<meta name="description" content="High-performance implementation of 37 optimal binning algorithms (16 categorical, 21 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
+<meta property="og:description" content="High-performance implementation of 37 optimal binning algorithms (16 categorical, 21 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
 <meta property="og:image" content="https://evandeilton.github.io/OptimalBinningWoE/logo.png">
 </head>
 <body>
@@ -31,7 +31,7 @@
 
     <a class="navbar-brand me-2" href="index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@
 </div>
 <!-- badges: start -->
 
-<p>Optimal binning and Weight of Evidence transformation for credit scoring and risk modelling, with 36 C++ binning algorithms behind one R interface.</p>
+<p>Optimal binning and Weight of Evidence transformation for credit scoring and risk modelling, with 37 C++ binning algorithms behind one R interface.</p>
 <p>The package covers the whole path from a raw feature store to a deployed scorecard: fit the binning, screen the variables against IV strength and bin ordering, transform the data, and export the same transformation as SQL so the scoring runs where the data lives.</p>
 <table class="table">
 <colgroup>
@@ -79,8 +79,8 @@
 </colgroup>
 <tbody>
 <tr>
-<td><strong>36 algorithms</strong></td>
-<td>20 numerical, 16 categorical — entropy, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>, exact optimisation, shape-constrained and streaming methods</td>
+<td><strong>37 algorithms</strong></td>
+<td>21 numerical, 16 categorical — entropy, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>, exact optimisation, shape-constrained and streaming methods</td>
 </tr>
 <tr>
 <td><strong>C++ engine</strong></td>
@@ -286,7 +286,7 @@
 </tr>
 </tbody>
 </table>
-<p><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code> lists all 36 with the feature types each supports; every one is also callable directly as <code>ob_numerical_*()</code> or <code>ob_categorical_*()</code>.</p>
+<p><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code> lists all 37 with the feature types each supports; every one is also callable directly as <code>ob_numerical_*()</code> or <code>ob_categorical_*()</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="key-functions">Key functions<a class="anchor" aria-label="anchor" href="#key-functions"></a>

@@ -1,7 +1,7 @@
 # OptimalBinningWoE
 
 Optimal binning and Weight of Evidence transformation for credit scoring
-and risk modelling, with 36 C++ binning algorithms behind one R
+and risk modelling, with 37 C++ binning algorithms behind one R
 interface.
 
 The package covers the whole path from a raw feature store to a deployed
@@ -11,7 +11,7 @@ SQL so the scoring runs where the data lives.
 
 |  |  |
 |----|----|
-| **36 algorithms** | 20 numerical, 16 categorical — entropy, $`\chi^2`$, exact optimisation, shape-constrained and streaming methods |
+| **37 algorithms** | 21 numerical, 16 categorical — entropy, $`\chi^2`$, exact optimisation, shape-constrained and streaming methods |
 | **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
 | **Automated screening** | [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md) returns a verdict and a reason for every candidate, never dropping a row |
 | **In-database scoring** | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) emits exact `CASE` expressions for 14 SQL dialects |
@@ -234,7 +234,7 @@ picks `jedi`, a good general-purpose choice for both types.
 | Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 
 [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md)
-lists all 36 with the feature types each supports; every one is also
+lists all 37 with the feature types each supports; every one is also
 callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
 
 ## Key functions

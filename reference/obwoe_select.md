@@ -176,7 +176,7 @@ With `detail = "summary"` the table holds one row per feature:
 
 With `detail = "full"` the table holds one row per feature *and*
 optimised bin. Each row carries the complete gains table produced by
-[`ob_gains_table`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md)
+[`obwoe_gains_score`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.md)
 (`count`, `pos`, `neg`, `woe`, `iv`, `total_iv`, `pos_rate`, `lift`,
 `cum_pos_perc`, `precision`, `recall`, `f1_score`, `kl_divergence`,
 `js_divergence`, and so on) plus:
@@ -316,7 +316,7 @@ Kullback, S., & Leibler, R. A. (1951). On Information and Sufficiency.
 for fitting the binning,
 [`obwoe_sql`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md)
 for exporting the selected variables as SQL,
-[`ob_gains_table`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md)
+[`obwoe_gains_score`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.md)
 for the underlying bin-level engine,
 [`summary.obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/summary.obwoe.md)
 for the compact model overview.

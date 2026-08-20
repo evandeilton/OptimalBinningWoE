@@ -8,16 +8,16 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/evandeilton/OptimalBinningWoE/blob/main/DESCRIPTION)
 
 Lopes J (2026). *OptimalBinningWoE: Optimal Binning and Weight of
-Evidence Framework for Modeling*. R package version 1.13.0,
+Evidence Framework for Modeling*. R package version 1.13.1,
 <https://github.com/evandeilton/OptimalBinningWoE>.
 
     @Manual{,
       title = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
       author = {José Evandeilton Lopes},
       year = {2026},
-      note = {R package version 1.13.0},
+      note = {R package version 1.13.1},
       url = {https://github.com/evandeilton/OptimalBinningWoE},
     }

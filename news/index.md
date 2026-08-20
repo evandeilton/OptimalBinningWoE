@@ -1,5 +1,117 @@
 # Changelog
 
+## OptimalBinningWoE 1.13.1
+
+### Audit fixes (2026-08-20)
+
+Bug-fix release addressing an internal code audit of 1.13.0. Every item
+below either changes a computed value that was previously wrong, or
+removes an API surface the author never intended to publish. See the
+pull request for the full item-by-item breakdown.
+
+#### API changes
+
+- `fit_logistic_regression()` is no longer exported. It is still used
+  internally (renamed to `.ob_fit_logistic_regression()`) to implement
+  `engine = "obwoe"` in
+  [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md),
+  which is unaffected.
+
+- `ob_gains_table()` and `ob_gains_table_feature()` are renamed to
+  [`obwoe_gains_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.md)
+  and
+  [`obwoe_gains_variable()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_variable.md)
+  respectively, to sit alongside the rest of the `obwoe_*` family.
+  Behavior is unchanged; only the names moved.
+  [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md)
+  (the higher-level, plot-producing function) is a different function
+  and was not renamed.
+
+#### Behavior changes (read before upgrading)
+
+- **[`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)
+  now routes a missing categorical value to the fitted “missing” bin’s
+  WoE when the binning built one, instead of always using `na_woe`.**
+  Previously
+  [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)
+  ignored any missing-value bin learned during training and always
+  returned `na_woe` for `NA`, while the generated deployment SQL
+  ([`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md),
+  `null_to_na_bin = TRUE` by default) routed `IS NULL` to that bin’s WoE
+  — so R and the SQL scored the same missing value differently. `na_woe`
+  is now only a fallback for variables where no missing-value bin
+  exists. If you fit a model with real `NA`s in a categorical predictor,
+  the WoE
+  [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)/[`predict()`](https://rdrr.io/r/stats/predict.html)
+  return for `NA` may change in this version; it now matches the SQL and
+  the bin actually fitted. See
+  [`?obwoe_apply`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)
+  and
+  [`?obwoe_sql`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md).
+
+- **`obwoe_scorecard(..., drop_negative = TRUE)` now actually removes a
+  single negative-coefficient variable instead of silently keeping it.**
+  Previously the removal loop stopped one variable too early whenever
+  exactly one variable had a negative coefficient, so that case fell
+  through to a warning instead of either fixing the model or raising
+  [`stop()`](https://rdrr.io/r/base/stop.html). It now keeps removing
+  negative-coefficient variables until either none remain or only one
+  variable is left (in which case, if it is still negative,
+  [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md)
+  stops with an error, as documented).
+
+- **[`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)’s
+  bins are now right-closed `(a, b]`, and both
+  [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
+  and
+  [`ob_cutpoints_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_cat.md)
+  return the pieces (`id`, and `cutpoints` for the numerical version)
+  [`ob_apply_woe_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.md)/
+  [`ob_apply_woe_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)
+  require.** Previously
+  [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
+  built left-closed `[a, b)` bins — the opposite of
+  [`ob_apply_woe_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.md)’s
+  `include_upper_bound = TRUE` default — so a value sitting exactly on a
+  cutpoint could get a different, often sign-flipped, WoE depending on
+  whether it went through the fit or the apply side; and neither manual
+  cutpoint function’s result could be handed to its matching apply
+  function at all, because both lacked the `id` element (and
+  [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
+  the top-level `cutpoints`) the apply side requires.
+  [`ob_cutpoints_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_cat.md)’s
+  emitted bin labels also now use `"%;%"` (matching
+  [`ob_apply_woe_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)’s
+  default separator and the main pipeline) instead of echoing the
+  `"+"`-joined input verbatim; the `"+"` input format is unchanged. If
+  you use
+  [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)/[`ob_cutpoints_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_cat.md)
+  and parse their `bin` labels yourself, check the new format. See
+  [`?ob_cutpoints_num`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
+  and
+  [`?ob_cutpoints_cat`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_cat.md).
+
+#### Fixes
+
+- Gains tables sorted by `sort_by = "bin"` (including the score bands in
+  [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md))
+  were ordered lexicographically instead of by the bins’ natural (level)
+  order, silently understating KS by as much as a third on real data.
+- `step_obwoe(algorithm = "auto")` could resolve to the multiclass
+  algorithm for a genuinely binary outcome whenever the outcome factor
+  declared an unobserved third level.
+- [`print()`](https://rdrr.io/r/base/print.html) on an unprepped
+  `step_obwoe` recipe step errored when `algorithm = tune::tune()`.
+- `obwoe_gains(use_column = "woe", n_groups = k)` returned `NA` WoE and
+  zero total IV for every bin.
+- `plot.obwoe_gains(type = "cumulative")` assumed every bin held an
+  equal share of the population; the x-axis now reflects each bin’s real
+  size.
+- The advertised algorithm count was corrected from “36 (20 numerical,
+  16 categorical)” to the actual 37 (21 numerical, 16 categorical) — the
+  numerical `ir` algorithm was implemented, documented and tested, but
+  was never counted.
+
 ## OptimalBinningWoE 1.13.0
 
 ### New features (2026-08-20)
@@ -147,11 +259,10 @@ of the bin event rate — and returns a verdict for each.
 - **Two levels of detail.** `detail = "summary"` gives one row per
   variable with its headline metrics; `detail = "full"` expands to one
   row per variable *and* optimised bin, carrying the complete gains
-  table of
-  [`ob_gains_table()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md)
-  (31 metrics: WoE, IV, lift, cumulative KS, precision, recall, F1, KL
-  and JS divergence, …) together with the interval bounds of numerical
-  bins and the merged category lists of categorical ones.
+  table of `ob_gains_table()` (31 metrics: WoE, IV, lift, cumulative KS,
+  precision, recall, F1, KL and JS divergence, …) together with the
+  interval bounds of numerical bins and the merged category lists of
+  categorical ones.
 
 - **Metrics that describe the deployed score.** `ks`, `auc` and `gini`
   are computed on the WoE actually applied to the data, with bins ranked
@@ -291,8 +402,8 @@ assertions in total.
   table. Every gains table with more than one bin reported the first
   bin’s lift throughout, and `plot(type = "lift")` drew a flat line. The
   R gains table now agrees with the independent C++ engine
-  ([`ob_gains_table()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md))
-  to machine precision on `lift`, `woe`, `iv` and `ks`.
+  (`ob_gains_table()`) to machine precision on `lift`, `woe`, `iv` and
+  `ks`.
 
 - **[`ob_numerical_ir()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ir.md)
   reported counts that did not describe its own bins, and bins that were
@@ -862,10 +973,9 @@ scoring and predictive modeling.
     Utilities for missing value handling and outlier detection/treatment
     (IQR, Z-score, Grubbs).
 - **Advanced Metrics**:
-  - [`ob_gains_table()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md):
-    Computation of detailed gains tables including IV, WoE, KS, Gini,
-    Lift, Precision, Recall, KL Divergence, and Jensen-Shannon
-    Divergence.
+  - `ob_gains_table()`: Computation of detailed gains tables including
+    IV, WoE, KS, Gini, Lift, Precision, Recall, KL Divergence, and
+    Jensen-Shannon Divergence.
 - **Visualization**:
   - S3 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods
     for visualizing binning results and WoE patterns.

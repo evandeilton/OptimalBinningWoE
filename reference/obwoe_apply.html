@@ -13,7 +13,7 @@ observations to bins and maps them to their corresponding WoE values."><meta pro
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,7 +39,7 @@ observations to bins and maps them to their corresponding WoE values."><meta pro
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Apply Weight of Evidence Transformations to New Data</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
       <div class="d-none name"><code>obwoe_apply.Rd</code></div>
     </div>
 
@@ -94,7 +94,11 @@ are returned.</p></dd>
 
 <dt id="arg-na-woe">na_woe<a class="anchor" aria-label="anchor" href="#arg-na-woe"></a></dt>
 <dd><p>Numeric value to assign when an observation cannot be mapped
-to a bin (e.g., new categories not seen during training). Default is 0.</p></dd>
+to a bin (e.g., new categories not seen during training), <strong>and</strong>
+as the fallback for a missing (<code>NA</code>) categorical value when the
+binner built no dedicated missing-value bin. Default is 0. When a
+missing-value bin <em>was</em> fitted (see Details), <code>NA</code> inputs get
+that bin's WoE instead of <code>na_woe</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -127,6 +131,16 @@ Observations are assigned to bins based on cutpoints stored in the
 <p><strong>Categorical Features</strong>:
 Categories are matched directly to bin labels. Categories not seen
 during training are assigned <code>NA</code> for bin and <code>na_woe</code> for WoE.</p>
+<p>A missing (<code>NA</code>) categorical value is routed to whichever fitted bin
+represents missing values, if the binner built one – categorical
+algorithms (e.g. <code><a href="ob_categorical_jedi.html">ob_categorical_jedi</a></code>) map <code>NA</code> to the
+token <code>"NA"</code> before fitting, so a bin containing that token (alone or
+merged with other categories) is treated as the missing-value bin, exactly
+as <code><a href="obwoe_sql.html">obwoe_sql</a></code>'s <code>null_to_na_bin = TRUE</code> default does for
+<code>IS NULL</code>. <code>na_woe</code> is used for <code>NA</code> only when no such bin
+exists. <strong>This changed in 1.13.1</strong>: earlier versions always returned
+<code>na_woe</code> for <code>NA</code>, ignoring any fitted missing-value bin, which
+disagreed with the generated SQL.</p>
 </div>
 
 <div class="section">

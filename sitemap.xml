@@ -47,7 +47,6 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/dot-ob_xlsx_sheet.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/dot-universal_algorithms.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/dot-valid_algorithms.html</loc></url>
-<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/fit_logistic_regression.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/index.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.html</loc></url>
@@ -70,8 +69,6 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_check_distincts.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_cat.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.html</loc></url>
-<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.html</loc></url>
-<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table_feature.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_bb.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_dmiv.html</loc></url>
@@ -101,6 +98,8 @@
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_bin_cutoff.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.html</loc></url>
+<url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_variable.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_max_bins.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_min_bins.html</loc></url>
 <url><loc>https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_prune.html</loc></url>

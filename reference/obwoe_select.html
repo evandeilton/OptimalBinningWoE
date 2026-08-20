@@ -21,7 +21,7 @@ override the automatic verdict at will.'><meta property="og:image" content="http
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,7 +47,7 @@ override the automatic verdict at will.'><meta property="og:image" content="http
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Automated Variable Selection for Weight of Evidence Scorecards</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/obwoe_select.R" class="external-link"><code>R/obwoe_select.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obwoe_select.R" class="external-link"><code>R/obwoe_select.R</code></a></small>
       <div class="d-none name"><code>obwoe_select.Rd</code></div>
     </div>
 
@@ -202,7 +202,7 @@ categorical bin label. Default <code>"%;%"</code>, matching
 <p></p><table class="table table"><tr><td><strong>Column</strong></td><td><strong>Meaning</strong></td></tr><tr><td><code>feature</code></td><td>Variable name</td></tr><tr><td><code>type</code></td><td><code>"numerical"</code> or <code>"categorical"</code></td></tr><tr><td><code>algorithm</code></td><td>Binning algorithm used</td></tr><tr><td><code>n_bins</code></td><td>Number of optimised bins</td></tr><tr><td><code>n_obs</code>, <code>n_pos</code>, <code>n_neg</code></td><td>Population and class counts</td></tr><tr><td><code>event_rate</code></td><td>Overall event rate</td></tr><tr><td><code>total_iv</code></td><td>Total Information Value</td></tr><tr><td><code>iv_class</code></td><td>Siddiqi strength band</td></tr><tr><td><code>ks</code></td><td>Kolmogorov-Smirnov statistic in \([0, 1]\)</td></tr><tr><td><code>gini</code>, <code>auc</code></td><td>Discrimination of the binned score</td></tr><tr><td><code>max_lift</code></td><td>Largest bin lift over the base rate</td></tr><tr><td><code>min_bin_pct</code>, <code>min_bin_count</code></td><td>Smallest bin size</td></tr><tr><td><code>n_degenerate_bins</code></td><td>Bins with zero events or zero non-events</td></tr><tr><td><code>woe_min</code>, <code>woe_max</code>, <code>woe_range</code></td><td>Spread of the WoE profile</td></tr><tr><td><code>monotonic</code>, <code>monotonic_strict</code></td><td>Event-rate ordering flags</td></tr><tr><td><code>monotonic_direction</code></td><td><code>"increasing"</code>, <code>"decreasing"</code>,
       <code>"constant"</code> or <code>"non-monotonic"</code></td></tr><tr><td><code>n_violations</code></td><td>Adjacent pairs breaking the dominant trend</td></tr><tr><td><code>spearman</code></td><td>Rank correlation between bin order and event rate</td></tr><tr><td><code>woe_monotonic</code></td><td>Ordering of the WoE actually applied</td></tr><tr><td><code>converged</code>, <code>iterations</code></td><td>Optimiser diagnostics</td></tr><tr><td><code>error</code>, <code>error_msg</code></td><td>Binning failure flag and message</td></tr><tr><td><code>quality</code></td><td>Excellence tier (see Details)</td></tr><tr><td><code>selected</code></td><td><strong>Selection flag</strong></td></tr><tr><td><code>reason</code></td><td><strong>Machine-readable reason codes</strong></td></tr><tr><td><code>reason_desc</code></td><td><strong>Human-readable justification</strong></td></tr><tr><td><code>rank</code></td><td>Position under <code>sort_by</code> among selectable features</td></tr></table><p>With <code>detail = "full"</code> the table holds one row per feature <em>and</em>
   optimised bin. Each row carries the complete gains table produced by
-  <code><a href="ob_gains_table.html">ob_gains_table</a></code> (<code>count</code>, <code>pos</code>, <code>neg</code>,
+  <code><a href="obwoe_gains_score.html">obwoe_gains_score</a></code> (<code>count</code>, <code>pos</code>, <code>neg</code>,
   <code>woe</code>, <code>iv</code>, <code>total_iv</code>, <code>pos_rate</code>, <code>lift</code>,
   <code>cum_pos_perc</code>, <code>precision</code>, <code>recall</code>, <code>f1_score</code>,
   <code>kl_divergence</code>, <code>js_divergence</code>, and so on) plus:</p>
@@ -320,7 +320,7 @@ Under the ROC Curve for Multiple Class Classification Problems.
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="obwoe.html">obwoe</a></code> for fitting the binning,
 <code><a href="obwoe_sql.html">obwoe_sql</a></code> for exporting the selected variables as SQL,
-<code><a href="ob_gains_table.html">ob_gains_table</a></code> for the underlying bin-level engine,
+<code><a href="obwoe_gains_score.html">obwoe_gains_score</a></code> for the underlying bin-level engine,
 <code><a href="summary.obwoe.html">summary.obwoe</a></code> for the compact model overview.</p></div>
     </div>
 

@@ -15,7 +15,7 @@ a model committee, a validation team and a deployment engineer can each read."><
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,7 +41,7 @@ a model committee, a validation team and a deployment engineer can each read."><
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Automated Scorecard Pipeline</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/obwoe_scorecard.R" class="external-link"><code>R/obwoe_scorecard.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obwoe_scorecard.R" class="external-link"><code>R/obwoe_scorecard.R</code></a></small>
       <div class="d-none name"><code>obwoe_scorecard.Rd</code></div>
     </div>
 
@@ -188,6 +188,13 @@ typically <code>iv_min</code>, <code>iv_max</code>, <code>require_monotonic</cod
 
     <dt><code>correlation</code></dt>
 <dd><p>the <code><a href="obwoe_prune.html">obwoe_prune</a></code> result</p></dd>
+
+    <dt><code>control</code></dt>
+<dd><p>the resolved <code>"obwoe_scorecard_control"</code> this
+      object was actually built with (as of 1.13.1) – <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> and
+      <code><a href="obwoe_report.html">obwoe_report</a></code> read <code>na_woe</code> from here so every
+      output agrees on the fallback for an unseen category or an
+      unmodeled missing value</p></dd>
 
     <dt><code>engine</code></dt>
 <dd><p>name, requested versus used, and whether additive</p></dd>

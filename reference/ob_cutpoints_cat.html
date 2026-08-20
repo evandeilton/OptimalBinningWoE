@@ -11,7 +11,7 @@ Information Value (IV) for each bin."><meta property="og:image" content="https:/
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,7 +37,7 @@ Information Value (IV) for each bin."><meta property="og:image" content="https:/
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Binning Categorical Variables using Custom Cutpoints</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/ob_binning_cutpoints_cat.R" class="external-link"><code>R/ob_binning_cutpoints_cat.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/ob_binning_cutpoints_cat.R" class="external-link"><code>R/ob_binning_cutpoints_cat.R</code></a></small>
       <div class="d-none name"><code>ob_cutpoints_cat.Rd</code></div>
     </div>
 
@@ -78,7 +78,12 @@ concatenating the original category names with "+" as separator.</p></dd>
         observation in the input <code>feature</code></p></dd>
 
   <dt><code>woebin</code></dt>
-<dd><p>Data frame with one row per bin containing:</p><ul><li><p><code>bin</code>: The bin definition (original categories joined by "+")</p></li>
+<dd><p>Data frame with one row per bin containing:</p><ul><li><p><code>id</code>: Sequential bin identifier</p></li>
+<li><p><code>bin</code>: The bin definition – original categories joined by
+        <code>"%;%"</code> (<strong>not</strong> the "+" used in the <code>cutpoints</code>
+        input; see Details), matching the separator
+        <code><a href="ob_apply_woe_cat.html">ob_apply_woe_cat</a></code> defaults to and every
+        <code>ob_categorical_*()</code> algorithm in the main pipeline emits</p></li>
 <li><p><code>count</code>: Total number of observations in the bin</p></li>
 <li><p><code>count_pos</code>: Number of positive outcomes (target=1) in the bin</p></li>
 <li><p><code>count_neg</code>: Number of negative outcomes (target=0) in the bin</p></li>
@@ -95,7 +100,16 @@ Each element in the <code>cutpoints</code> vector defines one bin by listing the
 original categories that should be merged, separated by "+" signs.</p>
 <p>For example, if you want to create two bins from categories "A", "B", "C", "D":</p><ul><li><p>Bin 1: "A+B"</p></li>
 <li><p>Bin 2: "C+D"</p></li>
-</ul></div>
+</ul><p><code>cutpoints</code> still uses <code>"+"</code> as the input separator (simple to type,
+e.g. <code>"A+B"</code>), but <code>result$woebin</code> is built so it can be handed
+straight back to <code><a href="ob_apply_woe_cat.html">ob_apply_woe_cat</a></code> with its defaults –
+<code>ob_apply_woe_cat(result$woebin, new_feature)</code> – and get the same WoE
+this function itself assigned. Before 1.13.1 the emitted <code>bin</code> labels
+echoed the "+"-joined input verbatim and carried no <code>id</code> column, so a
+round trip through <code><a href="ob_apply_woe_cat.html">ob_apply_woe_cat</a></code>'s default
+<code>bin_separator = "%;%"</code> matched no category and silently fell back to
+a <code>"Special"</code>/<code>NA</code> bin for every observation.</p>
+    </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
 
@@ -120,14 +134,18 @@ original categories that should be merged, separated by "+" signs.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View bin statistics</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   bin count count_pos count_neg       woe        iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 A+B     4         3         1  1.098612 0.5493061</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 C+D     4         1         3 -1.098612 0.5493061</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   id   bin count count_pos count_neg       woe        iv</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  1 A%;%B     4         3         1  1.098612 0.5493061</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  2 C%;%D     4         1         3 -1.098612 0.5493061</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View WoE-transformed feature</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1]  1.098612  1.098612 -1.098612 -1.098612  1.098612  1.098612 -1.098612</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [8] -1.098612</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Round-trip through ob_apply_woe_cat() with its defaults</span></span></span>
+<span class="r-in"><span><span class="va">woe_new</span> <span class="op">&lt;-</span> <span class="fu"><a href="ob_apply_woe_cat.html">ob_apply_woe_cat</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woebin</span>, <span class="va">feature</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Logic.html" class="external-link">isTRUE</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.equal.html" class="external-link">all.equal</a></span><span class="op">(</span><span class="va">woe_new</span><span class="op">$</span><span class="va">woe</span>, <span class="va">result</span><span class="op">$</span><span class="va">woefeature</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

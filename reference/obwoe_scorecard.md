@@ -153,6 +153,15 @@ An object of class `"obwoe_scorecard"`: a list with
   [`obwoe_prune`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_prune.md)
   result
 
+- `control`:
+
+  the resolved `"obwoe_scorecard_control"` this object was actually
+  built with (as of 1.13.1) –
+  [`predict()`](https://rdrr.io/r/stats/predict.html) and
+  [`obwoe_report`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_report.md)
+  read `na_woe` from here so every output agrees on the fallback for an
+  unseen category or an unmodeled missing value
+
 - `engine`:
 
   name, requested versus used, and whether additive

@@ -78,9 +78,13 @@ obwoe_gains(
 
   Character string specifying sort order for bins:
 
+  `"id"`
+
+  :   The algorithm's own internal bin order - default
+
   `"woe"`
 
-  :   Descending WoE (highest risk first) - default
+  :   Descending WoE (highest risk first)
 
   `"event_rate"`
 
@@ -88,7 +92,12 @@ obwoe_gains(
 
   `"bin"`
 
-  :   Alphabetical/natural order
+  :   The bins' natural (level) order if `obj` is a factor column,
+      alphabetical order of the bin labels otherwise
+
+  **Note:** the default is `"id"`, not `"woe"` – kept as-is in 1.13.1 to
+  avoid changing existing callers' output; only this documentation was
+  wrong before.
 
 - n_groups:
 
@@ -319,7 +328,6 @@ gains_woe <- obwoe_gains(scored,
   target = df$target, feature = "age",
   use_column = "woe", n_groups = 5
 )
-#> Warning: NAs introduced by coercion
 
 # =============================================================================
 # Example 4: Any Variable - Score Decile Analysis

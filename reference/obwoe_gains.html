@@ -27,7 +27,7 @@ Any data.frame with a grouping variable (e.g., score deciles)
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,7 @@ Any data.frame with a grouping variable (e.g., score deciles)
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Gains Table Statistics for Credit Risk Scorecard Evaluation</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.13.0/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
       <div class="d-none name"><code>obwoe_gains.Rd</code></div>
     </div>
 
@@ -122,17 +122,23 @@ For <code>data.frame</code> objects: can be any column name representing groups
 
 
 <dt id="arg-sort-by">sort_by<a class="anchor" aria-label="anchor" href="#arg-sort-by"></a></dt>
-<dd><p>Character string specifying sort order for bins:</p><dl><dt><code>"woe"</code></dt>
-<dd><p>Descending WoE (highest risk first) - default</p></dd>
+<dd><p>Character string specifying sort order for bins:</p><dl><dt><code>"id"</code></dt>
+<dd><p>The algorithm's own internal bin order - default</p></dd>
+
+  <dt><code>"woe"</code></dt>
+<dd><p>Descending WoE (highest risk first)</p></dd>
 
   <dt><code>"event_rate"</code></dt>
 <dd><p>Descending event rate</p></dd>
 
   <dt><code>"bin"</code></dt>
-<dd><p>Alphabetical/natural order</p></dd>
+<dd><p>The bins' natural (level) order if <code>obj</code> is a
+    factor column, alphabetical order of the bin labels otherwise</p></dd>
 
 
-</dl></dd>
+</dl><p><strong>Note:</strong> the default is <code>"id"</code>, not <code>"woe"</code> – kept as-is
+in 1.13.1 to avoid changing existing callers' output; only this
+documentation was wrong before.</p></dd>
 
 
 <dt id="arg-n-groups">n_groups<a class="anchor" aria-label="anchor" href="#arg-n-groups"></a></dt>
@@ -318,7 +324,6 @@ Statistical Society: Series A</em>, 160(3), 523-541.
 <span class="r-in"><span>  target <span class="op">=</span> <span class="va">df</span><span class="op">$</span><span class="va">target</span>, feature <span class="op">=</span> <span class="st">"age"</span>,</span></span>
 <span class="r-in"><span>  use_column <span class="op">=</span> <span class="st">"woe"</span>, n_groups <span class="op">=</span> <span class="fl">5</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>NAs introduced by coercion</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
 <span class="r-in"><span><span class="co"># Example 4: Any Variable - Score Decile Analysis</span></span></span>

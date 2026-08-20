@@ -16,8 +16,6 @@
   : Universal Algorithms
 - [`.valid_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/dot-valid_algorithms.md)
   : Valid Binning Algorithms
-- [`fit_logistic_regression()`](https://evandeilton.github.io/OptimalBinningWoE/reference/fit_logistic_regression.md)
-  : Fit Logistic Regression Model
 - [`ob_apply_woe_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)
   : Apply Optimal Weight of Evidence (WoE) to a Categorical Feature
 - [`ob_apply_woe_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.md)
@@ -67,10 +65,6 @@
   : Binning Categorical Variables using Custom Cutpoints
 - [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
   : Binning Numerical Variables using Custom Cutpoints
-- [`ob_gains_table()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md)
-  : Compute Comprehensive Gains Table from Binning Results
-- [`ob_gains_table_feature()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table_feature.md)
-  : Compute Gains Table for a Binned Feature Vector
 - [`ob_numerical_bb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_bb.md)
   : Optimal Binning for Numerical Variables using Branch and Bound
   Algorithm
@@ -140,6 +134,10 @@
   : Bin Cutoff Parameter
 - [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md)
   : Gains Table Statistics for Credit Risk Scorecard Evaluation
+- [`obwoe_gains_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.md)
+  : Compute Comprehensive Gains Table from Binning Results
+- [`obwoe_gains_variable()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_variable.md)
+  : Compute Gains Table for a Binned Feature Vector
 - [`obwoe_max_bins()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_max_bins.md)
   : Maximum Bins Parameter
 - [`obwoe_min_bins()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_min_bins.md)

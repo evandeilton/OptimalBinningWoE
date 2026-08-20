@@ -42,7 +42,7 @@ ob_numerical_mdlp(
 
 - min_bins:
 
-  Minimum number of bins to generate (default: 3). Must be at least 1.
+  Minimum number of bins to generate (default: 3). Must be at least 2.
   If the number of unique feature values is less than `min_bins`, the
   algorithm adjusts automatically.
 

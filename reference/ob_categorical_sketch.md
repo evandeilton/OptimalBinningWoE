@@ -29,8 +29,8 @@ ob_categorical_sketch(
 - feature:
 
   A character vector or factor representing the categorical predictor
-  variable. Missing values (NA) will be converted to the string "N/A"
-  and treated as a separate category.
+  variable. Missing values (NA) will be converted to the string "NA" and
+  treated as a separate category.
 
 - target:
 

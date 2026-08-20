@@ -42,7 +42,7 @@ ob_numerical_mrblp(
 
 - min_bins:
 
-  Minimum number of bins to generate (default: 3). Must be at least 1.
+  Minimum number of bins to generate (default: 3). Must be at least 2.
   Acts as a hard constraint during monotonicity enforcement.
 
 - max_bins:
