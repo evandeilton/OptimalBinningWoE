@@ -464,6 +464,40 @@ test_that("bake.step_obwoe works with output='woe'", {
   expect_type(baked$age, "double") # WoE values are numeric
 })
 
+test_that("[C5/A-03] bake.step_obwoe handles a numerical column arriving as a factor", {
+  # vals_num <- as.numeric(vals) returns the integer LEVEL CODES when vals
+  # is a factor, not the numeric values the levels represent, so bin
+  # assignment was silently wrong for a numerical predictor delivered as a
+  # factor at bake() time (e.g. a data source that stores everything as
+  # factors). This compares the WoE assigned to a factor-typed copy of the
+  # column against the WoE assigned to the original numeric column: they
+  # must be identical, and bake() must warn about the type mismatch.
+  skip_if_not_installed("OptimalBinningWoE")
+
+  df <- create_small_data()
+  # Round first: factor() -> as.character() -> as.numeric() is a lossless
+  # round-trip for these values, so any remaining difference below can only
+  # come from bin assignment, not from floating-point noise introduced by
+  # the factor conversion itself.
+  df$age <- round(df$age, 4)
+
+  rec <- recipe(target ~ age, data = df) %>%
+    step_obwoe(age, outcome = "target", output = "woe")
+  prepped <- prep(rec, training = df)
+
+  baked_numeric <- bake(prepped, new_data = df)
+
+  df_factor <- df
+  df_factor$age <- factor(df_factor$age)
+  expect_warning(
+    baked_factor <- bake(prepped, new_data = df_factor),
+    "arrived in new_data as a factor"
+  )
+
+  expect_equal(baked_factor$age, baked_numeric$age)
+})
+
+
 test_that("bake.step_obwoe works with output='bin'", {
   skip_if_not_installed("OptimalBinningWoE")
 

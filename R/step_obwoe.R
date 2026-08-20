@@ -784,6 +784,17 @@ bake.step_obwoe <- function(object, new_data, ...) {
     vec_bin <- rep(NA_character_, n)
 
     if (res$type == "numerical") {
+      if (is.factor(vals)) {
+        warning(sprintf(
+          paste(
+            "'%s' was numerical when this step was prepped, but arrived in",
+            "new_data as a factor; its levels are converted via",
+            "as.character() before being parsed as numbers. Check the",
+            "column type upstream if this is unexpected."
+          ),
+          col
+        ), call. = FALSE)
+      }
       # Numerical transformation using cutpoints
       if (is.null(res$cutpoints) || length(res$cutpoints) == 0L) {
         # Single bin case
@@ -807,7 +818,13 @@ bake.step_obwoe <- function(object, new_data, ...) {
           vec_bin[na_mask] <- NA_character_
         } else {
           breaks <- c(-Inf, cp, Inf)
-          vals_num <- as.numeric(vals)
+          # [A-03] If a numerical column arrives as a factor (e.g. a data
+          # source that stores everything as factors, or a prior recipe
+          # step that accidentally converted it), as.numeric(vals) silently
+          # returns the integer level *codes*, not the values the levels
+          # represent -- every bin assignment downstream is then wrong
+          # without any error or warning.
+          vals_num <- if (is.factor(vals)) as.numeric(as.character(vals)) else as.numeric(vals)
 
           idx <- cut(
             vals_num,
