@@ -624,3 +624,20 @@ test_that("[D1] .build_gains_table()'s neg_rate is 0, not NaN, for an empty bin"
   expect_false(any(is.nan(gt$neg_rate)))
   expect_equal(gt$neg_rate[gt$bin == "b"], 0)
 })
+
+# ---------------------------------------------------------------------------
+# [D2] obwoe() documents that a missing target is not permitted, but never
+# enforced it -- target-type detection silently dropped NA, and every
+# downstream binning call received a target vector with NAs intact.
+# ---------------------------------------------------------------------------
+test_that("[D2] obwoe() rejects a target with missing values", {
+  set.seed(1)
+  n <- 200
+  df <- data.frame(x = rnorm(n), y = rbinom(n, 1, 0.3))
+  df$y[c(3, 17)] <- NA
+
+  expect_error(
+    obwoe(df, target = "y", feature = "x"),
+    "missing values"
+  )
+})

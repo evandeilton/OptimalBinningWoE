@@ -418,6 +418,17 @@ obwoe <- function(data,
     target_vec <- as.integer(raw_target)
   }
 
+  # [D2] The roxygen documentation states "Missing values in the target are
+  # not permitted", but this was never enforced: target-type detection just
+  # below silently drops NA via unique(target_vec[!is.na(target_vec)]), and
+  # every downstream binning call receives target_vec with the NAs intact.
+  if (anyNA(target_vec)) {
+    stop(sprintf(
+      "Target column '%s' contains missing values, which are not permitted.",
+      target
+    ))
+  }
+
   # Detect target type
   unique_targets <- sort(unique(target_vec[!is.na(target_vec)]))
   if (length(unique_targets) == 2 && all(unique_targets %in% c(0L, 1L))) {
