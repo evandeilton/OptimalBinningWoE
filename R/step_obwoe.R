@@ -947,7 +947,13 @@ print.step_obwoe <- function(x, width = max(20L, options()$width - 30L), ...) {
       terms_combined <- paste0(substr(terms_combined, 1L, width - 3L), "...")
     }
 
-    cat(sprintf("%s (%s) [algorithm='%s']\n", title, terms_combined, x$algorithm))
+    # x$algorithm can be an unevaluated language object (e.g. tune::tune())
+    # before the step is prepped. sprintf("%s", .) on such an object errors
+    # out instead of formatting it, so print(rec) would break for any
+    # recipe using step_obwoe(algorithm = tune()). rlang::as_label()
+    # renders both plain strings and language objects into a single
+    # display string.
+    cat(sprintf("%s (%s) [algorithm='%s']\n", title, terms_combined, rlang::as_label(x$algorithm)))
   }
 
   invisible(x)

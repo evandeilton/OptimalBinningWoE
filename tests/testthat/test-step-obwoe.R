@@ -241,6 +241,22 @@ test_that("step_obwoe accepts valid algorithm names", {
 })
 
 
+test_that("[B3/C-05] print.step_obwoe works with algorithm = tune::tune()", {
+  # x$algorithm can be an unevaluated language object before the step is
+  # prepped -- tune::tune() returns a call, not a string. print.step_obwoe()
+  # used to do sprintf("%s", x$algorithm), which errors on a language
+  # object instead of formatting it, so print(rec) broke for any recipe
+  # tagging step_obwoe(algorithm = tune()) for hyperparameter tuning.
+  skip_if_not_installed("tune")
+
+  df <- create_small_data()
+  rec <- recipe(target ~ age, data = df) %>%
+    step_obwoe(age, outcome = "target", algorithm = tune::tune())
+
+  expect_no_error(print(rec))
+})
+
+
 # ---------------------------------------------------------------------------- #
 # Test Group: Recipe Preparation (prep)
 # ---------------------------------------------------------------------------- #
