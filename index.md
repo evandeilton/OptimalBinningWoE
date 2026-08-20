@@ -9,21 +9,14 @@ scorecard: fit the binning, screen the variables against IV strength and
 bin ordering, transform the data, and export the same transformation as
 SQL so the scoring runs where the data lives.
 
-\<\<\<\<\<\<\< HEAD \| \| \| \|—-\|—-\| ======= \| \| \| \|—\|—\|
-\>\>\>\>\>\>\> b3cc53f9f70cc729f1a50aa4239207fdfb82267b \| **36
-algorithms** \| 20 numerical, 16 categorical — entropy, $`\chi^2`$,
-exact optimisation, shape-constrained and streaming methods \| \| **C++
-engine** \| Rcpp/RcppEigen throughout; 500 variables over 20,000 rows
-bin and screen in about two seconds \| \| **Automated screening** \|
-[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
-returns a verdict and a reason for every candidate, never dropping a row
-\| \| **In-database scoring** \|
-[`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md)
-emits exact `CASE` expressions for 14 SQL dialects \| \| **Regulatory
-fit** \| monotonic binning, auditable bin-level evidence, reason codes
-\| \| **tidymodels ready** \|
-[`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md)
-is a first-class, tunable `recipes` step \|
+|  |  |
+|----|----|
+| **36 algorithms** | 20 numerical, 16 categorical — entropy, $`\chi^2`$, exact optimisation, shape-constrained and streaming methods |
+| **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
+| **Automated screening** | [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md) returns a verdict and a reason for every candidate, never dropping a row |
+| **In-database scoring** | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) emits exact `CASE` expressions for 14 SQL dialects |
+| **Regulatory fit** | monotonic binning, auditable bin-level evidence, reason codes |
+| **tidymodels ready** | [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) is a first-class, tunable `recipes` step |
 
 ## Installation
 
@@ -231,20 +224,14 @@ flowchart TD
 Bold entries are the defaults worth trying first. `algorithm = "auto"`
 picks `jedi`, a good general-purpose choice for both types.
 
-Family \| Algorithms \| Optimises \|
-
-\<\<\<\<\<\<\< HEAD \|—-\|—-\|—-\| ======= \|—\|—\|—\| \>\>\>\>\>\>\>
-b3cc53f9f70cc729f1a50aa4239207fdfb82267b \| Information-theoretic \|
-`mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` \| entropy or IV gain per
-split, with an MDL stopping rule \| \| Statistical merging \| `cm`,
-`fetb`, `mob` \| merges neighbours whose difference fails a $`\chi^2`$
-or Fisher test \| \| Shape-constrained \| `ir`, `mrblp`, `mblp`, `oslp`,
-`gmb` \| best fit subject to a monotonicity constraint \| \| Exact
-optimisation \| `dp`, `milp`, `sblp`, `bb` \| global optimum of IV under
-bin-count and size constraints \| \| Metaheuristic \| `sab`, `mba`,
-`swb`, `udt` \| simulated annealing, agglomerative or tree-based search
-\| \| Unsupervised \| `ewb`, `kmb`, `ubsd`, `sketch` \| equal width,
-k-means, standard deviation, streaming quantiles \|
+| Family | Algorithms | Optimises |
+|----|----|----|
+| Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` | entropy or IV gain per split, with an MDL stopping rule |
+| Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $`\chi^2`$ or Fisher test |
+| Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp`, `gmb` | best fit subject to a monotonicity constraint |
+| Exact optimisation | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Metaheuristic | `sab`, `mba`, `swb`, `udt` | simulated annealing, agglomerative or tree-based search |
+| Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 
 [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md)
 lists all 36 with the feature types each supports; every one is also
