@@ -24,13 +24,8 @@ scorecard: fit the binning, screen the variables against IV strength and bin
 ordering, transform the data, and export the same transformation as SQL so the
 scoring runs where the data lives.
 
-<<<<<<< HEAD
-|  |  |
-|----|----|
-=======
 | | |
 |---|---|
->>>>>>> b3cc53f9f70cc729f1a50aa4239207fdfb82267b
 | **36 algorithms** | 20 numerical, 16 categorical — entropy, $\chi^2$, exact optimisation, shape-constrained and streaming methods |
 | **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
 | **Automated screening** | `obwoe_select()` returns a verdict and a reason for every candidate, never dropping a row |
@@ -229,11 +224,7 @@ Bold entries are the defaults worth trying first. `algorithm = "auto"` picks
 `jedi`, a good general-purpose choice for both types.
 
 | Family | Algorithms | Optimises |
-<<<<<<< HEAD
-|----|----|----|
-=======
 |---|---|---|
->>>>>>> b3cc53f9f70cc729f1a50aa4239207fdfb82267b
 | Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` | entropy or IV gain per split, with an MDL stopping rule |
 | Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $\chi^2$ or Fisher test |
 | Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp`, `gmb` | best fit subject to a monotonicity constraint |
