@@ -263,3 +263,267 @@ test_that("every algorithm conserves observations and returns finite WoE/IV", {
     check_common(res, fn)
   }
 })
+
+# ---------------------------------------------------------------------------
+# Regression tests for defects found in the 2026-08 follow-up audit.
+#
+# As above, these pin behaviour rather than merely exercise it: 31 assertions
+# below fail on the pre-fix sources. The two exceptions are stated where they
+# appear -- they pin the engine invariant each fix relies on, and a no-op
+# guarantee, so they hold before and after by design.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# obwoe_apply() / bake.step_obwoe(): category names were whitespace-trimmed
+#
+# Both rebuilt their category-to-bin lookup with
+#   trimws(strsplit(bin_label, "%;%", fixed = TRUE)[[1]])
+# The binning engines join the original category strings with the separator and
+# add no padding, so the split pieces are already the categories byte for byte;
+# trimming turned any category carrying leading or trailing whitespace -- a
+# routine artefact of CHAR columns and of hand-maintained code tables -- into a
+# key that no observation could ever match. Those rows silently received
+# bin = NA and woe = na_woe, so a whole segment was scored as "unseen" without
+# any warning.
+# ---------------------------------------------------------------------------
+# Holds before and after the fix: it pins the engine invariant that removing
+# the trimming relies on, namely that no categorical algorithm pads around the
+# separator, so the split pieces need no cleaning.
+test_that("splitting a bin label recovers the categories byte for byte", {
+  set.seed(4021)
+  n <- 1200
+  cats <- c("  padded  ", "plain", " lead", "trail ", "A B")
+  feature <- sample(cats, n, replace = TRUE)
+  target <- rbinom(n, 1, plogis(-0.4 + 0.9 * (feature %in% cats[1:2])))
+
+  cat_algos <- grep("^ob_categorical_", getNamespaceExports("OptimalBinningWoE"),
+    value = TRUE
+  )
+  cat_algos <- setdiff(cat_algos, "ob_categorical_jedi_mwoe")
+
+  for (fn in cat_algos) {
+    res <- try(
+      do.call(fn, list(feature = feature, target = target, min_bins = 2, max_bins = 5)),
+      silent = TRUE
+    )
+    if (inherits(res, "try-error")) next
+    parts <- unlist(strsplit(res$bin, "%;%", fixed = TRUE))
+    expect_setequal(parts, cats)
+    expect_equal(length(parts), length(cats), info = fn)
+  }
+})
+
+test_that("obwoe_apply() matches categories carrying whitespace", {
+  set.seed(4022)
+  n <- 1500
+  cats <- c("  padded  ", "plain", " lead", "trail ", "\tTAB\t")
+  df <- data.frame(
+    g = sample(cats, n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  df$target <- rbinom(n, 1, plogis(-0.4 + 0.9 * (df$g %in% cats[1:2])))
+
+  model <- obwoe(df, target = "target", max_bins = 5)
+  res <- model$results$g
+  skip_if(!is.null(res$error), "binning failed on the constructed case")
+
+  scored <- obwoe_apply(df, model)
+
+  # No observation may be left unassigned ...
+  expect_false(anyNA(scored$g_bin))
+  # ... and the assignment must reproduce the fitted bin counts exactly
+  expect_equal(
+    as.integer(table(factor(scored$g_bin, levels = res$bin))),
+    as.integer(res$count)
+  )
+  # ... with the WoE of the bin each row landed in
+  expect_equal(scored$g_woe, res$woe[match(scored$g_bin, res$bin)], tolerance = 0)
+})
+
+test_that("bake.step_obwoe() matches categories carrying whitespace", {
+  skip_if_not_installed("recipes")
+  set.seed(4023)
+  n <- 1500
+  cats <- c("  padded  ", "plain", " lead", "trail ")
+  df <- data.frame(
+    g = sample(cats, n, replace = TRUE),
+    stringsAsFactors = FALSE
+  )
+  df$target <- factor(rbinom(n, 1, plogis(-0.4 + 0.9 * (df$g %in% cats[1:2]))),
+    levels = c(0, 1)
+  )
+
+  rec <- recipes::prep(
+    step_obwoe(
+      recipes::recipe(target ~ g, data = df),
+      recipes::all_predictors(),
+      outcome = "target", max_bins = 5, output = "both"
+    ),
+    training = df
+  )
+  fitted <- rec$steps[[1L]]$binning_results$g
+  skip_if(is.null(fitted), "step produced no binning for the constructed case")
+
+  baked <- recipes::bake(rec, new_data = df)
+
+  # No observation may be left unassigned ...
+  expect_false(anyNA(baked$g_bin))
+  expect_true(all(baked$g_bin %in% fitted$bin))
+
+  # ... and the bin each row landed in must actually contain that row's
+  # category. The step stores a compact model without counts, so this is
+  # checked directly against the bin labels.
+  members <- strsplit(as.character(baked$g_bin), "%;%", fixed = TRUE)
+  expect_true(all(mapply(function(cat, m) cat %in% m, df$g, members)))
+
+  # The WoE must be the one attached to that bin
+  expect_equal(
+    baked$g_woe, fitted$woe[match(baked$g_bin, fitted$bin)],
+    tolerance = 0
+  )
+})
+
+# ---------------------------------------------------------------------------
+# ob_numerical_ir: PAVA pooled the fitted rates but not the bins
+#
+# applyIsotonicRegression() ran the Pool Adjacent Violators algorithm on the bin
+# event rates and then overwrote each bin with
+#   count_pos <- round(fitted_rate * count)
+# Pooling adjacent violators means those bins form ONE block; leaving them as
+# separate bins and back-solving synthetic counts produced two defects at once:
+#   * count_pos/count_neg no longer described the observations falling between
+#     the reported cutpoints, so WoE, IV, KS and every gains table derived from
+#     them referred to a distribution that does not exist; and
+#   * because of the rounding, the reported bins were not even monotonic -- the
+#     one property the algorithm exists to guarantee.
+# The blocks are now merged, which reproduces the isotonic fit exactly (the
+# pooled rate of a block IS sum(count_pos)/sum(count) over it) while keeping the
+# counts equal to what was observed.
+# ---------------------------------------------------------------------------
+test_that("ob_numerical_ir reports the counts that fall between its cutpoints", {
+  scenarios <- list(
+    increasing = function(x) plogis(-0.5 + 1.0 * x),
+    decreasing = function(x) plogis(-0.5 - 1.0 * x),
+    u_shaped   = function(x) plogis(-1.0 + 1.2 * x^2),
+    flat       = function(x) rep(0.3, length(x))
+  )
+
+  for (nm in names(scenarios)) {
+    for (mb in c(2L, 3L, 5L)) {
+      set.seed(4031)
+      n <- 3000
+      x <- rnorm(n)
+      y <- rbinom(n, 1, scenarios[[nm]](x))
+
+      res <- ob_numerical_ir(
+        feature = x, target = y,
+        min_bins = mb, max_bins = max(mb, 8L)
+      )
+      tag <- sprintf("%s/min_bins=%d", nm, mb)
+      k <- length(res$bin)
+
+      idx <- cut(x,
+        breaks = c(-Inf, res$cutpoints, Inf), labels = FALSE,
+        right = TRUE, include.lowest = TRUE
+      )
+      obs_count <- as.integer(table(factor(idx, levels = seq_len(k))))
+      obs_pos <- as.integer(table(factor(idx[y == 1], levels = seq_len(k))))
+      obs_neg <- as.integer(table(factor(idx[y == 0], levels = seq_len(k))))
+
+      expect_equal(as.integer(res$count), obs_count, info = tag)
+      expect_equal(as.integer(res$count_pos), obs_pos, info = tag)
+      expect_equal(as.integer(res$count_neg), obs_neg, info = tag)
+
+      # Totals are conserved: rounding used to lose or invent events
+      expect_equal(sum(res$count_pos), sum(y == 1L), info = tag)
+      expect_equal(sum(res$count_neg), sum(y == 0L), info = tag)
+    }
+  }
+})
+
+test_that("ob_numerical_ir returns bins that are monotonic in the observed rate", {
+  # An isotonic binner must deliver monotonicity in the data it reports, not
+  # only in a fitted vector that never reaches the caller.
+  for (seed in c(11L, 22L, 33L, 44L)) {
+    set.seed(seed)
+    n <- 2500
+    x <- rnorm(n)
+    # A deliberately non-monotone relationship: PAVA has real work to do
+    y <- rbinom(n, 1, plogis(-1 + 0.8 * x + 0.7 * x^2))
+
+    res <- ob_numerical_ir(feature = x, target = y, min_bins = 2, max_bins = 8)
+    rate <- res$count_pos / res$count
+    d <- diff(rate)
+
+    expect_true(
+      length(d) == 0L || all(d >= -1e-12) || all(d <= 1e-12),
+      info = sprintf("seed=%d rates=%s", seed, paste(round(rate, 4), collapse = ", "))
+    )
+    # The WoE the caller receives must order the same way as those rates
+    expect_equal(order(res$woe), order(rate), info = sprintf("seed=%d", seed))
+  }
+})
+
+test_that("ob_numerical_ir leaves an already monotone feature untouched", {
+  # Holds before and after: the fix must be a no-op wherever PAVA has nothing
+  # to pool, so a well-behaved feature keeps exactly the bins it had.
+  set.seed(4032)
+  n <- 4000
+  x <- rnorm(n)
+  y <- rbinom(n, 1, plogis(-0.5 + 1.2 * x))
+
+  res <- ob_numerical_ir(feature = x, target = y, min_bins = 3, max_bins = 6)
+  rate <- res$count_pos / res$count
+
+  expect_gte(length(res$bin), 3L)
+  expect_true(all(diff(rate) >= -1e-12) || all(diff(rate) <= 1e-12))
+  expect_equal(as.integer(res$count), as.integer(res$count_pos + res$count_neg))
+})
+
+# ---------------------------------------------------------------------------
+# obwoe_gains(): the lift column collapsed to a single value
+#
+# .build_gains_table() computed
+#   df$lift <- ifelse(overall_rate > 0, df$pos_rate / overall_rate, 0)
+# ifelse() returns a result shaped like its *test*, and the test here is the
+# scalar `overall_rate > 0`, so the expression evaluated to a length-1 vector
+# that R then recycled: every bin reported the lift of the first bin. The lift
+# column of every gains table, and plot(type = "lift"), were wrong for any
+# binning with more than one bin.
+# ---------------------------------------------------------------------------
+test_that("obwoe_gains() reports lift per bin, not the first bin's lift", {
+  set.seed(5)
+  n <- 5000
+  score <- rnorm(n)
+  target <- rbinom(n, 1, plogis(-1.5 + 1.2 * score))
+  df <- data.frame(score = score, target = target)
+
+  gains <- obwoe_gains(df,
+    target = "target", feature = "score",
+    use_column = "direct", n_groups = 5, sort_by = "bin"
+  )
+  tbl <- gains$table
+
+  expect_equal(tbl$lift, tbl$pos_rate / mean(target))
+  expect_gt(length(unique(round(tbl$lift, 6))), 1L)
+  # lift is a ratio to the base rate, so the population-weighted mean is 1
+  expect_equal(sum(tbl$lift * tbl$count) / sum(tbl$count), 1)
+})
+
+test_that("obwoe_gains() agrees with the C++ gains engine", {
+  skip_if_no_german()
+  df <- german_credit()
+  model <- obwoe(df, target = "target", feature = "duration", max_bins = 6)
+  res <- model$results$duration
+
+  r_side <- obwoe_gains(model, feature = "duration", sort_by = "id")$table
+  cpp_side <- ob_gains_table(list(
+    id = res$id, bin = res$bin, count = res$count,
+    count_pos = res$count_pos, count_neg = res$count_neg
+  ))
+
+  expect_equal(r_side$lift, cpp_side$lift, tolerance = 1e-12)
+  expect_equal(r_side$woe, cpp_side$woe, tolerance = 1e-12)
+  expect_equal(r_side$iv, cpp_side$iv, tolerance = 1e-12)
+  expect_equal(r_side$ks, cpp_side$ks, tolerance = 1e-12)
+})

@@ -1,0 +1,625 @@
+---
+title: "An Industrial Scorecard Pipeline"
+author: "José Evandeilton Lopes"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{An Industrial Scorecard Pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7.5,
+  fig.height = 4.5,
+  fig.align = "center",
+  warning = FALSE,
+  message = FALSE
+)
+options(width = 100, digits = 4)
+```
+
+The [practical guide](introduction.html) covers what each function computes.
+This vignette runs a full origination scorecard the way it is run in a risk
+department: a wide base with the pathologies real bases have, an out-of-time
+validation window, a `recipes` pipeline that can be versioned and shipped, and
+the artefacts a model governance committee asks for.
+
+Everything below runs in a few seconds and uses only `recipes`, which the
+package already imports.
+
+```{r libs}
+library(OptimalBinningWoE)
+library(recipes)
+set.seed(20260819)
+```
+
+# The setting
+
+An origination model is built once and lived with for years. The constraints
+that shape the pipeline are not statistical:
+
+- **The base is wide and mostly worthless.** Feature stores hand you hundreds
+  of columns. Most carry nothing; a few carry the future.
+- **Leakage is the default failure mode.** Fields populated after booking —
+  collections activity, first-payment status — look spectacular in development
+  and are unavailable at decision time.
+- **The model must be defensible.** Every variable that enters needs a reason,
+  and every variable that was dropped needs one too.
+- **It must run where the data is.** The final artefact is usually SQL in a
+  warehouse, not an R object.
+- **It must be monitored.** A scorecard that was excellent last year and is
+  never re-checked is a liability.
+
+The pipeline below is organised around those five facts.
+
+# A realistic origination base
+
+The generator below produces an application base with the pathologies that
+matter: skewed monetary fields, missing values in three fields, a high-cardinality dealer
+code with rare levels, two near-duplicates of variables already present, eight
+pure-noise columns, and one leaky field populated only after the loan was
+booked.
+
+```{r data-generator}
+make_base <- function(n, vintage) {
+  age    <- pmax(18, round(rnorm(n, 41, 13)))
+  income <- round(exp(rnorm(n, 8.1, 0.55)))
+  tenure <- pmax(0, round(rexp(n, 1 / 48)))
+  util   <- pmin(1.6, pmax(0, rbeta(n, 2, 4) + rnorm(n, 0, 0.08)))
+  inq    <- rpois(n, 1.3)
+  dlq    <- rpois(n, 0.35)
+  bureau <- round(rnorm(n, 640, 85))
+  ltv    <- pmin(1.3, pmax(0.1, rnorm(n, 0.72, 0.16)))
+
+  region  <- sample(c("N", "NE", "CO", "SE", "S"), n, TRUE, c(.09, .27, .07, .42, .15))
+  channel <- sample(c("branch", "broker", "digital", "partner"), n, TRUE, c(.34, .21, .33, .12))
+  product <- sample(c("auto", "personal", "payroll", "card"), n, TRUE, c(.28, .35, .22, .15))
+  occ     <- sample(c("salaried", "self_employed", "retired", "public", "informal"), n, TRUE)
+  housing <- sample(c("owned", "rented", "family", "mortgaged"), n, TRUE, c(.31, .34, .20, .15))
+  dealer  <- sample(c(LETTERS[1:3], paste0("Z", 1:14)), n, TRUE,
+                    c(rep(.30, 3), rep(.10 / 14, 14)))
+
+  lp <- -3.80 -
+    0.019 * (age - 41) -
+    0.55 * scale(log(income))[, 1] +
+    1.35 * util +
+    0.24 * inq + 0.42 * dlq -
+    0.008 * (bureau - 640) +
+    1.70 * ltv +
+    0.30 * (channel == "broker") - 0.22 * (channel == "branch") +
+    0.55 * (occ == "informal") - 0.40 * (occ == "public") +
+    0.45 * (housing == "rented") - 0.006 * pmin(tenure, 120)
+  y <- rbinom(n, 1, plogis(lp))
+
+  # a second bureau vendor and a declared-income field: near-duplicates of
+  # variables already in the base, which is what feature stores actually hand you
+  bureau_alt <- round(0.80 * bureau + 0.20 * rnorm(n, 640, 85) + rnorm(n, 0, 35))
+  income_declared <- round(income * exp(rnorm(n, 0, 0.15)))
+
+  df <- data.frame(
+    age, income, tenure_months = tenure, utilisation = util,
+    inquiries_6m = inq, delinq_12m = dlq, bureau_score = bureau, ltv,
+    bureau_alt, income_declared,
+    region, channel, product, occupation = occ, housing,
+    dealer_code = dealer, stringsAsFactors = FALSE
+  )
+
+  # eight columns of pure noise and four uninformative flags
+  for (j in 1:8) df[[sprintf("noise_%02d", j)]] <- rnorm(n)
+  for (j in 1:4) df[[sprintf("flag_%02d", j)]] <- sample(c("Y", "N"), n, TRUE)
+
+  # populated only after booking: unavailable at decision time
+  df$collections_after_booking <- ifelse(y == 1, rpois(n, 2.2), rpois(n, 0.05))
+
+  df$utilisation[sample(n, n * 0.12)] <- NA
+  df$tenure_months[sample(n, n * 0.07)] <- NA
+  df$occupation[sample(n, n * 0.05)] <- NA
+
+  df$vintage <- vintage
+  df$default <- y
+  df
+}
+```
+
+Development is the first half of 2024; validation is the second half, held out
+by time rather than at random. An out-of-time window is what catches a model
+that has learned a vintage instead of a risk.
+
+```{r data-build}
+dev <- make_base(20000, "2024H1")
+oot <- make_base(8000, "2024H2")
+
+predictors <- setdiff(names(dev), c("default", "vintage"))
+c(dev = nrow(dev), oot = nrow(oot), predictors = length(predictors))
+c(dev_rate = mean(dev$default), oot_rate = mean(oot$default))
+```
+
+## Missing values become levels
+
+Binning treats a missing value as information, not as a gap to be filled. The
+convention throughout the package is a numeric sentinel and a character level,
+which the binner then places in its own bin — so "utilisation was not
+reported" gets its own WoE instead of borrowing the mean's.
+
+```{r missing}
+as_levels <- function(df) {
+  num <- vapply(df, is.numeric, logical(1))
+  df[num] <- lapply(df[num], function(v) replace(v, is.na(v), -999))
+  df[!num] <- lapply(df[!num], function(v) replace(v, is.na(v), "MISSING"))
+  df
+}
+
+dev <- as_levels(dev)
+oot <- as_levels(oot)
+```
+
+`ob_preprocess()` does the same job with outlier treatment attached when a
+variable needs it; see the [practical guide](introduction.html#preprocessing).
+
+# Screening at scale
+
+Bin everything first, decide afterwards. Binning all `r length(predictors)`
+candidates over 20,000 rows takes a fraction of a second, so there is no reason
+to pre-filter by intuition.
+
+```{r fit}
+binning <- obwoe(dev, target = "default", feature = predictors,
+                 min_bins = 2, max_bins = 6)
+binning
+```
+
+`obwoe_select()` turns the fitted binning into a decision. The policy below is
+a defensible default for origination: drop the unpredictive band, drop the
+suspicious band, require monotonicity where the bin order is intrinsic, and
+refuse bins holding less than 3% of the base.
+
+```{r select}
+sel <- obwoe_select(
+  binning,
+  iv_min            = 0.02,
+  iv_max            = 0.50,
+  require_monotonic = "numeric",
+  min_bin_pct       = 0.03,
+  sort_by           = "iv"
+)
+
+head(sel[, c("feature", "type", "n_bins", "total_iv", "iv_class",
+             "ks", "monotonic", "quality", "selected")], 12)
+```
+
+The screening reduces the candidates to a shortlist and records why each of the
+others went.
+
+```{r select-reasons}
+table(sel$reason)
+```
+
+## The two rejections worth reading
+
+```{r select-leak}
+sel[sel$reason != "OK" & sel$total_iv > 0.05,
+    c("feature", "total_iv", "iv_class", "n_degenerate_bins", "reason")]
+```
+
+`collections_after_booking` is the leak, and it is not subtle: an IV of about 7
+against a best-real-variable IV of 0.36, and a KS above 0.84. No genuine
+application variable behaves like that. This is exactly the field that carries
+a scorecard through development and destroys it in production, and the default
+`iv_max = 0.50` catches it without anyone having to notice. `n_degenerate_bins`
+is worth reading alongside it: a variable that also produces a bin with no
+events or no non-events is separating the target perfectly somewhere, which is
+the same diagnosis by another route.
+
+```{r select-rare}
+sel[grepl("SMALL_BIN", sel$reason),
+    c("feature", "n_bins", "min_bin_pct", "min_bin_count", "reason")]
+```
+
+`dealer_code` is the high-cardinality field. Its rare levels cannot support a
+stable estimate, and `min_bin_pct` says so.
+
+```{r shortlist}
+shortlist <- sel$feature[sel$selected]
+shortlist
+```
+
+## Evidence for the committee
+
+`detail = "full"` produces the bin-level table that goes into the model
+document: every surviving variable, every bin, with the counts and rates behind
+its WoE.
+
+```{r evidence}
+evidence <- obwoe_select(binning, detail = "full")
+evidence[evidence$feature == "bureau_score",
+         c("bin", "count", "pos", "pos_rate", "woe", "iv", "lift")]
+```
+
+The event rate falls monotonically across the bureau score, which is the shape
+the business expects. A variable whose shape contradicts the business is a
+finding, not a nuisance.
+
+# Redundancy
+
+IV ranks variables one at a time. Two variables can both be strong and carry
+the same information, and a logistic regression on WoE will show it as an
+unstable or sign-flipped coefficient. `obcorr()` computes the pairwise
+correlations in the WoE space — the space the model actually sees.
+
+```{r corr}
+woe_dev <- obwoe_apply(dev, binning, keep_original = FALSE)
+pairs <- obcorr(woe_dev[, paste0(shortlist, "_woe")], method = "pearson")
+
+head(pairs[order(-abs(pairs$pearson)), ], 5)
+```
+
+Pruning is a greedy pass: for every pair above the cutoff, drop whichever
+member the screening ranked lower.
+
+```{r prune}
+prune <- function(pairs, ranking, cutoff = 0.70) {
+  hits <- pairs[abs(pairs$pearson) >= cutoff, , drop = FALSE]
+  weaker <- mapply(function(a, b) {
+    c(a, b)[which.max(c(match(a, ranking), match(b, ranking)))]
+  }, hits$x, hits$y)
+  unique(as.character(weaker))
+}
+
+ranking <- paste0(shortlist, "_woe")
+dropped <- prune(pairs, ranking, cutoff = 0.70)
+
+final_vars <- setdiff(shortlist, sub("_woe$", "", dropped))
+dropped
+c(shortlist = length(shortlist), dropped = length(dropped),
+  final = length(final_vars))
+```
+
+The two near-duplicates go, each losing to the member of its pair that the
+screening ranked higher. Nothing is lost: they carried the same information,
+and keeping both would have split one variable's coefficient across two
+columns.
+
+# The pipeline as a recipe
+
+`step_obwoe()` puts the binning inside a `recipes` object. That matters for
+production: the recipe learns its cut points from the training data only, and
+`bake()` replays them on any new frame. There is no path by which validation
+data can influence the bins.
+
+```{r recipe}
+dev$default_f <- factor(dev$default, levels = c(0, 1))
+oot$default_f <- factor(oot$default, levels = c(0, 1))
+
+form <- reformulate(final_vars, response = "default_f")
+
+rec <- recipe(form, data = dev) |>
+  step_obwoe(all_predictors(), outcome = "default_f",
+             min_bins = 2, max_bins = 6, bin_cutoff = 0.03,
+             output = "woe")
+
+prepped <- prep(rec, training = dev)
+prepped
+```
+
+`tidy()` exposes what the step learned — the artefact to archive alongside the
+model.
+
+```{r recipe-tidy}
+rules <- tidy(prepped, number = 1)
+head(rules, 8)
+nrow(rules)
+```
+
+`bake()` applies it. The development and validation frames go through the same
+object, so the transformation is identical by construction.
+
+```{r bake}
+train_woe <- bake(prepped, new_data = dev)
+oot_woe   <- bake(prepped, new_data = oot)
+
+head(train_woe, 3)
+```
+
+# The model
+
+On WoE predictors, logistic regression is the natural choice: the transform has
+already linearised each variable against the log-odds, so what remains is
+weighting.
+
+```{r model}
+fit <- glm(default_f ~ ., data = train_woe, family = binomial())
+round(coef(summary(fit)), 4)
+```
+
+The sign check is the first thing to look at. A WoE of $+1$ means one more
+log-odds of risk, so **every coefficient should be positive**. A negative one
+means a variable is fighting the rest of the model, almost always through
+residual correlation.
+
+```{r model-signs}
+sum(coef(fit)[-1] < 0)
+```
+
+Coefficients clustering near 1.0 are a good sign too: it says the WoE transform
+already carried most of the calibration, and the regression is mostly
+reweighting rather than repairing.
+
+# Scorecard points
+
+Risk departments deploy points, not log-odds. The standard scaling fixes a
+reference score at a reference odds and a *points to double the odds* (PDO):
+
+$$
+\text{Score} = \text{Offset} + \text{Factor}\times \ln(\text{odds}),
+\qquad
+\text{Factor} = \frac{\text{PDO}}{\ln 2},
+\qquad
+\text{Offset} = \text{Score}_0 - \text{Factor}\times\ln(\text{Odds}_0)
+$$
+
+where $\text{odds}$ is good-to-bad. The model's linear predictor $\eta$ is the
+log-odds of *default*, the other direction, so the score is
+$\text{Offset} - \text{Factor}\,\eta$. With 600 points at 50:1 odds and 20
+points to double them:
+
+```{r points}
+pdo <- 20
+factor_ <- pdo / log(2)
+offset_ <- 600 - factor_ * log(50)
+
+to_score <- function(link) round(offset_ - factor_ * link)
+
+dev$score <- to_score(predict(fit, newdata = train_woe, type = "link"))
+oot$score <- to_score(predict(fit, newdata = oot_woe, type = "link"))
+
+summary(dev$score)
+```
+
+Because the model is linear in WoE, the points decompose additively per bin,
+which is what makes a scorecard a table a branch officer can read.
+
+```{r points-decomposition}
+lead_var <- final_vars[1]
+per_bin <- rules[rules$terms == lead_var, c("bin", "woe")]
+per_bin$points <- round(-factor_ * coef(fit)[[lead_var]] * per_bin$woe)
+
+lead_var
+per_bin
+```
+
+# Validation
+
+## Rank ordering out of time
+
+```{r gains}
+gains_oot <- obwoe_gains(oot, target = "default", feature = "score",
+                         use_column = "direct", n_groups = 10, sort_by = "bin")
+gains_oot
+```
+
+Three things to check, in order. The event rate must fall monotonically from
+the worst decile to the best — a break means the score does not rank. KS and
+Gini must be close to their development values. And the top decile's lift is
+the number the business will quote.
+
+```{r gains-dev}
+gains_dev <- obwoe_gains(dev, target = "default", feature = "score",
+                         use_column = "direct", n_groups = 10, sort_by = "bin")
+
+data.frame(
+  sample = c("development", "out-of-time"),
+  ks     = round(c(gains_dev$metrics$ks, gains_oot$metrics$ks), 2),
+  gini   = round(c(gains_dev$metrics$gini, gains_oot$metrics$gini), 2),
+  auc    = round(c(gains_dev$metrics$auc, gains_oot$metrics$auc), 4)
+)
+```
+
+A drop of more than a few points from development to out-of-time is the usual
+signature of overfitting; holding steady, as here, is what a stable model looks
+like.
+
+```{r gains-plot, fig.height=6}
+op <- par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+plot(gains_oot, type = "cumulative")
+plot(gains_oot, type = "ks")
+plot(gains_oot, type = "lift")
+plot(gains_oot, type = "woe_iv")
+par(op)
+```
+
+## Population stability
+
+PSI compares the distribution of a variable between two periods:
+
+$$
+\mathrm{PSI} = \sum_i (p_i - q_i)\,\ln\frac{p_i}{q_i}
+$$
+
+which is the same Jeffreys divergence that defines IV, applied to two vintages
+of one variable instead of to two classes. The conventional reading is
+$<0.10$ stable, $0.10$–$0.25$ worth watching, $>0.25$ act.
+
+```{r psi}
+psi <- function(p, q) {
+  p <- pmax(p, 1e-6)
+  q <- pmax(q, 1e-6)
+  sum((p - q) * log(p / q))
+}
+
+share <- function(x, levels) as.numeric(table(factor(x, levels))) / length(x)
+
+bins_dev <- obwoe_apply(dev, binning, keep_original = FALSE)
+bins_oot <- obwoe_apply(oot, binning, keep_original = FALSE)
+
+psi_vars <- vapply(final_vars, function(v) {
+  levels <- binning$results[[v]]$bin
+  psi(share(bins_dev[[paste0(v, "_bin")]], levels),
+      share(bins_oot[[paste0(v, "_bin")]], levels))
+}, numeric(1))
+
+score_cuts <- c(-Inf, quantile(dev$score, seq(0.1, 0.9, 0.1)), Inf)
+psi_score <- psi(share(cut(dev$score, score_cuts), levels(cut(dev$score, score_cuts))),
+                 share(cut(oot$score, score_cuts), levels(cut(dev$score, score_cuts))))
+
+psi_table <- data.frame(
+  variable = c("SCORE", final_vars),
+  psi = round(c(psi_score, psi_vars), 4),
+  row.names = NULL
+)
+psi_table <- psi_table[order(-psi_table$psi), ]
+row.names(psi_table) <- NULL
+psi_table
+```
+
+Comparing bin shares rather than raw quantiles is deliberate: the bins are what
+the model consumes, the comparison works for numerical and categorical
+variables alike, and a shift that does not cross a cut point is a shift the
+model never sees.
+
+Both vintages come from the same generator here, so everything is stable by
+construction. In production this table is the monthly monitoring report, and
+the score's own PSI is the headline.
+
+# Deployment
+
+## To the warehouse
+
+The scoring lives where the data lives. `obwoe_sql()` writes the WoE
+transformation as SQL that reproduces `bake()` exactly.
+
+```{r sql}
+sql <- obwoe_sql(
+  binning,
+  table        = "risk.applications",
+  features     = final_vars,
+  keep_columns = c("application_id", "vintage"),
+  dialect      = "postgres",
+  style        = "view",
+  view_name    = "risk.v_application_woe"
+)
+
+writeLines(head(strsplit(as.character(sql), "\n")[[1]], 28))
+```
+
+The intervals follow the same half-open $(a,\,b]$ convention as `bake()`, cut
+points are written at full round-trip precision, and every expression opens
+with an explicit `IS NULL` branch — because `NULL <= 5` is `NULL` in SQL, not
+`FALSE`, and a missing value would otherwise fall through to `ELSE`.
+
+Write it out and hand it to the data engineering team:
+
+```{r sql-file, eval=FALSE}
+obwoe_sql(binning, table = "risk.applications", features = final_vars,
+          dialect = "postgres", file = "woe_transform.sql")
+```
+
+The linear part goes with it as a small coefficient table:
+
+```{r sql-coefs}
+data.frame(
+  variable = names(coef(fit)),
+  beta     = round(as.numeric(coef(fit)), 6),
+  row.names = NULL
+)
+```
+
+## To R
+
+For batch scoring in R, the recipe is the artefact. Save it with the
+coefficients and the screening decisions so the model can be reproduced and
+audited later.
+
+```{r deploy-r, eval=FALSE}
+artefact <- list(
+  recipe       = prepped,
+  coefficients = coef(fit),
+  scaling      = c(factor = factor_, offset = offset_),
+  screening    = sel,
+  built_on     = Sys.Date(),
+  package      = as.character(utils::packageVersion("OptimalBinningWoE"))
+)
+saveRDS(artefact, "scorecard_v1.rds")
+
+score_batch <- function(new_data, artefact) {
+  woe <- bake(artefact$recipe, new_data = new_data)
+  lp <- as.numeric(cbind(1, as.matrix(woe[names(artefact$coefficients)[-1]])) %*%
+                     artefact$coefficients)
+  round(artefact$scaling[["offset"]] - artefact$scaling[["factor"]] * lp)
+}
+```
+
+Pinning the package version matters: bin boundaries are part of the model, and
+a model that cannot be reproduced cannot be defended.
+
+# Tuning with tidymodels
+
+`step_obwoe()` is `tunable`, so `max_bins`, `min_bins`, `bin_cutoff` and even
+the algorithm can be tuned by cross-validation. The block below is not
+evaluated here because it needs the Suggested tidymodels stack.
+
+```{r tune, eval=FALSE}
+library(tidymodels)
+
+rec_tune <- recipe(form, data = dev) |>
+  step_obwoe(all_predictors(), outcome = "default_f",
+             max_bins = tune(), bin_cutoff = tune())
+
+wf <- workflow() |>
+  add_recipe(rec_tune) |>
+  add_model(logistic_reg() |> set_engine("glm"))
+
+grid <- grid_regular(obwoe_max_bins(range = c(3L, 10L)),
+                     obwoe_bin_cutoff(range = c(0.01, 0.10)),
+                     levels = 4)
+
+folds <- vfold_cv(dev, v = 5, strata = default_f)
+
+tuned <- tune_grid(wf, resamples = folds, grid = grid,
+                   metrics = metric_set(roc_auc))
+
+final_wf <- finalize_workflow(wf, select_best(tuned, metric = "roc_auc"))
+final_fit <- fit(final_wf, data = dev)
+```
+
+Two cautions. Cross-validating the binning is the correct thing to do — binning
+is supervised, so cut points chosen on the full sample leak the target — and it
+is what `step_obwoe()` inside a `workflow()` gives you for free. But more bins
+almost always raise in-sample AUC, so tune against a metric on held-out folds
+and keep `max_bins` modest: a scorecard with twelve bins per variable is not a
+scorecard anyone will sign.
+
+# Governance checklist
+
+The pipeline above produces, in order, everything a model document needs:
+
+| Question | Artefact |
+|---|---|
+| Which variables were considered? | `sel`, one row per candidate |
+| Why was each one dropped? | `sel$reason`, `sel$reason_desc` |
+| Is each variable's shape defensible? | `obwoe_select(detail = "full")` |
+| Is the model free of leakage? | `IV_SUSPICIOUS` fires above 0.50 |
+| Are the predictors independent? | `obcorr()` on the WoE space |
+| Do the coefficients make sense? | all positive on WoE predictors |
+| Does it rank out of time? | gains table on the held-out vintage |
+| Will it stay stable? | PSI by variable and on the score |
+| Can it be reproduced? | the prepped recipe plus the package version |
+| Can it be deployed? | `obwoe_sql()` |
+
+# See also
+
+- [Optimal Binning and Weight of Evidence: A Practical Guide](introduction.html)
+  — the quantities, reading a gains table, choosing an algorithm.
+- `?obwoe_select` for the full rule set and reason codes.
+- `?step_obwoe` for the recipe step, including `tunable()` support.
+- `?obwoe_sql` for the SQL contract and the supported dialects.
+
+```{r session}
+sessionInfo()
+```

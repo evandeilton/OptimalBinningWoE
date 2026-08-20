@@ -1,8 +1,8 @@
 Package: OptimalBinningWoE
 Type: Package
 Title: Optimal Binning and Weight of Evidence Framework for Modeling
-Version: 1.11.0
-Date: 2026-08-12
+Version: 1.12.0
+Date: 2026-08-19
 Authors@R: 
     person(given = "José Evandeilton",
            family = "Lopes",
@@ -15,8 +15,11 @@ Description: High-performance implementation of 36 optimal binning algorithms
     Integer Linear Programming ('MILP'), Genetic Algorithms, Simulated Annealing, 
     and Monotonic Regression. Features automatic method selection based on 
     Information Value ('IV') maximization, strict monotonicity enforcement, and 
-    efficient handling of large datasets via 'Rcpp'. Fully integrated with the 
-    'tidymodels' ecosystem for building robust machine learning pipelines. 
+    efficient handling of large datasets via 'Rcpp'. Provides automated variable 
+    screening by Information Value strength and bin ordering, and generation of 
+    the equivalent 'SQL' 'CASE' expressions for in-database scoring. Fully 
+    integrated with the 'tidymodels' ecosystem for building robust machine 
+    learning pipelines. 
     Based on methods described in Siddiqi (2006) <doi:10.1002/9781119201731> 
     and Navas-Palencia (2020) <doi:10.48550/arXiv.2001.08025>.
 License: MIT + file LICENSE
@@ -39,15 +42,14 @@ LinkingTo:
     RcppNumerical
 Suggests: 
     testthat (>= 3.0.0),
+    data.table,
     dplyr,
     generics,
     knitr,
     rmarkdown,
     tidymodels,
     workflows,
-    parsnip,
-    pROC,
-    scorecard
+    parsnip
 Config/testthat/edition: 3
 SystemRequirements: C++17
 RoxygenNote: 7.3.3

@@ -1626,10 +1626,13 @@ obwoe_apply <- function(data,
 
       for (i in seq_along(bins)) {
         bin_label <- bins[i]
-        # Split by separator (%;%)
+        # Split by separator (%;%). The binning engines join the original
+        # category strings with the separator and add no padding, so the split
+        # pieces are the categories byte for byte. They must NOT be trimmed:
+        # a category carrying leading or trailing whitespace would otherwise
+        # become unmatchable and silently fall back to 'na_woe'.
         cats <- strsplit(bin_label, "%;%", fixed = TRUE)[[1]]
         for (cat in cats) {
-          cat <- trimws(cat)
           cat_to_bin[[cat]] <- bin_label
           cat_to_woe[[cat]] <- woe[i]
         }
@@ -2212,7 +2215,14 @@ obwoe_gains <- function(obj,
   df$ks <- abs(df$cum_pos_pct - df$cum_neg_pct)
 
   # Lift: Segment Event Rate / Overall Event Rate
-  df$lift <- ifelse(overall_rate > 0, df$pos_rate / overall_rate, 0)
+  # A plain `if`, not ifelse(): the test is a scalar, and ifelse() returns a
+  # result shaped like its test, so it collapsed the whole column to the lift
+  # of the first bin.
+  df$lift <- if (overall_rate > 0) {
+    df$pos_rate / overall_rate
+  } else {
+    rep(0, nrow(df))
+  }
 
   # Capture Rate (Cumulative % of Events)
   df$capture_rate <- df$cum_pos_pct

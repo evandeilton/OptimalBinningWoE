@@ -10,8 +10,9 @@
 #'   Missing values (NA) are excluded from the binning process.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
-#' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
-#'   Defaults to 3.
+#' @param min_bins Integer. The target minimum number of bins. Must be
+#'   \eqn{\ge} 2. Defaults to 3. Enforcing monotonicity can require pooling bins
+#'   together, so the result may hold fewer bins than requested; see Details.
 #' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}
 #'   \code{min_bins}. Defaults to 5.
 #' @param bin_cutoff Numeric. The minimum fraction of total observations required
@@ -37,8 +38,8 @@
 #'     \item \code{woe}: Numeric vector of Weight of Evidence for each bin.
 #'     \item \code{iv}: Numeric vector of Information Value contribution per bin.
 #'     \item \code{count}: Integer vector of total observations per bin.
-#'     \item \code{count_pos}: Integer vector of positive cases.
-#'     \item \code{count_neg}: Integer vector of negative cases.
+#'     \item \code{count_pos}: Integer vector of positive cases observed in the bin.
+#'     \item \code{count_neg}: Integer vector of negative cases observed in the bin.
 #'     \item \code{cutpoints}: Numeric vector of upper boundaries (excluding Inf).
 #'     \item \code{total_iv}: The total Information Value of the binned variable.
 #'     \item \code{monotone_increasing}: Logical indicating if the final WoE trend is increasing.
@@ -64,10 +65,24 @@
 #'   \item \strong{Trend Detection:} If \code{auto_monotonicity = TRUE}, calculates
 #'         the correlation between feature midpoints and bin event rates to determine
 #'         if the relationship should be increasing or decreasing.
-#'   \item \strong{Shape Enforcement:} Applies PAVA to the sequence of bin event rates,
-#'         producing a new set of rates that conform exactly to the monotonic constraint.
-#'   \item \strong{Metric Calculation:} Derives WoE and IV from the adjusted rates.
+#'   \item \strong{Shape Enforcement:} Applies PAVA to the sequence of bin event rates
+#'         and \emph{merges} the bins that the algorithm pools into each block, so
+#'         the surviving bins are monotonic in their own observed event rate.
+#'   \item \strong{Metric Calculation:} Derives WoE and IV from the observed counts
+#'         of those bins.
 #' }
+#'
+#' \strong{Pooling merges bins:} with the bin counts as weights, the fitted rate
+#' PAVA assigns to a block is exactly \eqn{\sum count\_pos / \sum count} over the
+#' block's members. Merging them therefore reproduces the isotonic fit exactly
+#' while \code{count}, \code{count_pos} and \code{count_neg} remain the counts
+#' actually observed between the reported \code{cutpoints}. A consequence is
+#' that \code{min_bins} is a \emph{target} rather than a guarantee for this
+#' algorithm: when the empirical event rate violates the trend, monotonicity can
+#' only be restored by pooling, and the result may hold fewer bins than
+#' requested. Use a non-shape-constrained method such as
+#' \code{\link{ob_numerical_mdlp}} when the bin count matters more than the
+#' shape constraint.
 #'
 #' \strong{Advantages:}
 #' \itemize{
