@@ -21,7 +21,7 @@ ob_categorical_sketch(
 \arguments{
 \item{feature}{A character vector or factor representing the categorical
 predictor variable. Missing values (NA) will be converted to the string
-"N/A" and treated as a separate category.}
+"NA" and treated as a separate category.}
 
 \item{target}{An integer vector containing binary outcome values (0 or 1).
 Must be the same length as \code{feature}. Cannot contain missing values.}

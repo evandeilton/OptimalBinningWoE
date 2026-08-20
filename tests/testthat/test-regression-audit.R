@@ -673,3 +673,28 @@ test_that("[D7] min_bins and bin_cutoff bounds are uniform across numerical wrap
     "\\(0, 1\\)"
   )
 })
+
+# ---------------------------------------------------------------------------
+# [D8] Divergent missing-value token across categorical wrappers
+#
+# ob_categorical_sketch() and ob_categorical_jedi_mwoe() mapped NA to "N/A";
+# the other 14 categorical wrappers map it to "NA". For identical data with
+# missing values, sketch and jedi disagreed on the bin label for the exact
+# same missing category.
+# ---------------------------------------------------------------------------
+test_that("[D8] the missing-value token is 'NA' for every categorical wrapper", {
+  set.seed(1)
+  n <- 500
+  feature <- sample(c("a", "b", "c"), n, replace = TRUE)
+  feature[1:20] <- NA
+  target <- rbinom(n, 1, 0.3)
+
+  res_sketch <- ob_categorical_sketch(feature = feature, target = target)
+  expect_true(any(grepl("(^|%;%)NA($|%;%)", res_sketch$bin)))
+  expect_false(any(grepl("N/A", res_sketch$bin, fixed = TRUE)))
+
+  target2 <- as.integer(rbinom(n, 1, 0.3))
+  res_jedi_mwoe <- ob_categorical_jedi_mwoe(feature = feature, target = target2)
+  expect_true(any(grepl("(^|%;%)NA($|%;%)", res_jedi_mwoe$bin)))
+  expect_false(any(grepl("N/A", res_jedi_mwoe$bin, fixed = TRUE)))
+})
