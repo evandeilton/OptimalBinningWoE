@@ -851,7 +851,13 @@ test_that("step_obwoe works in a workflow", {
   skip_if_not_installed("workflows")
   skip_if_not_installed("parsnip")
 
-  df <- create_small_data()
+  # n = 200 rather than the 100 default: the target runs at 15% prevalence, so
+  # 100 rows leave ~12 events, and a WoE transform fitted on those same rows
+  # separates them perfectly in-sample -- glm then warns about fitted
+  # probabilities of 0 or 1. 200 rows (~27 events) fit without separation, so
+  # this smoke test proves the workflow wires up without leaving a warning
+  # behind that would mask a real one.
+  df <- create_small_data(n = 200)
 
   rec <- recipe(target ~ age + income, data = df) %>%
     step_obwoe(all_numeric_predictors(), outcome = "target")

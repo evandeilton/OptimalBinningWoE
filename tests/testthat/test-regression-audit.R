@@ -29,10 +29,21 @@ test_that("ob_categorical_ivb handles features with <= max_bins categories", {
 })
 
 test_that("ob_categorical_ivb handles a perfectly separating 2-level feature", {
-  res <- ob_categorical_ivb(
-    feature  = c("A", "A", "A", "A", "B", "B", "B", "B"),
-    target   = c(1L, 1L, 1L, 1L, 0L, 0L, 0L, 0L),
-    min_bins = 2, max_bins = 2
+  # The fixture is deliberately tiny (4 rows per class) so that the separation
+  # is perfect, which is the point of the test. The binner rightly warns that
+  # a class holds fewer than 5 samples; asserting on that warning documents it
+  # as intended and keeps the suite free of unexplained noise, while still
+  # failing if the binner ever stops flagging an unstable fit.
+  # Note the assignment inside expect_warning(): it returns the condition, not
+  # the value of the expression, so res has to be bound in the inner call.
+  res <- NULL
+  expect_warning(
+    res <- ob_categorical_ivb(
+      feature  = c("A", "A", "A", "A", "B", "B", "B", "B"),
+      target   = c(1L, 1L, 1L, 1L, 0L, 0L, 0L, 0L),
+      min_bins = 2, max_bins = 2
+    ),
+    regexp = "fewer than 5 samples"
   )
 
   expect_equal(sum(res$count), 8)
@@ -251,17 +262,51 @@ test_that("every algorithm conserves observations and returns finite WoE/IV", {
     expect_true(all(is.finite(res$iv)), info = fn)
   }
 
+  # The target here is pure noise (rbinom, independent of the feature), so
+  # there is no monotone relationship for a monotonicity-enforcing algorithm
+  # to find, and ob_numerical_mob / ob_numerical_ubsd correctly say so. That
+  # warning is expected and orthogonal to what this test pins. Rather than
+  # suppressing every warning -- which would also hide a genuinely new one --
+  # collect them and assert each is the known-benign kind.
+  benign <- "monotonic"
+  seen <- list()
+
+  run_algo <- function(fn, feature) {
+    ws <- character(0)
+    res <- withCallingHandlers(
+      try(do.call(fn, list(feature = feature, target = target)), silent = TRUE),
+      warning = function(w) {
+        ws <<- c(ws, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+    if (length(ws)) seen[[fn]] <<- ws
+    res
+  }
+
   for (fn in num_algos) {
-    res <- try(do.call(fn, list(feature = num_feature, target = target)), silent = TRUE)
+    res <- run_algo(fn, num_feature)
     if (inherits(res, "try-error")) next
     check_common(res, fn)
   }
 
   for (fn in cat_algos) {
-    res <- try(do.call(fn, list(feature = cat_feature, target = target)), silent = TRUE)
+    res <- run_algo(fn, cat_feature)
     if (inherits(res, "try-error")) next
     check_common(res, fn)
   }
+
+  unexpected <- Filter(
+    function(ws) any(!grepl(benign, ws, ignore.case = TRUE)),
+    seen
+  )
+  expect_equal(
+    names(unexpected), character(0),
+    info = paste(
+      "unexpected warning(s) from:",
+      paste(names(unexpected), collapse = ", ")
+    )
+  )
 })
 
 # ---------------------------------------------------------------------------
