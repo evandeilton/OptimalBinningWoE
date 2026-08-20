@@ -142,6 +142,10 @@
   : Maximum Bins Parameter
 - [`obwoe_min_bins()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_min_bins.md)
   : Minimum Bins Parameter
+- [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
+  : Automated Variable Selection for Weight of Evidence Scorecards
+- [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md)
+  : Generate SQL for a Fitted Optimal Binning
 - [`plot(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/plot.obwoe.md)
   : Plot Method for obwoe Objects
 - [`plot(`*`<obwoe_gains>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/plot.obwoe_gains.md)
@@ -150,6 +154,8 @@
   : Prepare the Optimal Binning Step
 - [`print(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.obwoe.md)
   : Print Method for obwoe Objects
+- [`print(`*`<obwoe_sql>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.obwoe_sql.md)
+  : Print Method for Generated SQL
 - [`print(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.step_obwoe.md)
   : Print Method for step_obwoe
 - [`required_pkgs(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/required_pkgs.step_obwoe.md)

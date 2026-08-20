@@ -27,7 +27,7 @@ Any data.frame with a grouping variable (e.g., score deciles)
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,7 +38,8 @@ Any data.frame with a grouping variable (e.g., score deciles)
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -52,7 +53,7 @@ Any data.frame with a grouping variable (e.g., score deciles)
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Gains Table Statistics for Credit Risk Scorecard Evaluation</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.11.0/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obwoe.R" class="external-link"><code>R/obwoe.R</code></a></small>
       <div class="d-none name"><code>obwoe_gains.Rd</code></div>
     </div>
 
@@ -287,10 +288,10 @@ Statistical Society: Series A</em>, 160(3), 523-541.
 <span class="r-out co"><span class="r-pr">#&gt;</span>   AUC: 0.4662</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                    bin count pos_rate     woe     iv cum_pos_pct   ks lift</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       (-Inf;37.699632]   450   14.00% -0.1270 0.0069       40.4% 5.5%  0.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  (37.699632;59.237138]   450   16.22%  0.0465 0.0010       87.2% 3.3%  0.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  (59.237138;62.999207]    50   20.00%  0.3020 0.0050       93.6% 1.7%  0.9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       (62.999207;+Inf]    50   20.00%  0.3020 0.0050      100.0% 0.0%  0.9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       (-Inf;37.699632]   450   14.00% -0.1270 0.0069       40.4% 5.5% 0.90</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  (37.699632;59.237138]   450   16.22%  0.0465 0.0010       87.2% 3.3% 1.04</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  (59.237138;62.999207]    50   20.00%  0.3020 0.0050       93.6% 1.7% 1.28</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       (62.999207;+Inf]    50   20.00%  0.3020 0.0050      100.0% 0.0% 1.28</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Access metrics</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"KS:"</span>, <span class="va">gains</span><span class="op">$</span><span class="va">metrics</span><span class="op">$</span><span class="va">ks</span>, <span class="st">"%\n"</span><span class="op">)</span></span></span>
@@ -348,14 +349,14 @@ Statistical Society: Series A</em>, 160(3), 523-541.
 <span class="r-out co"><span class="r-pr">#&gt;</span>  bin count pos_rate     woe     iv cum_pos_pct   ks lift</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    1   100   15.00% -0.0463 0.0002        9.6% 0.5% 0.96</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    2   100   15.00% -0.0463 0.0002       19.2% 0.9% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    3   100   14.00% -0.1270 0.0015       28.2% 2.1% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    4   100   19.00%  0.2383 0.0062       40.4% 0.5% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    5   100   13.00% -0.2127 0.0042       48.7% 1.5% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    6   100   21.00%  0.3634 0.0149       62.2% 2.6% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    7   100   19.00%  0.2383 0.0062       74.4% 5.2% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    8   100   11.00% -0.4024 0.0141       81.4% 1.7% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    9   100   13.00% -0.2127 0.0042       89.7% 0.3% 0.96</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   10   100   16.00%  0.0301 0.0001      100.0% 0.0% 0.96</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    3   100   14.00% -0.1270 0.0015       28.2% 2.1% 0.90</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    4   100   19.00%  0.2383 0.0062       40.4% 0.5% 1.22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    5   100   13.00% -0.2127 0.0042       48.7% 1.5% 0.83</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    6   100   21.00%  0.3634 0.0149       62.2% 2.6% 1.35</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    7   100   19.00%  0.2383 0.0062       74.4% 5.2% 1.22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    8   100   11.00% -0.4024 0.0141       81.4% 1.7% 0.71</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    9   100   13.00% -0.2127 0.0042       89.7% 0.3% 0.83</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   10   100   16.00%  0.0301 0.0001      100.0% 0.0% 1.03</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
 <span class="r-in"><span><span class="co"># Example 5: Automatic Decile Creation</span></span></span>

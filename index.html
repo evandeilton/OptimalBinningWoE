@@ -19,8 +19,8 @@
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
 <meta property="og:title" content="Optimal Binning and Weight of Evidence Framework for Modeling">
-<meta name="description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
-<meta property="og:description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
+<meta name="description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
+<meta property="og:description" content="High-performance implementation of 36 optimal binning algorithms (16 categorical, 20 numerical) for Weight of Evidence (WoE) transformation, credit scoring, and risk modeling. Includes advanced methods such as Mixed Integer Linear Programming (MILP), Genetic Algorithms, Simulated Annealing, and Monotonic Regression. Features automatic method selection based on Information Value (IV) maximization, strict monotonicity enforcement, and efficient handling of large datasets via Rcpp. Provides automated variable screening by Information Value strength and bin ordering, and generation of the equivalent SQL CASE expressions for in-database scoring. Fully integrated with the tidymodels ecosystem for building robust machine learning pipelines. Based on methods described in Siddiqi (2006) &lt;doi:10.1002/9781119201731&gt; and Navas-Palencia (2020) &lt;doi:10.48550/arXiv.2001.08025&gt;.">
 <meta property="og:image" content="https://evandeilton.github.io/OptimalBinningWoE/logo.png">
 </head>
 <body>
@@ -31,7 +31,7 @@
 
     <a class="navbar-brand me-2" href="index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,8 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+<li><a class="dropdown-item" href="articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
+    <li><a class="dropdown-item" href="articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -69,831 +70,213 @@
 </div>
 <!-- badges: start -->
 
-<div class="section level2">
-<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
-</h2>
-<p><strong>OptimalBinningWoE</strong> is a high-performance R package for <strong>optimal binning</strong> and <strong>Weight of Evidence (WoE)</strong> transformation, designed for credit scoring, risk assessment, and predictive modeling applications.</p>
-<div class="section level3">
-<h3 id="why-optimalbinningwoe">Why OptimalBinningWoE?<a class="anchor" aria-label="anchor" href="#why-optimalbinningwoe"></a>
-</h3>
+<p>Optimal binning and Weight of Evidence transformation for credit scoring and risk modelling, with 36 C++ binning algorithms behind one R interface.</p>
+<p>The package covers the whole path from a raw feature store to a deployed scorecard: fit the binning, screen the variables against IV strength and bin ordering, transform the data, and export the same transformation as SQL so the scoring runs where the data lives.</p>
 <table class="table">
 <colgroup>
-<col width="50%">
-<col width="50%">
+<col width="18%">
+<col width="81%">
 </colgroup>
-<thead><tr>
-<th>Feature</th>
-<th>Benefit</th>
-</tr></thead>
 <tbody>
 <tr>
-<td><strong>36 Algorithms</strong></td>
-<td>Choose the best method for your data characteristics</td>
+<td><strong>36 algorithms</strong></td>
+<td>20 numerical, 16 categorical — entropy, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>, exact optimisation, shape-constrained and streaming methods</td>
 </tr>
 <tr>
-<td><strong>C++ Performance</strong></td>
-<td>Process millions of records efficiently via Rcpp/RcppEigen</td>
+<td><strong>C++ engine</strong></td>
+<td>Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds</td>
 </tr>
 <tr>
-<td><strong>tidymodels Ready</strong></td>
-<td>Seamless integration with modern ML pipelines</td>
+<td><strong>Automated screening</strong></td>
+<td>
+<code><a href="reference/obwoe_select.html">obwoe_select()</a></code> returns a verdict and a reason for every candidate, never dropping a row</td>
 </tr>
 <tr>
-<td><strong>Regulatory Compliance</strong></td>
-<td>Monotonic binning for Basel/IFRS 9 requirements</td>
+<td><strong>In-database scoring</strong></td>
+<td>
+<code><a href="reference/obwoe_sql.html">obwoe_sql()</a></code> emits exact <code>CASE</code> expressions for 14 SQL dialects</td>
 </tr>
 <tr>
-<td><strong>Production Quality</strong></td>
-<td>Comprehensive testing and documentation</td>
+<td><strong>Regulatory fit</strong></td>
+<td>monotonic binning, auditable bin-level evidence, reason codes</td>
+</tr>
+<tr>
+<td><strong>tidymodels ready</strong></td>
+<td>
+<code><a href="reference/step_obwoe.html">step_obwoe()</a></code> is a first-class, tunable <code>recipes</code> step</td>
 </tr>
 </tbody>
 </table>
-</div>
-</div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Install from CRAN</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"OptimalBinningWoE"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"OptimalBinningWoE"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Or install the development version from GitHub</span></span>
+<span><span class="co"># development version</span></span>
 <span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"evandeilton/OptimalBinningWoE"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="quick-start">Quick Start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
+<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<div class="section level3">
-<h3 id="basic-usage-with-german-credit-data">Basic Usage with German Credit Data<a class="anchor" aria-label="anchor" href="#basic-usage-with-german-credit-data"></a>
-</h3>
+<p>The Statlog (German Credit) benchmark ships with the package, so the example below runs as-is.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Load the German Credit dataset</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Create binary target variable</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
+<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">gzfile</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"germancredit.csv.gz"</span>,</span>
+<span>                     package <span class="op">=</span> <span class="st">"OptimalBinningWoE"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fl">1L</span> <span class="op">-</span> <span class="va">german</span><span class="op">$</span><span class="va">credit_risk</span></span>
+<span><span class="va">german</span><span class="op">$</span><span class="va">credit_risk</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span></span>
-<span><span class="co"># Select key features for demonstration</span></span>
-<span><span class="va">german_model</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"default"</span>,</span>
-<span>  <span class="st">"duration.in.month"</span>,</span>
-<span>  <span class="st">"credit.amount"</span>,</span>
-<span>  <span class="st">"age.in.years"</span>,</span>
-<span>  <span class="st">"status.of.existing.checking.account"</span>,</span>
-<span>  <span class="st">"credit.history"</span>,</span>
-<span>  <span class="st">"savings.account.and.bonds"</span></span>
-<span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Run Optimal Binning with JEDI algorithm (general purpose)</span></span>
-<span><span class="va">binning_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">german_model</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  algorithm <span class="op">=</span> <span class="st">"jedi"</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View summary</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">binning_results</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Check Information Value (IV) summary to see feature importance</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">binning_results</span><span class="op">$</span><span class="va">summary</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View detailed binning for a specific feature</span></span>
-<span><span class="va">binning_results</span><span class="op">$</span><span class="va">results</span><span class="op">$</span><span class="va">duration.in.month</span></span></code></pre></div>
+<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">german</span>, target <span class="op">=</span> <span class="st">"default"</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="single-feature-binning">Single Feature Binning<a class="anchor" aria-label="anchor" href="#single-feature-binning"></a>
-</h3>
+<div class="section level2">
+<h2 id="the-four-steps">The four steps<a class="anchor" aria-label="anchor" href="#the-four-steps"></a>
+</h2>
+<p><strong>1. Fit.</strong> One call bins every column, routing numerical and categorical variables to the right algorithm.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Bin a single feature with specific algorithm</span></span>
-<span><span class="va">result_single</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">german</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  feature <span class="op">=</span> <span class="st">"credit.amount"</span>,</span>
-<span>  algorithm <span class="op">=</span> <span class="st">"mob"</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">6</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View results</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_single</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Detailed binning table</span></span>
-<span><span class="va">bins</span> <span class="op">&lt;-</span> <span class="va">result_single</span><span class="op">$</span><span class="va">results</span><span class="op">$</span><span class="va">credit.amount</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  Bin <span class="op">=</span> <span class="va">bins</span><span class="op">$</span><span class="va">bin</span>,</span>
-<span>  Count <span class="op">=</span> <span class="va">bins</span><span class="op">$</span><span class="va">count</span>,</span>
-<span>  Event_Rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bins</span><span class="op">$</span><span class="va">count_pos</span> <span class="op">/</span> <span class="va">bins</span><span class="op">$</span><span class="va">count</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>,</span>
-<span>  WoE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bins</span><span class="op">$</span><span class="va">woe</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bins</span><span class="op">$</span><span class="va">iv</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="apply-woe-transformation-to-new-data">Apply WoE Transformation to New Data<a class="anchor" aria-label="anchor" href="#apply-woe-transformation-to-new-data"></a>
-</h3>
+<code class="sourceCode R"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">german</span>, target <span class="op">=</span> <span class="st">"default"</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span></code></pre></div>
+<p><strong>2. Screen.</strong> <code><a href="reference/obwoe_select.html">obwoe_select()</a></code> applies the two criteria that govern variable admission — Information Value strength and guaranteed rank ordering — and returns one row per candidate with the decision and the reason behind it.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load and prepare data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Train/test split</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">train_idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">german</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">german</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">train_data</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span><span class="va">train_idx</span>, <span class="op">]</span></span>
-<span><span class="va">test_data</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span><span class="op">-</span><span class="va">train_idx</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Fit binning model on training data</span></span>
-<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">train_data</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  algorithm <span class="op">=</span> <span class="st">"mob"</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Apply learned bins to training and test data</span></span>
-<span><span class="va">train_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">train_data</span>, <span class="va">model</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="va">test_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">test_data</span>, <span class="va">model</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View transformed features</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">train_woe</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="st">"duration.in.month_woe"</span>, <span class="st">"credit.amount_woe"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="gains-table-analysis">Gains Table Analysis<a class="anchor" aria-label="anchor" href="#gains-table-analysis"></a>
-</h3>
+<code class="sourceCode R"><span><span class="va">sel</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_select.html">obwoe_select</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
+<span><span class="va">sel</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"feature"</span>, <span class="st">"total_iv"</span>, <span class="st">"iv_class"</span>, <span class="st">"ks"</span>, <span class="st">"monotonic"</span>, <span class="st">"selected"</span>, <span class="st">"reason"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;            feature total_iv     iv_class      ks monotonic selected        reason</span></span>
+<span><span class="co">#&gt; 1:  credit_history   0.2932       Medium  0.1805      TRUE     TRUE            OK</span></span>
+<span><span class="co">#&gt; 2:        duration   0.2727       Medium  0.1900      TRUE     TRUE            OK</span></span>
+<span><span class="co">#&gt; ...</span></span>
+<span><span class="co">#&gt; 14:         status   0.6660   Suspicious  0.3671      TRUE    FALSE IV_SUSPICIOUS</span></span>
+<span><span class="co">#&gt; 15: number_credits   0.0101 Unpredictive  0.0481      TRUE    FALSE  IV_BELOW_MIN</span></span></code></pre></div>
+<p><code>status</code> is the strongest variable in the file and is rejected for it: an IV above 0.50 is far more often leakage than signal. Nothing is silently dropped — 500 candidates return 500 rows, so the automatic verdict can be reviewed.</p>
+<p><strong>3. Transform.</strong> Apply the fitted binning to any frame, in R or inside a <code>recipes</code> pipeline.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">scored</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">new_data</span>, <span class="va">model</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Load and prepare data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Fit binning model</span></span>
-<span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">german</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  algorithm <span class="op">=</span> <span class="st">"cm"</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">5</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Compute gains table for a feature</span></span>
-<span><span class="va">gains</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_gains.html">obwoe_gains</a></span><span class="op">(</span><span class="va">model</span>, feature <span class="op">=</span> <span class="st">"duration.in.month"</span>, sort_by <span class="op">=</span> <span class="st">"id"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View gains table with KS, Gini, and lift metrics</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">gains</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Visualize gains curves</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"cumulative"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"ks"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"lift"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"woe_iv"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="integration-with-tidymodels">Integration with tidymodels<a class="anchor" aria-label="anchor" href="#integration-with-tidymodels"></a>
-</h2>
-<p><strong>OptimalBinningWoE</strong> integrates seamlessly with <code>tidymodels</code> recipes.</p>
+<span><span class="va">rec</span> <span class="op">&lt;-</span> <span class="fu">recipes</span><span class="fu">::</span><span class="fu"><a href="https://recipes.tidymodels.org/reference/recipe.html" class="external-link">recipe</a></span><span class="op">(</span><span class="va">default</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">german</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/step_obwoe.html">step_obwoe</a></span><span class="op">(</span><span class="fu">recipes</span><span class="fu">::</span><span class="fu"><a href="https://recipes.tidymodels.org/reference/has_role.html" class="external-link">all_predictors</a></span><span class="op">(</span><span class="op">)</span>, outcome <span class="op">=</span> <span class="st">"default"</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span></code></pre></div>
+<p><strong>4. Deploy.</strong> Export the same transformation as SQL.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidymodels.tidymodels.org" class="external-link">tidymodels</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load and prepare data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
-<span></span>
-<span><span class="co"># Select features</span></span>
-<span><span class="va">german_model</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"default"</span>,</span>
-<span>  <span class="st">"duration.in.month"</span>,</span>
-<span>  <span class="st">"credit.amount"</span>,</span>
-<span>  <span class="st">"age.in.years"</span>,</span>
-<span>  <span class="st">"status.of.existing.checking.account"</span>,</span>
-<span>  <span class="st">"credit.history"</span></span>
-<span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Train/test split</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">german_split</span> <span class="op">&lt;-</span> <span class="fu">initial_split</span><span class="op">(</span><span class="va">german_model</span>, prop <span class="op">=</span> <span class="fl">0.7</span>, strata <span class="op">=</span> <span class="va">default</span><span class="op">)</span></span>
-<span><span class="va">train_data</span> <span class="op">&lt;-</span> <span class="fu">training</span><span class="op">(</span><span class="va">german_split</span><span class="op">)</span></span>
-<span><span class="va">test_data</span> <span class="op">&lt;-</span> <span class="fu">testing</span><span class="op">(</span><span class="va">german_split</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Create recipe with WoE transformation</span></span>
-<span><span class="va">rec_woe</span> <span class="op">&lt;-</span> <span class="fu">recipe</span><span class="op">(</span><span class="va">default</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">train_data</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu"><a href="reference/step_obwoe.html">step_obwoe</a></span><span class="op">(</span></span>
-<span>    <span class="fu">all_predictors</span><span class="op">(</span><span class="op">)</span>,</span>
-<span>    outcome <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>    algorithm <span class="op">=</span> <span class="st">"jedi"</span>,</span>
-<span>    min_bins <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>    max_bins <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>    bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>    output <span class="op">=</span> <span class="st">"woe"</span></span>
-<span>  <span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Define model specification</span></span>
-<span><span class="va">lr_spec</span> <span class="op">&lt;-</span> <span class="fu">logistic_reg</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">set_engine</span><span class="op">(</span><span class="st">"glm"</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">set_mode</span><span class="op">(</span><span class="st">"classification"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Create workflow</span></span>
-<span><span class="va">wf_credit</span> <span class="op">&lt;-</span> <span class="fu">workflow</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">add_recipe</span><span class="op">(</span><span class="va">rec_woe</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">add_model</span><span class="op">(</span><span class="va">lr_spec</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Fit the workflow</span></span>
-<span><span class="va">final_fit</span> <span class="op">&lt;-</span> <span class="fu">fit</span><span class="op">(</span><span class="va">wf_credit</span>, data <span class="op">=</span> <span class="va">train_data</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Evaluate on test data</span></span>
-<span><span class="va">test_pred</span> <span class="op">&lt;-</span> <span class="fu">augment</span><span class="op">(</span><span class="va">final_fit</span>, <span class="va">test_data</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Performance metrics</span></span>
-<span><span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu">metric_set</span><span class="op">(</span><span class="va">roc_auc</span>, <span class="va">accuracy</span><span class="op">)</span></span>
-<span><span class="fu">metrics</span><span class="op">(</span><span class="va">test_pred</span>,</span>
-<span>  truth <span class="op">=</span> <span class="va">default</span>,</span>
-<span>  estimate <span class="op">=</span> <span class="va">.pred_class</span>,</span>
-<span>  <span class="va">.pred_bad</span>,</span>
-<span>  event_level <span class="op">=</span> <span class="st">"second"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ROC curve</span></span>
-<span><span class="fu">roc_curve</span><span class="op">(</span><span class="va">test_pred</span>,</span>
-<span>  truth <span class="op">=</span> <span class="va">default</span>,</span>
-<span>  <span class="va">.pred_bad</span>,</span>
-<span>  event_level <span class="op">=</span> <span class="st">"second"</span></span>
-<span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">autoplot</span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu">labs</span><span class="op">(</span>title <span class="op">=</span> <span class="st">"ROC Curve - German Credit Model"</span><span class="op">)</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="hyperparameter-tuning">Hyperparameter Tuning<a class="anchor" aria-label="anchor" href="#hyperparameter-tuning"></a>
-</h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidymodels.tidymodels.org" class="external-link">tidymodels</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load and prepare data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
-<span></span>
-<span><span class="va">german_model</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"default"</span>,</span>
-<span>  <span class="st">"duration.in.month"</span>,</span>
-<span>  <span class="st">"credit.amount"</span>,</span>
-<span>  <span class="st">"status.of.existing.checking.account"</span>,</span>
-<span>  <span class="st">"credit.history"</span></span>
-<span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Split data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">german_split</span> <span class="op">&lt;-</span> <span class="fu">initial_split</span><span class="op">(</span><span class="va">german_model</span>, prop <span class="op">=</span> <span class="fl">0.7</span>, strata <span class="op">=</span> <span class="va">default</span><span class="op">)</span></span>
-<span><span class="va">train_data</span> <span class="op">&lt;-</span> <span class="fu">training</span><span class="op">(</span><span class="va">german_split</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Recipe with tunable max_bins</span></span>
-<span><span class="va">rec_woe</span> <span class="op">&lt;-</span> <span class="fu">recipe</span><span class="op">(</span><span class="va">default</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">train_data</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu"><a href="reference/step_obwoe.html">step_obwoe</a></span><span class="op">(</span></span>
-<span>    <span class="fu">all_predictors</span><span class="op">(</span><span class="op">)</span>,</span>
-<span>    outcome <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>    algorithm <span class="op">=</span> <span class="st">"jedi"</span>,</span>
-<span>    min_bins <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>    max_bins <span class="op">=</span> <span class="fu">tune</span><span class="op">(</span><span class="op">)</span>,</span>
-<span>    output <span class="op">=</span> <span class="st">"woe"</span></span>
-<span>  <span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Model specification</span></span>
-<span><span class="va">lr_spec</span> <span class="op">&lt;-</span> <span class="fu">logistic_reg</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">set_engine</span><span class="op">(</span><span class="st">"glm"</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">set_mode</span><span class="op">(</span><span class="st">"classification"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Workflow</span></span>
-<span><span class="va">wf_credit</span> <span class="op">&lt;-</span> <span class="fu">workflow</span><span class="op">(</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">add_recipe</span><span class="op">(</span><span class="va">rec_woe</span><span class="op">)</span> <span class="op">%&gt;%</span></span>
-<span>  <span class="fu">add_model</span><span class="op">(</span><span class="va">lr_spec</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Cross-validation folds</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">456</span><span class="op">)</span></span>
-<span><span class="va">cv_folds</span> <span class="op">&lt;-</span> <span class="fu">vfold_cv</span><span class="op">(</span><span class="va">train_data</span>, v <span class="op">=</span> <span class="fl">5</span>, strata <span class="op">=</span> <span class="va">default</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Tuning grid</span></span>
-<span><span class="va">tune_grid</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="op">(</span>max_bins <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span>, <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Tune</span></span>
-<span><span class="va">tune_results</span> <span class="op">&lt;-</span> <span class="fu">tune_grid</span><span class="op">(</span></span>
-<span>  <span class="va">wf_credit</span>,</span>
-<span>  resamples <span class="op">=</span> <span class="va">cv_folds</span>,</span>
-<span>  grid <span class="op">=</span> <span class="va">tune_grid</span>,</span>
-<span>  metrics <span class="op">=</span> <span class="fu">metric_set</span><span class="op">(</span><span class="va">roc_auc</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Best parameters</span></span>
-<span><span class="va">best_params</span> <span class="op">&lt;-</span> <span class="fu">select_best</span><span class="op">(</span><span class="va">tune_results</span>, metric <span class="op">=</span> <span class="st">"roc_auc"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">best_params</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Visualize tuning results</span></span>
-<span><span class="fu">autoplot</span><span class="op">(</span><span class="va">tune_results</span>, metric <span class="op">=</span> <span class="st">"roc_auc"</span><span class="op">)</span></span></code></pre></div>
-</div>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/obwoe_sql.html">obwoe_sql</a></span><span class="op">(</span><span class="va">model</span>, table <span class="op">=</span> <span class="st">"risk.applications"</span>,</span>
+<span>          features <span class="op">=</span> <span class="va">sel</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">sel</span><span class="op">$</span><span class="va">selected</span><span class="op">]</span>, dialect <span class="op">=</span> <span class="st">"postgres"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="cf">CASE</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="kw">IS</span> <span class="kw">NULL</span> <span class="cf">THEN</span> <span class="dv">0</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&lt;=</span> <span class="dv">7</span> <span class="cf">THEN</span> <span class="op">-</span><span class="fl">1.3121863889661687</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&gt;</span> <span class="dv">7</span> <span class="kw">AND</span> duration <span class="op">&lt;=</span> <span class="dv">10</span> <span class="cf">THEN</span> <span class="op">-</span><span class="fl">0.45198512374305744</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&gt;</span> <span class="dv">10</span> <span class="kw">AND</span> duration <span class="op">&lt;=</span> <span class="dv">16</span> <span class="cf">THEN</span> <span class="op">-</span><span class="fl">0.3028722379457563</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&gt;</span> <span class="dv">16</span> <span class="kw">AND</span> duration <span class="op">&lt;=</span> <span class="dv">33</span> <span class="cf">THEN</span> <span class="fl">0.10461674470498177</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&gt;</span> <span class="dv">33</span> <span class="kw">AND</span> duration <span class="op">&lt;=</span> <span class="dv">39</span> <span class="cf">THEN</span> <span class="fl">0.5728610146854435</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    <span class="cf">WHEN</span> duration <span class="op">&gt;</span> <span class="dv">39</span> <span class="cf">THEN</span> <span class="fl">0.993901334579079</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="cf">ELSE</span> <span class="dv">0</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="cf">END</span> <span class="kw">AS</span> duration_woe</span></code></pre></div>
+<p>Intervals are half-open on the right, <code>(a, b]</code>, reproducing <code><a href="reference/obwoe_apply.html">obwoe_apply()</a></code> exactly; cut points are written at full round-trip precision; and every expression opens with an explicit <code>IS NULL</code> branch, because <code>NULL &lt;= 5</code> is <code>NULL</code> in SQL, not <code>FALSE</code>.</p>
 </div>
 <div class="section level2">
-<h2 id="core-concepts">Core Concepts<a class="anchor" aria-label="anchor" href="#core-concepts"></a>
+<h2 id="vignettes">Vignettes<a class="anchor" aria-label="anchor" href="#vignettes"></a>
 </h2>
-<div class="section level3">
-<h3 id="weight-of-evidence-woe">Weight of Evidence (WoE)<a class="anchor" aria-label="anchor" href="#weight-of-evidence-woe"></a>
-</h3>
-<p>WoE quantifies the predictive power of each bin by measuring the log-odds ratio:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mtext mathvariant="normal">Distribution of Goods</mtext><mi>i</mi></msub><msub><mtext mathvariant="normal">Distribution of Bads</mtext><mi>i</mi></msub></mfrac><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{WoE}_i = \ln\left(\frac{\text{Distribution of Goods}_i}{\text{Distribution of Bads}_i}\right)</annotation></semantics></math></p>
-<p><strong>Interpretation:</strong></p>
-<ul>
-<li>
-<strong>WoE &gt; 0</strong>: Lower risk than average (more “goods” than expected)</li>
-<li>
-<strong>WoE &lt; 0</strong>: Higher risk than average (more “bads” than expected)</li>
-<li>
-<strong>WoE ≈ 0</strong>: Similar to population average</li>
-</ul>
-</div>
-<div class="section level3">
-<h3 id="information-value-iv">Information Value (IV)<a class="anchor" aria-label="anchor" href="#information-value-iv"></a>
-</h3>
-<p>IV measures the overall predictive power of a feature:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">IV</mtext><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mo stretchy="false" form="prefix">(</mo><msub><mtext mathvariant="normal">Dist. Goods</mtext><mi>i</mi></msub><mo>−</mo><msub><mtext mathvariant="normal">Dist. Bads</mtext><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>×</mo><msub><mtext mathvariant="normal">WoE</mtext><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\text{IV} = \sum_{i=1}^{n} (\text{Dist. Goods}_i - \text{Dist. Bads}_i) \times \text{WoE}_i</annotation></semantics></math></p>
-<table class="table">
-<thead><tr>
-<th>IV Range</th>
-<th>Predictive Power</th>
-<th>Recommendation</th>
-</tr></thead>
-<tbody>
-<tr>
-<td>&lt; 0.02</td>
-<td>Unpredictive</td>
-<td>Exclude</td>
-</tr>
-<tr>
-<td>0.02 – 0.10</td>
-<td>Weak</td>
-<td>Use cautiously</td>
-</tr>
-<tr>
-<td>0.10 – 0.30</td>
-<td>Medium</td>
-<td>Good predictor</td>
-</tr>
-<tr>
-<td>0.30 – 0.50</td>
-<td>Strong</td>
-<td>Excellent predictor</td>
-</tr>
-<tr>
-<td>&gt; 0.50</td>
-<td>Suspicious</td>
-<td>Check for data leakage</td>
-</tr>
-</tbody>
-</table>
-</div>
+<p>Two long-form articles carry the detailed documentation and worked cases.</p>
+<p><strong><a href="https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></strong> — the working reference. What WoE and IV measure and why monotonicity of the event rate and of the WoE are the same statement; reading a bin table and a gains table; screening a whole base with <code><a href="reference/obwoe_select.html">obwoe_select()</a></code>; how the algorithm families differ and how to pick one; applying the transformation to new data; exporting to SQL; preprocessing missing values and outliers. Uses the bundled German Credit benchmark throughout.</p>
+<p><strong><a href="https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></strong> — an origination scorecard built the way a risk department builds one. A wide synthetic base carrying the pathologies that matter (missing bureau data, rare dealer codes, near-duplicate vendor fields, pure noise, and a leaky post-booking field), screening at scale, redundancy pruning with <code><a href="reference/obcorr.html">obcorr()</a></code> in the WoE space, a <code>recipes</code> pipeline around <code><a href="reference/step_obwoe.html">step_obwoe()</a></code>, logistic regression with the coefficient sign check, scorecard points and PDO scaling, out-of-time validation with gains and PSI, deployment to SQL, tuning with tidymodels, and the governance checklist that closes a model document.</p>
 </div>
 <div class="section level2">
-<h2 id="algorithm-reference">Algorithm Reference<a class="anchor" aria-label="anchor" href="#algorithm-reference"></a>
+<h2 id="choosing-an-algorithm">Choosing an algorithm<a class="anchor" aria-label="anchor" href="#choosing-an-algorithm"></a>
 </h2>
-<p>OptimalBinningWoE provides <strong>36 algorithms</strong> optimized for different scenarios:</p>
-<div class="section level3">
-<h3 id="universal-algorithms-numerical--categorical">Universal Algorithms (Numerical &amp; Categorical)<a class="anchor" aria-label="anchor" href="#universal-algorithms-numerical--categorical"></a>
-</h3>
+<p>Three questions settle it in practice.</p>
+<pre class="mermaid"><code>flowchart TD
+    A[What is the variable?] --&gt; B[Numerical]
+    A --&gt; C[Categorical]
+
+    B --&gt; D{Must the WoE be&lt;br/&gt;monotone?}
+    D --&gt;|"Yes — regulatory"| E["&lt;b&gt;ir&lt;/b&gt; · &lt;b&gt;mrblp&lt;/b&gt; · &lt;b&gt;mblp&lt;/b&gt;&lt;br/&gt;&lt;b&gt;mob&lt;/b&gt; · oslp"]
+    D --&gt;|No| F{Millions of rows&lt;br/&gt;or streaming?}
+    F --&gt;|Yes| G["&lt;b&gt;sketch&lt;/b&gt; · ewb · kmb"]
+    F --&gt;|No| H{Need the global&lt;br/&gt;optimum?}
+    H --&gt;|Yes| I["&lt;b&gt;dp&lt;/b&gt; · milp · bb · sblp"]
+    H --&gt;|No| J["&lt;b&gt;jedi&lt;/b&gt; · &lt;b&gt;mdlp&lt;/b&gt;&lt;br/&gt;fast_mdlp · dmiv · cm"]
+
+    C --&gt; K{High cardinality&lt;br/&gt;with rare levels?}
+    K --&gt;|Yes| L["&lt;b&gt;sketch&lt;/b&gt; · mba · swb"]
+    K --&gt;|No| M{Must the WoE be&lt;br/&gt;monotone?}
+    M --&gt;|Yes| N["&lt;b&gt;gmb&lt;/b&gt; · &lt;b&gt;mob&lt;/b&gt; · udt"]
+    M --&gt;|No| O["&lt;b&gt;jedi&lt;/b&gt; · &lt;b&gt;cm&lt;/b&gt;&lt;br/&gt;ivb · dmiv · fetb · dp"]
+
+    E --&gt; P([obwoe algorithm = ...])
+    G --&gt; P
+    I --&gt; P
+    J --&gt; P
+    L --&gt; P
+    N --&gt; P
+    O --&gt; P</code></pre>
+<p>Bold entries are the defaults worth trying first. <code>algorithm = "auto"</code> picks <code>jedi</code>, a good general-purpose choice for both types.</p>
 <table class="table">
 <colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
+<col width="17%">
+<col width="32%">
+<col width="50%">
 </colgroup>
 <thead><tr>
-<th>Algorithm</th>
-<th>Function</th>
-<th>Best For</th>
+<th>Family</th>
+<th>Algorithms</th>
+<th>Optimises</th>
 </tr></thead>
 <tbody>
 <tr>
-<td><strong>JEDI</strong></td>
-<td><code><a href="reference/ob_numerical_jedi.html">ob_numerical_jedi()</a></code></td>
-<td>General purpose, balanced performance</td>
+<td>Information-theoretic</td>
+<td>
+<code>mdlp</code>, <code>fast_mdlp</code>, <code>dmiv</code>, <code>ivb</code>, <code>jedi</code>
+</td>
+<td>entropy or IV gain per split, with an MDL stopping rule</td>
 </tr>
 <tr>
-<td><strong>MOB</strong></td>
-<td><code><a href="reference/ob_numerical_mob.html">ob_numerical_mob()</a></code></td>
-<td>Regulatory compliance (monotonic)</td>
+<td>Statistical merging</td>
+<td>
+<code>cm</code>, <code>fetb</code>, <code>mob</code>
+</td>
+<td>merges neighbours whose difference fails a <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math> or Fisher test</td>
 </tr>
 <tr>
-<td><strong>ChiMerge</strong></td>
-<td><code><a href="reference/ob_numerical_cm.html">ob_numerical_cm()</a></code></td>
-<td>Statistical significance-based merging</td>
+<td>Shape-constrained</td>
+<td>
+<code>ir</code>, <code>mrblp</code>, <code>mblp</code>, <code>oslp</code>, <code>gmb</code>
+</td>
+<td>best fit subject to a monotonicity constraint</td>
 </tr>
 <tr>
-<td><strong>DP</strong></td>
-<td><code><a href="reference/ob_numerical_dp.html">ob_numerical_dp()</a></code></td>
-<td>Optimal partitioning with constraints</td>
+<td>Exact optimisation</td>
+<td>
+<code>dp</code>, <code>milp</code>, <code>sblp</code>, <code>bb</code>
+</td>
+<td>global optimum of IV under bin-count and size constraints</td>
 </tr>
 <tr>
-<td><strong>Sketch</strong></td>
-<td><code><a href="reference/ob_numerical_sketch.html">ob_numerical_sketch()</a></code></td>
-<td>Large-scale / streaming data</td>
+<td>Metaheuristic</td>
+<td>
+<code>sab</code>, <code>mba</code>, <code>swb</code>, <code>udt</code>
+</td>
+<td>simulated annealing, agglomerative or tree-based search</td>
+</tr>
+<tr>
+<td>Unsupervised</td>
+<td>
+<code>ewb</code>, <code>kmb</code>, <code>ubsd</code>, <code>sketch</code>
+</td>
+<td>equal width, k-means, standard deviation, streaming quantiles</td>
 </tr>
 </tbody>
 </table>
+<p><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code> lists all 36 with the feature types each supports; every one is also callable directly as <code>ob_numerical_*()</code> or <code>ob_categorical_*()</code>.</p>
 </div>
-<div class="section level3">
-<h3 id="numerical-only-algorithms-20">Numerical-Only Algorithms (20)<a class="anchor" aria-label="anchor" href="#numerical-only-algorithms-20"></a>
-</h3>
+<div class="section level2">
+<h2 id="key-functions">Key functions<a class="anchor" aria-label="anchor" href="#key-functions"></a>
+</h2>
 <table class="table">
 <colgroup>
-<col width="14%">
 <col width="30%">
-<col width="55%">
+<col width="69%">
 </colgroup>
-<thead><tr>
-<th>Algorithm</th>
-<th>Function</th>
-<th>Specialty</th>
-</tr></thead>
-<tbody>
-<tr>
-<td><strong>MDLP</strong></td>
-<td><code><a href="reference/ob_numerical_mdlp.html">ob_numerical_mdlp()</a></code></td>
-<td>Entropy-based discretization</td>
-</tr>
-<tr>
-<td><strong>MBLP</strong></td>
-<td><code><a href="reference/ob_numerical_mblp.html">ob_numerical_mblp()</a></code></td>
-<td>Monotonic binning via linear programming</td>
-</tr>
-<tr>
-<td><strong>IR</strong></td>
-<td><code><a href="reference/ob_numerical_ir.html">ob_numerical_ir()</a></code></td>
-<td>Isotonic regression binning</td>
-</tr>
-<tr>
-<td><strong>EWB</strong></td>
-<td><code><a href="reference/ob_numerical_ewb.html">ob_numerical_ewb()</a></code></td>
-<td>Fast equal-width binning</td>
-</tr>
-<tr>
-<td><strong>KMB</strong></td>
-<td><code><a href="reference/ob_numerical_kmb.html">ob_numerical_kmb()</a></code></td>
-<td>K-means clustering approach</td>
-</tr>
-</tbody>
-</table>
-<details><summary><strong>View all 20 numerical algorithms</strong>
-</summary><table class="table">
-<thead><tr>
-<th>Acronym</th>
-<th>Full Name</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr>
-<td>BB</td>
-<td>Branch and Bound</td>
-<td>Exact optimization</td>
-</tr>
-<tr>
-<td>CM</td>
-<td>ChiMerge</td>
-<td>Chi-square merging</td>
-</tr>
-<tr>
-<td>DMIV</td>
-<td>Decision Tree MIV</td>
-<td>Recursive partitioning</td>
-</tr>
-<tr>
-<td>DP</td>
-<td>Dynamic Programming</td>
-<td>Optimal partitioning</td>
-</tr>
-<tr>
-<td>EWB</td>
-<td>Equal Width</td>
-<td>Fixed-width bins</td>
-</tr>
-<tr>
-<td>Fast-MDLP</td>
-<td>Fast MDLP</td>
-<td>Optimized entropy</td>
-</tr>
-<tr>
-<td>FETB</td>
-<td>Fisher’s Exact Test</td>
-<td>Statistical significance</td>
-</tr>
-<tr>
-<td>IR</td>
-<td>Isotonic Regression</td>
-<td>Order-preserving</td>
-</tr>
-<tr>
-<td>JEDI</td>
-<td>Joint Entropy-Driven</td>
-<td>Information maximization</td>
-</tr>
-<tr>
-<td>JEDI-MWoE</td>
-<td>JEDI Multinomial</td>
-<td>Multi-class targets</td>
-</tr>
-<tr>
-<td>KMB</td>
-<td>K-Means Binning</td>
-<td>Clustering-based</td>
-</tr>
-<tr>
-<td>LDB</td>
-<td>Local Density</td>
-<td>Density estimation</td>
-</tr>
-<tr>
-<td>LPDB</td>
-<td>Local Polynomial</td>
-<td>Smooth density</td>
-</tr>
-<tr>
-<td>MBLP</td>
-<td>Monotonic LP</td>
-<td>LP optimization</td>
-</tr>
-<tr>
-<td>MDLP</td>
-<td>Min Description Length</td>
-<td>Entropy-based</td>
-</tr>
-<tr>
-<td>MOB</td>
-<td>Monotonic Optimal</td>
-<td>IV-optimal + monotonic</td>
-</tr>
-<tr>
-<td>MRBLP</td>
-<td>Monotonic Regression LP</td>
-<td>Regression + LP</td>
-</tr>
-<tr>
-<td>OSLP</td>
-<td>Optimal Supervised LP</td>
-<td>Supervised learning</td>
-</tr>
-<tr>
-<td>Sketch</td>
-<td>KLL Sketch</td>
-<td>Streaming quantiles</td>
-</tr>
-<tr>
-<td>UBSD</td>
-<td>Unsupervised StdDev</td>
-<td>Standard deviation</td>
-</tr>
-<tr>
-<td>UDT</td>
-<td>Unsupervised DT</td>
-<td>Decision tree</td>
-</tr>
-</tbody>
-</table></details>
-</div>
-<div class="section level3">
-<h3 id="categorical-only-algorithms-16">Categorical-Only Algorithms (16)<a class="anchor" aria-label="anchor" href="#categorical-only-algorithms-16"></a>
-</h3>
-<table class="table">
-<thead><tr>
-<th>Algorithm</th>
-<th>Function</th>
-<th>Specialty</th>
-</tr></thead>
-<tbody>
-<tr>
-<td><strong>SBLP</strong></td>
-<td><code><a href="reference/ob_categorical_sblp.html">ob_categorical_sblp()</a></code></td>
-<td>Similarity-based grouping</td>
-</tr>
-<tr>
-<td><strong>IVB</strong></td>
-<td><code><a href="reference/ob_categorical_ivb.html">ob_categorical_ivb()</a></code></td>
-<td>IV maximization</td>
-</tr>
-<tr>
-<td><strong>GMB</strong></td>
-<td><code><a href="reference/ob_categorical_gmb.html">ob_categorical_gmb()</a></code></td>
-<td>Greedy monotonic</td>
-</tr>
-<tr>
-<td><strong>SAB</strong></td>
-<td><code><a href="reference/ob_categorical_sab.html">ob_categorical_sab()</a></code></td>
-<td>Simulated annealing</td>
-</tr>
-</tbody>
-</table>
-<details><summary><strong>View all 16 categorical algorithms</strong>
-</summary><table class="table">
-<thead><tr>
-<th>Acronym</th>
-<th>Full Name</th>
-<th>Description</th>
-</tr></thead>
-<tbody>
-<tr>
-<td>CM</td>
-<td>ChiMerge</td>
-<td>Chi-square merging</td>
-</tr>
-<tr>
-<td>DMIV</td>
-<td>Decision Tree MIV</td>
-<td>Recursive partitioning</td>
-</tr>
-<tr>
-<td>DP</td>
-<td>Dynamic Programming</td>
-<td>Optimal partitioning</td>
-</tr>
-<tr>
-<td>FETB</td>
-<td>Fisher’s Exact Test</td>
-<td>Statistical significance</td>
-</tr>
-<tr>
-<td>GMB</td>
-<td>Greedy Monotonic</td>
-<td>Greedy monotonic binning</td>
-</tr>
-<tr>
-<td>IVB</td>
-<td>Information Value</td>
-<td>IV maximization</td>
-</tr>
-<tr>
-<td>JEDI</td>
-<td>Joint Entropy-Driven</td>
-<td>Information maximization</td>
-</tr>
-<tr>
-<td>JEDI-MWoE</td>
-<td>JEDI Multinomial</td>
-<td>Multi-class targets</td>
-</tr>
-<tr>
-<td>MBA</td>
-<td>Modified Binning</td>
-<td>Modified approach</td>
-</tr>
-<tr>
-<td>MILP</td>
-<td>Mixed Integer LP</td>
-<td>LP optimization</td>
-</tr>
-<tr>
-<td>MOB</td>
-<td>Monotonic Optimal</td>
-<td>IV-optimal + monotonic</td>
-</tr>
-<tr>
-<td>SAB</td>
-<td>Simulated Annealing</td>
-<td>Stochastic optimization</td>
-</tr>
-<tr>
-<td>SBLP</td>
-<td>Similarity-Based LP</td>
-<td>Similarity grouping</td>
-</tr>
-<tr>
-<td>Sketch</td>
-<td>Count-Min Sketch</td>
-<td>Streaming counts</td>
-</tr>
-<tr>
-<td>SWB</td>
-<td>Sliding Window</td>
-<td>Window-based</td>
-</tr>
-<tr>
-<td>UDT</td>
-<td>Unsupervised DT</td>
-<td>Decision tree</td>
-</tr>
-</tbody>
-</table></details>
-</div>
-</div>
-<div class="section level2">
-<h2 id="algorithm-selection-guide">Algorithm Selection Guide<a class="anchor" aria-label="anchor" href="#algorithm-selection-guide"></a>
-</h2>
-<table class="table">
-<colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
-</colgroup>
-<thead><tr>
-<th>Use Case</th>
-<th>Recommended</th>
-<th>Rationale</th>
-</tr></thead>
-<tbody>
-<tr>
-<td><strong>General Credit Scoring</strong></td>
-<td>
-<code>jedi</code>, <code>mob</code>
-</td>
-<td>Best balance of speed and predictive power</td>
-</tr>
-<tr>
-<td><strong>Regulatory Compliance</strong></td>
-<td>
-<code>mob</code>, <code>mblp</code>, <code>ir</code>
-</td>
-<td>Guaranteed monotonic WoE patterns</td>
-</tr>
-<tr>
-<td><strong>Large Datasets (&gt;1M rows)</strong></td>
-<td>
-<code>sketch</code>, <code>ewb</code>
-</td>
-<td>Sublinear memory, single-pass</td>
-</tr>
-<tr>
-<td><strong>High Cardinality Categorical</strong></td>
-<td>
-<code>sblp</code>, <code>gmb</code>, <code>ivb</code>
-</td>
-<td>Intelligent category grouping</td>
-</tr>
-<tr>
-<td><strong>Interpretability Focus</strong></td>
-<td>
-<code>dp</code>, <code>mdlp</code>
-</td>
-<td>Clear, explainable bins</td>
-</tr>
-<tr>
-<td><strong>Multi-class Targets</strong></td>
-<td><code>jedi_mwoe</code></td>
-<td>Multinomial WoE support</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section level2">
-<h2 id="key-functions">Key Functions<a class="anchor" aria-label="anchor" href="#key-functions"></a>
-</h2>
-<table class="table">
 <thead><tr>
 <th>Function</th>
 <th>Purpose</th>
@@ -901,391 +284,110 @@
 <tbody>
 <tr>
 <td><code><a href="reference/obwoe.html">obwoe()</a></code></td>
-<td>Main interface for optimal binning and WoE</td>
+<td>Fit optimal binning and WoE across a data frame</td>
+</tr>
+<tr>
+<td><code><a href="reference/obwoe_select.html">obwoe_select()</a></code></td>
+<td>Screen variables by IV strength and bin ordering</td>
 </tr>
 <tr>
 <td><code><a href="reference/obwoe_apply.html">obwoe_apply()</a></code></td>
-<td>Apply learned binning to new data</td>
+<td>Apply a fitted binning to new data</td>
 </tr>
 <tr>
 <td><code><a href="reference/obwoe_gains.html">obwoe_gains()</a></code></td>
-<td>Compute gains table with KS, Gini, lift</td>
+<td>Gains table with KS, Gini, lift and capture rates</td>
+</tr>
+<tr>
+<td><code><a href="reference/obwoe_sql.html">obwoe_sql()</a></code></td>
+<td>Generate the equivalent SQL <code>CASE</code> expressions</td>
 </tr>
 <tr>
 <td><code><a href="reference/step_obwoe.html">step_obwoe()</a></code></td>
-<td>tidymodels recipe step</td>
+<td>tidymodels recipe step, tunable</td>
+</tr>
+<tr>
+<td><code><a href="reference/obcorr.html">obcorr()</a></code></td>
+<td>Fast pairwise correlations for redundancy pruning</td>
 </tr>
 <tr>
 <td><code><a href="reference/ob_preprocess.html">ob_preprocess()</a></code></td>
-<td>Data preprocessing with outlier handling</td>
+<td>Missing-value and outlier handling before binning</td>
 </tr>
 <tr>
 <td><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code></td>
-<td>List all available algorithms</td>
+<td>List the available algorithms</td>
 </tr>
 <tr>
 <td><code><a href="reference/control.obwoe.html">control.obwoe()</a></code></td>
-<td>Create control parameters</td>
+<td>Algorithm control parameters</td>
 </tr>
 </tbody>
 </table>
 </div>
 <div class="section level2">
-<h2 id="complete-workflow-example">Complete Workflow Example<a class="anchor" aria-label="anchor" href="#complete-workflow-example"></a>
+<h2 id="interpreting-information-value">Interpreting Information Value<a class="anchor" aria-label="anchor" href="#interpreting-information-value"></a>
 </h2>
-<p>Here is a complete end-to-end credit scoring workflow:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://xrobin.github.io/pROC/" class="external-link">pROC</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 1. Data Preparation</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Load German Credit dataset</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Create binary target</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
-<span></span>
-<span><span class="co"># Select features for modeling</span></span>
-<span><span class="va">features_num</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"duration.in.month"</span>, <span class="st">"credit.amount"</span>, <span class="st">"age.in.years"</span><span class="op">)</span></span>
-<span><span class="va">features_cat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"status.of.existing.checking.account"</span>,</span>
-<span>  <span class="st">"credit.history"</span>,</span>
-<span>  <span class="st">"savings.account.and.bonds"</span>,</span>
-<span>  <span class="st">"purpose"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">german_model</span> <span class="op">&lt;-</span> <span class="va">german</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="va">features_num</span>, <span class="va">features_cat</span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="co"># Train/test split</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">train_idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">german_model</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">german_model</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">train_data</span> <span class="op">&lt;-</span> <span class="va">german_model</span><span class="op">[</span><span class="va">train_idx</span>, <span class="op">]</span></span>
-<span><span class="va">test_data</span> <span class="op">&lt;-</span> <span class="va">german_model</span><span class="op">[</span><span class="op">-</span><span class="va">train_idx</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Training set:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">train_data</span><span class="op">)</span>, <span class="st">"observations\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Test set:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">test_data</span><span class="op">)</span>, <span class="st">"observations\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span></span>
-<span>  <span class="st">"Training default rate:"</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">train_data</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 2. Fit Optimal Binning Model</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Use Monotonic Optimal Binning for regulatory compliance</span></span>
-<span><span class="va">sc_binning</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>  data <span class="op">=</span> <span class="va">train_data</span>,</span>
-<span>  target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>  algorithm <span class="op">=</span> <span class="st">"mob"</span>,</span>
-<span>  min_bins <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  max_bins <span class="op">=</span> <span class="fl">5</span>,</span>
-<span>  control <span class="op">=</span> <span class="fu"><a href="reference/control.obwoe.html">control.obwoe</a></span><span class="op">(</span></span>
-<span>    bin_cutoff <span class="op">=</span> <span class="fl">0.05</span>,</span>
-<span>    convergence_threshold <span class="op">=</span> <span class="fl">1e-6</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View summary</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sc_binning</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 3. Feature Selection by IV</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Extract IV summary and select predictive features</span></span>
-<span><span class="va">iv_summary</span> <span class="op">&lt;-</span> <span class="va">sc_binning</span><span class="op">$</span><span class="va">summary</span><span class="op">[</span><span class="op">!</span><span class="va">sc_binning</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">error</span>, <span class="op">]</span></span>
-<span><span class="va">iv_summary</span> <span class="op">&lt;-</span> <span class="va">iv_summary</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">iv_summary</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nFeature Ranking by Information Value:\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">iv_summary</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"feature"</span>, <span class="st">"total_iv"</span>, <span class="st">"n_bins"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Select features with IV &gt;= 0.02</span></span>
-<span><span class="va">selected_features</span> <span class="op">&lt;-</span> <span class="va">iv_summary</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">iv_summary</span><span class="op">$</span><span class="va">total_iv</span> <span class="op">&gt;=</span> <span class="fl">0.02</span><span class="op">]</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nSelected features (IV &gt;= 0.02):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">selected_features</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">selected_features</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 4. Apply WoE Transformation</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Transform training and test data</span></span>
-<span><span class="va">train_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">train_data</span>, <span class="va">sc_binning</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="va">test_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">test_data</span>, <span class="va">sc_binning</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Preview transformed features</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nTransformed training data (first 5 rows):\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">train_woe</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"default"</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">selected_features</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span>, <span class="st">"_woe"</span><span class="op">)</span></span>
-<span><span class="op">)</span><span class="op">]</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 5. Build Logistic Regression Model</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Build formula with WoE-transformed features</span></span>
-<span><span class="va">woe_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">selected_features</span>, <span class="st">"_woe"</span><span class="op">)</span></span>
-<span><span class="va">formula_str</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"default ~"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">woe_vars</span>, collapse <span class="op">=</span> <span class="st">" + "</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Fit logistic regression</span></span>
-<span><span class="va">scorecard_glm</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/formula.html" class="external-link">as.formula</a></span><span class="op">(</span><span class="va">formula_str</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">train_woe</span>,</span>
-<span>  family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span>link <span class="op">=</span> <span class="st">"logit"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nModel Summary:\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">scorecard_glm</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 6. Model Evaluation</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Predictions on test set</span></span>
-<span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict</a></span><span class="op">(</span><span class="va">scorecard_glm</span>, newdata <span class="op">=</span> <span class="va">test_woe</span>, type <span class="op">=</span> <span class="st">"response"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ROC curve and AUC</span></span>
-<span><span class="va">roc_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/roc.html" class="external-link">roc</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span>, <span class="va">test_woe</span><span class="op">$</span><span class="va">score</span>, quiet <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="va">auc_val</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/pROC/man/auc.html" class="external-link">auc</a></span><span class="op">(</span><span class="va">roc_obj</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># KS statistic</span></span>
-<span><span class="va">ks_stat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"bad"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/stats/ecdf.html" class="external-link">ecdf</a></span><span class="op">(</span><span class="va">test_woe</span><span class="op">$</span><span class="va">score</span><span class="op">[</span><span class="va">test_woe</span><span class="op">$</span><span class="va">default</span> <span class="op">==</span> <span class="st">"good"</span><span class="op">]</span><span class="op">)</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Gini coefficient</span></span>
-<span><span class="va">gini</span> <span class="op">&lt;-</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">auc_val</span> <span class="op">-</span> <span class="fl">1</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n============================================\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Scorecard Performance Metrics:\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"============================================\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  AUC:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">auc_val</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Gini: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">gini</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  KS:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ks_stat</span> <span class="op">*</span> <span class="fl">100</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"%\n"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Plot ROC curve</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">roc_obj</span>,</span>
-<span>  main <span class="op">=</span> <span class="st">"Scorecard ROC Curve"</span>,</span>
-<span>  print.auc <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  print.thres <span class="op">=</span> <span class="st">"best"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ============================================</span></span>
-<span><span class="co"># 7. Gains Analysis</span></span>
-<span><span class="co"># ============================================</span></span>
-<span></span>
-<span><span class="co"># Compute gains for best numerical feature</span></span>
-<span><span class="va">best_num_feature</span> <span class="op">&lt;-</span> <span class="va">iv_summary</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">iv_summary</span><span class="op">$</span><span class="va">feature</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">features_num</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span></span>
-<span><span class="va">gains</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_gains.html">obwoe_gains</a></span><span class="op">(</span><span class="va">sc_binning</span>, feature <span class="op">=</span> <span class="va">best_num_feature</span>, sort_by <span class="op">=</span> <span class="st">"id"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">gains</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Plot WoE and IV</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gains</span>, type <span class="op">=</span> <span class="st">"woe_iv"</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="data-preprocessing">Data Preprocessing<a class="anchor" aria-label="anchor" href="#data-preprocessing"></a>
-</h2>
-<p>Handle missing values and outliers before binning:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Simulate problematic feature</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
-<span><span class="va">problematic_feature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">5000</span>, <span class="fl">2000</span><span class="op">)</span>, <span class="co"># Normal values</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">100</span><span class="op">)</span>, <span class="co"># Missing values</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">100</span>, <span class="op">-</span><span class="fl">10000</span>, <span class="fl">50000</span><span class="op">)</span> <span class="co"># Outliers</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">target_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">1</span>, <span class="fl">0.3</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Preprocess with IQR method</span></span>
-<span><span class="va">preproc_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ob_preprocess.html">ob_preprocess</a></span><span class="op">(</span></span>
-<span>  feature <span class="op">=</span> <span class="va">problematic_feature</span>,</span>
-<span>  target <span class="op">=</span> <span class="va">target_sim</span>,</span>
-<span>  outlier_method <span class="op">=</span> <span class="st">"iqr"</span>,</span>
-<span>  outlier_process <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  preprocess <span class="op">=</span> <span class="st">"both"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View preprocessing report</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">preproc_result</span><span class="op">$</span><span class="va">report</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Access cleaned feature</span></span>
-<span><span class="va">cleaned_feature</span> <span class="op">&lt;-</span> <span class="va">preproc_result</span><span class="op">$</span><span class="va">preprocess</span><span class="op">$</span><span class="va">feature_preprocessed</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="algorithm-comparison">Algorithm Comparison<a class="anchor" aria-label="anchor" href="#algorithm-comparison"></a>
-</h2>
-<p>Compare different algorithms on the same feature:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/evandeilton/OptimalBinningWoE" class="external-link">OptimalBinningWoE</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ShichenXie/scorecard" class="external-link">scorecard</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Load data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"germancredit"</span>, package <span class="op">=</span> <span class="st">"scorecard"</span><span class="op">)</span></span>
-<span><span class="va">german</span> <span class="op">&lt;-</span> <span class="va">germancredit</span></span>
-<span><span class="va">german</span><span class="op">$</span><span class="va">default</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">german</span><span class="op">$</span><span class="va">creditability</span> <span class="op">==</span> <span class="st">"bad"</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
-<span>  levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"good"</span>, <span class="st">"bad"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Test multiple algorithms</span></span>
-<span><span class="va">algorithms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"jedi"</span>, <span class="st">"mob"</span>, <span class="st">"mdlp"</span>, <span class="st">"ewb"</span>, <span class="st">"cm"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">compare_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">algorithms</span>, <span class="kw">function</span><span class="op">(</span><span class="va">algo</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
-<span>    <span class="op">{</span></span>
-<span>      <span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span></span>
-<span>        data <span class="op">=</span> <span class="va">german</span>,</span>
-<span>        target <span class="op">=</span> <span class="st">"default"</span>,</span>
-<span>        feature <span class="op">=</span> <span class="st">"credit.amount"</span>,</span>
-<span>        algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>        min_bins <span class="op">=</span> <span class="fl">3</span>,</span>
-<span>        max_bins <span class="op">=</span> <span class="fl">6</span></span>
-<span>      <span class="op">)</span></span>
-<span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>        Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>        N_Bins <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">n_bins</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
-<span>        IV <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">total_iv</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>        Converged <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">converged</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span>      <span class="op">)</span></span>
-<span>    <span class="op">}</span>,</span>
-<span>    error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>        Algorithm <span class="op">=</span> <span class="va">algo</span>,</span>
-<span>        N_Bins <span class="op">=</span> <span class="cn">NA</span>,</span>
-<span>        IV <span class="op">=</span> <span class="cn">NA</span>,</span>
-<span>        Converged <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>      <span class="op">)</span></span>
-<span>    <span class="op">}</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Combine and display results</span></span>
-<span><span class="va">comparison_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">compare_results</span><span class="op">)</span></span>
-<span><span class="va">comparison_df</span> <span class="op">&lt;-</span> <span class="va">comparison_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">comparison_df</span><span class="op">$</span><span class="va">IV</span><span class="op">)</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Algorithm Comparison on 'credit.amount':\n\n"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">comparison_df</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># View available algorithms</span></span>
-<span><span class="va">algorithms_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_algorithms.html">obwoe_algorithms</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">algorithms_info</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"algorithm"</span>, <span class="st">"numerical"</span>, <span class="st">"categorical"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="performance">Performance<a class="anchor" aria-label="anchor" href="#performance"></a>
-</h2>
-<p>OptimalBinningWoE is optimized for speed through:</p>
-<ul>
-<li>
-<strong>RcppEigen</strong>: Vectorized linear algebra operations</li>
-<li>
-<strong>Efficient algorithms</strong>: O(n log n) or better complexity</li>
-<li>
-<strong>Memory-conscious design</strong>: Streaming algorithms for large data</li>
-</ul>
-<p>Typical performance on a standard laptop:</p>
+<p>The package grades IV with the bands from Siddiqi (2006), and <code><a href="reference/obwoe_select.html">obwoe_select()</a></code> acts on them.</p>
 <table class="table">
 <thead><tr>
-<th>Data Size</th>
-<th>Processing Time</th>
+<th>IV</th>
+<th>Band</th>
+<th>Reading</th>
 </tr></thead>
 <tbody>
 <tr>
-<td>100K rows</td>
-<td>&lt; 1 second</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>&lt;</mo><mn>0.02</mn></mrow><annotation encoding="application/x-tex">&lt; 0.02</annotation></semantics></math></td>
+<td>Unpredictive</td>
+<td>drop</td>
 </tr>
 <tr>
-<td>1M rows</td>
-<td>2-5 seconds</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0.02</mn><mo>,</mo><mspace width="0.222em"></mspace><mn>0.10</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[0.02,\ 0.10)</annotation></semantics></math></td>
+<td>Weak</td>
+<td>keep only if it adds diversity</td>
 </tr>
 <tr>
-<td>10M rows</td>
-<td>20-60 seconds</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0.10</mn><mo>,</mo><mspace width="0.222em"></mspace><mn>0.30</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[0.10,\ 0.30)</annotation></semantics></math></td>
+<td>Medium</td>
+<td>the workhorses of a scorecard</td>
+</tr>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">[</mo><mn>0.30</mn><mo>,</mo><mspace width="0.222em"></mspace><mn>0.50</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">[0.30,\ 0.50)</annotation></semantics></math></td>
+<td>Strong</td>
+<td>strong, verify it is not a proxy</td>
+</tr>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>0.50</mn></mrow><annotation encoding="application/x-tex">\ge 0.50</annotation></semantics></math></td>
+<td>Suspicious</td>
+<td>almost always leakage</td>
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section level2">
-<h2 id="best-practices">Best Practices<a class="anchor" aria-label="anchor" href="#best-practices"></a>
-</h2>
-<div class="section level3">
-<h3 id="workflow-recommendations">Workflow Recommendations<a class="anchor" aria-label="anchor" href="#workflow-recommendations"></a>
-</h3>
-<ol style="list-style-type: decimal">
-<li>
-<strong>Start Simple</strong>: Use <code>algorithm = "jedi"</code> as default</li>
-<li>
-<strong>Check IV</strong>: Select features with IV ≥ 0.02</li>
-<li>
-<strong>Validate Monotonicity</strong>: Use <code>mob</code>, <code>mblp</code>, or <code>ir</code> for regulatory models</li>
-<li>
-<strong>Cross-Validate</strong>: Tune binning parameters with CV</li>
-<li>
-<strong>Monitor Stability</strong>: Track WoE distributions over time</li>
-<li>
-<strong>Document Thoroughly</strong>: Save metadata with models</li>
-</ol>
-</div>
-<div class="section level3">
-<h3 id="common-pitfalls-to-avoid">Common Pitfalls to Avoid<a class="anchor" aria-label="anchor" href="#common-pitfalls-to-avoid"></a>
-</h3>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># RONG: Bin on full dataset before splitting (causes data leakage!)</span></span>
-<span><span class="va">bad_approach</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">full_data</span>, target <span class="op">=</span> <span class="st">"default"</span><span class="op">)</span></span>
-<span><span class="va">train_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">train_data</span>, <span class="va">bad_approach</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># ORRECT: Bin only on training data</span></span>
-<span><span class="va">good_approach</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">train_data</span>, target <span class="op">=</span> <span class="st">"default"</span><span class="op">)</span></span>
-<span><span class="va">test_woe</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">test_data</span>, <span class="va">good_approach</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># RONG: Ignore IV thresholds (IV &gt; 0.50 likely indicates target leakage)</span></span>
-<span><span class="va">suspicious_features</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">result</span><span class="op">$</span><span class="va">summary</span><span class="op">$</span><span class="va">total_iv</span> <span class="op">&gt;</span> <span class="fl">0.50</span><span class="op">]</span></span>
-<span><span class="co"># Investigate these features carefully!</span></span>
-<span></span>
-<span><span class="co"># RONG: Over-bin (too many bins reduces interpretability)</span></span>
-<span><span class="co"># max_bins &gt; 10 may cause overfitting</span></span></code></pre></div>
-</div>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
 <ul>
-<li>📖 <a href="https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html">Package Vignette</a>: Comprehensive guide with examples</li>
-<li>📚 <a href="https://evandeilton.github.io/OptimalBinningWoE/reference/">Function Reference</a>: Complete API documentation</li>
-<li>🐛 <a href="https://github.com/evandeilton/OptimalBinningWoE/issues" class="external-link">Issue Tracker</a>: Report bugs or request features</li>
+<li><a href="https://evandeilton.github.io/OptimalBinningWoE/reference/">Function reference</a></li>
+<li><a href="https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html">Practical guide</a></li>
+<li><a href="https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html">Industrial pipeline</a></li>
+<li><a href="https://github.com/evandeilton/OptimalBinningWoE/issues" class="external-link">Issue tracker</a></li>
 </ul>
 </div>
 <div class="section level2">
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
 </h2>
-<p>Contributions are welcome! Please see our <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/CONTRIBUTING.md" class="external-link">Contributing Guidelines</a> and <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/CODE_OF_CONDUCT.md" class="external-link">Code of Conduct</a>.</p>
+<p>Contributions are welcome. See the <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/CONTRIBUTING.md" class="external-link">Contributing Guidelines</a> and the <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/CODE_OF_CONDUCT.md" class="external-link">Code of Conduct</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
 </h2>
-<p>If you use OptimalBinningWoE in your research, please cite:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co">@software{optimalbinningwoe,</span></span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="co">  author = {José Evandeilton Lopes},</span></span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">  title = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},</span></span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">  year = {2026},</span></span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">  url = {https://github.com/evandeilton/OptimalBinningWoE}</span></span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co">@software{optimalbinningwoe,</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">  author = {José Evandeilton Lopes},</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">  title  = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">  year   = {2026},</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">  url    = {https://github.com/evandeilton/OptimalBinningWoE}</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">}</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -1294,6 +396,7 @@
 <li>Siddiqi, N. (2006). <em>Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring</em>. John Wiley &amp; Sons.</li>
 <li>Thomas, L. C., Edelman, D. B., &amp; Crook, J. N. (2002). <em>Credit Scoring and Its Applications</em>. SIAM.</li>
 <li>Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming Formulation. arXiv:2001.08025.</li>
+<li>Fayyad, U. M., &amp; Irani, K. B. (1993). Multi-interval discretization of continuous-valued attributes for classification learning. <em>IJCAI</em>.</li>
 <li>Anderson, R. (2007). <em>The Credit Scoring Toolkit: Theory and Practice for Retail Credit Risk Management</em>. Oxford University Press.</li>
 </ul>
 </div>

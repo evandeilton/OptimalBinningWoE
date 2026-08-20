@@ -15,7 +15,7 @@ constraints like credit scoring."><meta property="og:image" content="https://eva
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,7 +26,8 @@ constraints like credit scoring."><meta property="og:image" content="https://eva
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -40,7 +41,7 @@ constraints like credit scoring."><meta property="og:image" content="https://eva
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Optimal Binning using Isotonic Regression (PAVA)</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.11.0/R/obn_ir.R" class="external-link"><code>R/obn_ir.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/obn_ir.R" class="external-link"><code>R/obn_ir.R</code></a></small>
       <div class="d-none name"><code>ob_numerical_ir.Rd</code></div>
     </div>
 
@@ -82,8 +83,9 @@ each observation in <code>feature</code>. Must have the same length as <code>fea
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
-<dd><p>Integer. The minimum number of bins to produce. Must be \(\ge\) 2.
-Defaults to 3.</p></dd>
+<dd><p>Integer. The target minimum number of bins. Must be
+\(\ge\) 2. Defaults to 3. Enforcing monotonicity can require pooling bins
+together, so the result may hold fewer bins than requested; see Details.</p></dd>
 
 
 <dt id="arg-max-bins">max_bins<a class="anchor" aria-label="anchor" href="#arg-max-bins"></a></dt>
@@ -128,8 +130,8 @@ during pre-processing steps (e.g., rare bin merging). Defaults to 1000.</p></dd>
 <li><p><code>woe</code>: Numeric vector of Weight of Evidence for each bin.</p></li>
 <li><p><code>iv</code>: Numeric vector of Information Value contribution per bin.</p></li>
 <li><p><code>count</code>: Integer vector of total observations per bin.</p></li>
-<li><p><code>count_pos</code>: Integer vector of positive cases.</p></li>
-<li><p><code>count_neg</code>: Integer vector of negative cases.</p></li>
+<li><p><code>count_pos</code>: Integer vector of positive cases observed in the bin.</p></li>
+<li><p><code>count_neg</code>: Integer vector of negative cases observed in the bin.</p></li>
 <li><p><code>cutpoints</code>: Numeric vector of upper boundaries (excluding Inf).</p></li>
 <li><p><code>total_iv</code>: The total Information Value of the binned variable.</p></li>
 <li><p><code>monotone_increasing</code>: Logical indicating if the final WoE trend is increasing.</p></li>
@@ -151,10 +153,23 @@ a perfect fit is achieved. This guarantees an optimal solution in \(O(n)\) time.
 <li><p><strong>Trend Detection:</strong> If <code>auto_monotonicity = TRUE</code>, calculates
         the correlation between feature midpoints and bin event rates to determine
         if the relationship should be increasing or decreasing.</p></li>
-<li><p><strong>Shape Enforcement:</strong> Applies PAVA to the sequence of bin event rates,
-        producing a new set of rates that conform exactly to the monotonic constraint.</p></li>
-<li><p><strong>Metric Calculation:</strong> Derives WoE and IV from the adjusted rates.</p></li>
-</ol><p><strong>Advantages:</strong></p><ul><li><p><strong>Global Optimality:</strong> PAVA finds the best fit under the monotonicity constraint.</p></li>
+<li><p><strong>Shape Enforcement:</strong> Applies PAVA to the sequence of bin event rates
+        and <em>merges</em> the bins that the algorithm pools into each block, so
+        the surviving bins are monotonic in their own observed event rate.</p></li>
+<li><p><strong>Metric Calculation:</strong> Derives WoE and IV from the observed counts
+        of those bins.</p></li>
+</ol><p><strong>Pooling merges bins:</strong> with the bin counts as weights, the fitted rate
+PAVA assigns to a block is exactly \(\sum count\_pos / \sum count\) over the
+block's members. Merging them therefore reproduces the isotonic fit exactly
+while <code>count</code>, <code>count_pos</code> and <code>count_neg</code> remain the counts
+actually observed between the reported <code>cutpoints</code>. A consequence is
+that <code>min_bins</code> is a <em>target</em> rather than a guarantee for this
+algorithm: when the empirical event rate violates the trend, monotonicity can
+only be restored by pooling, and the result may hold fewer bins than
+requested. Use a non-shape-constrained method such as
+<code><a href="ob_numerical_mdlp.html">ob_numerical_mdlp</a></code> when the bin count matters more than the
+shape constraint.</p>
+<p><strong>Advantages:</strong></p><ul><li><p><strong>Global Optimality:</strong> PAVA finds the best fit under the monotonicity constraint.</p></li>
 <li><p><strong>No Hyperparameters:</strong> Unlike ChiMerge's p-value threshold, PAVA requires
         no significance level tuning for the core regression step.</p></li>
 <li><p><strong>Robustness:</strong> Less sensitive to arbitrary thresholds compared to greedy merging.</p></li>
@@ -187,10 +202,10 @@ regression; A unifying framework. <em>Mathematical Programming</em>, 47(1-3), 42
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-0.945409]"      "(-0.945409;-0.388780]" "(-0.388780;0.020451]" </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(0.020451;0.418982]"   "(0.418982;0.976973]"   "(0.976973;+Inf]"      </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-0.945409]"     "(-0.945409;0.418982]" "(0.418982;0.976973]" </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(0.976973;+Inf]"     </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.339 -0.070 -0.096 -0.096  0.071  0.532</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -0.339 -0.088  0.071  0.532</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Monotonic Increasing:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">monotone_increasing</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Monotonic Increasing: TRUE"</span>
 <span class="r-in"><span></span></span>

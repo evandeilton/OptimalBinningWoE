@@ -13,7 +13,7 @@ Distance Correlation, Biweight Midcorrelation, and Percentage Bend correlation."
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,7 +24,8 @@ Distance Correlation, Biweight Midcorrelation, and Percentage Bend correlation."
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -38,7 +39,7 @@ Distance Correlation, Biweight Midcorrelation, and Percentage Bend correlation."
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Compute Multiple Robust Correlations Between Numeric Variables</h1>
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.11.0/R/ob_correlation.R" class="external-link"><code>R/ob_correlation.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/R/ob_correlation.R" class="external-link"><code>R/ob_correlation.R</code></a></small>
       <div class="d-none name"><code>obcorr.Rd</code></div>
     </div>
 
@@ -80,8 +81,12 @@ Possible values are:</p><ul><li><p><code>"all"</code>: Compute all available cor
 
 <dt id="arg-threads">threads<a class="anchor" aria-label="anchor" href="#arg-threads"></a></dt>
 <dd><p>An integer specifying the number of threads to use for parallel
-computation. If 0 (default), uses all available cores. Ignored if OpenMP
-is not available.</p></dd>
+computation. If 0 (the default), at most 2 threads are used, honouring any
+lower limit already set via <code>OMP_NUM_THREADS</code>; this follows CRAN
+policy, which requires packages not to use more than two cores by default.
+Pass a positive value to request more explicitly. The number of threads
+never affects the results or their row order. Ignored if OpenMP is not
+available.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -1,838 +1,259 @@
 # OptimalBinningWoE
 
-## Overview
+Optimal binning and Weight of Evidence transformation for credit scoring
+and risk modelling, with 36 C++ binning algorithms behind one R
+interface.
 
-**OptimalBinningWoE** is a high-performance R package for **optimal
-binning** and **Weight of Evidence (WoE)** transformation, designed for
-credit scoring, risk assessment, and predictive modeling applications.
+The package covers the whole path from a raw feature store to a deployed
+scorecard: fit the binning, screen the variables against IV strength and
+bin ordering, transform the data, and export the same transformation as
+SQL so the scoring runs where the data lives.
 
-### Why OptimalBinningWoE?
-
-| Feature | Benefit |
+|  |  |
 |----|----|
-| **36 Algorithms** | Choose the best method for your data characteristics |
-| **C++ Performance** | Process millions of records efficiently via Rcpp/RcppEigen |
-| **tidymodels Ready** | Seamless integration with modern ML pipelines |
-| **Regulatory Compliance** | Monotonic binning for Basel/IFRS 9 requirements |
-| **Production Quality** | Comprehensive testing and documentation |
+| **36 algorithms** | 20 numerical, 16 categorical — entropy, $`\chi^2`$, exact optimisation, shape-constrained and streaming methods |
+| **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
+| **Automated screening** | [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md) returns a verdict and a reason for every candidate, never dropping a row |
+| **In-database scoring** | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) emits exact `CASE` expressions for 14 SQL dialects |
+| **Regulatory fit** | monotonic binning, auditable bin-level evidence, reason codes |
+| **tidymodels ready** | [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) is a first-class, tunable `recipes` step |
 
 ## Installation
 
 ``` r
 
-# Install from CRAN
 install.packages("OptimalBinningWoE")
 
-# Or install the development version from GitHub
+# development version
 # install.packages("pak")
 pak::pak("evandeilton/OptimalBinningWoE")
 ```
 
-## Quick Start
+## Quick start
 
-### Basic Usage with German Credit Data
-
-``` r
-
-library(OptimalBinningWoE)
-library(scorecard)
-
-# Load the German Credit dataset
-data("germancredit", package = "scorecard")
-
-# Create binary target variable
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-german$creditability <- NULL
-
-# Select key features for demonstration
-german_model <- german[, c(
-  "default",
-  "duration.in.month",
-  "credit.amount",
-  "age.in.years",
-  "status.of.existing.checking.account",
-  "credit.history",
-  "savings.account.and.bonds"
-)]
-
-# Run Optimal Binning with JEDI algorithm (general purpose)
-binning_results <- obwoe(
-  data = german_model,
-  target = "default",
-  algorithm = "jedi",
-  min_bins = 3,
-  max_bins = 5
-)
-
-# View summary
-print(binning_results)
-
-# Check Information Value (IV) summary to see feature importance
-print(binning_results$summary)
-
-# View detailed binning for a specific feature
-binning_results$results$duration.in.month
-```
-
-### Single Feature Binning
+The Statlog (German Credit) benchmark ships with the package, so the
+example below runs as-is.
 
 ``` r
 
 library(OptimalBinningWoE)
-library(scorecard)
 
-# Load data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
+german <- read.csv(
+  gzfile(system.file("extdata", "germancredit.csv.gz",
+                     package = "OptimalBinningWoE")),
+  stringsAsFactors = FALSE
 )
+german$default <- 1L - german$credit_risk
+german$credit_risk <- NULL
 
-# Bin a single feature with specific algorithm
-result_single <- obwoe(
-  data = german,
-  target = "default",
-  feature = "credit.amount",
-  algorithm = "mob",
-  min_bins = 3,
-  max_bins = 6
-)
-
-# View results
-print(result_single)
-
-# Detailed binning table
-bins <- result_single$results$credit.amount
-data.frame(
-  Bin = bins$bin,
-  Count = bins$count,
-  Event_Rate = round(bins$count_pos / bins$count * 100, 2),
-  WoE = round(bins$woe, 4),
-  IV = round(bins$iv, 4)
-)
+model <- obwoe(german, target = "default", min_bins = 2, max_bins = 6)
+summary(model)
 ```
 
-### Apply WoE Transformation to New Data
+## The four steps
+
+**1. Fit.** One call bins every column, routing numerical and
+categorical variables to the right algorithm.
 
 ``` r
 
-library(OptimalBinningWoE)
-library(scorecard)
-
-# Load and prepare data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-
-# Train/test split
-set.seed(123)
-train_idx <- sample(1:nrow(german), size = 0.7 * nrow(german))
-train_data <- german[train_idx, ]
-test_data <- german[-train_idx, ]
-
-# Fit binning model on training data
-model <- obwoe(
-  data = train_data,
-  target = "default",
-  algorithm = "mob",
-  min_bins = 2,
-  max_bins = 5
-)
-
-# Apply learned bins to training and test data
-train_woe <- obwoe_apply(train_data, model, keep_original = FALSE)
-test_woe <- obwoe_apply(test_data, model, keep_original = FALSE)
-
-# View transformed features
-head(train_woe[, c("default", "duration.in.month_woe", "credit.amount_woe")])
+model <- obwoe(german, target = "default", max_bins = 6)
 ```
 
-### Gains Table Analysis
+**2. Screen.**
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
+applies the two criteria that govern variable admission — Information
+Value strength and guaranteed rank ordering — and returns one row per
+candidate with the decision and the reason behind it.
 
 ``` r
 
-library(OptimalBinningWoE)
-library(scorecard)
-
-# Load and prepare data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-
-# Fit binning model
-model <- obwoe(
-  data = german,
-  target = "default",
-  algorithm = "cm",
-  min_bins = 3,
-  max_bins = 5
-)
-
-# Compute gains table for a feature
-gains <- obwoe_gains(model, feature = "duration.in.month", sort_by = "id")
-
-# View gains table with KS, Gini, and lift metrics
-print(gains)
-
-# Visualize gains curves
-par(mfrow = c(2, 2))
-plot(gains, type = "cumulative")
-plot(gains, type = "ks")
-plot(gains, type = "lift")
-plot(gains, type = "woe_iv")
-par(mfrow = c(1, 1))
+sel <- obwoe_select(model)
+sel[, c("feature", "total_iv", "iv_class", "ks", "monotonic", "selected", "reason")]
+#>            feature total_iv     iv_class      ks monotonic selected        reason
+#> 1:  credit_history   0.2932       Medium  0.1805      TRUE     TRUE            OK
+#> 2:        duration   0.2727       Medium  0.1900      TRUE     TRUE            OK
+#> ...
+#> 14:         status   0.6660   Suspicious  0.3671      TRUE    FALSE IV_SUSPICIOUS
+#> 15: number_credits   0.0101 Unpredictive  0.0481      TRUE    FALSE  IV_BELOW_MIN
 ```
 
-## Integration with tidymodels
+`status` is the strongest variable in the file and is rejected for it:
+an IV above 0.50 is far more often leakage than signal. Nothing is
+silently dropped — 500 candidates return 500 rows, so the automatic
+verdict can be reviewed.
 
-**OptimalBinningWoE** integrates seamlessly with `tidymodels` recipes.
+**3. Transform.** Apply the fitted binning to any frame, in R or inside
+a `recipes` pipeline.
 
 ``` r
 
-library(tidymodels)
-library(OptimalBinningWoE)
-library(scorecard)
+scored <- obwoe_apply(new_data, model)
 
-# Load and prepare data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-german$creditability <- NULL
-
-# Select features
-german_model <- german[, c(
-  "default",
-  "duration.in.month",
-  "credit.amount",
-  "age.in.years",
-  "status.of.existing.checking.account",
-  "credit.history"
-)]
-
-# Train/test split
-set.seed(123)
-german_split <- initial_split(german_model, prop = 0.7, strata = default)
-train_data <- training(german_split)
-test_data <- testing(german_split)
-
-# Create recipe with WoE transformation
-rec_woe <- recipe(default ~ ., data = train_data) %>%
-  step_obwoe(
-    all_predictors(),
-    outcome = "default",
-    algorithm = "jedi",
-    min_bins = 2,
-    max_bins = 5,
-    bin_cutoff = 0.05,
-    output = "woe"
-  )
-
-# Define model specification
-lr_spec <- logistic_reg() %>%
-  set_engine("glm") %>%
-  set_mode("classification")
-
-# Create workflow
-wf_credit <- workflow() %>%
-  add_recipe(rec_woe) %>%
-  add_model(lr_spec)
-
-# Fit the workflow
-final_fit <- fit(wf_credit, data = train_data)
-
-# Evaluate on test data
-test_pred <- augment(final_fit, test_data)
-
-# Performance metrics
-metrics <- metric_set(roc_auc, accuracy)
-metrics(test_pred,
-  truth = default,
-  estimate = .pred_class,
-  .pred_bad,
-  event_level = "second"
-)
-
-# ROC curve
-roc_curve(test_pred,
-  truth = default,
-  .pred_bad,
-  event_level = "second"
-) %>%
-  autoplot() +
-  labs(title = "ROC Curve - German Credit Model")
+rec <- recipes::recipe(default ~ ., data = german) |>
+  step_obwoe(recipes::all_predictors(), outcome = "default", max_bins = 6)
 ```
 
-### Hyperparameter Tuning
+**4. Deploy.** Export the same transformation as SQL.
 
 ``` r
 
-library(tidymodels)
-library(OptimalBinningWoE)
-library(scorecard)
-
-# Load and prepare data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-german$creditability <- NULL
-
-german_model <- german[, c(
-  "default",
-  "duration.in.month",
-  "credit.amount",
-  "status.of.existing.checking.account",
-  "credit.history"
-)]
-
-# Split data
-set.seed(123)
-german_split <- initial_split(german_model, prop = 0.7, strata = default)
-train_data <- training(german_split)
-
-# Recipe with tunable max_bins
-rec_woe <- recipe(default ~ ., data = train_data) %>%
-  step_obwoe(
-    all_predictors(),
-    outcome = "default",
-    algorithm = "jedi",
-    min_bins = 2,
-    max_bins = tune(),
-    output = "woe"
-  )
-
-# Model specification
-lr_spec <- logistic_reg() %>%
-  set_engine("glm") %>%
-  set_mode("classification")
-
-# Workflow
-wf_credit <- workflow() %>%
-  add_recipe(rec_woe) %>%
-  add_model(lr_spec)
-
-# Cross-validation folds
-set.seed(456)
-cv_folds <- vfold_cv(train_data, v = 5, strata = default)
-
-# Tuning grid
-tune_grid <- tibble(max_bins = c(3, 4, 5, 6))
-
-# Tune
-tune_results <- tune_grid(
-  wf_credit,
-  resamples = cv_folds,
-  grid = tune_grid,
-  metrics = metric_set(roc_auc)
-)
-
-# Best parameters
-best_params <- select_best(tune_results, metric = "roc_auc")
-print(best_params)
-
-# Visualize tuning results
-autoplot(tune_results, metric = "roc_auc")
+obwoe_sql(model, table = "risk.applications",
+          features = sel$feature[sel$selected], dialect = "postgres")
 ```
 
-## Core Concepts
-
-### Weight of Evidence (WoE)
-
-WoE quantifies the predictive power of each bin by measuring the
-log-odds ratio:
-
-``` math
-\text{WoE}_i = \ln\left(\frac{\text{Distribution of Goods}_i}{\text{Distribution of Bads}_i}\right)
+``` sql
+CASE
+    WHEN duration IS NULL THEN 0
+    WHEN duration <= 7 THEN -1.3121863889661687
+    WHEN duration > 7 AND duration <= 10 THEN -0.45198512374305744
+    WHEN duration > 10 AND duration <= 16 THEN -0.3028722379457563
+    WHEN duration > 16 AND duration <= 33 THEN 0.10461674470498177
+    WHEN duration > 33 AND duration <= 39 THEN 0.5728610146854435
+    WHEN duration > 39 THEN 0.993901334579079
+    ELSE 0
+END AS duration_woe
 ```
 
-**Interpretation:**
+Intervals are half-open on the right, `(a, b]`, reproducing
+[`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)
+exactly; cut points are written at full round-trip precision; and every
+expression opens with an explicit `IS NULL` branch, because `NULL <= 5`
+is `NULL` in SQL, not `FALSE`.
 
-- **WoE \> 0**: Lower risk than average (more “goods” than expected)
-- **WoE \< 0**: Higher risk than average (more “bads” than expected)
-- **WoE ≈ 0**: Similar to population average
+## Vignettes
 
-### Information Value (IV)
+Two long-form articles carry the detailed documentation and worked
+cases.
 
-IV measures the overall predictive power of a feature:
+**[Optimal Binning and Weight of Evidence: A Practical
+Guide](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html)**
+— the working reference. What WoE and IV measure and why monotonicity of
+the event rate and of the WoE are the same statement; reading a bin
+table and a gains table; screening a whole base with
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md);
+how the algorithm families differ and how to pick one; applying the
+transformation to new data; exporting to SQL; preprocessing missing
+values and outliers. Uses the bundled German Credit benchmark
+throughout.
 
-``` math
-\text{IV} = \sum_{i=1}^{n} (\text{Dist. Goods}_i - \text{Dist. Bads}_i) \times \text{WoE}_i
+**[An Industrial Scorecard
+Pipeline](https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html)**
+— an origination scorecard built the way a risk department builds one. A
+wide synthetic base carrying the pathologies that matter (missing bureau
+data, rare dealer codes, near-duplicate vendor fields, pure noise, and a
+leaky post-booking field), screening at scale, redundancy pruning with
+[`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obcorr.md)
+in the WoE space, a `recipes` pipeline around
+[`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md),
+logistic regression with the coefficient sign check, scorecard points
+and PDO scaling, out-of-time validation with gains and PSI, deployment
+to SQL, tuning with tidymodels, and the governance checklist that closes
+a model document.
+
+## Choosing an algorithm
+
+Three questions settle it in practice.
+
+``` mermaid
+flowchart TD
+    A[What is the variable?] --> B[Numerical]
+    A --> C[Categorical]
+
+    B --> D{Must the WoE be<br/>monotone?}
+    D -->|"Yes — regulatory"| E["<b>ir</b> · <b>mrblp</b> · <b>mblp</b><br/><b>mob</b> · oslp"]
+    D -->|No| F{Millions of rows<br/>or streaming?}
+    F -->|Yes| G["<b>sketch</b> · ewb · kmb"]
+    F -->|No| H{Need the global<br/>optimum?}
+    H -->|Yes| I["<b>dp</b> · milp · bb · sblp"]
+    H -->|No| J["<b>jedi</b> · <b>mdlp</b><br/>fast_mdlp · dmiv · cm"]
+
+    C --> K{High cardinality<br/>with rare levels?}
+    K -->|Yes| L["<b>sketch</b> · mba · swb"]
+    K -->|No| M{Must the WoE be<br/>monotone?}
+    M -->|Yes| N["<b>gmb</b> · <b>mob</b> · udt"]
+    M -->|No| O["<b>jedi</b> · <b>cm</b><br/>ivb · dmiv · fetb · dp"]
+
+    E --> P([obwoe algorithm = ...])
+    G --> P
+    I --> P
+    J --> P
+    L --> P
+    N --> P
+    O --> P
 ```
 
-| IV Range    | Predictive Power | Recommendation         |
-|-------------|------------------|------------------------|
-| \< 0.02     | Unpredictive     | Exclude                |
-| 0.02 – 0.10 | Weak             | Use cautiously         |
-| 0.10 – 0.30 | Medium           | Good predictor         |
-| 0.30 – 0.50 | Strong           | Excellent predictor    |
-| \> 0.50     | Suspicious       | Check for data leakage |
+Bold entries are the defaults worth trying first. `algorithm = "auto"`
+picks `jedi`, a good general-purpose choice for both types.
 
-## Algorithm Reference
-
-OptimalBinningWoE provides **36 algorithms** optimized for different
-scenarios:
-
-### Universal Algorithms (Numerical & Categorical)
-
-| Algorithm | Function | Best For |
+| Family | Algorithms | Optimises |
 |----|----|----|
-| **JEDI** | [`ob_numerical_jedi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_jedi.md) | General purpose, balanced performance |
-| **MOB** | [`ob_numerical_mob()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mob.md) | Regulatory compliance (monotonic) |
-| **ChiMerge** | [`ob_numerical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md) | Statistical significance-based merging |
-| **DP** | [`ob_numerical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_dp.md) | Optimal partitioning with constraints |
-| **Sketch** | [`ob_numerical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_sketch.md) | Large-scale / streaming data |
+| Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` | entropy or IV gain per split, with an MDL stopping rule |
+| Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $`\chi^2`$ or Fisher test |
+| Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp`, `gmb` | best fit subject to a monotonicity constraint |
+| Exact optimisation | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Metaheuristic | `sab`, `mba`, `swb`, `udt` | simulated annealing, agglomerative or tree-based search |
+| Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 
-### Numerical-Only Algorithms (20)
+[`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md)
+lists all 36 with the feature types each supports; every one is also
+callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
 
-| Algorithm | Function | Specialty |
-|----|----|----|
-| **MDLP** | [`ob_numerical_mdlp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md) | Entropy-based discretization |
-| **MBLP** | [`ob_numerical_mblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mblp.md) | Monotonic binning via linear programming |
-| **IR** | [`ob_numerical_ir()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ir.md) | Isotonic regression binning |
-| **EWB** | [`ob_numerical_ewb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_ewb.md) | Fast equal-width binning |
-| **KMB** | [`ob_numerical_kmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_kmb.md) | K-means clustering approach |
-
-**View all 20 numerical algorithms**
-
-| Acronym   | Full Name               | Description              |
-|-----------|-------------------------|--------------------------|
-| BB        | Branch and Bound        | Exact optimization       |
-| CM        | ChiMerge                | Chi-square merging       |
-| DMIV      | Decision Tree MIV       | Recursive partitioning   |
-| DP        | Dynamic Programming     | Optimal partitioning     |
-| EWB       | Equal Width             | Fixed-width bins         |
-| Fast-MDLP | Fast MDLP               | Optimized entropy        |
-| FETB      | Fisher’s Exact Test     | Statistical significance |
-| IR        | Isotonic Regression     | Order-preserving         |
-| JEDI      | Joint Entropy-Driven    | Information maximization |
-| JEDI-MWoE | JEDI Multinomial        | Multi-class targets      |
-| KMB       | K-Means Binning         | Clustering-based         |
-| LDB       | Local Density           | Density estimation       |
-| LPDB      | Local Polynomial        | Smooth density           |
-| MBLP      | Monotonic LP            | LP optimization          |
-| MDLP      | Min Description Length  | Entropy-based            |
-| MOB       | Monotonic Optimal       | IV-optimal + monotonic   |
-| MRBLP     | Monotonic Regression LP | Regression + LP          |
-| OSLP      | Optimal Supervised LP   | Supervised learning      |
-| Sketch    | KLL Sketch              | Streaming quantiles      |
-| UBSD      | Unsupervised StdDev     | Standard deviation       |
-| UDT       | Unsupervised DT         | Decision tree            |
-
-### Categorical-Only Algorithms (16)
-
-| Algorithm | Function | Specialty |
-|----|----|----|
-| **SBLP** | [`ob_categorical_sblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sblp.md) | Similarity-based grouping |
-| **IVB** | [`ob_categorical_ivb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_ivb.md) | IV maximization |
-| **GMB** | [`ob_categorical_gmb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_gmb.md) | Greedy monotonic |
-| **SAB** | [`ob_categorical_sab()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sab.md) | Simulated annealing |
-
-**View all 16 categorical algorithms**
-
-| Acronym   | Full Name            | Description              |
-|-----------|----------------------|--------------------------|
-| CM        | ChiMerge             | Chi-square merging       |
-| DMIV      | Decision Tree MIV    | Recursive partitioning   |
-| DP        | Dynamic Programming  | Optimal partitioning     |
-| FETB      | Fisher’s Exact Test  | Statistical significance |
-| GMB       | Greedy Monotonic     | Greedy monotonic binning |
-| IVB       | Information Value    | IV maximization          |
-| JEDI      | Joint Entropy-Driven | Information maximization |
-| JEDI-MWoE | JEDI Multinomial     | Multi-class targets      |
-| MBA       | Modified Binning     | Modified approach        |
-| MILP      | Mixed Integer LP     | LP optimization          |
-| MOB       | Monotonic Optimal    | IV-optimal + monotonic   |
-| SAB       | Simulated Annealing  | Stochastic optimization  |
-| SBLP      | Similarity-Based LP  | Similarity grouping      |
-| Sketch    | Count-Min Sketch     | Streaming counts         |
-| SWB       | Sliding Window       | Window-based             |
-| UDT       | Unsupervised DT      | Decision tree            |
-
-## Algorithm Selection Guide
-
-| Use Case | Recommended | Rationale |
-|----|----|----|
-| **General Credit Scoring** | `jedi`, `mob` | Best balance of speed and predictive power |
-| **Regulatory Compliance** | `mob`, `mblp`, `ir` | Guaranteed monotonic WoE patterns |
-| **Large Datasets (\>1M rows)** | `sketch`, `ewb` | Sublinear memory, single-pass |
-| **High Cardinality Categorical** | `sblp`, `gmb`, `ivb` | Intelligent category grouping |
-| **Interpretability Focus** | `dp`, `mdlp` | Clear, explainable bins |
-| **Multi-class Targets** | `jedi_mwoe` | Multinomial WoE support |
-
-## Key Functions
+## Key functions
 
 | Function | Purpose |
 |----|----|
-| [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md) | Main interface for optimal binning and WoE |
-| [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md) | Apply learned binning to new data |
-| [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md) | Compute gains table with KS, Gini, lift |
-| [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) | tidymodels recipe step |
-| [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_preprocess.md) | Data preprocessing with outlier handling |
-| [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md) | List all available algorithms |
-| [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md) | Create control parameters |
-
-## Complete Workflow Example
-
-Here is a complete end-to-end credit scoring workflow:
-
-``` r
-
-library(OptimalBinningWoE)
-library(scorecard)
-library(pROC)
-
-# ============================================
-# 1. Data Preparation
-# ============================================
-
-# Load German Credit dataset
-data("germancredit", package = "scorecard")
-
-# Create binary target
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-german$creditability <- NULL
-
-# Select features for modeling
-features_num <- c("duration.in.month", "credit.amount", "age.in.years")
-features_cat <- c(
-  "status.of.existing.checking.account",
-  "credit.history",
-  "savings.account.and.bonds",
-  "purpose"
-)
-
-german_model <- german[, c("default", features_num, features_cat)]
-
-# Train/test split
-set.seed(123)
-train_idx <- sample(1:nrow(german_model), size = 0.7 * nrow(german_model))
-train_data <- german_model[train_idx, ]
-test_data <- german_model[-train_idx, ]
-
-cat("Training set:", nrow(train_data), "observations\n")
-cat("Test set:", nrow(test_data), "observations\n")
-cat(
-  "Training default rate:",
-  round(mean(train_data$default == "bad") * 100, 2), "%\n"
-)
-
-# ============================================
-# 2. Fit Optimal Binning Model
-# ============================================
-
-# Use Monotonic Optimal Binning for regulatory compliance
-sc_binning <- obwoe(
-  data = train_data,
-  target = "default",
-  algorithm = "mob",
-  min_bins = 2,
-  max_bins = 5,
-  control = control.obwoe(
-    bin_cutoff = 0.05,
-    convergence_threshold = 1e-6
-  )
-)
-
-# View summary
-summary(sc_binning)
-
-# ============================================
-# 3. Feature Selection by IV
-# ============================================
-
-# Extract IV summary and select predictive features
-iv_summary <- sc_binning$summary[!sc_binning$summary$error, ]
-iv_summary <- iv_summary[order(-iv_summary$total_iv), ]
-
-cat("\nFeature Ranking by Information Value:\n")
-print(iv_summary[, c("feature", "total_iv", "n_bins")])
-
-# Select features with IV >= 0.02
-selected_features <- iv_summary$feature[iv_summary$total_iv >= 0.02]
-cat("\nSelected features (IV >= 0.02):", length(selected_features), "\n")
-print(selected_features)
-
-# ============================================
-# 4. Apply WoE Transformation
-# ============================================
-
-# Transform training and test data
-train_woe <- obwoe_apply(train_data, sc_binning, keep_original = FALSE)
-test_woe <- obwoe_apply(test_data, sc_binning, keep_original = FALSE)
-
-# Preview transformed features
-cat("\nTransformed training data (first 5 rows):\n")
-print(head(train_woe[, c(
-  "default",
-  paste0(selected_features[1:3], "_woe")
-)], 5))
-
-# ============================================
-# 5. Build Logistic Regression Model
-# ============================================
-
-# Build formula with WoE-transformed features
-woe_vars <- paste0(selected_features, "_woe")
-formula_str <- paste("default ~", paste(woe_vars, collapse = " + "))
-
-# Fit logistic regression
-scorecard_glm <- glm(
-  as.formula(formula_str),
-  data = train_woe,
-  family = binomial(link = "logit")
-)
-
-cat("\nModel Summary:\n")
-summary(scorecard_glm)
-
-# ============================================
-# 6. Model Evaluation
-# ============================================
-
-# Predictions on test set
-test_woe$score <- predict(scorecard_glm, newdata = test_woe, type = "response")
-
-# ROC curve and AUC
-roc_obj <- roc(test_woe$default, test_woe$score, quiet = TRUE)
-auc_val <- auc(roc_obj)
-
-# KS statistic
-ks_stat <- max(abs(
-  ecdf(test_woe$score[test_woe$default == "bad"])(seq(0, 1, 0.01)) -
-    ecdf(test_woe$score[test_woe$default == "good"])(seq(0, 1, 0.01))
-))
-
-# Gini coefficient
-gini <- 2 * auc_val - 1
-
-cat("\n============================================\n")
-cat("Scorecard Performance Metrics:\n")
-cat("============================================\n")
-cat("  AUC:  ", round(auc_val, 4), "\n")
-cat("  Gini: ", round(gini, 4), "\n")
-cat("  KS:   ", round(ks_stat * 100, 2), "%\n")
-
-# Plot ROC curve
-plot(roc_obj,
-  main = "Scorecard ROC Curve",
-  print.auc = TRUE,
-  print.thres = "best"
-)
-
-# ============================================
-# 7. Gains Analysis
-# ============================================
-
-# Compute gains for best numerical feature
-best_num_feature <- iv_summary$feature[iv_summary$feature %in% features_num][1]
-
-gains <- obwoe_gains(sc_binning, feature = best_num_feature, sort_by = "id")
-print(gains)
-
-# Plot WoE and IV
-plot(gains, type = "woe_iv")
-```
-
-## Data Preprocessing
-
-Handle missing values and outliers before binning:
-
-``` r
-
-library(OptimalBinningWoE)
-
-# Simulate problematic feature
-set.seed(2024)
-problematic_feature <- c(
-  rnorm(800, 5000, 2000), # Normal values
-  rep(NA, 100), # Missing values
-  runif(100, -10000, 50000) # Outliers
-)
-target_sim <- rbinom(1000, 1, 0.3)
-
-# Preprocess with IQR method
-preproc_result <- ob_preprocess(
-  feature = problematic_feature,
-  target = target_sim,
-  outlier_method = "iqr",
-  outlier_process = TRUE,
-  preprocess = "both"
-)
-
-# View preprocessing report
-print(preproc_result$report)
-
-# Access cleaned feature
-cleaned_feature <- preproc_result$preprocess$feature_preprocessed
-```
-
-## Algorithm Comparison
-
-Compare different algorithms on the same feature:
-
-``` r
-
-library(OptimalBinningWoE)
-library(scorecard)
-
-# Load data
-data("germancredit", package = "scorecard")
-german <- germancredit
-german$default <- factor(
-  ifelse(german$creditability == "bad", 1, 0),
-  levels = c(0, 1),
-  labels = c("good", "bad")
-)
-
-# Test multiple algorithms
-algorithms <- c("jedi", "mob", "mdlp", "ewb", "cm")
-
-compare_results <- lapply(algorithms, function(algo) {
-  tryCatch(
-    {
-      fit <- obwoe(
-        data = german,
-        target = "default",
-        feature = "credit.amount",
-        algorithm = algo,
-        min_bins = 3,
-        max_bins = 6
-      )
-
-      data.frame(
-        Algorithm = algo,
-        N_Bins = fit$summary$n_bins[1],
-        IV = round(fit$summary$total_iv[1], 4),
-        Converged = fit$summary$converged[1]
-      )
-    },
-    error = function(e) {
-      data.frame(
-        Algorithm = algo,
-        N_Bins = NA,
-        IV = NA,
-        Converged = FALSE
-      )
-    }
-  )
-})
-
-# Combine and display results
-comparison_df <- do.call(rbind, compare_results)
-comparison_df <- comparison_df[order(-comparison_df$IV), ]
-
-cat("Algorithm Comparison on 'credit.amount':\n\n")
-print(comparison_df, row.names = FALSE)
-
-# View available algorithms
-algorithms_info <- obwoe_algorithms()
-print(algorithms_info[, c("algorithm", "numerical", "categorical")])
-```
-
-## Performance
-
-OptimalBinningWoE is optimized for speed through:
-
-- **RcppEigen**: Vectorized linear algebra operations
-- **Efficient algorithms**: O(n log n) or better complexity
-- **Memory-conscious design**: Streaming algorithms for large data
-
-Typical performance on a standard laptop:
-
-| Data Size | Processing Time |
-|-----------|-----------------|
-| 100K rows | \< 1 second     |
-| 1M rows   | 2-5 seconds     |
-| 10M rows  | 20-60 seconds   |
-
-## Best Practices
-
-### Workflow Recommendations
-
-1.  **Start Simple**: Use `algorithm = "jedi"` as default
-2.  **Check IV**: Select features with IV ≥ 0.02
-3.  **Validate Monotonicity**: Use `mob`, `mblp`, or `ir` for regulatory
-    models
-4.  **Cross-Validate**: Tune binning parameters with CV
-5.  **Monitor Stability**: Track WoE distributions over time
-6.  **Document Thoroughly**: Save metadata with models
-
-### Common Pitfalls to Avoid
-
-``` r
-
-# RONG: Bin on full dataset before splitting (causes data leakage!)
-bad_approach <- obwoe(full_data, target = "default")
-train_woe <- obwoe_apply(train_data, bad_approach)
-
-# ORRECT: Bin only on training data
-good_approach <- obwoe(train_data, target = "default")
-test_woe <- obwoe_apply(test_data, good_approach)
-
-# RONG: Ignore IV thresholds (IV > 0.50 likely indicates target leakage)
-suspicious_features <- result$summary$feature[result$summary$total_iv > 0.50]
-# Investigate these features carefully!
-
-# RONG: Over-bin (too many bins reduces interpretability)
-# max_bins > 10 may cause overfitting
-```
+| [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md) | Fit optimal binning and WoE across a data frame |
+| [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md) | Screen variables by IV strength and bin ordering |
+| [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md) | Apply a fitted binning to new data |
+| [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md) | Gains table with KS, Gini, lift and capture rates |
+| [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) | Generate the equivalent SQL `CASE` expressions |
+| [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/step_obwoe.md) | tidymodels recipe step, tunable |
+| [`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obcorr.md) | Fast pairwise correlations for redundancy pruning |
+| [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_preprocess.md) | Missing-value and outlier handling before binning |
+| [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_algorithms.md) | List the available algorithms |
+| [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md) | Algorithm control parameters |
+
+## Interpreting Information Value
+
+The package grades IV with the bands from Siddiqi (2006), and
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
+acts on them.
+
+| IV                | Band         | Reading                          |
+|-------------------|--------------|----------------------------------|
+| $`< 0.02`$        | Unpredictive | drop                             |
+| $`[0.02,\ 0.10)`$ | Weak         | keep only if it adds diversity   |
+| $`[0.10,\ 0.30)`$ | Medium       | the workhorses of a scorecard    |
+| $`[0.30,\ 0.50)`$ | Strong       | strong, verify it is not a proxy |
+| $`\ge 0.50`$      | Suspicious   | almost always leakage            |
 
 ## Documentation
 
-- 📖 [Package
-  Vignette](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html):
-  Comprehensive guide with examples
-- 📚 [Function
-  Reference](https://evandeilton.github.io/OptimalBinningWoE/reference/):
-  Complete API documentation
-- 🐛 [Issue
-  Tracker](https://github.com/evandeilton/OptimalBinningWoE/issues):
-  Report bugs or request features
+- [Function
+  reference](https://evandeilton.github.io/OptimalBinningWoE/reference/)
+- [Practical
+  guide](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html)
+- [Industrial
+  pipeline](https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html)
+- [Issue
+  tracker](https://github.com/evandeilton/OptimalBinningWoE/issues)
 
 ## Contributing
 
-Contributions are welcome! Please see our [Contributing
+Contributions are welcome. See the [Contributing
 Guidelines](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CONTRIBUTING.md)
-and [Code of
+and the [Code of
 Conduct](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CODE_OF_CONDUCT.md).
 
 ## Citation
 
-If you use OptimalBinningWoE in your research, please cite:
-
 ``` bibtex
 @software{optimalbinningwoe,
   author = {José Evandeilton Lopes},
-  title = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
-  year = {2026},
-  url = {https://github.com/evandeilton/OptimalBinningWoE}
+  title  = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
+  year   = {2026},
+  url    = {https://github.com/evandeilton/OptimalBinningWoE}
 }
 ```
 
@@ -844,6 +265,8 @@ If you use OptimalBinningWoE in your research, please cite:
   and Its Applications*. SIAM.
 - Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming
   Formulation. arXiv:2001.08025.
+- Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of
+  continuous-valued attributes for classification learning. *IJCAI*.
 - Anderson, R. (2007). *The Credit Scoring Toolkit: Theory and Practice
   for Retail Credit Risk Management*. Oxford University Press.
 

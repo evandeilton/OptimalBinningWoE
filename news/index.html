@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.12.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -18,7 +18,8 @@
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">OptimalBinningWoE: Practical Guide for Credit Risk Modeling</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
+    <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -32,9 +33,70 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.11.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.12.0" id="optimalbinningwoe-1120">OptimalBinningWoE 1.12.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1120"></a></h2>
+<div class="section level3">
+<h3 id="new-features-1-12-0">New features (2026-08-19)<a class="anchor" aria-label="anchor" href="#new-features-1-12-0"></a></h3>
+<p>Two additions close the gap between a fitted binning and a deployed scorecard: deciding which variables deserve to enter the model, and shipping the accepted transformation to the database where the data lives.</p>
+<div class="section level4">
+<h4 id="obwoe_select--automated-variable-screening-1-12-0">
+<code>obwoe_select()</code> — automated variable screening<a class="anchor" aria-label="anchor" href="#obwoe_select--automated-variable-screening-1-12-0"></a></h4>
+<p>Screens every binned variable of an <code>obwoe</code> model against the two criteria that govern variable admission in credit risk practice — <strong>predictive strength</strong>, graded with the Siddiqi (2006) Information Value bands, and <strong>guaranteed rank ordering</strong>, measured by monotonicity of the bin event rate — and returns a verdict for each.</p>
+<ul><li><p><strong>Nothing is ever dropped.</strong> A base with 500 candidate variables yields 500 rows. Each carries a <code>selected</code> flag, a machine-readable <code>reason</code> listing <em>every</em> rule it violated, and a <code>reason_desc</code> in plain language, so the automatic verdict can be reviewed, overridden, or replaced by the analyst’s own triage.</p></li>
+<li><p><strong>Two levels of detail.</strong> <code>detail = "summary"</code> gives one row per variable with its headline metrics; <code>detail = "full"</code> expands to one row per variable <em>and</em> optimised bin, carrying the complete gains table of <code><a href="../reference/ob_gains_table.html">ob_gains_table()</a></code> (31 metrics: WoE, IV, lift, cumulative KS, precision, recall, F1, KL and JS divergence, …) together with the interval bounds of numerical bins and the merged category lists of categorical ones.</p></li>
+<li><p><strong>Metrics that describe the deployed score.</strong> <code>ks</code>, <code>auc</code> and <code>gini</code> are computed on the WoE actually applied to the data, with bins ranked by that WoE and merged when tied. <code>auc</code> uses the tie-corrected Mann-Whitney form, which reproduces the rank-based AUC of the WoE-transformed observations to machine precision. <code>ks</code> is therefore the true KS of the transformed variable even when the binning is not monotonic.</p></li>
+<li><p><strong>An honest treatment of ordering.</strong> For numerical variables the bin sequence is intrinsic, so monotonicity is a genuine constraint. For nominal categories the sequence is a free relabelling, so the default <code>require_monotonic = "numeric"</code> applies the constraint only where it means something; <code>"all"</code> and <code>"none"</code> are available.</p></li>
+<li><p><strong>Rejects suspicious variables by default.</strong> <code>iv_max = 0.50</code> excludes the Siddiqi <em>Suspicious</em> band, where a single-variable IV is far more often a symptom of target leakage than of a dominant predictor. On the Statlog German Credit benchmark this is exactly what happens to the checking-account status (IV = 0.67).</p></li>
+<li><p>Further gates for <code>min_bins</code>, <code>max_bins</code>, minimum bin population share, bins with no events or no non-events, and a <code>top_n</code> cut by IV, KS, Gini or AUC. An <code>Excellent</code>/<code>Good</code>/<code>Fair</code>/<code>Rejected</code> quality tier summarises how cleanly the algorithm categorised each variable.</p></li>
+<li><p>Returns a <code>data.table</code> when that package is installed and an identical <code>data.frame</code> otherwise; the table is assembled column-wise in a single pass, so 500 variables are screened in about a second.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="obwoe_sql--sql-code-generation-1-12-0">
+<code>obwoe_sql()</code> — SQL code generation<a class="anchor" aria-label="anchor" href="#obwoe_sql--sql-code-generation-1-12-0"></a></h4>
+<p>Translates a fitted binning into executable SQL, so the WoE transformation runs inside the database with no round trip through R.</p>
+<ul><li><p><strong>Exact interval semantics.</strong> Numerical bins are half-open on the right, <code>(lower, upper]</code>, exactly as <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> assigns them. Boundaries come from the fitted <code>cutpoints</code> vector, never parsed back from bin labels, whose formatting varies between algorithms. By default each branch states both of its bounds (<code>WHEN x &gt; 7 AND x &lt;= 10 THEN ...</code>) so it is correct in isolation; <code>explicit_bounds = FALSE</code> emits the shorter cascading form.</p></li>
+<li><p><strong>Cut points that survive the round trip.</strong> Literals are written as the shortest fixed-notation decimal that parses back to the identical IEEE 754 double, and never in scientific notation. Rounding a boundary such as <code>4049.5</code> would silently move observations between bins, so exactness is the default; <code>digits</code> makes rounding an explicit choice.</p></li>
+<li><p><strong>NULL cannot leak.</strong> In SQL, <code>NULL &lt;= 5</code> is <code>NULL</code>, not <code>FALSE</code>, so a missing value matches no comparison and would fall through to <code>ELSE</code>. Every generated expression opens with an explicit <code>WHEN &lt;col&gt; IS NULL</code> branch, and when the binner folded training missings into a category bin, <code>null_to_na_bin = TRUE</code> routes database <code>NULL</code>s to that same bin.</p></li>
+<li><p><strong>Escaping that holds.</strong> Single quotes are doubled per ANSI SQL; on MySQL, MariaDB and the Hive family backslashes are doubled too. Category names are matched byte for byte, whitespace included. Identifiers are quoted with the dialect’s own delimiters and, by default, only when the name needs it or collides with a reserved word — which keeps generated code readable on case-folding engines such as Oracle and Snowflake.</p></li>
+<li><p>14 dialects (<code>ansi</code>, <code>postgres</code>, <code>mysql</code>, <code>mariadb</code>, <code>sqlserver</code>, <code>oracle</code>, <code>spark</code>, <code>hive</code>, <code>databricks</code>, <code>bigquery</code>, <code>snowflake</code>, <code>redshift</code>, <code>duckdb</code>, <code>sqlite</code>), four assembly styles (<code>select</code>, <code>case</code>, <code>cte</code>, <code>view</code>), four output modes (<code>woe</code>, <code>bin</code>, <code>index</code>, <code>both</code>), an audit header recording package version and algorithm, and direct file output.</p></li>
+<li><p>Accepts an <code>obwoe</code> object, a prepped <code><a href="../reference/step_obwoe.html">step_obwoe()</a></code> step, or a prepped recipe containing one, and composes with <code><a href="../reference/obwoe_select.html">obwoe_select()</a></code> through <code>features = sel$feature[sel$selected]</code>.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="validation-1-12-0">Validation<a class="anchor" aria-label="anchor" href="#validation-1-12-0"></a></h4>
+<ul><li><p><strong>Real benchmark data is bundled.</strong> <code>inst/extdata/germancredit.csv.gz</code> holds the Statlog (German Credit) dataset from the UCI Machine Learning Repository (1000 applications, 7 numerical and 13 categorical attributes, CC BY 4.0), in its labelled form — category names carrying spaces, slashes and colons make it a realistic test bed for SQL escaping.</p></li>
+<li><p><code><a href="../reference/obwoe_select.html">obwoe_select()</a></code> reproduces the <strong>published Information Values</strong> of that benchmark to four decimals for the 14 attributes the optimiser keeps ungrouped, and its IV, KS, AUC and Gini match an independent computation made from the raw observations to 1e-10.</p></li>
+<li><p>The generated SQL is validated by <strong>parsing and executing it</strong>: the test suite carries a small <code>CASE</code> interpreter that reads the emitted text the way an engine would, and the resulting bin assignment is checked against the counts the binning algorithm itself reported — across five algorithms and all 20 German Credit variables. During development the same statements were additionally run against a live SQLite engine, whose results were identical. Edge cases covered include observations sitting exactly on a cut point, cut points with no exact binary representation, magnitudes from <code>1e-9</code> to <code>1e9</code>, single-bin variables, degenerate bins, reserved-word column names, and categories containing quotes, backslashes, tabs, accented characters and significant whitespace.</p></li>
+</ul></div>
+</div>
+<div class="section level3">
+<h3 id="bug-fixes-1-12-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-1-12-0"></a></h3>
+<p>Both defects below were uncovered while validating the two new functions against real data, and both are pinned by tests in <code>tests/testthat/test-regression-audit.R</code> that fail on 1.11.0 — 31 assertions in total.</p>
+<ul><li><p><strong><code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> and <code><a href="../reference/bake.step_obwoe.html">bake.step_obwoe()</a></code> silently failed to score any category carrying leading or trailing whitespace.</strong> Both rebuilt their category-to-bin lookup with <code>trimws(strsplit(bin_label, "%;%", fixed = TRUE)[[1]])</code>. The binning engines join the original category strings with the separator and add no padding — verified here for all 15 categorical algorithms — so the split pieces are already the categories byte for byte, and the trimming turned a category such as <code>"  N/A  "</code> or <code>"PENDING "</code> into a key no observation could match. Those rows were assigned <code>bin = NA</code> and <code>woe = na_woe</code>, i.e. scored as unseen, with no warning: on a base whose codes come from a <code>CHAR(n)</code> column or a hand-maintained code table, an entire segment could be dropped from the model without a trace. The trimming is gone; categories are now matched exactly, as <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> already did.</p></li>
+<li><p><strong><code><a href="../reference/obwoe_gains.html">obwoe_gains()</a></code> reported the same lift for every bin.</strong> The column was built with <code>ifelse(overall_rate &gt; 0, df$pos_rate / overall_rate, 0)</code>; <code><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse()</a></code> returns a result shaped like its <em>test</em>, and that test is a scalar, so the expression collapsed to a length-one vector that R then recycled across the table. Every gains table with more than one bin reported the first bin’s lift throughout, and <code>plot(type = "lift")</code> drew a flat line. The R gains table now agrees with the independent C++ engine (<code><a href="../reference/ob_gains_table.html">ob_gains_table()</a></code>) to machine precision on <code>lift</code>, <code>woe</code>, <code>iv</code> and <code>ks</code>.</p></li>
+<li>
+<p><strong><code><a href="../reference/ob_numerical_ir.html">ob_numerical_ir()</a></code> reported counts that did not describe its own bins, and bins that were not monotonic.</strong> <code>applyIsotonicRegression()</code> ran the Pool Adjacent Violators algorithm over the bin event rates and then overwrote each bin with <code>count_pos &lt;- round(fitted_rate * count)</code>. Pooling adjacent violators means those bins form <em>one</em> block; keeping them separate and back-solving synthetic counts produced two defects at once. First, <code>count_pos</code> and <code>count_neg</code> no longer described the observations falling between the reported <code>cutpoints</code>, so WoE, IV, KS and every gains table derived from them referred to a distribution that does not exist — on the German Credit <code>amount</code> attribute the reported and observed event rates differed in four of six bins. Second, because of the rounding the reported bins were not even monotonic, which is the one property an isotonic binner exists to guarantee.</p>
+<p>PAVA blocks are now merged into single bins. This reproduces the isotonic fit exactly — with the bin counts as weights, a block’s pooled rate <em>is</em> <code>sum(count_pos) / sum(count)</code> over that block — while <code>count</code>, <code>count_pos</code> and <code>count_neg</code> stay equal to what was observed. Features whose event rate is already monotone are unaffected and return bit-identical results; where PAVA had violators to pool, the binning is now coarser and genuinely rank-ordering. <code>min_bins</code> becomes a target rather than a guarantee for this algorithm, since monotonicity cannot always be attained at that resolution.</p>
+</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-1-12-0">Documentation<a class="anchor" aria-label="anchor" href="#documentation-1-12-0"></a></h3>
+<ul><li><p><strong>The README is a third of its former length.</strong> It now covers what the package is, the four steps of a run, how to choose an algorithm and where to read more; the extended worked examples moved into the vignettes, where an analyst can study them properly. Algorithm selection is presented as a decision graph (rendered by GitHub) with the family reference table kept below it.</p></li>
+<li>
+<p><strong>Two vignettes replace the single kitchen-sink one.</strong></p>
+<p><em>Optimal Binning and Weight of Evidence: A Practical Guide</em> is the working reference: what WoE and IV measure and why monotonicity of the event rate and of the WoE are the same statement, reading bin and gains tables, screening a base with <code><a href="../reference/obwoe_select.html">obwoe_select()</a></code>, how the algorithm families differ, applying the transformation, exporting SQL, and preprocessing.</p>
+<p><em>An Industrial Scorecard Pipeline</em> is new and runs an origination scorecard end to end: a wide synthetic base with the pathologies that matter (missing fields, rare dealer codes, near-duplicate vendor variables, pure noise and a leaky post-booking field), screening at scale, redundancy pruning with <code><a href="../reference/obcorr.html">obcorr()</a></code> in the WoE space, a <code>recipes</code> pipeline around <code><a href="../reference/step_obwoe.html">step_obwoe()</a></code>, logistic regression with the coefficient sign check, PDO scorecard points, out-of-time validation with gains and PSI, deployment through <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code>, tuning with tidymodels, and a governance checklist.</p>
+</li>
+<li><p>Both vignettes run on the bundled German Credit benchmark or on data they generate, so they build from <code>recipes</code> alone. The previous vignette required the Suggested <code>scorecard</code> package and failed to build without it; <code>scorecard</code> and <code>pROC</code> are no longer used anywhere and have been dropped from <code>Suggests</code>.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="notes-1-12-0">Notes<a class="anchor" aria-label="anchor" href="#notes-1-12-0"></a></h3>
+<ul><li>
+<code>data.table</code> is used when installed, for <code>rbindlist()</code> and for the returned table type, and is declared in <code>Suggests</code> only: the package has no new hard dependency and behaves identically without it, as the test suite verifies.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.11.0" id="optimalbinningwoe-1110">OptimalBinningWoE 1.11.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1110"></a></h2>
 <div class="section level3">

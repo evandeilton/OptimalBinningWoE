@@ -1,6 +1,8 @@
 # Articles
 
-### Getting Started
+### Guides
 
-- [OptimalBinningWoE: Practical Guide for Credit Risk
-  Modeling](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.md):
+- [Optimal Binning and Weight of Evidence: A Practical
+  Guide](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.md):
+- [An Industrial Scorecard
+  Pipeline](https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.md):
