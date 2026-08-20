@@ -553,3 +553,29 @@ test_that("obwoe_gains(use_column = 'woe', n_groups = k) keeps WoE numeric and I
   expect_true(is.numeric(gains$table$woe))
   expect_gt(gains$metrics$total_iv, 0)
 })
+
+# ---------------------------------------------------------------------------
+# [C4/A-02] .dispatch_algorithm() never checked registry$multinomial
+#
+# The registry carries a $multinomial flag (only "jedi"/"jedi_mwoe" support a
+# multiclass target), but the dispatcher only checked $numerical/$categorical.
+# A binary-only algorithm explicitly requested against a multinomial target
+# used to fall through to the C++ engine itself, which happens to validate
+# and reject it too, but with a less specific message and after doing real
+# work; the R-level dispatcher should reject it up front, using the registry
+# metadata that already declares the incompatibility.
+# ---------------------------------------------------------------------------
+test_that("obwoe() rejects a binary-only algorithm against a multinomial target", {
+  set.seed(1)
+  n <- 500
+  df <- data.frame(x = rnorm(n), y = sample(0:2, n, replace = TRUE))
+
+  res <- obwoe(df, target = "y", feature = "x", algorithm = "mob")
+  expect_true(res$summary$error)
+  expect_match(res$results$x$error, "does not support a multinomial target")
+
+  # jedi_mwoe is the multinomial-capable universal algorithm and must still
+  # work.
+  res2 <- obwoe(df, target = "y", feature = "x", algorithm = "jedi_mwoe")
+  expect_false(res2$summary$error)
+})

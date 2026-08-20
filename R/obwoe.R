@@ -470,7 +470,8 @@ obwoe <- function(data,
           feat_vec = feat_vec,
           min_bins = min_bins,
           max_bins = max_bins,
-          control = control
+          control = control,
+          target_type = target_type
         )
       },
       error = function(e) {
@@ -529,7 +530,8 @@ obwoe <- function(data,
 #' @title Internal Algorithm Dispatcher
 #' @keywords internal
 .dispatch_algorithm <- function(feat_type, algorithm, target_vec, feat_vec,
-                                min_bins, max_bins, control) {
+                                min_bins, max_bins, control,
+                                target_type = "binary") {
   algo <- algorithm
 
   # Get algorithm registry
@@ -547,6 +549,16 @@ obwoe <- function(data,
   }
   if (feat_type == "categorical" && !info$categorical) {
     stop(sprintf("Algorithm '%s' does not support categorical features.", algo))
+  }
+  # [C-04/A-02] The registry also carries a $multinomial flag (only
+  # jedi/jedi_mwoe support a multiclass target), but it was never checked
+  # here. An explicitly-requested binary-only algorithm (e.g. algorithm =
+  # "mob") against a multinomial target used to be dispatched anyway,
+  # producing output the algorithm was never designed to interpret.
+  if (identical(target_type, "multinomial") && !isTRUE(info$multinomial)) {
+    stop(sprintf(
+      "Algorithm '%s' does not support a multinomial target.", algo
+    ))
   }
 
   # Prepare arguments
