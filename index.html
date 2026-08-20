@@ -72,41 +72,7 @@
 
 <p>Optimal binning and Weight of Evidence transformation for credit scoring and risk modelling, with 36 C++ binning algorithms behind one R interface.</p>
 <p>The package covers the whole path from a raw feature store to a deployed scorecard: fit the binning, screen the variables against IV strength and bin ordering, transform the data, and export the same transformation as SQL so the scoring runs where the data lives.</p>
-<table class="table">
-<colgroup>
-<col width="50%">
-<col width="50%">
-</colgroup>
-<tbody>
-<tr>
-<td><strong>36 algorithms</strong></td>
-<td>20 numerical, 16 categorical — entropy, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>, exact optimisation, shape-constrained and streaming methods</td>
-</tr>
-<tr>
-<td><strong>C++ engine</strong></td>
-<td>Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds</td>
-</tr>
-<tr>
-<td><strong>Automated screening</strong></td>
-<td>
-<code><a href="reference/obwoe_select.html">obwoe_select()</a></code> returns a verdict and a reason for every candidate, never dropping a row</td>
-</tr>
-<tr>
-<td><strong>In-database scoring</strong></td>
-<td>
-<code><a href="reference/obwoe_sql.html">obwoe_sql()</a></code> emits exact <code>CASE</code> expressions for 14 SQL dialects</td>
-</tr>
-<tr>
-<td><strong>Regulatory fit</strong></td>
-<td>monotonic binning, auditable bin-level evidence, reason codes</td>
-</tr>
-<tr>
-<td><strong>tidymodels ready</strong></td>
-<td>
-<code><a href="reference/step_obwoe.html">step_obwoe()</a></code> is a first-class, tunable <code>recipes</code> step</td>
-</tr>
-</tbody>
-</table>
+<p>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD | | | |—-|—-| ======= | | | |—|—| &gt;&gt;&gt;&gt;&gt;&gt;&gt; b3cc53f9f70cc729f1a50aa4239207fdfb82267b | <strong>36 algorithms</strong> | 20 numerical, 16 categorical — entropy, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>, exact optimisation, shape-constrained and streaming methods | | <strong>C++ engine</strong> | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds | | <strong>Automated screening</strong> | <code><a href="reference/obwoe_select.html">obwoe_select()</a></code> returns a verdict and a reason for every candidate, never dropping a row | | <strong>In-database scoring</strong> | <code><a href="reference/obwoe_sql.html">obwoe_sql()</a></code> emits exact <code>CASE</code> expressions for 14 SQL dialects | | <strong>Regulatory fit</strong> | monotonic binning, auditable bin-level evidence, reason codes | | <strong>tidymodels ready</strong> | <code><a href="reference/step_obwoe.html">step_obwoe()</a></code> is a first-class, tunable <code>recipes</code> step |</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -230,62 +196,8 @@
     N --&gt; P
     O --&gt; P</code></pre>
 <p>Bold entries are the defaults worth trying first. <code>algorithm = "auto"</code> picks <code>jedi</code>, a good general-purpose choice for both types.</p>
-<table class="table">
-<colgroup>
-<col width="33%">
-<col width="33%">
-<col width="33%">
-</colgroup>
-<thead><tr>
-<th>Family</th>
-<th>Algorithms</th>
-<th>Optimises</th>
-</tr></thead>
-<tbody>
-<tr>
-<td>Information-theoretic</td>
-<td>
-<code>mdlp</code>, <code>fast_mdlp</code>, <code>dmiv</code>, <code>ivb</code>, <code>jedi</code>
-</td>
-<td>entropy or IV gain per split, with an MDL stopping rule</td>
-</tr>
-<tr>
-<td>Statistical merging</td>
-<td>
-<code>cm</code>, <code>fetb</code>, <code>mob</code>
-</td>
-<td>merges neighbours whose difference fails a <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math> or Fisher test</td>
-</tr>
-<tr>
-<td>Shape-constrained</td>
-<td>
-<code>ir</code>, <code>mrblp</code>, <code>mblp</code>, <code>oslp</code>, <code>gmb</code>
-</td>
-<td>best fit subject to a monotonicity constraint</td>
-</tr>
-<tr>
-<td>Exact optimisation</td>
-<td>
-<code>dp</code>, <code>milp</code>, <code>sblp</code>, <code>bb</code>
-</td>
-<td>global optimum of IV under bin-count and size constraints</td>
-</tr>
-<tr>
-<td>Metaheuristic</td>
-<td>
-<code>sab</code>, <code>mba</code>, <code>swb</code>, <code>udt</code>
-</td>
-<td>simulated annealing, agglomerative or tree-based search</td>
-</tr>
-<tr>
-<td>Unsupervised</td>
-<td>
-<code>ewb</code>, <code>kmb</code>, <code>ubsd</code>, <code>sketch</code>
-</td>
-<td>equal width, k-means, standard deviation, streaming quantiles</td>
-</tr>
-</tbody>
-</table>
+<div class="line-block">Family | Algorithms | Optimises |</div>
+<p>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD |—-|—-|—-| ======= |—|—|—| &gt;&gt;&gt;&gt;&gt;&gt;&gt; b3cc53f9f70cc729f1a50aa4239207fdfb82267b | Information-theoretic | <code>mdlp</code>, <code>fast_mdlp</code>, <code>dmiv</code>, <code>ivb</code>, <code>jedi</code> | entropy or IV gain per split, with an MDL stopping rule | | Statistical merging | <code>cm</code>, <code>fetb</code>, <code>mob</code> | merges neighbours whose difference fails a <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math> or Fisher test | | Shape-constrained | <code>ir</code>, <code>mrblp</code>, <code>mblp</code>, <code>oslp</code>, <code>gmb</code> | best fit subject to a monotonicity constraint | | Exact optimisation | <code>dp</code>, <code>milp</code>, <code>sblp</code>, <code>bb</code> | global optimum of IV under bin-count and size constraints | | Metaheuristic | <code>sab</code>, <code>mba</code>, <code>swb</code>, <code>udt</code> | simulated annealing, agglomerative or tree-based search | | Unsupervised | <code>ewb</code>, <code>kmb</code>, <code>ubsd</code>, <code>sketch</code> | equal width, k-means, standard deviation, streaming quantiles |</p>
 <p><code><a href="reference/obwoe_algorithms.html">obwoe_algorithms()</a></code> lists all 36 with the feature types each supports; every one is also callable directly as <code>ob_numerical_*()</code> or <code>ob_categorical_*()</code>.</p>
 </div>
 <div class="section level2">
