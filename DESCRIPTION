@@ -24,7 +24,7 @@ Description: High-performance implementation of 37 optimal binning algorithms
     and Navas-Palencia (2020) <doi:10.48550/arXiv.2001.08025>.
 License: MIT + file LICENSE
 URL: https://github.com/evandeilton/OptimalBinningWoE,
-    https://evandeilton.github.io/OptimalBinningWoE
+    https://evandeilton.github.io/OptimalBinningWoE/
 BugReports: https://github.com/evandeilton/OptimalBinningWoE/issues
 Depends: 
     R (>= 4.1.0)
@@ -48,7 +48,6 @@ Suggests:
     data.table,
     openxlsx,
     glmnet,
-    dplyr,
     generics,
     knitr,
     rmarkdown,
