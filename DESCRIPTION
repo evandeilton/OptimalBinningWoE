@@ -1,8 +1,8 @@
 Package: OptimalBinningWoE
 Type: Package
 Title: Optimal Binning and Weight of Evidence Framework for Modeling
-Version: 1.12.0
-Date: 2026-08-19
+Version: 1.13.0
+Date: 2026-08-20
 Authors@R: 
     person(given = "José Evandeilton",
            family = "Lopes",
@@ -35,7 +35,10 @@ Imports:
     recipes,
     rlang,
     tibble,
-    dials
+    dials,
+    stats,
+    utils,
+    graphics
 LinkingTo: 
     Rcpp,
     RcppEigen,
@@ -43,6 +46,8 @@ LinkingTo:
 Suggests: 
     testthat (>= 3.0.0),
     data.table,
+    openxlsx,
+    glmnet,
     dplyr,
     generics,
     knitr,
