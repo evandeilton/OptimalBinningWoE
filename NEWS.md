@@ -121,24 +121,55 @@ inside the database with no round trip through R.
     column names, and categories containing quotes, backslashes, tabs,
     accented characters and significant whitespace.
 
+## Bug fixes
+
+Both defects below were uncovered while validating the two new functions
+against real data, and both are pinned by tests in
+`tests/testthat/test-regression-audit.R` that fail on 1.11.0 — 31 assertions
+in total.
+
+*   **`obwoe_apply()` and `bake.step_obwoe()` silently failed to score any
+    category carrying leading or trailing whitespace.** Both rebuilt their
+    category-to-bin lookup with
+    `trimws(strsplit(bin_label, "%;%", fixed = TRUE)[[1]])`. The binning
+    engines join the original category strings with the separator and add no
+    padding — verified here for all 15 categorical algorithms — so the split
+    pieces are already the categories byte for byte, and the trimming turned a
+    category such as `"  N/A  "` or `"PENDING "` into a key no observation
+    could match. Those rows were assigned `bin = NA` and `woe = na_woe`, i.e.
+    scored as unseen, with no warning: on a base whose codes come from a
+    `CHAR(n)` column or a hand-maintained code table, an entire segment could
+    be dropped from the model without a trace. The trimming is gone; categories
+    are now matched exactly, as `obwoe_sql()` already did.
+
+*   **`ob_numerical_ir()` reported counts that did not describe its own bins,
+    and bins that were not monotonic.** `applyIsotonicRegression()` ran the
+    Pool Adjacent Violators algorithm over the bin event rates and then
+    overwrote each bin with `count_pos <- round(fitted_rate * count)`. Pooling
+    adjacent violators means those bins form *one* block; keeping them separate
+    and back-solving synthetic counts produced two defects at once. First,
+    `count_pos` and `count_neg` no longer described the observations falling
+    between the reported `cutpoints`, so WoE, IV, KS and every gains table
+    derived from them referred to a distribution that does not exist — on the
+    German Credit `amount` attribute the reported and observed event rates
+    differed in four of six bins. Second, because of the rounding the reported
+    bins were not even monotonic, which is the one property an isotonic binner
+    exists to guarantee.
+
+    PAVA blocks are now merged into single bins. This reproduces the isotonic
+    fit exactly — with the bin counts as weights, a block's pooled rate *is*
+    `sum(count_pos) / sum(count)` over that block — while `count`, `count_pos`
+    and `count_neg` stay equal to what was observed. Features whose event rate
+    is already monotone are unaffected and return bit-identical results; where
+    PAVA had violators to pool, the binning is now coarser and genuinely
+    rank-ordering. `min_bins` becomes a target rather than a guarantee for this
+    algorithm, since monotonicity cannot always be attained at that resolution.
+
 ## Notes
 
 *   `data.table` is used when installed, for `rbindlist()` and for the returned
     table type, and is declared in `Suggests` only: the package has no new hard
     dependency and behaves identically without it, as the test suite verifies.
-
-*   Known limitation, unchanged in this release: `obwoe_apply()` and
-    `bake.step_obwoe()` trim leading and trailing whitespace from category
-    names when rebuilding their lookup map, so a category such as `"  N/A  "`
-    is not matched and receives `na_woe`. `obwoe_sql()` matches such categories
-    exactly; pass `trim_categories = TRUE` if you need the generated SQL to
-    reproduce the R-side behaviour instead.
-
-*   Known limitation: `ob_numerical_ir()` reports per-bin `count_pos` and
-    `count_neg` that can disagree with its own `cutpoints` by a few
-    observations (the totals and the interval boundaries are correct). Metrics
-    derived from those counts, including `obwoe_select()`'s, inherit the
-    discrepancy for that algorithm.
 
 # OptimalBinningWoE 1.11.0
 

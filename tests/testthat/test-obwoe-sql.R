@@ -14,12 +14,21 @@ test_that("generated SQL reproduces the fitted bins on German Credit", {
   df <- german_credit()
   feats <- setdiff(names(df), "target")
 
-  for (alg in c("jedi", "mob", "dp", "cm", "udt")) {
+  numeric_feats <- feats[vapply(feats, function(f) is.numeric(df[[f]]), logical(1))]
+
+  # "ir" is numeric-only; the rest handle both feature types.
+  cases <- list(
+    jedi = feats, mob = feats, dp = feats, cm = feats, udt = feats,
+    ir = numeric_feats
+  )
+
+  for (alg in names(cases)) {
+    use <- cases[[alg]]
     model <- suppressWarnings(obwoe(df,
-      target = "target", feature = feats,
+      target = "target", feature = use,
       algorithm = alg, max_bins = 6
     ))
-    problems <- sql_reproduces_bin_counts(model, df, feats)
+    problems <- sql_reproduces_bin_counts(model, df, use)
     expect_equal(problems, character(0), info = alg)
   }
 })
@@ -183,7 +192,7 @@ test_that("awkward category names are matched exactly", {
     grep("padded", model$results$g$bin, value = TRUE)[1],
     ignore_attr = TRUE
   )
-  # Trimming is available for callers who need obwoe_apply()'s behaviour
+  # Trimming is opt-in, for a database column that holds the unpadded form
   trimmed <- obwoe_sql(model,
     output = "bin", style = "case", comment = FALSE,
     quote_identifiers = "never", trim_categories = TRUE

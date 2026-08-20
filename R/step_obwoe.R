@@ -699,8 +699,12 @@ prep.step_obwoe <- function(x, training, info = NULL, ...) {
       for (i in seq_along(feat_res$bin)) {
         bin_label <- feat_res$bin[i]
         woe_val <- feat_res$woe[i]
-        # Split merged categories
-        parts <- trimws(strsplit(bin_label, "%;%", fixed = TRUE)[[1L]])
+        # Split merged categories. The binning engines join the original
+        # category strings with the separator and add no padding, so the split
+        # pieces are the categories byte for byte. They must NOT be trimmed:
+        # a category carrying leading or trailing whitespace would otherwise
+        # become unmatchable and silently fall back to 'na_woe'.
+        parts <- strsplit(bin_label, "%;%", fixed = TRUE)[[1L]]
         cat_map_keys <- c(cat_map_keys, parts)
         cat_map_bins <- c(cat_map_bins, rep(bin_label, length(parts)))
         cat_map_woes <- c(cat_map_woes, rep(woe_val, length(parts)))

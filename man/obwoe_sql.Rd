@@ -122,10 +122,11 @@ bin label. Default \code{"\%;\%"}, matching \code{\link{control.obwoe}}.}
 
 \item{trim_categories}{Logical. When \code{FALSE} (default) category names
 are matched byte for byte, including any leading or trailing whitespace
-they carry in the data. Set to \code{TRUE} to reproduce the whitespace
-trimming that \code{\link{obwoe_apply}} applies when it rebuilds its
-category map; do so only if your pipeline depends on that behaviour, since
-trimming makes a padded category unmatchable.}
+they carry, which is what \code{\link{obwoe_apply}} does in R. Set it to
+\code{TRUE} only when the database column holds the unpadded form of a
+category that reached R padded — a \code{CHAR(n)} column read through a
+driver that strips the padding, for instance. Trimming otherwise makes a
+genuinely padded category unmatchable.}
 
 \item{file}{Optional path. When supplied, the generated SQL is also written
 there with \code{\link{writeLines}}.}

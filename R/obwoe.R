@@ -1626,10 +1626,13 @@ obwoe_apply <- function(data,
 
       for (i in seq_along(bins)) {
         bin_label <- bins[i]
-        # Split by separator (%;%)
+        # Split by separator (%;%). The binning engines join the original
+        # category strings with the separator and add no padding, so the split
+        # pieces are the categories byte for byte. They must NOT be trimmed:
+        # a category carrying leading or trailing whitespace would otherwise
+        # become unmatchable and silently fall back to 'na_woe'.
         cats <- strsplit(bin_label, "%;%", fixed = TRUE)[[1]]
         for (cat in cats) {
-          cat <- trimws(cat)
           cat_to_bin[[cat]] <- bin_label
           cat_to_woe[[cat]] <- woe[i]
         }
