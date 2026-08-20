@@ -65,6 +65,12 @@
 <li>
 <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> methods for <code>"score"</code>, <code>"card"</code>, <code>"link"</code>, <code>"prob"</code> and <code>"woe"</code>, reading only the binning, the coefficients and the scaling.</li>
 </ul></div>
+<div class="section level4">
+<h4 id="fixed-during-review-1-13-0">Fixed during review<a class="anchor" aria-label="anchor" href="#fixed-during-review-1-13-0"></a></h4>
+<ul><li><p><strong>The screening funnel named the wrong stage.</strong> Every variable that left the pipeline after Information Value screening was labelled <code>corr_pruned</code>, including those dropped by the negative-coefficient check and those that turned out constant after the WoE transform. The funnel is the sheet a reviewer reads to learn <em>why</em> a variable is absent, so a mislabelled rejection is a false statement in a model document. <code>stage</code> now distinguishes <code>in_model</code>, <code>sign_rejected</code>, <code>corr_pruned</code>, <code>constant_woe</code> and <code>screened_out</code>, each assigned by the step that actually rejected the variable.</p></li>
+<li><p><strong>The cut-off strategy sheet ignored the score direction.</strong> It always approved applicants scoring at or above the cut, which is right under the default scale but exactly inverted under <code>direction = "higher_is_riskier"</code> — the sheet then approved the worst applicants and reported an approved bad rate above the rejected one, at every one of its twenty cut-offs. The approval rule now follows the direction of the scale.</p></li>
+<li><p><strong><code>file</code> is validated before the pipeline runs.</strong> A missing <code>openxlsx</code>, a non-existent directory or an unwritable one used to surface only at the final write, after the binning, the screening and the fit had all been computed and were about to be discarded. The check now happens up front: the failure arrives in about 0.04 s instead of after the whole run.</p></li>
+</ul></div>
 </div>
 <div class="section level3">
 <h3 id="dependencies-1-13-0">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies-1-13-0"></a></h3>

@@ -180,7 +180,11 @@ typically <code>iv_min</code>, <code>iv_max</code>, <code>require_monotonic</cod
 
     <dt><code>screening</code>, <code>screening_bins</code></dt>
 <dd><p><code><a href="obwoe_select.html">obwoe_select</a></code>
-      at both levels of detail</p></dd>
+      at both levels of detail, plus a <code>stage</code> column naming the step
+      that rejected each variable: <code>"in_model"</code>,
+      <code>"sign_rejected"</code> (negative WoE coefficient),
+      <code>"corr_pruned"</code>, <code>"constant_woe"</code> (one WoE value after the
+      transform) or <code>"screened_out"</code> (failed the IV or ordering rules)</p></dd>
 
     <dt><code>correlation</code></dt>
 <dd><p>the <code><a href="obwoe_prune.html">obwoe_prune</a></code> result</p></dd>

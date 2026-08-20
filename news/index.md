@@ -89,6 +89,33 @@ than a set of numbers.
   `"score"`, `"card"`, `"link"`, `"prob"` and `"woe"`, reading only the
   binning, the coefficients and the scaling.
 
+#### Fixed during review
+
+- **The screening funnel named the wrong stage.** Every variable that
+  left the pipeline after Information Value screening was labelled
+  `corr_pruned`, including those dropped by the negative-coefficient
+  check and those that turned out constant after the WoE transform. The
+  funnel is the sheet a reviewer reads to learn *why* a variable is
+  absent, so a mislabelled rejection is a false statement in a model
+  document. `stage` now distinguishes `in_model`, `sign_rejected`,
+  `corr_pruned`, `constant_woe` and `screened_out`, each assigned by the
+  step that actually rejected the variable.
+
+- **The cut-off strategy sheet ignored the score direction.** It always
+  approved applicants scoring at or above the cut, which is right under
+  the default scale but exactly inverted under
+  `direction = "higher_is_riskier"` — the sheet then approved the worst
+  applicants and reported an approved bad rate above the rejected one,
+  at every one of its twenty cut-offs. The approval rule now follows the
+  direction of the scale.
+
+- **`file` is validated before the pipeline runs.** A missing
+  `openxlsx`, a non-existent directory or an unwritable one used to
+  surface only at the final write, after the binning, the screening and
+  the fit had all been computed and were about to be discarded. The
+  check now happens up front: the failure arrives in about 0.04 s
+  instead of after the whole run.
+
 ### Dependencies
 
 `openxlsx` and `glmnet` are added to `Suggests`. Neither is needed

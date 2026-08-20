@@ -142,7 +142,10 @@ An object of class `"obwoe_scorecard"`: a list with
 - `screening`, `screening_bins`:
 
   [`obwoe_select`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
-  at both levels of detail
+  at both levels of detail, plus a `stage` column naming the step that
+  rejected each variable: `"in_model"`, `"sign_rejected"` (negative WoE
+  coefficient), `"corr_pruned"`, `"constant_woe"` (one WoE value after
+  the transform) or `"screened_out"` (failed the IV or ordering rules)
 
 - `correlation`:
 
