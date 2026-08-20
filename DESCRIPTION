@@ -53,7 +53,8 @@ Suggests:
     rmarkdown,
     tidymodels,
     workflows,
-    parsnip
+    parsnip,
+    tune
 Config/testthat/edition: 3
 SystemRequirements: C++17
 VignetteBuilder: knitr
