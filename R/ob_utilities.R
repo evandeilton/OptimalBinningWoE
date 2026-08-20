@@ -85,11 +85,11 @@
 #'   count_neg = c(95, 170, 30)
 #' )
 #'
-#' gt <- ob_gains_table(bin_res)
+#' gt <- obwoe_gains_score(bin_res)
 #' print(gt[, c("bin", "woe", "iv", "ks")])
 #'
 #' @export
-ob_gains_table <- function(binning_result) {
+obwoe_gains_score <- function(binning_result) {
   .Call("_OptimalBinningWoE_OBGainsTable", binning_result, PACKAGE = "OptimalBinningWoE")
 }
 
@@ -97,7 +97,7 @@ ob_gains_table <- function(binning_result) {
 #'
 #' @description
 #' Calculates a full gains table by aggregating a raw binned dataframe against a
-#' binary target. Unlike \code{\link{ob_gains_table}} which expects pre-aggregated counts,
+#' binary target. Unlike \code{\link{obwoe_gains_score}} which expects pre-aggregated counts,
 #' this function takes observation-level data, aggregates it by the specified
 #' group variable (bin, WoE, or ID), and then computes all statistical metrics.
 #'
@@ -119,7 +119,7 @@ ob_gains_table <- function(binning_result) {
 #'   }
 #'
 #' @return A \code{data.frame} containing the same extensive set of metrics as
-#'   \code{\link{ob_gains_table}}, aggregated by \code{group_var} and sorted by \code{idbin}.
+#'   \code{\link{obwoe_gains_score}}, aggregated by \code{group_var} and sorted by \code{idbin}.
 #'
 #' @details
 #' \subsection{Aggregation and Sorting}{
@@ -158,13 +158,13 @@ ob_gains_table <- function(binning_result) {
 #' target <- c(0, 0, 1, 1, 0, 1)
 #'
 #' # Calculate gains table grouped by bin ID
-#' gt <- ob_gains_table_feature(df_binned, target, group_var = "idbin")
+#' gt <- obwoe_gains_variable(df_binned, target, group_var = "idbin")
 #'
 #' # Inspect key metrics
 #' print(gt[, c("id", "count", "pos_rate", "lift", "js_divergence")])
 #' }
 #'
 #' @export
-ob_gains_table_feature <- function(binned_df, target, group_var = "bin") {
+obwoe_gains_variable <- function(binned_df, target, group_var = "bin") {
   .Call("_OptimalBinningWoE_OBGainsTableFeature", binned_df, as.numeric(target), group_var, PACKAGE = "OptimalBinningWoE")
 }

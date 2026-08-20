@@ -517,7 +517,7 @@ test_that("obwoe_gains() agrees with the C++ gains engine", {
   res <- model$results$duration
 
   r_side <- obwoe_gains(model, feature = "duration", sort_by = "id")$table
-  cpp_side <- ob_gains_table(list(
+  cpp_side <- obwoe_gains_score(list(
     id = res$id, bin = res$bin, count = res$count,
     count_pos = res$count_pos, count_neg = res$count_neg
   ))

@@ -1,12 +1,12 @@
 # Tests for utility functions
-# This file tests: ob_gains_table, ob_gains_table_feature, ob_check_distincts,
+# This file tests: obwoe_gains_score, obwoe_gains_variable, ob_check_distincts,
 #                   ob_preprocess, ob_apply_woe_num, ob_apply_woe_cat,
 #                   ob_cutpoints_num, ob_cutpoints_cat
 
 # ==============================================================================
-# ob_gains_table
+# obwoe_gains_score
 # ==============================================================================
-test_that("ob_gains_table works with valid binning result", {
+test_that("obwoe_gains_score works with valid binning result", {
   data <- generate_test_data(n = 500, seed = 300)
 
   # First create a binning result
@@ -18,7 +18,7 @@ test_that("ob_gains_table works with valid binning result", {
   )
 
   # Then compute gains table
-  gains <- ob_gains_table(binning_result)
+  gains <- obwoe_gains_score(binning_result)
 
   expect_type(gains, "list")
   expect_true("bin" %in% names(gains))
@@ -26,7 +26,7 @@ test_that("ob_gains_table works with valid binning result", {
   expect_true("iv" %in% names(gains))
 })
 
-test_that("ob_gains_table computes correct totals", {
+test_that("obwoe_gains_score computes correct totals", {
   data <- generate_test_data(n = 500, seed = 301)
 
   binning_result <- ob_numerical_ir(
@@ -34,16 +34,16 @@ test_that("ob_gains_table computes correct totals", {
     target = data$target
   )
 
-  gains <- ob_gains_table(binning_result)
+  gains <- obwoe_gains_score(binning_result)
 
   # Check counts match
   expect_equal(sum(gains$count), length(data$feature))
 })
 
 # ==============================================================================
-# ob_gains_table_feature
+# obwoe_gains_variable
 # ==============================================================================
-test_that("ob_gains_table_feature works with binned data", {
+test_that("obwoe_gains_variable works with binned data", {
   data <- generate_test_data(n = 500, seed = 302)
 
   # Create binning and apply WoE
@@ -57,7 +57,7 @@ test_that("ob_gains_table_feature works with binned data", {
   woe_applied <- ob_apply_woe_num(binning_result, data$feature)
 
   # Compute gains table from feature
-  gains <- ob_gains_table_feature(woe_applied, data$target, group_var = "bin")
+  gains <- obwoe_gains_variable(woe_applied, data$target, group_var = "bin")
 
   expect_type(gains, "list")
   expect_true("bin" %in% names(gains))

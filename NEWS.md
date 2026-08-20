@@ -1,3 +1,67 @@
+# OptimalBinningWoE 1.13.1
+
+## Audit fixes (2026-08-20)
+
+Bug-fix release addressing an internal code audit of 1.13.0. Every item below
+either changes a computed value that was previously wrong, or removes an API
+surface the author never intended to publish. See the pull request for the
+full item-by-item breakdown.
+
+### API changes
+
+*   `fit_logistic_regression()` is no longer exported. It is still used
+    internally (renamed to `.ob_fit_logistic_regression()`) to implement
+    `engine = "obwoe"` in `obwoe_scorecard()`, which is unaffected.
+
+*   `ob_gains_table()` and `ob_gains_table_feature()` are renamed to
+    `obwoe_gains_score()` and `obwoe_gains_variable()` respectively, to sit
+    alongside the rest of the `obwoe_*` family. Behaviour is unchanged; only
+    the names moved. `obwoe_gains()` (the higher-level, plot-producing
+    function) is a different function and was not renamed.
+
+### Behaviour changes (read before upgrading)
+
+*   **`obwoe_apply()` now routes a missing categorical value to the fitted
+    "missing" bin's WoE when the binning built one, instead of always using
+    `na_woe`.** Previously `obwoe_apply()` ignored any missing-value bin
+    learned during training and always returned `na_woe` for `NA`, while the
+    generated deployment SQL (`obwoe_sql()`, `null_to_na_bin = TRUE` by
+    default) routed `IS NULL` to that bin's WoE — so R and the SQL scored the
+    same missing value differently. `na_woe` is now only a fallback for
+    variables where no missing-value bin exists. If you fit a model with real
+    `NA`s in a categorical predictor, the WoE `obwoe_apply()`/`predict()`
+    return for `NA` may change in this version; it now matches the SQL and
+    the bin actually fitted. See `?obwoe_apply` and `?obwoe_sql`.
+
+*   **`obwoe_scorecard(..., drop_negative = TRUE)` now actually removes a
+    single negative-coefficient variable instead of silently keeping it.**
+    Previously the removal loop stopped one variable too early whenever
+    exactly one variable had a negative coefficient, so that case fell
+    through to a warning instead of either fixing the model or raising
+    `stop()`. It now keeps removing negative-coefficient variables until
+    either none remain or only one variable is left (in which case, if it is
+    still negative, `obwoe_scorecard()` stops with an error, as documented).
+
+### Fixes
+
+*   Gains tables sorted by `sort_by = "bin"` (including the score bands in
+    `obwoe_scorecard()`) were ordered lexicographically instead of by the
+    bins' natural (level) order, silently understating KS by as much as a
+    third on real data.
+*   `step_obwoe(algorithm = "auto")` could resolve to the multiclass
+    algorithm for a genuinely binary outcome whenever the outcome factor
+    declared an unobserved third level.
+*   `print()` on an unprepped `step_obwoe` recipe step errored when
+    `algorithm = tune::tune()`.
+*   `obwoe_gains(use_column = "woe", n_groups = k)` returned `NA` WoE and
+    zero total IV for every bin.
+*   `plot.obwoe_gains(type = "cumulative")` assumed every bin held an equal
+    share of the population; the x-axis now reflects each bin's real size.
+*   The advertised algorithm count was corrected from "36 (20 numerical, 16
+    categorical)" to the actual 37 (21 numerical, 16 categorical) — the
+    numerical `ir` algorithm was implemented, documented and tested, but was
+    never counted.
+
 # OptimalBinningWoE 1.13.0
 
 ## New features (2026-08-20)

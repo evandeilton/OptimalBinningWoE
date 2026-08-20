@@ -341,7 +341,7 @@
 
   # ---- Bin-level gains table (C++ engine, 31 metrics) -------------------- #
   gains <- tryCatch(
-    ob_gains_table(list(
+    obwoe_gains_score(list(
       id = id, bin = bins, count = cnt,
       count_pos = pos, count_neg = neg
     )),
@@ -568,7 +568,7 @@
 #'
 #'   With \code{detail = "full"} the table holds one row per feature \emph{and}
 #'   optimised bin. Each row carries the complete gains table produced by
-#'   \code{\link{ob_gains_table}} (\code{count}, \code{pos}, \code{neg},
+#'   \code{\link{obwoe_gains_score}} (\code{count}, \code{pos}, \code{neg},
 #'   \code{woe}, \code{iv}, \code{total_iv}, \code{pos_rate}, \code{lift},
 #'   \code{cum_pos_perc}, \code{precision}, \code{recall}, \code{f1_score},
 #'   \code{kl_divergence}, \code{js_divergence}, and so on) plus:
@@ -712,7 +712,7 @@
 #' @seealso
 #' \code{\link{obwoe}} for fitting the binning,
 #' \code{\link{obwoe_sql}} for exporting the selected variables as SQL,
-#' \code{\link{ob_gains_table}} for the underlying bin-level engine,
+#' \code{\link{obwoe_gains_score}} for the underlying bin-level engine,
 #' \code{\link{summary.obwoe}} for the compact model overview.
 #'
 #' @examples
