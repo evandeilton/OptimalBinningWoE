@@ -84,7 +84,11 @@ An object of class \code{"obwoe_scorecard"}: a list with
     \item{\code{binning}}{the \code{"obwoe"} object, fitted on the training
       rows only}
     \item{\code{screening}, \code{screening_bins}}{\code{\link{obwoe_select}}
-      at both levels of detail}
+      at both levels of detail, plus a \code{stage} column naming the step
+      that rejected each variable: \code{"in_model"},
+      \code{"sign_rejected"} (negative WoE coefficient),
+      \code{"corr_pruned"}, \code{"constant_woe"} (one WoE value after the
+      transform) or \code{"screened_out"} (failed the IV or ordering rules)}
     \item{\code{correlation}}{the \code{\link{obwoe_prune}} result}
     \item{\code{engine}}{name, requested versus used, and whether additive}
     \item{\code{model}}{the raw fitted object — engine-specific and outside

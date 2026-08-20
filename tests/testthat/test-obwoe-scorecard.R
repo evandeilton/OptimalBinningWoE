@@ -623,3 +623,134 @@ test_that("obwoe_report() can regenerate the workbook from a saved object", {
 
   expect_error(obwoe_report(list(), file = path), "obwoe_scorecard")
 })
+
+
+test_that("a workbook that cannot be written fails before the fit", {
+  skip_if_no_german()
+  df <- german_credit()
+
+  # The failure must arrive before the pipeline has spent its time, so the
+  # error is the path error and not something raised downstream of a fit.
+  expect_error(
+    obwoe_scorecard(df, target = "target", file = 42),
+    "single path"
+  )
+  expect_error(
+    obwoe_scorecard(df, target = "target",
+      file = file.path(tempdir(), "no_such_dir", "x.xlsx")
+    ),
+    "does not exist"
+  )
+})
+
+
+test_that("the stage column names the step that actually rejected", {
+  # Two near-duplicates and one variable the model will want to reverse: the
+  # funnel has to distinguish a correlation drop from a sign drop, because the
+  # workbook is read as the reason a variable is absent.
+  set.seed(7)
+  n <- 4000
+  z <- rnorm(n)
+  y <- rbinom(n, 1, plogis(-1.2 + 0.9 * z))
+  df <- data.frame(
+    z = z,
+    z_copy = z + rnorm(n, sd = 0.02),
+    noise = rnorm(n),
+    flat = 1,
+    target = y
+  )
+
+  sc <- suppressWarnings(obwoe_scorecard(df,
+    target = "target", seed = 7,
+    screening = list(iv_min = 0, iv_max = 100, require_monotonic = "none")
+  ))
+  stages <- as.data.frame(sc$screening)
+
+  # Every candidate is accounted for, exactly once, under a known label.
+  expect_setequal(stages$feature, sc$candidates)
+  expect_true(all(stages$stage %in% c(
+    "in_model", "sign_rejected", "corr_pruned", "constant_woe", "screened_out"
+  )))
+  expect_setequal(stages$feature[stages$stage == "in_model"], sc$final)
+
+  # The near-duplicate pair must cost exactly one variable, and the survivor
+  # is the one that entered the model.
+  pair <- stages[stages$feature %in% c("z", "z_copy"), ]
+  expect_equal(sum(pair$stage == "corr_pruned"), 1L)
+  expect_equal(sum(pair$stage == "in_model"), 1L)
+
+  # A variable with no variation cannot be labelled as a correlation drop.
+  expect_false(any(stages$stage[stages$feature == "flat"] == "corr_pruned"))
+
+  # And nothing dropped by the sign check may be labelled corr_pruned: those
+  # variables survived pruning, so the pruning result must still list them.
+  sign_dropped <- stages$feature[stages$stage == "sign_rejected"]
+  expect_true(all(sign_dropped %in% sc$correlation$keep))
+})
+
+
+test_that("a variable the model reverses is dropped and labelled as such", {
+  # Suppression: b is positively associated with the target on its own, so its
+  # WoE points the usual way, but conditionally on a the effect reverses. The
+  # WoE already carries the direction, so a negative slope is a fault — the
+  # variable must be dropped, and the funnel must say the sign check did it,
+  # not the correlation step (pruning is switched off here precisely so that
+  # a mislabelled rejection cannot hide behind it).
+  set.seed(101)
+  n <- 6000
+  z <- rnorm(n)
+  a <- z + rnorm(n, sd = 0.6)
+  b <- z + rnorm(n, sd = 0.6)
+  df <- data.frame(
+    a = a, b = b,
+    target = rbinom(n, 1, plogis(-1 + 1.4 * a - 0.7 * b))
+  )
+  expect_gt(coef(glm(target ~ b, family = binomial(), data = df))[[2L]], 0)
+
+  expect_warning(
+    sc <- obwoe_scorecard(df,
+      target = "target", seed = 101,
+      control = control.obwoe_scorecard(corr_cutoff = 1),
+      screening = list(iv_min = 0, iv_max = 100, require_monotonic = "none")
+    ),
+    "coefficient on WoE was negative"
+  )
+
+  stages <- as.data.frame(sc$screening)
+  expect_equal(stages$stage[stages$feature == "b"], "sign_rejected")
+  expect_false("b" %in% sc$final)
+
+  # Pruning was off, so b reached the fit: it must not be blamed on correlation.
+  expect_true("b" %in% sc$correlation$keep)
+
+  # What survives has a non-negative slope, which is the invariant the drop
+  # exists to restore.
+  expect_true(all(sc$coefficients[sc$final] >= 0))
+  expect_setequal(names(attr(sc$points, "points_na")), sc$final)
+})
+
+
+test_that("the cutoff table approves the safer side, whichever way the scale runs", {
+  set.seed(31)
+  n <- 3000
+  eta <- rnorm(n)
+  y <- rbinom(n, 1, plogis(-1 + 1.5 * eta))
+
+  # Under the default the score falls as risk rises, so approving above the
+  # cut is right; reversing the scale must reverse the rule, not the meaning.
+  for (dir in c("higher_is_safer", "higher_is_riskier")) {
+    s <- obwoe_scale(direction = dir)
+    tb <- OptimalBinningWoE:::.ob_cutoff_table(
+      obwoe_score(eta, s), y, direction = dir
+    )
+    # An approved population must always be cleaner than the rejected one.
+    ok <- is.finite(tb$bad_rate_approved) & is.finite(tb$bad_rate_rejected)
+    expect_true(all(tb$bad_rate_approved[ok] < tb$bad_rate_rejected[ok]),
+      info = dir
+    )
+    # Approving less must not make the approved book worse.
+    expect_true(all(diff(tb$bad_rate_approved[order(-tb$approval_rate)]) <= 1e-9),
+      info = dir
+    )
+  }
+})
