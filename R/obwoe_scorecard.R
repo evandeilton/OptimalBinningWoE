@@ -180,7 +180,11 @@ control.obwoe_scorecard <- function(corr_cutoff = 0.70,
 #'     \item{\code{binning}}{the \code{"obwoe"} object, fitted on the training
 #'       rows only}
 #'     \item{\code{screening}, \code{screening_bins}}{\code{\link{obwoe_select}}
-#'       at both levels of detail}
+#'       at both levels of detail, plus a \code{stage} column naming the step
+#'       that rejected each variable: \code{"in_model"},
+#'       \code{"sign_rejected"} (negative WoE coefficient),
+#'       \code{"corr_pruned"}, \code{"constant_woe"} (one WoE value after the
+#'       transform) or \code{"screened_out"} (failed the IV or ordering rules)}
 #'     \item{\code{correlation}}{the \code{\link{obwoe_prune}} result}
 #'     \item{\code{engine}}{name, requested versus used, and whether additive}
 #'     \item{\code{model}}{the raw fitted object — engine-specific and outside
@@ -337,6 +341,31 @@ obwoe_scorecard <- function(data,
   .ob_check_names(binning, obwoe, "binning")
   .ob_check_names(screening, obwoe_select, "screening")
 
+  # The workbook is written last but is checked first: a missing package or an
+  # unwritable path is worth knowing before the binning and the fit are run,
+  # not after they have been computed and are about to be discarded.
+  if (!is.null(file)) {
+    if (!is.character(file) || length(file) != 1L || is.na(file)) {
+      stop("'file' must be a single path, or NULL.")
+    }
+    if (!.ob_has_openxlsx()) {
+      stop(paste(
+        "Writing the workbook needs the 'openxlsx' package.",
+        "Install it with install.packages(\"openxlsx\"), or use file = NULL",
+        "and call obwoe_report() later."
+      ))
+    }
+    dir <- dirname(file)
+    if (!dir.exists(dir)) {
+      stop(sprintf("Directory '%s' does not exist, so '%s' cannot be written.",
+        dir, file
+      ))
+    }
+    if (file.access(dir, mode = 2L) != 0L) {
+      stop(sprintf("Directory '%s' is not writable.", dir))
+    }
+  }
+
   if (!is.null(seed)) set.seed(as.integer(seed))
 
   tgt <- .ob_resolve_target(data[[target]])
@@ -448,6 +477,8 @@ obwoe_scorecard <- function(data,
   # ------------------------------------------------------------------------ #
   woe_train <- .ob_woe_matrix(train, binning_fit, shortlist, control$na_woe)
 
+  screened <- shortlist
+
   constant <- names(woe_train)[vapply(woe_train, function(v) {
     length(unique(v[is.finite(v)])) < 2L
   }, logical(1))]
@@ -495,6 +526,8 @@ obwoe_scorecard <- function(data,
       control$min_events_per_variable
     ))
   }
+
+  offered <- final
 
   fitted <- .ob_fit_checked(
     eng, woe_train[, final, drop = FALSE], y_train, engine_args,
@@ -559,10 +592,16 @@ obwoe_scorecard <- function(data,
   # ------------------------------------------------------------------------ #
   # 10. Assemble
   # ------------------------------------------------------------------------ #
-  screening_tbl$stage <- ifelse(
-    screening_tbl$feature %in% final, "in_model",
-    ifelse(screening_tbl$feature %in% shortlist, "corr_pruned", "screened_out")
-  )
+  # Why a variable is not in the model is the whole point of this table, so
+  # each exit is labelled with the stage that actually rejected it. Assigned
+  # in pipeline order, so the last stage a variable reached is the one shown.
+  f <- screening_tbl$feature
+  stage <- rep("screened_out", length(f))
+  stage[f %in% constant] <- "constant_woe"
+  stage[f %in% setdiff(screened, c(constant, offered))] <- "corr_pruned"
+  stage[f %in% setdiff(offered, final)] <- "sign_rejected"
+  stage[f %in% final] <- "in_model"
+  screening_tbl$stage <- stage
 
   out <- list(
     call = call,

@@ -148,12 +148,18 @@
 
 #' @title Internal: Cutoff Strategy Table
 #' @keywords internal
-.ob_cutoff_table <- function(score, y, n_points = 20L) {
+.ob_cutoff_table <- function(score, y, n_points = 20L,
+                             direction = "higher_is_safer") {
   probs <- seq(0.05, 0.95, length.out = n_points)
   cuts <- unique(round(stats::quantile(score, probs = probs, na.rm = TRUE)))
 
+  # Which side of the cut is approved depends on which way the scale runs.
+  # Under "higher_is_riskier" a >= rule would approve the worst applicants and
+  # report a bad rate above the rejected one.
+  safer_above <- identical(direction, "higher_is_safer")
+
   rows <- lapply(cuts, function(cut) {
-    approve <- score >= cut
+    approve <- if (safer_above) score >= cut else score <= cut
     n_app <- sum(approve)
     n_rej <- sum(!approve)
     data.frame(
@@ -404,7 +410,7 @@ obwoe_report <- function(x,
   # -- 09 Cutoff strategy -------------------------------------------------- #
   cutoffs <- lapply(names(x$samples), function(nm) {
     s <- x$samples[[nm]]
-    tb <- .ob_cutoff_table(s$score, s$y)
+    tb <- .ob_cutoff_table(s$score, s$y, direction = x$scaling$direction)
     tb$sample <- nm
     tb[, c("sample", setdiff(names(tb), "sample")), drop = FALSE]
   })
