@@ -2305,9 +2305,12 @@ plot.obwoe_gains <- function(x, type = c("cumulative", "ks", "lift", "woe_iv"), 
   on.exit(par(old_par))
 
   if (type == "cumulative") {
-    # Cumulative capture curve
-    n <- nrow(gt)
-    cum_pct <- seq_len(n) / n
+    # Cumulative capture curve. The x-axis is "% Population", which must
+    # follow the actual (possibly unequal) size of each bin, not just its
+    # rank -- seq_len(n) / n silently assumes every bin holds the same
+    # share of the population, which is essentially never true. gt$count_pct
+    # already carries the real per-bin population share.
+    cum_pct <- cumsum(gt$count_pct)
 
     plot(cum_pct * 100, gt$cum_pos_pct * 100,
       type = "b", pch = 19, col = "#F44336",
