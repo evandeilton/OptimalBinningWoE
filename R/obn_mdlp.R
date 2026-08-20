@@ -17,7 +17,7 @@
 #'   but are handled internally.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}.
-#' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 1.
+#' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
 #'   If the number of unique feature values is less than \code{min_bins}, the algorithm
 #'   adjusts automatically.
 #' @param max_bins Maximum number of bins to generate (default: 5). Must be greater
@@ -343,8 +343,11 @@ ob_numerical_mdlp <- function(feature,
     stop("Target must contain exactly two classes: 0 and 1.")
   }
 
-  if (min_bins < 1L) {
-    stop("min_bins must be at least 1.")
+  # [D7] Uniformized to >= 2L, matching every sibling numerical wrapper
+  # (ldb, mblp, mob, oslp, ubsd, udt); this one and obn_mrblp.R were the
+  # only two that still accepted min_bins = 1.
+  if (min_bins < 2L) {
+    stop("min_bins must be at least 2.")
   }
 
   if (max_bins < min_bins) {

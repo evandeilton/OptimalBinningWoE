@@ -252,8 +252,12 @@ ob_numerical_ldb <- function(feature,
     stop("max_bins must be greater than or equal to min_bins.")
   }
 
-  if (bin_cutoff < 0 || bin_cutoff > 1) {
-    stop("bin_cutoff must be in the range [0, 1].")
+  # [D7] Uniformized to the exclusive (0, 1) range, matching every sibling
+  # numerical wrapper; this was the only one that accepted the closed [0, 1]
+  # range, including bin_cutoff = 0 or 1 (which effectively disables the
+  # rare-bin merge everywhere else).
+  if (bin_cutoff <= 0 || bin_cutoff >= 1) {
+    stop("bin_cutoff must be in the range (0, 1).")
   }
 
   if (max_n_prebins < min_bins) {

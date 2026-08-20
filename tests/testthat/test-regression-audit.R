@@ -641,3 +641,35 @@ test_that("[D2] obwoe() rejects a target with missing values", {
     "missing values"
   )
 })
+
+# ---------------------------------------------------------------------------
+# [D7] Divergent min_bins / bin_cutoff bounds copied across numerical wrappers
+# ---------------------------------------------------------------------------
+test_that("[D7] min_bins and bin_cutoff bounds are uniform across numerical wrappers", {
+  set.seed(1)
+  n <- 300
+  feature <- rnorm(n)
+  target <- rbinom(n, 1, 0.3)
+
+  # min_bins = 1 used to be accepted by mdlp/mrblp only; now rejected
+  # everywhere, like the other 6 siblings (ldb, mblp, mob, oslp, ubsd, udt).
+  expect_error(
+    ob_numerical_mdlp(feature = feature, target = target, min_bins = 1),
+    "at least 2"
+  )
+  expect_error(
+    ob_numerical_mrblp(feature = feature, target = target, min_bins = 1),
+    "at least 2"
+  )
+
+  # bin_cutoff = 0 or 1 used to be accepted by ldb only; now rejected
+  # everywhere, like the other 8 siblings.
+  expect_error(
+    ob_numerical_ldb(feature = feature, target = target, bin_cutoff = 0),
+    "\\(0, 1\\)"
+  )
+  expect_error(
+    ob_numerical_ldb(feature = feature, target = target, bin_cutoff = 1),
+    "\\(0, 1\\)"
+  )
+})
