@@ -42,6 +42,24 @@ full item-by-item breakdown.
     either none remain or only one variable is left (in which case, if it is
     still negative, `obwoe_scorecard()` stops with an error, as documented).
 
+*   **`ob_cutpoints_num()`'s bins are now right-closed `(a, b]`, and both
+    `ob_cutpoints_num()` and `ob_cutpoints_cat()` return the pieces
+    (`id`, and `cutpoints` for the numerical version) `ob_apply_woe_num()`/
+    `ob_apply_woe_cat()` require.** Previously `ob_cutpoints_num()` built
+    left-closed `[a, b)` bins — the opposite of `ob_apply_woe_num()`'s
+    `include_upper_bound = TRUE` default — so a value sitting exactly on a
+    cutpoint could get a different, often sign-flipped, WoE depending on
+    whether it went through the fit or the apply side; and neither manual
+    cutpoint function's result could be handed to its matching apply
+    function at all, because both lacked the `id` element (and
+    `ob_cutpoints_num()` the top-level `cutpoints`) the apply side requires.
+    `ob_cutpoints_cat()`'s emitted bin labels also now use `"%;%"` (matching
+    `ob_apply_woe_cat()`'s default separator and the main pipeline) instead
+    of echoing the `"+"`-joined input verbatim; the `"+"` input format is
+    unchanged. If you use `ob_cutpoints_num()`/`ob_cutpoints_cat()` and parse
+    their `bin` labels yourself, check the new format. See
+    `?ob_cutpoints_num` and `?ob_cutpoints_cat`.
+
 ### Fixes
 
 *   Gains tables sorted by `sort_by = "bin"` (including the score bands in
