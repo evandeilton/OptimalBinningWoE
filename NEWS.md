@@ -15,11 +15,11 @@ full item-by-item breakdown.
 
 *   `ob_gains_table()` and `ob_gains_table_feature()` are renamed to
     `obwoe_gains_score()` and `obwoe_gains_variable()` respectively, to sit
-    alongside the rest of the `obwoe_*` family. Behaviour is unchanged; only
+    alongside the rest of the `obwoe_*` family. Behavior is unchanged; only
     the names moved. `obwoe_gains()` (the higher-level, plot-producing
     function) is a different function and was not renamed.
 
-### Behaviour changes (read before upgrading)
+### Behavior changes (read before upgrading)
 
 *   **`obwoe_apply()` now routes a missing categorical value to the fitted
     "missing" bin's WoE when the binning built one, instead of always using

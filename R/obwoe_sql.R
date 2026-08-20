@@ -364,7 +364,7 @@
 #'   instead of \code{na_value}. \code{\link{obwoe_apply}} applies the same
 #'   rule to \code{NA} for categorical features as of 1.13.1, so the two stay
 #'   in agreement; keep this \code{TRUE} unless you have a specific reason to
-#'   diverge from the R-side behaviour.
+#'   diverge from the R-side behavior.
 #' @param na_categories Character vector of tokens the binner uses to
 #'   represent missing categories. Default \code{c("NA", "Missing", "")},
 #'   matching \code{\link{ob_apply_woe_cat}}.

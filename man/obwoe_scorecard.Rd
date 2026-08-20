@@ -94,7 +94,7 @@ An object of class \code{"obwoe_scorecard"}: a list with
       object was actually built with (as of 1.13.1) -- \code{predict()} and
       \code{\link{obwoe_report}} read \code{na_woe} from here so every
       output agrees on the fallback for an unseen category or an
-      unmodelled missing value}
+      unmodeled missing value}
     \item{\code{engine}}{name, requested versus used, and whether additive}
     \item{\code{model}}{the raw fitted object — engine-specific and outside
       the supported interface}
