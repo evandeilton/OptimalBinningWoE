@@ -24,7 +24,7 @@ knitr::opts_chunk$set(
 <!-- badges: end -->
 
 Optimal binning and Weight of Evidence transformation for credit scoring and
-risk modelling, with 36 C++ binning algorithms behind one R interface.
+risk modelling, with 37 C++ binning algorithms behind one R interface.
 
 The package covers the whole path from a raw feature store to a deployed
 scorecard: fit the binning, screen the variables against IV strength and bin
@@ -33,7 +33,7 @@ scoring runs where the data lives.
 
 | | |
 |---|---|
-| **36 algorithms** | 20 numerical, 16 categorical — entropy, $\chi^2$, exact optimisation, shape-constrained and streaming methods |
+| **37 algorithms** | 21 numerical, 16 categorical — entropy, $\chi^2$, exact optimisation, shape-constrained and streaming methods |
 | **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
 | **Automated screening** | `obwoe_select()` returns a verdict and a reason for every candidate, never dropping a row |
 | **In-database scoring** | `obwoe_sql()` emits exact `CASE` expressions for 14 SQL dialects |
@@ -233,7 +233,7 @@ Bold entries are the defaults worth trying first. `algorithm = "auto"` picks
 | Metaheuristic | `sab`, `mba`, `swb`, `udt` | simulated annealing, agglomerative or tree-based search |
 | Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 
-`obwoe_algorithms()` lists all 36 with the feature types each supports; every
+`obwoe_algorithms()` lists all 37 with the feature types each supports; every
 one is also callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
 
 ## Key functions
