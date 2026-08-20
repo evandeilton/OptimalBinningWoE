@@ -2256,7 +2256,9 @@ obwoe_gains <- function(obj,
   # 4. Calculate Vectorized Metrics (Bin Level)
   # -------------------------------------------#
   df$count_pct <- df$count / total_n
-  df$neg_rate <- df$neg_count / df$count
+  # [D1] Same 0/0 guard pos_rate already has a few lines above: an empty
+  # bin (count == 0) otherwise divides 0/0 into NaN instead of a defined 0.
+  df$neg_rate <- ifelse(df$count > 0, df$neg_count / df$count, 0)
 
   # Distributions (Share of Total)
   df$pos_pct <- df$pos_count / total_pos # % of Total Events (Recall per bin)

@@ -606,3 +606,21 @@ test_that("ob_categorical_mob() with few categories reports converged honestly",
   expect_equal(res$iterations, 0L)
   expect_true(all(diff(res$woe) >= -1e-9)) # sorted ascending by construction
 })
+
+# ---------------------------------------------------------------------------
+# [D1] .build_gains_table()'s neg_rate lacked the 0/0 guard pos_rate has
+# ---------------------------------------------------------------------------
+test_that("[D1] .build_gains_table()'s neg_rate is 0, not NaN, for an empty bin", {
+  gt <- OptimalBinningWoE:::.build_gains_table(
+    bins = c("a", "b", "c"),
+    counts = c(10, 0, 5),
+    pos_counts = c(4, 0, 2),
+    neg_counts = c(6, 0, 3),
+    woe = c(0.1, 0, -0.2),
+    sort_by = "bin",
+    id = 1:3
+  )
+
+  expect_false(any(is.nan(gt$neg_rate)))
+  expect_equal(gt$neg_rate[gt$bin == "b"], 0)
+})
