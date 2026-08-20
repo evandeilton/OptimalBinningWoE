@@ -14,8 +14,8 @@ template:
       google: "Source Serif 4"
 
 articles:
-  - title: "Getting Started"
+  - title: "Guides"
     navbar: ~
     contents:
       - introduction
-
+      - industrial-pipeline

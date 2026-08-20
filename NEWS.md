@@ -142,6 +142,15 @@ in total.
     be dropped from the model without a trace. The trimming is gone; categories
     are now matched exactly, as `obwoe_sql()` already did.
 
+*   **`obwoe_gains()` reported the same lift for every bin.** The column was
+    built with `ifelse(overall_rate > 0, df$pos_rate / overall_rate, 0)`;
+    `ifelse()` returns a result shaped like its *test*, and that test is a
+    scalar, so the expression collapsed to a length-one vector that R then
+    recycled across the table. Every gains table with more than one bin
+    reported the first bin's lift throughout, and `plot(type = "lift")` drew a
+    flat line. The R gains table now agrees with the independent C++ engine
+    (`ob_gains_table()`) to machine precision on `lift`, `woe`, `iv` and `ks`.
+
 *   **`ob_numerical_ir()` reported counts that did not describe its own bins,
     and bins that were not monotonic.** `applyIsotonicRegression()` ran the
     Pool Adjacent Violators algorithm over the bin event rates and then
@@ -164,6 +173,38 @@ in total.
     PAVA had violators to pool, the binning is now coarser and genuinely
     rank-ordering. `min_bins` becomes a target rather than a guarantee for this
     algorithm, since monotonicity cannot always be attained at that resolution.
+
+## Documentation
+
+*   **The README is a third of its former length.** It now covers what the
+    package is, the four steps of a run, how to choose an algorithm and where
+    to read more; the extended worked examples moved into the vignettes, where
+    an analyst can study them properly. Algorithm selection is presented as a
+    decision graph (rendered by GitHub) with the family reference table kept
+    below it.
+
+*   **Two vignettes replace the single kitchen-sink one.**
+
+    *Optimal Binning and Weight of Evidence: A Practical Guide* is the working
+    reference: what WoE and IV measure and why monotonicity of the event rate
+    and of the WoE are the same statement, reading bin and gains tables,
+    screening a base with `obwoe_select()`, how the algorithm families differ,
+    applying the transformation, exporting SQL, and preprocessing.
+
+    *An Industrial Scorecard Pipeline* is new and runs an origination scorecard
+    end to end: a wide synthetic base with the pathologies that matter (missing
+    fields, rare dealer codes, near-duplicate vendor variables, pure noise and
+    a leaky post-booking field), screening at scale, redundancy pruning with
+    `obcorr()` in the WoE space, a `recipes` pipeline around `step_obwoe()`,
+    logistic regression with the coefficient sign check, PDO scorecard points,
+    out-of-time validation with gains and PSI, deployment through
+    `obwoe_sql()`, tuning with tidymodels, and a governance checklist.
+
+*   Both vignettes run on the bundled German Credit benchmark or on data they
+    generate, so they build from `recipes` alone. The previous vignette
+    required the Suggested `scorecard` package and failed to build without it;
+    `scorecard` and `pROC` are no longer used anywhere and have been dropped
+    from `Suggests`.
 
 ## Notes
 

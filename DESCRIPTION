@@ -49,9 +49,7 @@ Suggests:
     rmarkdown,
     tidymodels,
     workflows,
-    parsnip,
-    pROC,
-    scorecard
+    parsnip
 Config/testthat/edition: 3
 SystemRequirements: C++17
 RoxygenNote: 7.3.3

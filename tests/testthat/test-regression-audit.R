@@ -479,3 +479,51 @@ test_that("ob_numerical_ir leaves an already monotone feature untouched", {
   expect_true(all(diff(rate) >= -1e-12) || all(diff(rate) <= 1e-12))
   expect_equal(as.integer(res$count), as.integer(res$count_pos + res$count_neg))
 })
+
+# ---------------------------------------------------------------------------
+# obwoe_gains(): the lift column collapsed to a single value
+#
+# .build_gains_table() computed
+#   df$lift <- ifelse(overall_rate > 0, df$pos_rate / overall_rate, 0)
+# ifelse() returns a result shaped like its *test*, and the test here is the
+# scalar `overall_rate > 0`, so the expression evaluated to a length-1 vector
+# that R then recycled: every bin reported the lift of the first bin. The lift
+# column of every gains table, and plot(type = "lift"), were wrong for any
+# binning with more than one bin.
+# ---------------------------------------------------------------------------
+test_that("obwoe_gains() reports lift per bin, not the first bin's lift", {
+  set.seed(5)
+  n <- 5000
+  score <- rnorm(n)
+  target <- rbinom(n, 1, plogis(-1.5 + 1.2 * score))
+  df <- data.frame(score = score, target = target)
+
+  gains <- obwoe_gains(df,
+    target = "target", feature = "score",
+    use_column = "direct", n_groups = 5, sort_by = "bin"
+  )
+  tbl <- gains$table
+
+  expect_equal(tbl$lift, tbl$pos_rate / mean(target))
+  expect_gt(length(unique(round(tbl$lift, 6))), 1L)
+  # lift is a ratio to the base rate, so the population-weighted mean is 1
+  expect_equal(sum(tbl$lift * tbl$count) / sum(tbl$count), 1)
+})
+
+test_that("obwoe_gains() agrees with the C++ gains engine", {
+  skip_if_no_german()
+  df <- german_credit()
+  model <- obwoe(df, target = "target", feature = "duration", max_bins = 6)
+  res <- model$results$duration
+
+  r_side <- obwoe_gains(model, feature = "duration", sort_by = "id")$table
+  cpp_side <- ob_gains_table(list(
+    id = res$id, bin = res$bin, count = res$count,
+    count_pos = res$count_pos, count_neg = res$count_neg
+  ))
+
+  expect_equal(r_side$lift, cpp_side$lift, tolerance = 1e-12)
+  expect_equal(r_side$woe, cpp_side$woe, tolerance = 1e-12)
+  expect_equal(r_side$iv, cpp_side$iv, tolerance = 1e-12)
+  expect_equal(r_side$ks, cpp_side$ks, tolerance = 1e-12)
+})

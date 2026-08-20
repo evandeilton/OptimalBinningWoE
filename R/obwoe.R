@@ -2215,7 +2215,14 @@ obwoe_gains <- function(obj,
   df$ks <- abs(df$cum_pos_pct - df$cum_neg_pct)
 
   # Lift: Segment Event Rate / Overall Event Rate
-  df$lift <- ifelse(overall_rate > 0, df$pos_rate / overall_rate, 0)
+  # A plain `if`, not ifelse(): the test is a scalar, and ifelse() returns a
+  # result shaped like its test, so it collapsed the whole column to the lift
+  # of the first bin.
+  df$lift <- if (overall_rate > 0) {
+    df$pos_rate / overall_rate
+  } else {
+    rep(0, nrow(df))
+  }
 
   # Capture Rate (Cumulative % of Events)
   df$capture_rate <- df$cum_pos_pct
