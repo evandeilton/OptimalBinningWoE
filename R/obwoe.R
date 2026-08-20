@@ -418,6 +418,17 @@ obwoe <- function(data,
     target_vec <- as.integer(raw_target)
   }
 
+  # [D2] The roxygen documentation states "Missing values in the target are
+  # not permitted", but this was never enforced: target-type detection just
+  # below silently drops NA via unique(target_vec[!is.na(target_vec)]), and
+  # every downstream binning call receives target_vec with the NAs intact.
+  if (anyNA(target_vec)) {
+    stop(sprintf(
+      "Target column '%s' contains missing values, which are not permitted.",
+      target
+    ))
+  }
+
   # Detect target type
   unique_targets <- sort(unique(target_vec[!is.na(target_vec)]))
   if (length(unique_targets) == 2 && all(unique_targets %in% c(0L, 1L))) {
@@ -470,7 +481,8 @@ obwoe <- function(data,
           feat_vec = feat_vec,
           min_bins = min_bins,
           max_bins = max_bins,
-          control = control
+          control = control,
+          target_type = target_type
         )
       },
       error = function(e) {
@@ -529,7 +541,8 @@ obwoe <- function(data,
 #' @title Internal Algorithm Dispatcher
 #' @keywords internal
 .dispatch_algorithm <- function(feat_type, algorithm, target_vec, feat_vec,
-                                min_bins, max_bins, control) {
+                                min_bins, max_bins, control,
+                                target_type = "binary") {
   algo <- algorithm
 
   # Get algorithm registry
@@ -547,6 +560,16 @@ obwoe <- function(data,
   }
   if (feat_type == "categorical" && !info$categorical) {
     stop(sprintf("Algorithm '%s' does not support categorical features.", algo))
+  }
+  # [C-04/A-02] The registry also carries a $multinomial flag (only
+  # jedi/jedi_mwoe support a multiclass target), but it was never checked
+  # here. An explicitly-requested binary-only algorithm (e.g. algorithm =
+  # "mob") against a multinomial target used to be dispatched anyway,
+  # producing output the algorithm was never designed to interpret.
+  if (identical(target_type, "multinomial") && !isTRUE(info$multinomial)) {
+    stop(sprintf(
+      "Algorithm '%s' does not support a multinomial target.", algo
+    ))
   }
 
   # Prepare arguments
@@ -1383,7 +1406,11 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 #'   feature columns in the output. If \code{FALSE}, only bin and WoE columns
 #'   are returned.
 #' @param na_woe Numeric value to assign when an observation cannot be mapped
-#'   to a bin (e.g., new categories not seen during training). Default is 0.
+#'   to a bin (e.g., new categories not seen during training), \strong{and}
+#'   as the fallback for a missing (\code{NA}) categorical value when the
+#'   binner built no dedicated missing-value bin. Default is 0. When a
+#'   missing-value bin \emph{was} fitted (see Details), \code{NA} inputs get
+#'   that bin's WoE instead of \code{na_woe}.
 #'
 #' @return A \code{data.frame} containing:
 #' \describe{
@@ -1404,6 +1431,17 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 #' \strong{Categorical Features}:
 #' Categories are matched directly to bin labels. Categories not seen
 #' during training are assigned \code{NA} for bin and \code{na_woe} for WoE.
+#'
+#' A missing (\code{NA}) categorical value is routed to whichever fitted bin
+#' represents missing values, if the binner built one -- categorical
+#' algorithms (e.g. \code{\link{ob_categorical_jedi}}) map \code{NA} to the
+#' token \code{"NA"} before fitting, so a bin containing that token (alone or
+#' merged with other categories) is treated as the missing-value bin, exactly
+#' as \code{\link{obwoe_sql}}'s \code{null_to_na_bin = TRUE} default does for
+#' \code{IS NULL}. \code{na_woe} is used for \code{NA} only when no such bin
+#' exists. \strong{This changed in 1.13.1}: earlier versions always returned
+#' \code{na_woe} for \code{NA}, ignoring any fitted missing-value bin, which
+#' disagreed with the generated SQL.
 #' }
 #'
 #' \subsection{Production Deployment}{
@@ -1624,6 +1662,21 @@ obwoe_apply <- function(data,
       cat_to_bin <- list()
       cat_to_woe <- list()
 
+      # [C-03] Value used for a MISSING (NA) categorical input: the fitted
+      # bin whose categories include one of the tokens the categorical
+      # wrappers use for missing values (e.g. ob_categorical_jedi() maps
+      # NA -> "NA" before fitting), mirroring the na_categories default in
+      # obwoe_sql() (c("NA", "Missing", "")). na_woe is only a fallback for
+      # a feature where the binner built no such bin. Before this fix,
+      # obwoe_apply() always returned na_woe for NA regardless of whether a
+      # missing-value bin was fitted, while obwoe_sql()'s default
+      # null_to_na_bin = TRUE routed IS NULL to that bin's WoE -- so R and
+      # the generated SQL scored the same missing value differently.
+      sql_na_categories <- c("NA", "Missing", "")
+      has_na_bin <- FALSE
+      na_bin_label <- NA_character_
+      na_bin_woe <- na_woe
+
       for (i in seq_along(bins)) {
         bin_label <- bins[i]
         # Split by separator (%;%). The binning engines join the original
@@ -1636,19 +1689,24 @@ obwoe_apply <- function(data,
           cat_to_bin[[cat]] <- bin_label
           cat_to_woe[[cat]] <- woe[i]
         }
+        if (!has_na_bin && any(cats %in% sql_na_categories)) {
+          has_na_bin <- TRUE
+          na_bin_label <- bin_label
+          na_bin_woe <- woe[i]
+        }
       }
 
       # Map each observation
       mapped_bin <- sapply(feat_char, function(x) {
         if (is.na(x)) {
-          return(NA_character_)
+          return(if (has_na_bin) na_bin_label else NA_character_)
         }
         if (x %in% names(cat_to_bin)) cat_to_bin[[x]] else NA_character_
       }, USE.NAMES = FALSE)
 
       mapped_woe <- sapply(feat_char, function(x) {
         if (is.na(x)) {
-          return(na_woe)
+          return(na_bin_woe)
         }
         if (x %in% names(cat_to_woe)) cat_to_woe[[x]] else na_woe
       }, USE.NAMES = FALSE)
@@ -1698,10 +1756,15 @@ obwoe_apply <- function(data,
 #'   }
 #' @param sort_by Character string specifying sort order for bins:
 #'   \describe{
-#'     \item{\code{"woe"}}{Descending WoE (highest risk first) - default}
+#'     \item{\code{"id"}}{The algorithm's own internal bin order - default}
+#'     \item{\code{"woe"}}{Descending WoE (highest risk first)}
 #'     \item{\code{"event_rate"}}{Descending event rate}
-#'     \item{\code{"bin"}}{Alphabetical/natural order}
+#'     \item{\code{"bin"}}{The bins' natural (level) order if \code{obj} is a
+#'       factor column, alphabetical order of the bin labels otherwise}
 #'   }
+#'   \strong{Note:} the default is \code{"id"}, not \code{"woe"} -- kept as-is
+#'   in 1.13.1 to avoid changing existing callers' output; only this
+#'   documentation was wrong before.
 #' @param n_groups Integer. For continuous variables (e.g., scores), the number
 #'   of groups (deciles) to create. Default is \code{NULL} (use existing groups).
 #'   Set to 10 for standard decile analysis.
@@ -2029,6 +2092,14 @@ obwoe_gains <- function(obj,
         warning("Insufficient unique values to create groups. Treating as discrete.")
         group_vec <- as.character(group_vec)
       } else {
+        # If the grouping variable is itself the WoE (use_column == "woe"),
+        # capture its original numeric values before it gets replaced below
+        # by quantile-group labels ("G01", "G02", ...). Otherwise the
+        # sentinel string "woe" would survive regrouping and later be
+        # coerced with as.numeric(), producing NA WoE / zero IV.
+        if (identical(woe_source, "woe")) {
+          woe_source <- group_vec
+        }
         # Create ordered factor for quantiles
         group_vec <- cut(group_vec,
           breaks = breaks,
@@ -2047,6 +2118,13 @@ obwoe_gains <- function(obj,
       bins <- levels(group_vec)
       # Filter out unused levels to avoid rows with 0 counts
       bins <- bins[bins %in% unique(as.character(group_vec[!is.na(group_vec)]))]
+      # Keep 'bins' itself as a factor (not a plain character vector) so
+      # that .build_gains_table()'s is.factor(bins) branch actually
+      # triggers and orders rows by the original level order (e.g. the
+      # ascending numeric order cut() produces) instead of falling back
+      # to a lexicographic sort, where '[' (ASCII 91) sorts after '('
+      # (ASCII 40) and pushes a bin like "[-Inf,x]" to the last row.
+      bins <- factor(bins, levels = bins)
     } else {
       bins <- sort(unique(as.character(group_vec[!is.na(group_vec)])))
     }
@@ -2061,8 +2139,11 @@ obwoe_gains <- function(obj,
 
     # Resolve WoE per bin
     if (identical(woe_source, "woe")) {
-      # The grouping variable itself is the WoE (numeric)
-      woe <- as.numeric(bins)
+      # The grouping variable itself is the WoE (numeric). Go through
+      # as.character() first: if 'bins' is a factor (see above), a bare
+      # as.numeric() on a factor returns the integer level codes, not the
+      # numeric value the label represents.
+      woe <- as.numeric(as.character(bins))
     } else if (!is.null(woe_source) && is.numeric(woe_source)) {
       # Average the auxiliary WoE column
       woe <- as.vector(tapply(woe_source, f_bins, mean, na.rm = TRUE, default = 0))
@@ -2191,7 +2272,9 @@ obwoe_gains <- function(obj,
   # 4. Calculate Vectorized Metrics (Bin Level)
   # -------------------------------------------#
   df$count_pct <- df$count / total_n
-  df$neg_rate <- df$neg_count / df$count
+  # [D1] Same 0/0 guard pos_rate already has a few lines above: an empty
+  # bin (count == 0) otherwise divides 0/0 into NaN instead of a defined 0.
+  df$neg_rate <- ifelse(df$count > 0, df$neg_count / df$count, 0)
 
   # Distributions (Share of Total)
   df$pos_pct <- df$pos_count / total_pos # % of Total Events (Recall per bin)
@@ -2287,9 +2370,12 @@ plot.obwoe_gains <- function(x, type = c("cumulative", "ks", "lift", "woe_iv"), 
   on.exit(par(old_par))
 
   if (type == "cumulative") {
-    # Cumulative capture curve
-    n <- nrow(gt)
-    cum_pct <- seq_len(n) / n
+    # Cumulative capture curve. The x-axis is "% Population", which must
+    # follow the actual (possibly unequal) size of each bin, not just its
+    # rank -- seq_len(n) / n silently assumes every bin holds the same
+    # share of the population, which is essentially never true. gt$count_pct
+    # already carries the real per-bin population share.
+    cum_pct <- cumsum(gt$count_pct)
 
     plot(cum_pct * 100, gt$cum_pos_pct * 100,
       type = "b", pch = 19, col = "#F44336",

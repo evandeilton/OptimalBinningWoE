@@ -24,7 +24,7 @@ but are handled internally.}
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
 Must have the same length as \code{feature}.}
 
-\item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 1.
+\item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 2.
 If the number of unique feature values is less than \code{min_bins}, the algorithm
 adjusts automatically.}
 

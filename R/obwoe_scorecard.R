@@ -186,6 +186,11 @@ control.obwoe_scorecard <- function(corr_cutoff = 0.70,
 #'       \code{"corr_pruned"}, \code{"constant_woe"} (one WoE value after the
 #'       transform) or \code{"screened_out"} (failed the IV or ordering rules)}
 #'     \item{\code{correlation}}{the \code{\link{obwoe_prune}} result}
+#'     \item{\code{control}}{the resolved \code{"obwoe_scorecard_control"} this
+#'       object was actually built with (as of 1.13.1) -- \code{predict()} and
+#'       \code{\link{obwoe_report}} read \code{na_woe} from here so every
+#'       output agrees on the fallback for an unseen category or an
+#'       unmodeled missing value}
 #'     \item{\code{engine}}{name, requested versus used, and whether additive}
 #'     \item{\code{model}}{the raw fitted object — engine-specific and outside
 #'       the supported interface}
@@ -621,6 +626,7 @@ obwoe_scorecard <- function(data,
     screening = .ob_as_table(screening_tbl),
     screening_bins = .ob_as_table(screening_bins),
     correlation = pruning,
+    control = control,
     engine = list(
       name = eng$name, requested = eng$requested, used = eng$used,
       additive = !is.null(coefs), args = engine_args
@@ -775,8 +781,15 @@ obwoe_scorecard <- function(data,
     # On WoE predictors every slope should be positive: a WoE of +1 is one more
     # log-odds of risk. A negative one means the variable is fighting the model.
     negative <- names(slopes)[slopes < 0]
-    if (length(negative) == 0L || !control$drop_negative ||
-      length(features) - length(negative) < 1L) {
+    # [C-06] The removal loop below drops exactly ONE variable per
+    # iteration (the worst offender) and refits, so the only case that
+    # should stop the loop early with a warning (instead of removing) is
+    # "no negative coefficients left" or "the caller disabled dropping".
+    # The previous extra clause, length(features) - length(negative) < 1L,
+    # is also TRUE whenever every remaining variable has a negative
+    # coefficient -- including the single-variable case -- so it silently
+    # kept a model that should instead have gone on to stop() below.
+    if (length(negative) == 0L || !control$drop_negative) {
       if (length(negative) > 0L) {
         add_warning(sprintf(
           paste(
@@ -895,7 +908,12 @@ obwoe_scorecard <- function(data,
 #' @keywords internal
 .ob_score_gains <- function(score, y, breaks) {
   band <- cut(score, breaks = breaks, include.lowest = TRUE)
-  df <- data.frame(band = as.character(band), target = y, stringsAsFactors = FALSE)
+  # Keep `band` as the ordered factor cut() produced. Converting to
+  # character here loses the level order, so .build_gains_table() falls
+  # back to lexicographic order(df$bin) (ASCII '[' = 91 sorts after '('
+  # = 40), which pushes the lowest-score bin "[-Inf,x]" to the last row
+  # and silently corrupts the cumulative KS curve.
+  df <- data.frame(band = band, target = y, stringsAsFactors = FALSE)
   g <- obwoe_gains(df,
     target = "target", feature = "band",
     use_column = "direct", sort_by = "bin"
@@ -1073,7 +1091,17 @@ predict.obwoe_scorecard <- function(object,
     ))
   }
 
-  na_woe <- 0
+  # [C-02/A-01] Read the na_woe the scorecard was actually built with
+  # (stored in object$control as of 1.13.1), instead of silently hardcoding
+  # 0. type = "score" and type = "card" both go through this same value, so
+  # they now agree on unseen categories/missing values instead of each
+  # falling back to a different default. Objects saved by an older package
+  # version carry no $control and keep the historical 0 fallback.
+  na_woe <- if (!is.null(object$control) && !is.null(object$control$na_woe)) {
+    object$control$na_woe
+  } else {
+    0
+  }
   w <- .ob_woe_matrix(new_data, object$binning, object$final, na_woe)
   if (identical(type, "woe")) {
     return(w)

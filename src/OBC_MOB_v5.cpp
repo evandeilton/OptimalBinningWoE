@@ -487,9 +487,16 @@ List OBC_MOB::fit() {
   calculateCategoryStats();
   
   int ncat = category_counts.size();
-  bool converged = true;
+  // [C-08/A-06] Was hardcoded to true and only ever reassigned in the
+  // ncat > max_bins branch below; the ncat <= max_bins branch (one bin per
+  // category, no enforceMonotonicity() call) always reported
+  // converged = TRUE, iterations = 0 regardless of whether the resulting
+  // bins were actually monotonic. Starts false now and is explicitly set
+  // from isMonotonic() in both branches, mirroring the honest pattern in
+  // the numerical sibling (src/OBN_MOB_v5.cpp).
+  bool converged = false;
   int iterations_run = 0;
-  
+
   // If we have too many categories, apply the algorithm
   if (ncat > max_bins) {
     calculateInitialBins(); // This now includes a call to limitBins()
@@ -557,8 +564,15 @@ List OBC_MOB::fit() {
     if (bins.size() > static_cast<size_t>(max_bins)) {
       limitBins();
     }
+
+    // [C-08/A-06] No enforceMonotonicity() call in this branch (there is
+    // no search here to enforce it against), so honestly report whether
+    // the resulting bins happen to be monotonic instead of claiming
+    // convergence unconditionally. iterations_run correctly stays 0: no
+    // iterative search ran.
+    converged = isMonotonic(bins);
   }
-  
+
   // Double check we have at most max_bins bins
   if (bins.size() > static_cast<size_t>(max_bins)) {
     limitBins();

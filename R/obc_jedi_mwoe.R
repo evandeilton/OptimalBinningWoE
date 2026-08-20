@@ -9,7 +9,7 @@
 #'
 #' @param feature A character vector or factor representing the categorical
 #'   predictor variable to be binned. Missing values are automatically
-#'   converted to the special category \code{"N/A"}.
+#'   converted to the special category \code{"NA"}.
 #' @param target An integer vector representing the multinomial outcome variable
 #'   with consecutive integer classes starting from 0 (e.g., 0, 1, 2, ...).
 #'   Missing values are not permitted. Must contain at least 2 distinct classes.
@@ -389,7 +389,7 @@
 #' )
 #'
 #' # Locate missing value bin
-#' missing_bin_idx <- grep("N/A", result_mwoe_na$bin)
+#' missing_bin_idx <- grep("NA", result_mwoe_na$bin)
 #' if (length(missing_bin_idx) > 0) {
 #'   cat("\nMissing value handling:\n")
 #'   cat("Missing value bin:", result_mwoe_na$bin[missing_bin_idx], "\n")
@@ -456,7 +456,9 @@ ob_categorical_jedi_mwoe <- function(feature, target,
   if (!is.character(feature)) {
     feature <- as.character(feature)
   }
-  feature[is.na(feature)] <- "N/A"
+  # [D8] Standardized to "NA", matching the other 14 categorical wrappers
+  # (this one and ob_categorical_sketch() were the only two using "N/A").
+  feature[is.na(feature)] <- "NA"
   target <- as.integer(target)
 
   # Validate target classes are consecutive integers starting from 0

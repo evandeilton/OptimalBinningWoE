@@ -1,12 +1,12 @@
 # Tests for utility functions
-# This file tests: ob_gains_table, ob_gains_table_feature, ob_check_distincts,
+# This file tests: obwoe_gains_score, obwoe_gains_variable, ob_check_distincts,
 #                   ob_preprocess, ob_apply_woe_num, ob_apply_woe_cat,
 #                   ob_cutpoints_num, ob_cutpoints_cat
 
 # ==============================================================================
-# ob_gains_table
+# obwoe_gains_score
 # ==============================================================================
-test_that("ob_gains_table works with valid binning result", {
+test_that("obwoe_gains_score works with valid binning result", {
   data <- generate_test_data(n = 500, seed = 300)
 
   # First create a binning result
@@ -18,7 +18,7 @@ test_that("ob_gains_table works with valid binning result", {
   )
 
   # Then compute gains table
-  gains <- ob_gains_table(binning_result)
+  gains <- obwoe_gains_score(binning_result)
 
   expect_type(gains, "list")
   expect_true("bin" %in% names(gains))
@@ -26,7 +26,7 @@ test_that("ob_gains_table works with valid binning result", {
   expect_true("iv" %in% names(gains))
 })
 
-test_that("ob_gains_table computes correct totals", {
+test_that("obwoe_gains_score computes correct totals", {
   data <- generate_test_data(n = 500, seed = 301)
 
   binning_result <- ob_numerical_ir(
@@ -34,16 +34,16 @@ test_that("ob_gains_table computes correct totals", {
     target = data$target
   )
 
-  gains <- ob_gains_table(binning_result)
+  gains <- obwoe_gains_score(binning_result)
 
   # Check counts match
   expect_equal(sum(gains$count), length(data$feature))
 })
 
 # ==============================================================================
-# ob_gains_table_feature
+# obwoe_gains_variable
 # ==============================================================================
-test_that("ob_gains_table_feature works with binned data", {
+test_that("obwoe_gains_variable works with binned data", {
   data <- generate_test_data(n = 500, seed = 302)
 
   # Create binning and apply WoE
@@ -57,7 +57,7 @@ test_that("ob_gains_table_feature works with binned data", {
   woe_applied <- ob_apply_woe_num(binning_result, data$feature)
 
   # Compute gains table from feature
-  gains <- ob_gains_table_feature(woe_applied, data$target, group_var = "bin")
+  gains <- obwoe_gains_variable(woe_applied, data$target, group_var = "bin")
 
   expect_type(gains, "list")
   expect_true("bin" %in% names(gains))
@@ -215,6 +215,41 @@ test_that("ob_cutpoints_num works with custom cutpoints", {
   expect_equal(length(result$woefeature), length(feature))
 })
 
+# ---------------------------------------------------------------------------
+# [C6/A-04,A-05] ob_cutpoints_num() -> ob_apply_woe_num() must round-trip
+#
+# ob_cutpoints_num() used to emit left-closed [a, b) bins, the opposite of
+# ob_apply_woe_num()'s include_upper_bound = TRUE default (right-closed
+# (a, b]), so a value exactly on a cutpoint got a different (often
+# sign-flipped) WoE depending on which side of the fit/apply boundary it
+# went through.
+# ---------------------------------------------------------------------------
+test_that("[C6/A-04,A-05] ob_cutpoints_num() -> ob_apply_woe_num() agree for a value on a cutpoint", {
+  feature <- c(5, 15, 25, 30, 45, 55, 60, 75)
+  target <- c(0, 0, 1, 1, 1, 1, 0, 0)
+  cutpoints <- c(30, 60)
+
+  result <- ob_cutpoints_num(feature, target, cutpoints)
+
+  # The result must actually carry what ob_apply_woe_num() needs.
+  expect_true(all(c("cutpoints", "id") %in% names(result)))
+  expect_true("id" %in% names(result$woebin))
+
+  apply_obj <- list(
+    cutpoints = result$cutpoints, woe = result$woebin$woe,
+    id = result$id, bin = result$woebin$bin
+  )
+  woe_new <- ob_apply_woe_num(apply_obj, feature)
+
+  # Every observation, including the two that sit exactly on a cutpoint
+  # (30 and 60), must get the identical WoE on both sides.
+  expect_equal(woe_new$woe, result$woefeature)
+
+  on_cutpoint <- feature %in% cutpoints
+  expect_true(any(on_cutpoint))
+  expect_equal(woe_new$woe[on_cutpoint], result$woefeature[on_cutpoint])
+})
+
 # ==============================================================================
 # ob_cutpoints_cat
 # ==============================================================================
@@ -229,4 +264,31 @@ test_that("ob_cutpoints_cat works with custom cutpoints", {
   expect_true("woefeature" %in% names(result))
   expect_true("woebin" %in% names(result))
   expect_equal(length(result$woefeature), length(feature))
+})
+
+# ---------------------------------------------------------------------------
+# [C6/A-04,A-05] ob_cutpoints_cat() -> ob_apply_woe_cat() must round-trip
+#
+# ob_cutpoints_cat() used to echo the "+"-joined input cutpoints straight
+# into the emitted bin labels, and carried no 'id' element. Since
+# ob_apply_woe_cat() defaults to bin_separator = "%;%" (the separator every
+# ob_categorical_*() algorithm in the main pipeline uses) and requires an
+# 'id' element, a round trip with defaults matched no category at all and
+# every observation silently fell back to a "Special"/NA bin.
+# ---------------------------------------------------------------------------
+test_that("[C6/A-04,A-05] ob_cutpoints_cat() -> ob_apply_woe_cat() round-trips with defaults", {
+  feature <- c("A", "B", "C", "D", "A", "B", "C", "D")
+  target <- c(1, 0, 1, 0, 1, 1, 0, 0)
+  cutpoints <- c("A+B", "C+D")
+
+  result <- ob_cutpoints_cat(feature, target, cutpoints)
+
+  # The result must actually carry what ob_apply_woe_cat() needs.
+  expect_true("id" %in% names(result$woebin))
+
+  woe_new <- ob_apply_woe_cat(result$woebin, feature)
+
+  expect_false(any(woe_new$bin == "Special"))
+  expect_false(anyNA(woe_new$woe))
+  expect_equal(woe_new$woe, result$woefeature)
 })

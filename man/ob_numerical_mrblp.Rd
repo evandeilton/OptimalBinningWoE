@@ -24,7 +24,7 @@ other binning methods that issue warnings).}
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
 Must have the same length as \code{feature}.}
 
-\item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 1.
+\item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 2.
 Acts as a hard constraint during monotonicity enforcement.}
 
 \item{max_bins}{Maximum number of bins to generate (default: 5). Must be greater

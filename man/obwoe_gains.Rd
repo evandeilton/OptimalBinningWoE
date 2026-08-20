@@ -38,10 +38,15 @@ For \code{data.frame} objects: can be any column name representing groups
 
 \item{sort_by}{Character string specifying sort order for bins:
 \describe{
-  \item{\code{"woe"}}{Descending WoE (highest risk first) - default}
+  \item{\code{"id"}}{The algorithm's own internal bin order - default}
+  \item{\code{"woe"}}{Descending WoE (highest risk first)}
   \item{\code{"event_rate"}}{Descending event rate}
-  \item{\code{"bin"}}{Alphabetical/natural order}
-}}
+  \item{\code{"bin"}}{The bins' natural (level) order if \code{obj} is a
+    factor column, alphabetical order of the bin labels otherwise}
+}
+\strong{Note:} the default is \code{"id"}, not \code{"woe"} -- kept as-is
+in 1.13.1 to avoid changing existing callers' output; only this
+documentation was wrong before.}
 
 \item{n_groups}{Integer. For continuous variables (e.g., scores), the number
 of groups (deciles) to create. Default is \code{NULL} (use existing groups).

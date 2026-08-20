@@ -517,7 +517,7 @@ test_that("obwoe_gains() agrees with the C++ gains engine", {
   res <- model$results$duration
 
   r_side <- obwoe_gains(model, feature = "duration", sort_by = "id")$table
-  cpp_side <- ob_gains_table(list(
+  cpp_side <- obwoe_gains_score(list(
     id = res$id, bin = res$bin, count = res$count,
     count_pos = res$count_pos, count_neg = res$count_neg
   ))
@@ -526,4 +526,175 @@ test_that("obwoe_gains() agrees with the C++ gains engine", {
   expect_equal(r_side$woe, cpp_side$woe, tolerance = 1e-12)
   expect_equal(r_side$iv, cpp_side$iv, tolerance = 1e-12)
   expect_equal(r_side$ks, cpp_side$ks, tolerance = 1e-12)
+})
+
+# ---------------------------------------------------------------------------
+# [B4/C-04] obwoe_gains(use_column = "woe", n_groups = k) used to zero the IV
+#
+# When the grouping column is itself the WoE, woe_source was set to the
+# sentinel string "woe" so that the later `identical(woe_source, "woe")`
+# branch used the grouping variable directly. But when n_groups regroups the
+# numeric WoE into quantile labels ("G01", "G02", ...), the sentinel string
+# survived the regrouping, so the code executed `as.numeric(bins)` on labels
+# like "G01" -> NA for every bin, and the total IV silently collapsed to 0.
+# ---------------------------------------------------------------------------
+test_that("obwoe_gains(use_column = 'woe', n_groups = k) keeps WoE numeric and IV > 0", {
+  skip_if_no_german()
+  df <- german_credit()
+  model <- obwoe(df, target = "target", feature = "duration", max_bins = 6)
+  scored <- obwoe_apply(df, model)
+
+  gains <- suppressWarnings(obwoe_gains(scored,
+    target = df$target, feature = "duration",
+    use_column = "woe", n_groups = 5
+  ))
+
+  expect_false(anyNA(gains$table$woe))
+  expect_true(is.numeric(gains$table$woe))
+  expect_gt(gains$metrics$total_iv, 0)
+})
+
+# ---------------------------------------------------------------------------
+# [C4/A-02] .dispatch_algorithm() never checked registry$multinomial
+#
+# The registry carries a $multinomial flag (only "jedi"/"jedi_mwoe" support a
+# multiclass target), but the dispatcher only checked $numerical/$categorical.
+# A binary-only algorithm explicitly requested against a multinomial target
+# used to fall through to the C++ engine itself, which happens to validate
+# and reject it too, but with a less specific message and after doing real
+# work; the R-level dispatcher should reject it up front, using the registry
+# metadata that already declares the incompatibility.
+# ---------------------------------------------------------------------------
+test_that("obwoe() rejects a binary-only algorithm against a multinomial target", {
+  set.seed(1)
+  n <- 500
+  df <- data.frame(x = rnorm(n), y = sample(0:2, n, replace = TRUE))
+
+  res <- obwoe(df, target = "y", feature = "x", algorithm = "mob")
+  expect_true(res$summary$error)
+  expect_match(res$results$x$error, "does not support a multinomial target")
+
+  # jedi_mwoe is the multinomial-capable universal algorithm and must still
+  # work.
+  res2 <- obwoe(df, target = "y", feature = "x", algorithm = "jedi_mwoe")
+  expect_false(res2$summary$error)
+})
+
+# ---------------------------------------------------------------------------
+# [C8/A-06] ob_categorical_mob()'s converged/iterations, "few categories" path
+#
+# OBC_MOB::fit() hardcoded converged = true and only ever reassigned it in
+# the ncat > max_bins branch; the ncat <= max_bins branch (one bin per
+# category, sorted by WoE, no enforceMonotonicity() call) always reported
+# converged = TRUE, iterations = 0 without checking. The fix makes that
+# branch honestly compute isMonotonic(bins). Because that branch always
+# sorts bins by WoE ascending before returning, the resulting bins are
+# monotonic by construction, so the reported value does not actually change
+# for ordinary input -- this pins that it is still TRUE/0 and that the woe
+# column is genuinely monotonic, now for the right reason.
+# ---------------------------------------------------------------------------
+test_that("ob_categorical_mob() with few categories reports converged honestly", {
+  set.seed(1)
+  n <- 500
+  feature <- sample(letters[1:4], n, replace = TRUE)
+  target <- rbinom(n, 1, 0.3)
+
+  res <- ob_categorical_mob(feature = feature, target = target, min_bins = 2, max_bins = 6)
+
+  expect_true(length(res$count) <= 4L) # fewer categories than max_bins
+  expect_true(res$converged)
+  expect_equal(res$iterations, 0L)
+  expect_true(all(diff(res$woe) >= -1e-9)) # sorted ascending by construction
+})
+
+# ---------------------------------------------------------------------------
+# [D1] .build_gains_table()'s neg_rate lacked the 0/0 guard pos_rate has
+# ---------------------------------------------------------------------------
+test_that("[D1] .build_gains_table()'s neg_rate is 0, not NaN, for an empty bin", {
+  gt <- OptimalBinningWoE:::.build_gains_table(
+    bins = c("a", "b", "c"),
+    counts = c(10, 0, 5),
+    pos_counts = c(4, 0, 2),
+    neg_counts = c(6, 0, 3),
+    woe = c(0.1, 0, -0.2),
+    sort_by = "bin",
+    id = 1:3
+  )
+
+  expect_false(any(is.nan(gt$neg_rate)))
+  expect_equal(gt$neg_rate[gt$bin == "b"], 0)
+})
+
+# ---------------------------------------------------------------------------
+# [D2] obwoe() documents that a missing target is not permitted, but never
+# enforced it -- target-type detection silently dropped NA, and every
+# downstream binning call received a target vector with NAs intact.
+# ---------------------------------------------------------------------------
+test_that("[D2] obwoe() rejects a target with missing values", {
+  set.seed(1)
+  n <- 200
+  df <- data.frame(x = rnorm(n), y = rbinom(n, 1, 0.3))
+  df$y[c(3, 17)] <- NA
+
+  expect_error(
+    obwoe(df, target = "y", feature = "x"),
+    "missing values"
+  )
+})
+
+# ---------------------------------------------------------------------------
+# [D7] Divergent min_bins / bin_cutoff bounds copied across numerical wrappers
+# ---------------------------------------------------------------------------
+test_that("[D7] min_bins and bin_cutoff bounds are uniform across numerical wrappers", {
+  set.seed(1)
+  n <- 300
+  feature <- rnorm(n)
+  target <- rbinom(n, 1, 0.3)
+
+  # min_bins = 1 used to be accepted by mdlp/mrblp only; now rejected
+  # everywhere, like the other 6 siblings (ldb, mblp, mob, oslp, ubsd, udt).
+  expect_error(
+    ob_numerical_mdlp(feature = feature, target = target, min_bins = 1),
+    "at least 2"
+  )
+  expect_error(
+    ob_numerical_mrblp(feature = feature, target = target, min_bins = 1),
+    "at least 2"
+  )
+
+  # bin_cutoff = 0 or 1 used to be accepted by ldb only; now rejected
+  # everywhere, like the other 8 siblings.
+  expect_error(
+    ob_numerical_ldb(feature = feature, target = target, bin_cutoff = 0),
+    "\\(0, 1\\)"
+  )
+  expect_error(
+    ob_numerical_ldb(feature = feature, target = target, bin_cutoff = 1),
+    "\\(0, 1\\)"
+  )
+})
+
+# ---------------------------------------------------------------------------
+# [D8] Divergent missing-value token across categorical wrappers
+#
+# ob_categorical_sketch() and ob_categorical_jedi_mwoe() mapped NA to "N/A";
+# the other 14 categorical wrappers map it to "NA". For identical data with
+# missing values, sketch and jedi disagreed on the bin label for the exact
+# same missing category.
+# ---------------------------------------------------------------------------
+test_that("[D8] the missing-value token is 'NA' for every categorical wrapper", {
+  set.seed(1)
+  n <- 500
+  feature <- sample(c("a", "b", "c"), n, replace = TRUE)
+  feature[1:20] <- NA
+  target <- rbinom(n, 1, 0.3)
+
+  res_sketch <- ob_categorical_sketch(feature = feature, target = target)
+  expect_true(any(grepl("(^|%;%)NA($|%;%)", res_sketch$bin)))
+  expect_false(any(grepl("N/A", res_sketch$bin, fixed = TRUE)))
+
+  target2 <- as.integer(rbinom(n, 1, 0.3))
+  res_jedi_mwoe <- ob_categorical_jedi_mwoe(feature = feature, target = target2)
+  expect_true(any(grepl("(^|%;%)NA($|%;%)", res_jedi_mwoe$bin)))
+  expect_false(any(grepl("N/A", res_jedi_mwoe$bin, fixed = TRUE)))
 })

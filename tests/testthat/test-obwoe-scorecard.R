@@ -73,6 +73,29 @@ test_that("the pipeline runs and its funnel is consistent", {
 })
 
 
+test_that("[B1/C-01] the gains table KS reconciles with the rank-based KS", {
+  # .ob_score_gains() used to do as.character(band) on the ordered factor
+  # cut() produced, which stripped the level order. .build_gains_table()
+  # then fell back to lexicographic order(df$bin) for sort_by = "bin", and
+  # because '[' (ASCII 91) sorts after '(' (ASCII 40), the lowest-score bin
+  # "[-Inf,x]" landed on the LAST row instead of the first, corrupting the
+  # cumulative KS curve.
+  skip_if_no_german()
+  df <- german_credit()
+
+  sc <- suppressWarnings(obwoe_scorecard(df, target = "target", seed = 42))
+
+  gains_ks <- max(sc$samples$train$gains$ks)
+  rank_ks <- sc$samples$train$metrics$ks
+
+  expect_equal(gains_ks, rank_ks, tolerance = 0.02)
+
+  # The first row of the gains table must be the lowest-score bin.
+  first_bin <- as.character(sc$samples$train$gains$bin[1])
+  expect_true(grepl("^\\[-Inf", first_bin) || grepl("^\\(-Inf", first_bin))
+})
+
+
 test_that("the binning sees the training rows only", {
   skip_if_no_german()
   df <- german_credit()
@@ -171,6 +194,45 @@ test_that("the generated points SQL reproduces the card exactly", {
   }, numeric(nrow(df)))
 
   expect_equal(rowSums(from_sql), predict(sc, df, type = "card"))
+})
+
+
+test_that("[C7/A-08] .ob_points_sql() skips a feature with inconsistent cutpoints instead of emitting a broken literal", {
+  # obwoe_sql() guards against length(cutpoints) + 1 != n_bins (e.g. a
+  # cutpoint duplicated by floating-point ties, collapsed by unique()):
+  # it warns and skips the feature. .ob_points_sql() re-implemented the
+  # CASE assembly directly, without that guard, so .ob_sql_case() indexed
+  # its per-bin literal vector one past its length, and the out-of-bounds
+  # NA silently became the literal text "NA" in the generated points SQL
+  # (e.g. "WHEN x <= NA THEN ..."), instead of a warning and a skip.
+  set.seed(11)
+  n <- 2000
+  df <- data.frame(
+    x1 = rnorm(n), x2 = rnorm(n),
+    target = rbinom(n, 1, plogis(-0.5 + 0.8 * rnorm(n)))
+  )
+  sc <- suppressWarnings(obwoe_scorecard(df,
+    target = "target", seed = 1,
+    screening = list(iv_min = 0, require_monotonic = "none")
+  ))
+  skip_if(length(sc$final) < 2L, "need at least 2 final variables")
+
+  feat <- sc$final[1]
+  # Simulate the floating-point-tie scenario the guard exists for: every
+  # cutpoint collapses to the same value, so length(unique(cutpoints)) + 1
+  # no longer matches the number of fitted bins.
+  cp <- sc$binning$results[[feat]]$cutpoints
+  sc$binning$results[[feat]]$cutpoints <- rep(cp[1], length(cp))
+
+  expect_warning(
+    sql <- OptimalBinningWoE:::.ob_points_sql(sc,
+      table = "app", dialect = "ansi", keep_columns = NULL
+    ),
+    "inconsistent"
+  )
+
+  expect_false(grepl("NA", sql, fixed = TRUE))
+  expect_false(grepl(sprintf("%s_points", feat), sql, fixed = TRUE))
 })
 
 
@@ -441,6 +503,82 @@ test_that("unseen categories are counted, not silently absorbed", {
     tbl$points[match(bins[[paste0(f, "_bin")]][1L], tbl$bin)]
   }, numeric(1))
   expect_equal(card[1L], unname(na_points[["g"]]) + sum(seen))
+})
+
+
+test_that("[C2/A-01] score and card agree on na_woe for unseen categories", {
+  # object$control was not persisted on the scorecard object.
+  # predict.obwoe_scorecard() hardcoded na_woe <- 0 for type = "score" (and
+  # the other WoE-based types), regardless of what na_woe the scorecard was
+  # actually fitted with, while the points table's "points_na" fallback used
+  # by type = "card" was correctly derived from control$na_woe at fit time.
+  # With na_woe != 0, an unseen category therefore scored differently under
+  # type = "score" than under type = "card" for the very same row.
+  set.seed(61)
+  n <- 3000
+  g <- sample(c("a", "b", "c"), n, TRUE)
+  df <- data.frame(
+    g = g, x = rnorm(n),
+    target = rbinom(n, 1, plogis(-1 + 0.9 * (g == "a"))),
+    stringsAsFactors = FALSE
+  )
+
+  sc <- suppressWarnings(obwoe_scorecard(df,
+    target = "target", seed = 61,
+    screening = list(iv_min = 0, require_monotonic = "none"),
+    control = control.obwoe_scorecard(na_woe = -0.75)
+  ))
+  skip_if(!"g" %in% sc$final, "g did not enter the model")
+
+  expect_equal(sc$control$na_woe, -0.75)
+
+  novel <- df[1:50, ]
+  novel$g <- "never_seen"
+
+  k <- length(sc$final)
+  score <- suppressWarnings(predict(sc, novel, type = "score"))
+  card <- suppressWarnings(predict(sc, novel, type = "card"))
+
+  # Same bound as the "points sum to the score" test: rounding k integer
+  # points can move the total by at most k/2 relative to the raw score.
+  expect_lte(max(abs(card - score)), k / 2)
+})
+
+
+test_that("[C3/C-06] drop_negative stops instead of returning silently when every variable is negative", {
+  # The removal loop drops exactly one variable per iteration (the worst
+  # offender) and refits. The old guard,
+  # length(features) - length(negative) < 1L, was also TRUE whenever every
+  # *remaining* variable had a negative coefficient -- not only when
+  # removing one more would empty the feature set -- so a model where every
+  # variable is negative (including the single-variable case) was returned
+  # silently, with only a warning, instead of reaching the documented
+  # stop("Every variable took a negative coefficient...").
+  set.seed(5)
+  n <- 500
+  df <- data.frame(x1 = rnorm(n), x2 = rnorm(n), target = rbinom(n, 1, 0.3))
+
+  # Deterministic mock engine: whatever the data, every slope is negative.
+  negative_engine <- list(
+    fit = function(x, y, args) list(vars = colnames(x)),
+    coef = function(object) {
+      stats::setNames(
+        c(0, rep(-1, length(object$vars))),
+        c("(Intercept)", object$vars)
+      )
+    },
+    link = function(object, x) rep(0, nrow(x)),
+    diagnostics = function(object) list(converged = TRUE)
+  )
+
+  expect_error(
+    suppressWarnings(obwoe_scorecard(df,
+      target = "target", feature = c("x1", "x2"),
+      engine = negative_engine,
+      screening = list(iv_min = 0, require_monotonic = "none")
+    )),
+    "Every variable took a negative coefficient"
+  )
 })
 
 

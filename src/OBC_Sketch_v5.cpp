@@ -24,7 +24,12 @@ using namespace OptimalBinning;
 // Global constants
 static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 static constexpr double LAPLACE_ALPHA = 0.5;
-static constexpr const char *MISSING_VALUE = "N/A";
+// [D8] Standardized to "NA", matching every other categorical algorithm
+// (this file and OBC_JEDIMWoE_v5.cpp were the only two using "N/A"). The
+// R wrapper (R/obc_sketch.R) already converts NA to this token before the
+// vector reaches here, so this constant is normally unreachable, but is
+// kept in sync for any caller that invokes this .Call() target directly.
+static constexpr const char *MISSING_VALUE = "NA";
 
 // Utility functions
 namespace utils {

@@ -1,7 +1,7 @@
 ^LICENSE\.md$
 ^README\.Rmd$
-^code_of_conduct\.md$
-^contributing\.md$
+^CODE_OF_CONDUCT\.md$
+^CONTRIBUTING\.md$
 ^cran-comments\.md$
 ^_pkgdown\.yml$
 ^docs$

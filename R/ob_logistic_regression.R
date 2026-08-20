@@ -70,7 +70,7 @@
 #' y <- rbinom(n, 1, prob)
 #'
 #' # Fit logistic regression
-#' result <- fit_logistic_regression(X, y)
+#' result <- .ob_fit_logistic_regression(X, y)
 #'
 #' # View coefficients and statistics
 #' print(data.frame(
@@ -84,8 +84,9 @@
 #' cat("Converged:", result$convergence, "\n")
 #' cat("Log-Likelihood:", result$loglikelihood, "\n")
 #'
-#' @export
-fit_logistic_regression <- function(X_r, y_r, maxit = 300L, eps_f = 1e-8, eps_g = 1e-5) {
+#' @keywords internal
+#' @noRd
+.ob_fit_logistic_regression <- function(X_r, y_r, maxit = 300L, eps_f = 1e-8, eps_g = 1e-5) {
   # Input validation
   if (!is.matrix(X_r) && !inherits(X_r, "dgCMatrix")) {
     stop("X_r must be a matrix or a dgCMatrix (sparse matrix).")

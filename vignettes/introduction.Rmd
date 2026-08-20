@@ -288,7 +288,7 @@ detail[detail$feature == "savings",
 
 # Choosing an algorithm
 
-The package ships 36 algorithms: 20 numerical, 16 categorical. They differ in
+The package ships 37 algorithms: 21 numerical, 16 categorical. They differ in
 what they optimise, not in what they return.
 
 | Family | Algorithms | Optimises |

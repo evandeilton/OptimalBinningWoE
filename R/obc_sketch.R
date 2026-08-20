@@ -58,7 +58,7 @@
 #'
 #' @param feature A character vector or factor representing the categorical
 #'   predictor variable. Missing values (NA) will be converted to the string
-#'   "N/A" and treated as a separate category.
+#'   "NA" and treated as a separate category.
 #' @param target An integer vector containing binary outcome values (0 or 1).
 #'   Must be the same length as \code{feature}. Cannot contain missing values.
 #' @param min_bins Integer. Minimum number of bins to create. Must be at least
@@ -168,8 +168,12 @@ ob_categorical_sketch <- function(feature,
     feature <- as.character(feature)
   }
 
-  # Convert NA values to special string to ensure they are handled as a category
-  feature[is.na(feature)] <- "N/A"
+  # Convert NA values to special string to ensure they are handled as a
+  # category. [D8] Standardized to "NA", matching the other 14 categorical
+  # wrappers (this one and ob_categorical_jedi_mwoe() were the only two
+  # using "N/A"): with the same data, jedi returned a bin literally named
+  # "NA" and sketch returned "N/A" for the identical missing values.
+  feature[is.na(feature)] <- "NA"
 
   # Ensure target is integer
   target <- as.integer(target)

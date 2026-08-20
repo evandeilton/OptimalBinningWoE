@@ -22,13 +22,20 @@ A list containing:
         observation in the input \code{feature}}
   \item{\code{woebin}}{Data frame with one row per bin containing:
     \itemize{
-      \item \code{bin}: The bin interval notation (e.g., "[10.00;20.00)")
+      \item \code{id}: Sequential bin identifier
+      \item \code{bin}: The bin interval notation (e.g., "(10.00;20.00]")
       \item \code{count}: Total number of observations in the bin
       \item \code{count_pos}: Number of positive outcomes (target=1) in the bin
       \item \code{count_neg}: Number of negative outcomes (target=0) in the bin
       \item \code{woe}: Weight of Evidence for the bin
       \item \code{iv}: Information Value contribution of the bin
     }}
+  \item{\code{cutpoints}}{The sorted numeric cutpoints, exposed at the top
+    level so this result can be reassembled into
+    \code{\link{ob_apply_woe_num}}'s \code{obresults} argument (see
+    Details)}
+  \item{\code{id}}{Sequential bin identifier, same as \code{woebin$id};
+    duplicated at the top level for the same reason as \code{cutpoints}}
 }
 }
 \description{
@@ -38,19 +45,39 @@ and Information Value (IV) for each interval bin.
 }
 \details{
 The function takes a numeric vector of cutpoints that define the boundaries
-between bins. For \code{n} cutpoints, \code{n+1} bins are created:
+between bins. For \code{n} cutpoints, \code{n+1} bins are created, each
+right-closed -- \eqn{(a, b]} -- matching \code{\link{ob_apply_woe_num}}'s
+default (\code{include_upper_bound = TRUE}) and the convention
+\code{\link{obwoe}}/\code{\link{obwoe_apply}} use throughout the package:
 \itemize{
-  \item Bin 1: \eqn{(-\infty, cutpoint_1)}
-  \item Bin 2: \eqn{[cutpoint_1, cutpoint_2)}
+  \item Bin 1: \eqn{(-\infty, cutpoint_1]}
+  \item Bin 2: \eqn{(cutpoint_1, cutpoint_2]}
   \item ...
-  \item Bin n+1: \eqn{[cutpoint_n, +\infty)}
+  \item Bin n+1: \eqn{(cutpoint_n, +\infty)}
 }
+
+
+\code{result} does not have the exact shape \code{\link{ob_apply_woe_num}}
+expects as \code{obresults} (which needs top-level \code{cutpoints},
+\code{woe} and \code{id}), because \code{woebin} also carries \code{count}/
+\code{iv} columns. To round-trip, reassemble it:
+\code{list(cutpoints = result$cutpoints, woe = result$woebin$woe, id =
+result$id, bin = result$woebin$bin)}. Before 1.13.1, \code{result} carried
+no \code{id} or top-level \code{cutpoints} at all (so a round trip through
+\code{\link{ob_apply_woe_num}} was not even possible without reconstructing
+them by hand), and the bin boundaries were left-closed \eqn{[a, b)}, the
+opposite of \code{\link{ob_apply_woe_num}}'s \code{include_upper_bound =
+TRUE} default -- a value that landed exactly on a cutpoint got a different,
+often sign-flipped, WoE depending on whether it went through the fit or the
+apply side.
 }
 \note{
 \itemize{
   \item Target variable must contain only 0 and 1 values.
   \item Cutpoints are sorted automatically in ascending order.
-  \item Interval notation uses "[" for inclusive and ")" for exclusive bounds.
+  \item Interval notation uses "(" for exclusive and "]" for inclusive
+        bounds -- a value exactly equal to a cutpoint falls in the bin that
+        \emph{ends} at that cutpoint.
   \item Infinite values in feature are handled appropriately.
 }
 }
@@ -70,5 +97,13 @@ print(result$woebin)
 
 # View WoE-transformed feature
 print(result$woefeature)
+
+# Round-trip through ob_apply_woe_num() with its defaults
+apply_obj <- list(
+  cutpoints = result$cutpoints, woe = result$woebin$woe,
+  id = result$id, bin = result$woebin$bin
+)
+woe_new <- ob_apply_woe_num(apply_obj, feature)
+stopifnot(isTRUE(all.equal(woe_new$woe, result$woefeature)))
 
 }

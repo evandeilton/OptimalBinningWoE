@@ -63,7 +63,7 @@
       additive = TRUE,
       fit = function(x, y, args) {
         xm <- cbind(`(Intercept)` = 1, as.matrix(x))
-        f <- do.call(fit_logistic_regression, c(
+        f <- do.call(.ob_fit_logistic_regression, c(
           list(X_r = xm, y_r = as.numeric(y)), args
         ))
         f$.names <- colnames(xm)

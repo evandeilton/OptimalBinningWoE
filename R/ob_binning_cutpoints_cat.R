@@ -27,7 +27,12 @@
 #'         observation in the input \code{feature}}
 #'   \item{\code{woebin}}{Data frame with one row per bin containing:
 #'     \itemize{
-#'       \item \code{bin}: The bin definition (original categories joined by "+")
+#'       \item \code{id}: Sequential bin identifier
+#'       \item \code{bin}: The bin definition -- original categories joined by
+#'         \code{"\%;\%"} (\strong{not} the "+" used in the \code{cutpoints}
+#'         input; see Details), matching the separator
+#'         \code{\link{ob_apply_woe_cat}} defaults to and every
+#'         \code{ob_categorical_*()} algorithm in the main pipeline emits
 #'       \item \code{count}: Total number of observations in the bin
 #'       \item \code{count_pos}: Number of positive outcomes (target=1) in the bin
 #'       \item \code{count_neg}: Number of negative outcomes (target=0) in the bin
@@ -45,6 +50,17 @@
 #'         (which may lead to unexpected results).
 #' }
 #'
+#' @details
+#' \code{cutpoints} still uses \code{"+"} as the input separator (simple to type,
+#' e.g. \code{"A+B"}), but \code{result$woebin} is built so it can be handed
+#' straight back to \code{\link{ob_apply_woe_cat}} with its defaults --
+#' \code{ob_apply_woe_cat(result$woebin, new_feature)} -- and get the same WoE
+#' this function itself assigned. Before 1.13.1 the emitted \code{bin} labels
+#' echoed the "+"-joined input verbatim and carried no \code{id} column, so a
+#' round trip through \code{\link{ob_apply_woe_cat}}'s default
+#' \code{bin_separator = "\%;\%"} matched no category and silently fell back to
+#' a \code{"Special"}/\code{NA} bin for every observation.
+#'
 #' @examples
 #' # Sample data
 #' feature <- c("A", "B", "C", "D", "A", "B", "C", "D")
@@ -61,6 +77,10 @@
 #'
 #' # View WoE-transformed feature
 #' print(result$woefeature)
+#'
+#' # Round-trip through ob_apply_woe_cat() with its defaults
+#' woe_new <- ob_apply_woe_cat(result$woebin, feature)
+#' stopifnot(isTRUE(all.equal(woe_new$woe, result$woefeature)))
 #'
 #' @export
 ob_cutpoints_cat <- function(feature, target, cutpoints) {

@@ -90,6 +90,11 @@ An object of class \code{"obwoe_scorecard"}: a list with
       \code{"corr_pruned"}, \code{"constant_woe"} (one WoE value after the
       transform) or \code{"screened_out"} (failed the IV or ordering rules)}
     \item{\code{correlation}}{the \code{\link{obwoe_prune}} result}
+    \item{\code{control}}{the resolved \code{"obwoe_scorecard_control"} this
+      object was actually built with (as of 1.13.1) -- \code{predict()} and
+      \code{\link{obwoe_report}} read \code{na_woe} from here so every
+      output agrees on the fallback for an unseen category or an
+      unmodeled missing value}
     \item{\code{engine}}{name, requested versus used, and whether additive}
     \item{\code{model}}{the raw fitted object — engine-specific and outside
       the supported interface}
