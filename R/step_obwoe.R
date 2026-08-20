@@ -582,7 +582,13 @@ prep.step_obwoe <- function(x, training, info = NULL, ...) {
   if (identical(resolved_algorithm, "auto")) {
     target_vec <- training[[x$outcome]]
     if (is.factor(target_vec)) {
-      n_classes <- length(levels(target_vec))
+      # Count only the levels actually observed in the training data, not
+      # every level the factor declares. A declared-but-unobserved level
+      # (e.g. from a fixed factor() call upstream) otherwise pushes
+      # n_classes above 2 and silently switches the algorithm to
+      # "jedi_mwoe" (multiclass), which turns 'woe' into a matrix and
+      # corrupts bake()/tidy() downstream.
+      n_classes <- nlevels(droplevels(target_vec))
     } else {
       n_classes <- length(unique(target_vec[!is.na(target_vec)]))
     }

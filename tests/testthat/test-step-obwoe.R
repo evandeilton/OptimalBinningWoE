@@ -274,6 +274,37 @@ test_that("prep.step_obwoe resolves 'auto' algorithm for binary target", {
   expect_equal(prepped$steps[[1]]$algorithm, "jedi")
 })
 
+test_that("[B2/C-02] prep.step_obwoe resolves 'auto' using observed levels only", {
+  # 'auto' used to switch to the multiclass algorithm ("jedi_mwoe") whenever
+  # the outcome factor *declared* more than 2 levels, even if only 2 were
+  # actually observed in the training rows (e.g. after a filter or a
+  # resample). That produced a matrix-valued 'woe' and corrupted bake()
+  # with silent linear-index recycling. It must resolve like a genuine
+  # binary target when only two levels are observed.
+  skip_if_not_installed("OptimalBinningWoE")
+
+  df <- create_small_data()
+  # Declare a third level that is never observed in the data.
+  df$target <- factor(as.character(df$target), levels = c("No", "Yes", "Unused"))
+  expect_equal(nlevels(df$target), 3L)
+  expect_equal(length(unique(df$target)), 2L)
+
+  rec <- recipe(target ~ age, data = df) %>%
+    step_obwoe(age, outcome = "target", algorithm = "auto")
+
+  prepped <- prep(rec, training = df)
+
+  expect_equal(prepped$steps[[1]]$algorithm, "jedi")
+
+  baked <- bake(prepped, new_data = df)
+  # output = "woe" (the default) replaces the column in place; it must be
+  # a plain numeric vector, not a matrix (which is what jedi_mwoe would
+  # have produced here).
+  expect_true(is.numeric(baked$age))
+  expect_null(dim(baked$age))
+})
+
+
 test_that("prep.step_obwoe handles missing outcome column", {
   skip_if_not_installed("OptimalBinningWoE")
 
