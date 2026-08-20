@@ -47,7 +47,31 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
+      # setup-r turns 'release' / 'devel' / 'oldrel-N' into a concrete version
+      # by asking api.r-hub.io. When that service is unavailable the job dies
+      # before R is installed, so wait for it rather than fail on it.
+      - name: Wait for the R version service
+        uses: ./.github/actions/wait-for-rversions
+
       - uses: r-lib/actions/setup-r@v2
+        id: setup-r
+        continue-on-error: true
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      # Second attempt, covering the narrow window where the service goes down
+      # between the probe above and setup-r's own call. GitHub Actions has no
+      # native retry for a `uses:` step, so the retry is written out; this one
+      # has no continue-on-error, so a genuine failure still fails the job.
+      - name: Wait for the R version service (before retry)
+        if: steps.setup-r.outcome == 'failure'
+        uses: ./.github/actions/wait-for-rversions
+
+      - name: Set up R (second attempt)
+        if: steps.setup-r.outcome == 'failure'
+        uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
