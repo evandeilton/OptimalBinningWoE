@@ -2029,6 +2029,14 @@ obwoe_gains <- function(obj,
         warning("Insufficient unique values to create groups. Treating as discrete.")
         group_vec <- as.character(group_vec)
       } else {
+        # If the grouping variable is itself the WoE (use_column == "woe"),
+        # capture its original numeric values before it gets replaced below
+        # by quantile-group labels ("G01", "G02", ...). Otherwise the
+        # sentinel string "woe" would survive regrouping and later be
+        # coerced with as.numeric(), producing NA WoE / zero IV.
+        if (identical(woe_source, "woe")) {
+          woe_source <- group_vec
+        }
         # Create ordered factor for quantiles
         group_vec <- cut(group_vec,
           breaks = breaks,

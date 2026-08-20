@@ -527,3 +527,29 @@ test_that("obwoe_gains() agrees with the C++ gains engine", {
   expect_equal(r_side$iv, cpp_side$iv, tolerance = 1e-12)
   expect_equal(r_side$ks, cpp_side$ks, tolerance = 1e-12)
 })
+
+# ---------------------------------------------------------------------------
+# [B4/C-04] obwoe_gains(use_column = "woe", n_groups = k) used to zero the IV
+#
+# When the grouping column is itself the WoE, woe_source was set to the
+# sentinel string "woe" so that the later `identical(woe_source, "woe")`
+# branch used the grouping variable directly. But when n_groups regroups the
+# numeric WoE into quantile labels ("G01", "G02", ...), the sentinel string
+# survived the regrouping, so the code executed `as.numeric(bins)` on labels
+# like "G01" -> NA for every bin, and the total IV silently collapsed to 0.
+# ---------------------------------------------------------------------------
+test_that("obwoe_gains(use_column = 'woe', n_groups = k) keeps WoE numeric and IV > 0", {
+  skip_if_no_german()
+  df <- german_credit()
+  model <- obwoe(df, target = "target", feature = "duration", max_bins = 6)
+  scored <- obwoe_apply(df, model)
+
+  gains <- suppressWarnings(obwoe_gains(scored,
+    target = df$target, feature = "duration",
+    use_column = "woe", n_groups = 5
+  ))
+
+  expect_false(anyNA(gains$table$woe))
+  expect_true(is.numeric(gains$table$woe))
+  expect_gt(gains$metrics$total_iv, 0)
+})
