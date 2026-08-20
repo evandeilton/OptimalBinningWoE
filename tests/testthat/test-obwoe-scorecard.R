@@ -73,6 +73,29 @@ test_that("the pipeline runs and its funnel is consistent", {
 })
 
 
+test_that("[B1/C-01] the gains table KS reconciles with the rank-based KS", {
+  # .ob_score_gains() used to do as.character(band) on the ordered factor
+  # cut() produced, which stripped the level order. .build_gains_table()
+  # then fell back to lexicographic order(df$bin) for sort_by = "bin", and
+  # because '[' (ASCII 91) sorts after '(' (ASCII 40), the lowest-score bin
+  # "[-Inf,x]" landed on the LAST row instead of the first, corrupting the
+  # cumulative KS curve.
+  skip_if_no_german()
+  df <- german_credit()
+
+  sc <- suppressWarnings(obwoe_scorecard(df, target = "target", seed = 42))
+
+  gains_ks <- max(sc$samples$train$gains$ks)
+  rank_ks <- sc$samples$train$metrics$ks
+
+  expect_equal(gains_ks, rank_ks, tolerance = 0.02)
+
+  # The first row of the gains table must be the lowest-score bin.
+  first_bin <- as.character(sc$samples$train$gains$bin[1])
+  expect_true(grepl("^\\[-Inf", first_bin) || grepl("^\\(-Inf", first_bin))
+})
+
+
 test_that("the binning sees the training rows only", {
   skip_if_no_german()
   df <- german_credit()

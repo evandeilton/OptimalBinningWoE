@@ -2055,6 +2055,13 @@ obwoe_gains <- function(obj,
       bins <- levels(group_vec)
       # Filter out unused levels to avoid rows with 0 counts
       bins <- bins[bins %in% unique(as.character(group_vec[!is.na(group_vec)]))]
+      # Keep 'bins' itself as a factor (not a plain character vector) so
+      # that .build_gains_table()'s is.factor(bins) branch actually
+      # triggers and orders rows by the original level order (e.g. the
+      # ascending numeric order cut() produces) instead of falling back
+      # to a lexicographic sort, where '[' (ASCII 91) sorts after '('
+      # (ASCII 40) and pushes a bin like "[-Inf,x]" to the last row.
+      bins <- factor(bins, levels = bins)
     } else {
       bins <- sort(unique(as.character(group_vec[!is.na(group_vec)])))
     }
@@ -2069,8 +2076,11 @@ obwoe_gains <- function(obj,
 
     # Resolve WoE per bin
     if (identical(woe_source, "woe")) {
-      # The grouping variable itself is the WoE (numeric)
-      woe <- as.numeric(bins)
+      # The grouping variable itself is the WoE (numeric). Go through
+      # as.character() first: if 'bins' is a factor (see above), a bare
+      # as.numeric() on a factor returns the integer level codes, not the
+      # numeric value the label represents.
+      woe <- as.numeric(as.character(bins))
     } else if (!is.null(woe_source) && is.numeric(woe_source)) {
       # Average the auxiliary WoE column
       woe <- as.vector(tapply(woe_source, f_bins, mean, na.rm = TRUE, default = 0))

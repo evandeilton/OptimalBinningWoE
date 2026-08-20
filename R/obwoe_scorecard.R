@@ -895,7 +895,12 @@ obwoe_scorecard <- function(data,
 #' @keywords internal
 .ob_score_gains <- function(score, y, breaks) {
   band <- cut(score, breaks = breaks, include.lowest = TRUE)
-  df <- data.frame(band = as.character(band), target = y, stringsAsFactors = FALSE)
+  # Keep `band` as the ordered factor cut() produced. Converting to
+  # character here loses the level order, so .build_gains_table() falls
+  # back to lexicographic order(df$bin) (ASCII '[' = 91 sorts after '('
+  # = 40), which pushes the lowest-score bin "[-Inf,x]" to the last row
+  # and silently corrupts the cumulative KS curve.
+  df <- data.frame(band = band, target = y, stringsAsFactors = FALSE)
   g <- obwoe_gains(df,
     target = "target", feature = "band",
     use_column = "direct", sort_by = "bin"
