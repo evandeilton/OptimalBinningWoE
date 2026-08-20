@@ -467,6 +467,45 @@ test_that("unseen categories are counted, not silently absorbed", {
 })
 
 
+test_that("[C2/A-01] score and card agree on na_woe for unseen categories", {
+  # object$control was not persisted on the scorecard object.
+  # predict.obwoe_scorecard() hardcoded na_woe <- 0 for type = "score" (and
+  # the other WoE-based types), regardless of what na_woe the scorecard was
+  # actually fitted with, while the points table's "points_na" fallback used
+  # by type = "card" was correctly derived from control$na_woe at fit time.
+  # With na_woe != 0, an unseen category therefore scored differently under
+  # type = "score" than under type = "card" for the very same row.
+  set.seed(61)
+  n <- 3000
+  g <- sample(c("a", "b", "c"), n, TRUE)
+  df <- data.frame(
+    g = g, x = rnorm(n),
+    target = rbinom(n, 1, plogis(-1 + 0.9 * (g == "a"))),
+    stringsAsFactors = FALSE
+  )
+
+  sc <- suppressWarnings(obwoe_scorecard(df,
+    target = "target", seed = 61,
+    screening = list(iv_min = 0, require_monotonic = "none"),
+    control = control.obwoe_scorecard(na_woe = -0.75)
+  ))
+  skip_if(!"g" %in% sc$final, "g did not enter the model")
+
+  expect_equal(sc$control$na_woe, -0.75)
+
+  novel <- df[1:50, ]
+  novel$g <- "never_seen"
+
+  k <- length(sc$final)
+  score <- suppressWarnings(predict(sc, novel, type = "score"))
+  card <- suppressWarnings(predict(sc, novel, type = "card"))
+
+  # Same bound as the "points sum to the score" test: rounding k integer
+  # points can move the total by at most k/2 relative to the raw score.
+  expect_lte(max(abs(card - score)), k / 2)
+})
+
+
 test_that("the points fallback follows na_woe", {
   skip_if_no_german()
   df <- german_credit()

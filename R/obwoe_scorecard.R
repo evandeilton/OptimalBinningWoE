@@ -186,6 +186,11 @@ control.obwoe_scorecard <- function(corr_cutoff = 0.70,
 #'       \code{"corr_pruned"}, \code{"constant_woe"} (one WoE value after the
 #'       transform) or \code{"screened_out"} (failed the IV or ordering rules)}
 #'     \item{\code{correlation}}{the \code{\link{obwoe_prune}} result}
+#'     \item{\code{control}}{the resolved \code{"obwoe_scorecard_control"} this
+#'       object was actually built with (as of 1.13.1) -- \code{predict()} and
+#'       \code{\link{obwoe_report}} read \code{na_woe} from here so every
+#'       output agrees on the fallback for an unseen category or an
+#'       unmodelled missing value}
 #'     \item{\code{engine}}{name, requested versus used, and whether additive}
 #'     \item{\code{model}}{the raw fitted object — engine-specific and outside
 #'       the supported interface}
@@ -621,6 +626,7 @@ obwoe_scorecard <- function(data,
     screening = .ob_as_table(screening_tbl),
     screening_bins = .ob_as_table(screening_bins),
     correlation = pruning,
+    control = control,
     engine = list(
       name = eng$name, requested = eng$requested, used = eng$used,
       additive = !is.null(coefs), args = engine_args
@@ -1078,7 +1084,17 @@ predict.obwoe_scorecard <- function(object,
     ))
   }
 
-  na_woe <- 0
+  # [C-02/A-01] Read the na_woe the scorecard was actually built with
+  # (stored in object$control as of 1.13.1), instead of silently hardcoding
+  # 0. type = "score" and type = "card" both go through this same value, so
+  # they now agree on unseen categories/missing values instead of each
+  # falling back to a different default. Objects saved by an older package
+  # version carry no $control and keep the historical 0 fallback.
+  na_woe <- if (!is.null(object$control) && !is.null(object$control$na_woe)) {
+    object$control$na_woe
+  } else {
+    0
+  }
   w <- .ob_woe_matrix(new_data, object$binning, object$final, na_woe)
   if (identical(type, "woe")) {
     return(w)

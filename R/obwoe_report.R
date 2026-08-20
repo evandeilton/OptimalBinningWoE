@@ -418,9 +418,20 @@ obwoe_report <- function(x,
     as.data.frame(.ob_rbind(cutoffs), stringsAsFactors = FALSE), digits)
 
   # -- 10/11 SQL ----------------------------------------------------------- #
+  # [C-02/A-01] Use the na_woe the scorecard itself was built with (stored in
+  # x$control as of 1.13.1), not obwoe_sql()'s own default of 0, so the SQL
+  # emitted here returns the same value predict(x, ..., type = "score") or
+  # type = "card" does for an unseen category. Falls back to this call's own
+  # 'control' (or its default) for a scorecard object saved before 1.13.1,
+  # which carries no $control.
+  na_value <- if (!is.null(x$control) && !is.null(x$control$na_woe)) {
+    x$control$na_woe
+  } else {
+    control$na_woe
+  }
   woe_sql <- obwoe_sql(x$binning,
     table = table, features = x$final,
-    keep_columns = keep_columns, dialect = dialect
+    keep_columns = keep_columns, dialect = dialect, na_value = na_value
   )
   .ob_xlsx_sheet(wb, "10_SQL_WoE", .ob_sql_lines(as.character(woe_sql)),
     digits, widths = 120)
