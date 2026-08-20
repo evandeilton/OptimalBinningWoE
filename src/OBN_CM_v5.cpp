@@ -28,10 +28,15 @@ using namespace OptimalBinning;
 /**
  * @brief Safe logarithm with underflow protection
  * @param x Input value
- * @param epsilon Minimum value before log (default: 1e-12)
+ * @param epsilon Minimum value before log (default: EPSILON, 1e-10)
  * @return log(max(x, epsilon))
+ *
+ * [D5] Was hardcoded to 1e-12, diverging from OptimalBinning::EPSILON
+ * (1e-10, common/optimal_binning_common.h) that most other algorithms'
+ * local safe_log() copies already use. Unified to EPSILON so this
+ * algorithm's WoE/IV underflow floor matches the rest of the package.
  */
-inline double safe_log(double x, double epsilon = 1e-12) {
+inline double safe_log(double x, double epsilon = EPSILON) {
   return std::log(std::max(x, epsilon));
 }
 
