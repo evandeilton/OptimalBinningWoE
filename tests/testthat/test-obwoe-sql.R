@@ -635,3 +635,60 @@ test_that("all dialects emit syntactically consistent code", {
     expect_match(sql, ";$", info = dl)
   }
 })
+
+# ---------------------------------------------------------------------------
+# [C1/C-03] obwoe_apply() now agrees with obwoe_sql() on missing categoricals
+#
+# obwoe_sql()'s default null_to_na_bin = TRUE routes a NULL categorical input
+# to the fitted "missing" bin's WoE, when the binner built one (categorical
+# wrappers map NA -> the token "NA" before fitting). obwoe_apply() used to
+# ignore that bin entirely and always return na_woe for NA -- so R and the
+# generated SQL scored the exact same missing value differently. This test
+# fits a model on a categorical feature with real NAs in training and checks
+# that obwoe_apply()'s WoE for a missing value is bit-for-bit what the
+# generated SQL's `IS NULL` branch evaluates to.
+# ---------------------------------------------------------------------------
+test_that("obwoe_apply() reproduces obwoe_sql()'s IS NULL WoE for a real missing-value bin", {
+  set.seed(42)
+  n <- 2000
+  region <- sample(c("hi", "mid", "lo"), n, replace = TRUE, prob = c(0.3, 0.4, 0.3))
+  region[sample(n, floor(n * 0.08))] <- NA
+  target <- rbinom(n, 1, ifelse(region %in% "hi", 0.5,
+    ifelse(is.na(region), 0.35, 0.15)
+  ))
+  df <- data.frame(region = region, target = target, stringsAsFactors = FALSE)
+
+  model <- obwoe(df, target = "target", feature = "region", algorithm = "jedi")
+
+  # The binner must actually have built a distinct "NA" bin for this test to
+  # be meaningful.
+  expect_true("NA" %in% model$results$region$bin)
+  na_bin_woe <- model$results$region$woe[model$results$region$bin == "NA"]
+
+  # R side: obwoe_apply() on a single missing observation.
+  r_woe <- obwoe_apply(
+    data.frame(region = NA_character_, stringsAsFactors = FALSE),
+    model
+  )$region_woe
+
+  # SQL side: the literal the generated CASE expression evaluates to for a
+  # NULL input, via the package's own CASE interpreter.
+  sql <- obwoe_sql(model, output = "woe", style = "case", comment = FALSE)
+  sql_woe <- sql_eval_case_num(sql[["region_woe"]], NA_character_, "region")
+
+  expect_equal(unname(r_woe), na_bin_woe, tolerance = 1e-9)
+  expect_equal(unname(sql_woe), na_bin_woe, tolerance = 1e-9)
+  expect_equal(unname(r_woe), unname(sql_woe), tolerance = 1e-9)
+
+  # na_woe must still be the fallback when no missing-value bin was fitted
+  # (e.g. a feature with no NAs in training).
+  df2 <- df[!is.na(df$region), ]
+  model2 <- obwoe(df2, target = "target", feature = "region", algorithm = "jedi")
+  expect_false("NA" %in% model2$results$region$bin)
+
+  r_woe2 <- obwoe_apply(
+    data.frame(region = NA_character_, stringsAsFactors = FALSE),
+    model2, na_woe = -1.25
+  )$region_woe
+  expect_equal(unname(r_woe2), -1.25)
+})

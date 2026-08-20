@@ -1383,7 +1383,11 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 #'   feature columns in the output. If \code{FALSE}, only bin and WoE columns
 #'   are returned.
 #' @param na_woe Numeric value to assign when an observation cannot be mapped
-#'   to a bin (e.g., new categories not seen during training). Default is 0.
+#'   to a bin (e.g., new categories not seen during training), \strong{and}
+#'   as the fallback for a missing (\code{NA}) categorical value when the
+#'   binner built no dedicated missing-value bin. Default is 0. When a
+#'   missing-value bin \emph{was} fitted (see Details), \code{NA} inputs get
+#'   that bin's WoE instead of \code{na_woe}.
 #'
 #' @return A \code{data.frame} containing:
 #' \describe{
@@ -1404,6 +1408,17 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 #' \strong{Categorical Features}:
 #' Categories are matched directly to bin labels. Categories not seen
 #' during training are assigned \code{NA} for bin and \code{na_woe} for WoE.
+#'
+#' A missing (\code{NA}) categorical value is routed to whichever fitted bin
+#' represents missing values, if the binner built one -- categorical
+#' algorithms (e.g. \code{\link{ob_categorical_jedi}}) map \code{NA} to the
+#' token \code{"NA"} before fitting, so a bin containing that token (alone or
+#' merged with other categories) is treated as the missing-value bin, exactly
+#' as \code{\link{obwoe_sql}}'s \code{null_to_na_bin = TRUE} default does for
+#' \code{IS NULL}. \code{na_woe} is used for \code{NA} only when no such bin
+#' exists. \strong{This changed in 1.13.1}: earlier versions always returned
+#' \code{na_woe} for \code{NA}, ignoring any fitted missing-value bin, which
+#' disagreed with the generated SQL.
 #' }
 #'
 #' \subsection{Production Deployment}{
@@ -1624,6 +1639,21 @@ obwoe_apply <- function(data,
       cat_to_bin <- list()
       cat_to_woe <- list()
 
+      # [C-03] Value used for a MISSING (NA) categorical input: the fitted
+      # bin whose categories include one of the tokens the categorical
+      # wrappers use for missing values (e.g. ob_categorical_jedi() maps
+      # NA -> "NA" before fitting), mirroring the na_categories default in
+      # obwoe_sql() (c("NA", "Missing", "")). na_woe is only a fallback for
+      # a feature where the binner built no such bin. Before this fix,
+      # obwoe_apply() always returned na_woe for NA regardless of whether a
+      # missing-value bin was fitted, while obwoe_sql()'s default
+      # null_to_na_bin = TRUE routed IS NULL to that bin's WoE -- so R and
+      # the generated SQL scored the same missing value differently.
+      sql_na_categories <- c("NA", "Missing", "")
+      has_na_bin <- FALSE
+      na_bin_label <- NA_character_
+      na_bin_woe <- na_woe
+
       for (i in seq_along(bins)) {
         bin_label <- bins[i]
         # Split by separator (%;%). The binning engines join the original
@@ -1636,19 +1666,24 @@ obwoe_apply <- function(data,
           cat_to_bin[[cat]] <- bin_label
           cat_to_woe[[cat]] <- woe[i]
         }
+        if (!has_na_bin && any(cats %in% sql_na_categories)) {
+          has_na_bin <- TRUE
+          na_bin_label <- bin_label
+          na_bin_woe <- woe[i]
+        }
       }
 
       # Map each observation
       mapped_bin <- sapply(feat_char, function(x) {
         if (is.na(x)) {
-          return(NA_character_)
+          return(if (has_na_bin) na_bin_label else NA_character_)
         }
         if (x %in% names(cat_to_bin)) cat_to_bin[[x]] else NA_character_
       }, USE.NAMES = FALSE)
 
       mapped_woe <- sapply(feat_char, function(x) {
         if (is.na(x)) {
-          return(na_woe)
+          return(na_bin_woe)
         }
         if (x %in% names(cat_to_woe)) cat_to_woe[[x]] else na_woe
       }, USE.NAMES = FALSE)

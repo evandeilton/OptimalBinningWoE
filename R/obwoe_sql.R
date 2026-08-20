@@ -361,7 +361,10 @@
 #' @param null_to_na_bin Logical. When \code{TRUE} (default) and the training
 #'   data contained missing values that the binner folded into a bin under one
 #'   of \code{na_categories}, \code{NULL} inputs are routed to that bin's value
-#'   instead of \code{na_value}.
+#'   instead of \code{na_value}. \code{\link{obwoe_apply}} applies the same
+#'   rule to \code{NA} for categorical features as of 1.13.1, so the two stay
+#'   in agreement; keep this \code{TRUE} unless you have a specific reason to
+#'   diverge from the R-side behaviour.
 #' @param na_categories Character vector of tokens the binner uses to
 #'   represent missing categories. Default \code{c("NA", "Missing", "")},
 #'   matching \code{\link{ob_apply_woe_cat}}.
