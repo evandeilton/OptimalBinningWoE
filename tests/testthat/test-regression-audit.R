@@ -579,3 +579,30 @@ test_that("obwoe() rejects a binary-only algorithm against a multinomial target"
   res2 <- obwoe(df, target = "y", feature = "x", algorithm = "jedi_mwoe")
   expect_false(res2$summary$error)
 })
+
+# ---------------------------------------------------------------------------
+# [C8/A-06] ob_categorical_mob()'s converged/iterations, "few categories" path
+#
+# OBC_MOB::fit() hardcoded converged = true and only ever reassigned it in
+# the ncat > max_bins branch; the ncat <= max_bins branch (one bin per
+# category, sorted by WoE, no enforceMonotonicity() call) always reported
+# converged = TRUE, iterations = 0 without checking. The fix makes that
+# branch honestly compute isMonotonic(bins). Because that branch always
+# sorts bins by WoE ascending before returning, the resulting bins are
+# monotonic by construction, so the reported value does not actually change
+# for ordinary input -- this pins that it is still TRUE/0 and that the woe
+# column is genuinely monotonic, now for the right reason.
+# ---------------------------------------------------------------------------
+test_that("ob_categorical_mob() with few categories reports converged honestly", {
+  set.seed(1)
+  n <- 500
+  feature <- sample(letters[1:4], n, replace = TRUE)
+  target <- rbinom(n, 1, 0.3)
+
+  res <- ob_categorical_mob(feature = feature, target = target, min_bins = 2, max_bins = 6)
+
+  expect_true(length(res$count) <= 4L) # fewer categories than max_bins
+  expect_true(res$converged)
+  expect_equal(res$iterations, 0L)
+  expect_true(all(diff(res$woe) >= -1e-9)) # sorted ascending by construction
+})
