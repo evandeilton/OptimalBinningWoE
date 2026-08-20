@@ -551,8 +551,12 @@ obwoe_scorecard <- function(data,
 
   points <- NULL
   if (!is.null(coefs)) {
+    # [B-02] The points table splits grouped categories out of the bin
+    # labels, so it needs the separator the binning was fitted with, not the
+    # package default.
     points <- .ob_points(binning_fit, coefs, final, scaling,
-      na_woe = control$na_woe
+      na_woe = control$na_woe,
+      bin_separator = .ob_bin_separator(binning_fit)
     )
   } else {
     add_warning(paste(

@@ -743,3 +743,96 @@ test_that("[D8] the missing-value token is 'NA' for every categorical wrapper", 
   expect_true(any(grepl("(^|%;%)NA($|%;%)", res_jedi_mwoe$bin)))
   expect_false(any(grepl("N/A", res_jedi_mwoe$bin, fixed = TRUE)))
 })
+
+# ---------------------------------------------------------------------------
+# B-01 / B-02: the fitted object records its own control, and everything that
+# needs the bin separator reads it from there instead of assuming "%;%".
+#
+# Before the fix, obwoe() returned no control at all, so obwoe_apply() and the
+# points SQL hard-coded the default separator. A model fitted with a custom one
+# then had 84% of its rows fall through to na_woe in R, and produced SQL that
+# split "a||e||c" into the literals 'a', '|', '|', 'e', '|', '|', 'c'.
+# ---------------------------------------------------------------------------
+
+make_custom_sep_model <- function(sep = "||", n = 900, seed = 9) {
+  set.seed(seed)
+  d <- data.frame(
+    g = sample(c("a", "b", "c", "d", "e", "f"), n, replace = TRUE),
+    target = rbinom(n, 1, 0.3),
+    stringsAsFactors = FALSE
+  )
+  list(
+    data = d,
+    model = obwoe(d, target = "target", max_bins = 3,
+                  control = control.obwoe(bin_separator = sep))
+  )
+}
+
+test_that("obwoe() records the configuration it was fitted with", {
+  fit <- make_custom_sep_model()
+  m <- fit$model
+
+  expect_true("control" %in% names(m))
+  expect_equal(m$control$bin_separator, "||")
+  expect_equal(m$max_bins, 3L)
+  expect_true(!is.null(m$min_bins))
+  expect_true(is.character(m$algorithm) && nzchar(m$algorithm))
+})
+
+test_that(".ob_bin_separator falls back for objects fitted before 1.13.2", {
+  # An object saved by an earlier version carries no control element; reading
+  # the separator off it must yield the package default, not NULL or an error.
+  legacy <- structure(list(results = list(), summary = NULL), class = "obwoe")
+  expect_equal(.ob_bin_separator(legacy), "%;%")
+
+  # A malformed control must not silently produce a non-scalar separator.
+  broken <- structure(list(control = list(bin_separator = c("a", "b"))),
+                      class = "obwoe")
+  expect_equal(.ob_bin_separator(broken), "%;%")
+})
+
+test_that("obwoe_apply() honours a custom bin separator", {
+  fit <- make_custom_sep_model()
+
+  # The engine really did join categories with the custom separator.
+  expect_true(any(grepl("||", fit$model$results$g$bin, fixed = TRUE)))
+
+  sentinel <- -999
+  applied <- obwoe_apply(fit$data, fit$model, na_woe = sentinel)
+
+  # Every row must map to a fitted bin. On the pre-fix sources this was 754
+  # of 900, because the labels were split on "%;%" and never matched.
+  expect_equal(sum(applied$g_woe == sentinel), 0L)
+  # results$g is a list of per-bin vectors, not a data.frame, so the bin count
+  # comes from the length of one of them.
+  expect_equal(length(unique(applied$g_woe)), length(fit$model$results$g$bin))
+})
+
+test_that("obwoe_sql() emits whole categories under a custom separator", {
+  fit <- make_custom_sep_model()
+  sql <- paste(
+    unlist(obwoe_sql(fit$model, output = "woe", style = "case",
+                     bin_separator = fit$model$control$bin_separator)),
+    collapse = "\n"
+  )
+
+  # The separator itself must never survive as a category literal.
+  expect_false(grepl("'|'", sql, fixed = TRUE))
+  # And the real categories must be there in full.
+  expect_true(grepl("'a'", sql, fixed = TRUE))
+  expect_true(grepl("'e'", sql, fixed = TRUE))
+})
+
+test_that("the default separator keeps working unchanged", {
+  set.seed(11)
+  d <- data.frame(
+    g = sample(c("p", "q", "r", "s"), 600, replace = TRUE),
+    target = rbinom(600, 1, 0.3),
+    stringsAsFactors = FALSE
+  )
+  m <- obwoe(d, target = "target", max_bins = 3)
+
+  expect_equal(.ob_bin_separator(m), "%;%")
+  applied <- obwoe_apply(d, m, na_woe = -999)
+  expect_equal(sum(applied$g_woe == -999), 0L)
+})

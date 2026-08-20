@@ -72,6 +72,7 @@
 .ob_points_sql <- function(x, table, dialect, keep_columns = NULL) {
   d <- .ob_sql_dialect(dialect)
   specs <- .ob_sql_spec(x$binning)
+  bin_sep <- .ob_bin_separator(x$binning)
 
   items <- character(0)
   if (!is.null(keep_columns)) {
@@ -127,15 +128,12 @@
       explicit_bounds = TRUE, indent = "    ",
       # NOTE: "%;%" is hardcoded here, same as obwoe_sql()'s own default
       # (R/obwoe_sql.R) that R/obwoe_report.R's "10_SQL_WoE" sheet inherits a
-      # few lines below -- this is the existing, systemic convention, not
-      # something unique to this function. The audit asked this be changed
-      # to "the model's real separator", but obwoe()'s returned object does
-      # not currently store the control (in particular bin_separator) it was
-      # fitted with, so there is nothing to propagate without first changing
-      # obwoe()'s return value -- a materially larger, riskier change
-      # affecting every obwoe() caller, not scoped to this fix. Left as-is;
-      # see the audit report for this call.
-      bin_separator = "%;%",
+      # [B-02] The model's real separator, now that [B-01] makes obwoe()
+      # record the control it was fitted with. This was hard-coded to "%;%"
+      # before: a model fitted with a custom separator had the points SQL
+      # split its bin labels on the wrong string, silently corrupting the
+      # categorical mapping in the deployed scorecard.
+      bin_separator = bin_sep,
       trim_categories = FALSE
     )
     ok_final <- c(ok_final, feat)
@@ -474,9 +472,12 @@ obwoe_report <- function(x,
   } else {
     control$na_woe
   }
+  # [B-02] Same separator the model carries, so the WoE-form SQL splits bin
+  # labels exactly as obwoe_apply() does rather than assuming the default.
   woe_sql <- obwoe_sql(x$binning,
     table = table, features = x$final,
-    keep_columns = keep_columns, dialect = dialect, na_value = na_value
+    keep_columns = keep_columns, dialect = dialect, na_value = na_value,
+    bin_separator = .ob_bin_separator(x$binning)
   )
   .ob_xlsx_sheet(wb, "10_SQL_WoE", .ob_sql_lines(as.character(woe_sql)),
     digits, widths = 120)

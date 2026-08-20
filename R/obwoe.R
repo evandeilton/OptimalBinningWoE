@@ -524,17 +524,49 @@ obwoe <- function(data,
   }
 
   # Build output
+  #
+  # [B-01] The fitted object records the configuration it was fitted with.
+  # Without it a saved model cannot say what separator, cut-off or bin limits
+  # produced it, so anything downstream that needs one has to guess -- which
+  # is why .ob_points_sql() and obwoe_apply() used to hard-code the separator.
+  # `call` is not a substitute: it captures only the arguments the caller
+  # typed, never the defaults that actually applied.
   out <- list(
     results = results,
     summary = summary_data,
     target = target,
     target_type = target_type,
     n_features = length(feature),
+    control = control,
+    min_bins = min_bins,
+    max_bins = max_bins,
+    algorithm = algorithm,
     call = call
   )
 
   class(out) <- "obwoe"
   return(out)
+}
+
+#' Read the bin separator a model was fitted with
+#'
+#' @param obj An \code{obwoe} object.
+#' @param default Separator to assume when the object does not carry one.
+#'
+#' @details
+#' Objects fitted before 1.13.2 have no \code{control} element, so the default
+#' stands in for them. That keeps models saved by earlier versions readable
+#' instead of erroring on a missing field.
+#'
+#' @return A length-one character string.
+#' @keywords internal
+#' @noRd
+.ob_bin_separator <- function(obj, default = "%;%") {
+  sep <- obj$control$bin_separator
+  if (is.null(sep) || !is.character(sep) || length(sep) != 1L || is.na(sep)) {
+    return(default)
+  }
+  sep
 }
 
 
@@ -1523,6 +1555,10 @@ obwoe_apply <- function(data,
     stop("'obj' must be an object of class 'obwoe' from obwoe().")
   }
 
+  # The separator the model was fitted with, falling back to the package
+  # default for objects saved before obwoe() started recording its control.
+  bin_separator <- .ob_bin_separator(obj)
+
   # Get successful features from the model
   successful <- obj$summary[!obj$summary$error, "feature"]
 
@@ -1679,12 +1715,16 @@ obwoe_apply <- function(data,
 
       for (i in seq_along(bins)) {
         bin_label <- bins[i]
-        # Split by separator (%;%). The binning engines join the original
-        # category strings with the separator and add no padding, so the split
-        # pieces are the categories byte for byte. They must NOT be trimmed:
-        # a category carrying leading or trailing whitespace would otherwise
-        # become unmatchable and silently fall back to 'na_woe'.
-        cats <- strsplit(bin_label, "%;%", fixed = TRUE)[[1]]
+        # Split by the separator the model was actually fitted with, which
+        # [B-01] now records; it was hard-coded to "%;%" before, so a model
+        # fitted through control.obwoe(bin_separator = ...) had its grouped
+        # categories silently left unmatched here and scored as na_woe. The
+        # binning engines join the original category strings with the
+        # separator and add no padding, so the split pieces are the
+        # categories byte for byte. They must NOT be trimmed: a category
+        # carrying leading or trailing whitespace would otherwise become
+        # unmatchable and fall back to 'na_woe' just as silently.
+        cats <- strsplit(bin_label, bin_separator, fixed = TRUE)[[1]]
         for (cat in cats) {
           cat_to_bin[[cat]] <- bin_label
           cat_to_woe[[cat]] <- woe[i]
