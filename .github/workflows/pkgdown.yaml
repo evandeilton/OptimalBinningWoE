@@ -28,7 +28,24 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
+      # Same guard as R-CMD-check.yaml: setup-r resolves the R version through
+      # api.r-hub.io, and an outage there fails the job before R is installed.
+      - name: Wait for the R version service
+        uses: ./.github/actions/wait-for-rversions
+
       - uses: r-lib/actions/setup-r@v2
+        id: setup-r
+        continue-on-error: true
+        with:
+          use-public-rspm: true
+
+      - name: Wait for the R version service (before retry)
+        if: steps.setup-r.outcome == 'failure'
+        uses: ./.github/actions/wait-for-rversions
+
+      - name: Set up R (second attempt)
+        if: steps.setup-r.outcome == 'failure'
+        uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
 

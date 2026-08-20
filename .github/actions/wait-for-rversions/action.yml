@@ -1,0 +1,56 @@
+name: Wait for the R version service
+description: >
+  Block until api.r-hub.io answers. r-lib/actions/setup-r resolves the aliases
+  'release', 'devel' and 'oldrel-N' into a concrete R version by calling that
+  service, so a transient outage of it kills the job before R is even
+  installed -- with setup-r-dependencies and check-r-package reported as
+  "skipped" and no package error anywhere in the log. Probing first turns a
+  hard failure into a wait.
+
+inputs:
+  attempts:
+    description: How many times to probe before giving up.
+    required: false
+    default: "10"
+  delay:
+    description: Seconds to wait between probes.
+    required: false
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    - name: Probe api.r-hub.io
+      shell: bash
+      env:
+        ATTEMPTS: ${{ inputs.attempts }}
+        DELAY: ${{ inputs.delay }}
+      run: |
+        set -u
+
+        # A cheap, stable endpoint of the same service. If this answers, the
+        # version resolution setup-r is about to perform will answer too.
+        probe='https://api.r-hub.io/rversions/r-release'
+
+        for i in $(seq 1 "$ATTEMPTS"); do
+          # curl already prints 000 when it cannot connect, so take its output
+          # as-is and only substitute when it printed nothing at all.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$probe" 2>/dev/null || true)
+          [ -n "$code" ] || code="000"
+
+          if [ "$code" = "200" ]; then
+            echo "api.r-hub.io answered 200 on attempt ${i}."
+            exit 0
+          fi
+
+          echo "Attempt ${i}/${ATTEMPTS}: api.r-hub.io returned '${code}'."
+          if [ "$i" -lt "$ATTEMPTS" ]; then
+            echo "Waiting ${DELAY}s before the next probe."
+            sleep "$DELAY"
+          fi
+        done
+
+        # Deliberately a warning, not a failure. If the service never comes
+        # back, let setup-r run and report the real error: this step must never
+        # be able to make the build worse than it was without it.
+        echo "::warning::api.r-hub.io did not answer after ${ATTEMPTS} attempts; continuing to setup-r anyway."
