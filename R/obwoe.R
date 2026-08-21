@@ -1619,6 +1619,28 @@ obwoe_apply <- function(data,
     stop("No successful binning results in 'obj'.")
   }
 
+  # Multiclass models carry one WoE column per class, i.e. a bins x classes
+  # matrix. There is no single WoE column to attach to a row, and the machinery
+  # below assumes a vector: names(woe) <- bins pads a matrix with NA instead of
+  # erroring, and the lookup then linear-indexes the column-major matrix, which
+  # silently returns class 1's WoE for every row and discards the rest. Refuse
+  # rather than return a wrong answer.
+  is_multiclass <- identical(obj$target_type, "multinomial") ||
+    any(vapply(
+      obj$results[successful],
+      function(r) is.matrix(r$woe),
+      logical(1)
+    ))
+
+  if (is_multiclass) {
+    stop(
+      "Multiclass (multinomial) WoE cannot be applied with obwoe_apply(): ",
+      "each feature has one WoE value per class, not a single column. ",
+      "Use the per-class bins x classes matrix in obj$results[[feature]]$woe ",
+      "directly, and decide how to encode it for your model."
+    )
+  }
+
   # Check which features are available in data
   available <- intersect(successful, names(data))
 
