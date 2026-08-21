@@ -282,8 +282,14 @@ private:
       bin_info.push_back(bin1);
       bin_info.push_back(bin2);
     }
+
+    // One bin per distinct value is an exact, final binning. It sets is_simple,
+    // which makes fit() skip applyIsotonicRegression() -- the only other place
+    // that sets this flag -- so without this line every 0/1 feature reported
+    // converged = FALSE despite a perfectly correct result.
+    converged = true;
   }
-  
+
   /**
    * Create regular bins for normal case (more than 2 unique values)
    * 
@@ -679,7 +685,12 @@ private:
    */
   void applyIsotonicRegression() {
     int n = static_cast<int>(bin_info.size());
-    if (n <= 1) return;
+    if (n <= 1) {
+      // A single bin is trivially monotone: nothing to pool, and the result is
+      // final. That is a successful termination, not a failure to converge.
+      converged = true;
+      return;
+    }
     
     // Extract event rates and counts
     std::vector<double> y(n), w(n);

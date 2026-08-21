@@ -924,34 +924,46 @@ print.step_obwoe <- function(x, width = max(20L, options()$width - 30L), ...) {
     n_features <- length(x$binning_results)
 
     if (n_features > 0L) {
-      # Calculate total IV across all features
-      total_iv <- sum(
-        vapply(
-          x$binning_results,
-          function(r) {
-            if (!is.null(r$total_iv) && !is.na(r$total_iv)) {
-              r$total_iv
-            } else if (!is.null(r$iv)) {
-              sum(r$iv, na.rm = TRUE)
-            } else {
-              0
-            }
-          },
-          numeric(1L)
-        ),
-        na.rm = TRUE
+      # Calculate total IV across all features. A feature whose IV was never
+      # reported contributes NA, not 0: collapsing "not measured" into zero
+      # would print "total IV=0.0000" and assert that the features have no
+      # predictive power.
+      per_feature_iv <- vapply(
+        x$binning_results,
+        function(r) {
+          if (!is.null(r$total_iv) && !is.na(r$total_iv)) {
+            r$total_iv
+          } else if (!is.null(r$iv) && any(is.finite(r$iv))) {
+            sum(r$iv, na.rm = TRUE)
+          } else {
+            NA_real_
+          }
+        },
+        numeric(1L)
       )
 
-      cat(
-        sprintf(
-          "%s [trained, %d feature%s, total IV=%.4f, algorithm='%s']\n",
-          title,
-          n_features,
-          if (n_features == 1L) "" else "s",
-          total_iv,
-          x$algorithm
+      if (any(is.finite(per_feature_iv))) {
+        cat(
+          sprintf(
+            "%s [trained, %d feature%s, total IV=%.4f, algorithm='%s']\n",
+            title,
+            n_features,
+            if (n_features == 1L) "" else "s",
+            sum(per_feature_iv, na.rm = TRUE),
+            x$algorithm
+          )
         )
-      )
+      } else {
+        cat(
+          sprintf(
+            "%s [trained, %d feature%s, total IV=NA (not reported), algorithm='%s']\n",
+            title,
+            n_features,
+            if (n_features == 1L) "" else "s",
+            x$algorithm
+          )
+        )
+      }
     } else {
       cat(sprintf("%s [trained, 0 features]\n", title))
     }

@@ -623,7 +623,11 @@ public:
     
     // Apply MDLP-based merging
     apply_mdl_merging();
-    
+
+    // Enforce the caller's bin budget: MDLP's own stopping rule does not
+    // guarantee bins.size() <= max_bins.
+    enforce_max_bins();
+
     // Handle rare bins
     merge_rare_bins();
     
@@ -960,7 +964,60 @@ public:
       Rcpp::warning("MDL merging did not complete within %d iterations", max_iterations);
     }
   }
-  
+
+  /**
+   * @brief Enforce max_bins as a hard post-condition
+   *
+   * apply_mdl_merging() stops as soon as no candidate merge reduces the MDL
+   * cost, and that `break` fires before the bins.size() <= max_bins test, so
+   * the loop could leave far more bins than the caller asked for (18 against
+   * max_bins = 5 on a plain continuous feature). max_bins is a documented
+   * user-facing parameter and has to be honoured, so once MDLP's own stopping
+   * rule is done we keep merging by the algorithm's own criterion -- the pair
+   * with the smallest MDL delta, i.e. the least-cost merge -- until the cap is
+   * met. Beyond the MDL optimum every remaining delta is positive; we take the
+   * cheapest one each time, which is the standard way to impose a bin budget
+   * on an MDL partition.
+   *
+   * min_bins still wins: we never merge below it.
+   */
+  void enforce_max_bins() {
+    while (bins.size() > (size_t)max_bins && bins.size() > (size_t)min_bins &&
+           bins.size() > 1) {
+      size_t k = bins.size();
+
+      double cur_model = (k > 1) ? std::log2(static_cast<double>(k - 1)) : 0.0;
+      double new_model = (k > 2) ? std::log2(static_cast<double>(k - 2)) : 0.0;
+      double model_delta = new_model - cur_model;
+
+      double best_delta = std::numeric_limits<double>::infinity();
+      size_t best_merge_index = 0;
+
+      for (size_t i = 0; i < k - 1; ++i) {
+        const NumericalBin& b_i  = bins[i];
+        const NumericalBin& b_i1 = bins[i + 1];
+
+        int m_pos = b_i.count_pos + b_i1.count_pos;
+        int m_neg = b_i.count_neg + b_i1.count_neg;
+        int m_cnt = b_i.count    + b_i1.count;
+
+        double data_delta =
+          m_cnt   * calculate_entropy(m_pos,      m_neg)
+          - b_i.count  * calculate_entropy(b_i.count_pos,  b_i.count_neg)
+          - b_i1.count * calculate_entropy(b_i1.count_pos, b_i1.count_neg);
+
+        double delta = model_delta + data_delta;
+
+        if (delta < best_delta) {
+          best_delta = delta;
+          best_merge_index = i;
+        }
+      }
+
+      merge_bins(best_merge_index);
+    }
+  }
+
   /**
    * @brief Get the results of binning
    * 

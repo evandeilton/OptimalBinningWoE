@@ -418,6 +418,12 @@ private:
                   return a.event_rate() < b.event_rate();
                 });
     }
+
+    // One bin per category, already within max_bins: an exact, final result.
+    // This fast path bypasses perform_dynamic_programming(), the only other
+    // place that sets the flag.
+    converged = true;
+    iterations_run = 1;
   }
   
   /**

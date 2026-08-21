@@ -236,9 +236,17 @@ public:
       // Apply Laplace smoothing to handle zero counts
       double dist_pos = (static_cast<double>(bin.count_pos) + laplace_smoothing) / 
         (total_pos_d + laplace_smoothing * bins.size());
-      double dist_neg = (static_cast<double>(bin.count_neg) + laplace_smoothing) / 
+      double dist_neg = (static_cast<double>(bin.count_neg) + laplace_smoothing) /
         (total_neg_d + laplace_smoothing * bins.size());
-      
+
+      // With laplace_smoothing = 0 a bin holding no events (or no non-events)
+      // gives dist = 0, hence woe = -Inf/+Inf and iv = Inf. Floor both
+      // distributions with the package-wide EPSILON, the same guard the rest
+      // of the codebase uses (safe_math.h, CategoricalBin::calculate_metrics),
+      // so the parameter stays usable instead of having to be rejected.
+      dist_pos = std::max(dist_pos, EPSILON);
+      dist_neg = std::max(dist_neg, EPSILON);
+
       bin.woe = std::log(dist_pos / dist_neg);
       bin.iv = (dist_pos - dist_neg) * bin.woe;
       
@@ -270,9 +278,15 @@ public:
       // Calculate WoE and IV for missing bin using the same formula
       double dist_pos_missing = (static_cast<double>(missing_bin.count_pos) + laplace_smoothing) / 
         (total_pos_d + laplace_smoothing * (bins.size() + 1));
-      double dist_neg_missing = (static_cast<double>(missing_bin.count_neg) + laplace_smoothing) / 
+      double dist_neg_missing = (static_cast<double>(missing_bin.count_neg) + laplace_smoothing) /
         (total_neg_d + laplace_smoothing * (bins.size() + 1));
-      
+
+      // Same EPSILON floor as the regular bins above: without it a missing-value
+      // bin containing only one class yields an infinite WoE and IV whenever
+      // laplace_smoothing is 0.
+      dist_pos_missing = std::max(dist_pos_missing, EPSILON);
+      dist_neg_missing = std::max(dist_neg_missing, EPSILON);
+
       missing_bin.woe = std::log(dist_pos_missing / dist_neg_missing);
       missing_bin.iv = (dist_pos_missing - dist_neg_missing) * missing_bin.woe;
       // missing_bin.event_rate() assignment removed (calculated dynamically)

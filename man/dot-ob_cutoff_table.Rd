@@ -4,7 +4,13 @@
 \alias{.ob_cutoff_table}
 \title{Internal: Cutoff Strategy Table}
 \usage{
-.ob_cutoff_table(score, y, n_points = 20L, direction = "higher_is_safer")
+.ob_cutoff_table(
+  score,
+  y,
+  n_points = 20L,
+  direction = "higher_is_safer",
+  sample_name = NULL
+)
 }
 \description{
 Internal: Cutoff Strategy Table

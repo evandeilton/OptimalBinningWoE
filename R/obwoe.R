@@ -500,13 +500,30 @@ obwoe <- function(data,
     # Build summary row
     has_error <- !is.null(result$error)
 
-    # Calculate total_iv: use total_iv if present, otherwise sum iv vector
+    # Calculate total_iv, in decreasing order of preference:
+    #   1. the scalar `total_iv` the algorithm reported;
+    #   2. the per-bin `iv` vector (or, for multiclass, the bins x classes
+    #      matrix, whose total is the sum over every class);
+    #   3. a fallback recomputed from count_pos / count_neg, so that an
+    #      algorithm reporting neither field still gets a correct total.
     total_iv_val <- NA_real_
     if (!has_error) {
+      n_bin <- if (!is.null(result$bin)) length(result$bin) else NA_integer_
       if (!is.null(result$total_iv) && length(result$total_iv) == 1) {
         total_iv_val <- result$total_iv
-      } else if (!is.null(result$iv) && is.numeric(result$iv)) {
+      } else if (is.matrix(result$iv) && is.numeric(result$iv)) {
+        # Multiclass (e.g. jedi_mwoe) returns a bins x classes matrix. The
+        # intended scalar summary is the total across all classes; this branch
+        # makes that deliberate rather than a side effect of is.numeric()
+        # being TRUE for matrices.
         total_iv_val <- sum(result$iv, na.rm = TRUE)
+      } else if (!is.null(result$iv) && is.numeric(result$iv) &&
+        !is.na(n_bin) && length(result$iv) == n_bin) {
+        total_iv_val <- sum(result$iv, na.rm = TRUE)
+      } else if (is.numeric(result$count_pos) && is.numeric(result$count_neg) &&
+        length(result$count_pos) == length(result$count_neg) &&
+        length(result$count_pos) > 0L) {
+        total_iv_val <- .ob_iv_from_counts(result$count_pos, result$count_neg)
       }
     }
 
@@ -546,6 +563,42 @@ obwoe <- function(data,
 
   class(out) <- "obwoe"
   return(out)
+}
+
+#' Recompute a total Information Value from bin counts
+#'
+#' Last-resort fallback for algorithms that report neither a scalar
+#' \code{total_iv} nor a per-bin \code{iv} vector. Uses the standard definition
+#' \code{sum((dist_pos - dist_neg) * log(dist_pos / dist_neg))} with the same
+#' 0.5 pseudo-count smoothing the C++ engines apply, which also guards the
+#' zero-count bins that would otherwise produce infinite terms.
+#'
+#' @param count_pos Integer vector of per-bin event counts.
+#' @param count_neg Integer vector of per-bin non-event counts.
+#'
+#' @return A length-one numeric, or \code{NA_real_} when either class total is
+#'   zero (the IV is undefined then, and must not be reported as 0).
+#' @keywords internal
+#' @noRd
+.ob_iv_from_counts <- function(count_pos, count_neg) {
+  pos <- as.numeric(count_pos)
+  neg <- as.numeric(count_neg)
+  if (anyNA(pos) || anyNA(neg)) {
+    return(NA_real_)
+  }
+  total_pos <- sum(pos)
+  total_neg <- sum(neg)
+  # A degenerate target has no Information Value to report. Returning 0 here
+  # would assert "no predictive power" about something that was never
+  # measurable, so return NA instead.
+  if (!is.finite(total_pos) || !is.finite(total_neg) ||
+    total_pos <= 0 || total_neg <= 0) {
+    return(NA_real_)
+  }
+  k <- length(pos)
+  dist_pos <- (pos + 0.5) / (total_pos + k * 0.5)
+  dist_neg <- (neg + 0.5) / (total_neg + k * 0.5)
+  sum((dist_pos - dist_neg) * log(dist_pos / dist_neg))
 }
 
 #' Read the bin separator a model was fitted with
@@ -1024,16 +1077,26 @@ summary.obwoe <- function(object, sort_by = "iv", decreasing = TRUE, ...) {
     ivs <- successful$total_iv
     bins <- successful$n_bins
 
+    # na.rm = TRUE is right for a partially-observed vector, but wrong when
+    # nothing was observed at all: it turns "IV was never measured" into
+    # sum = 0, mean = NaN and range = [Inf, -Inf], asserting "no predictive
+    # power" about features that simply have no IV recorded. Report NA instead.
+    has_iv <- any(is.finite(ivs))
+
     aggregate <- list(
       n_features = nrow(summ),
       n_successful = nrow(successful),
       n_errors = sum(summ$error),
-      total_iv_sum = sum(ivs, na.rm = TRUE),
-      mean_iv = mean(ivs, na.rm = TRUE),
-      median_iv = median(ivs, na.rm = TRUE),
-      sd_iv = sd(ivs, na.rm = TRUE),
-      mean_bins = mean(bins, na.rm = TRUE),
-      iv_range = c(min = min(ivs, na.rm = TRUE), max = max(ivs, na.rm = TRUE))
+      total_iv_sum = if (has_iv) sum(ivs, na.rm = TRUE) else NA_real_,
+      mean_iv = if (has_iv) mean(ivs, na.rm = TRUE) else NA_real_,
+      median_iv = if (has_iv) median(ivs, na.rm = TRUE) else NA_real_,
+      sd_iv = if (has_iv) sd(ivs, na.rm = TRUE) else NA_real_,
+      mean_bins = if (any(is.finite(bins))) mean(bins, na.rm = TRUE) else NA_real_,
+      iv_range = if (has_iv) {
+        c(min = min(ivs, na.rm = TRUE), max = max(ivs, na.rm = TRUE))
+      } else {
+        c(min = NA_real_, max = NA_real_)
+      }
     )
   } else {
     aggregate <- list(
@@ -1083,17 +1146,28 @@ print.summary.obwoe <- function(x, ...) {
   ))
 
   if (x$aggregate$n_successful > 0) {
-    cat(sprintf("  Total IV: %.4f\n", x$aggregate$total_iv_sum))
-    cat(sprintf(
-      "  Mean IV: %.4f (SD: %.4f)\n",
-      x$aggregate$mean_iv, x$aggregate$sd_iv
-    ))
-    cat(sprintf("  Median IV: %.4f\n", x$aggregate$median_iv))
-    cat(sprintf(
-      "  IV Range: [%.4f, %.4f]\n",
-      x$aggregate$iv_range["min"], x$aggregate$iv_range["max"]
-    ))
-    cat(sprintf("  Mean Bins: %.1f\n", x$aggregate$mean_bins))
+    if (is.na(x$aggregate$total_iv_sum)) {
+      cat("  Total IV: NA\n")
+      cat("  Note: no Information Value was reported for any feature, so the\n")
+      cat("        IV statistics are unavailable. This is not the same as an\n")
+      cat("        IV of zero -- nothing was measured.\n")
+    } else {
+      cat(sprintf("  Total IV: %.4f\n", x$aggregate$total_iv_sum))
+      cat(sprintf(
+        "  Mean IV: %.4f (SD: %.4f)\n",
+        x$aggregate$mean_iv, x$aggregate$sd_iv
+      ))
+      cat(sprintf("  Median IV: %.4f\n", x$aggregate$median_iv))
+      cat(sprintf(
+        "  IV Range: [%.4f, %.4f]\n",
+        x$aggregate$iv_range["min"], x$aggregate$iv_range["max"]
+      ))
+    }
+    if (is.na(x$aggregate$mean_bins)) {
+      cat("  Mean Bins: NA\n")
+    } else {
+      cat(sprintf("  Mean Bins: %.1f\n", x$aggregate$mean_bins))
+    }
   }
 
   # IV distribution
@@ -1222,6 +1296,17 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 
 #' @keywords internal
 .plot_iv_ranking <- function(summ, top_n, show_threshold, ...) {
+  # With no finite IV anywhere, max(..., na.rm = TRUE) is -Inf and barplot()
+  # dies on "need finite 'xlim' values". Say what is actually wrong instead.
+  if (!any(is.finite(summ$total_iv))) {
+    message(
+      "No finite Information Value is available for any feature, so the IV ",
+      "ranking cannot be plotted. Check summary(fit) for features that ",
+      "errored, or refit with an algorithm that reports IV."
+    )
+    return(invisible(NULL))
+  }
+
   # Sort by IV
   summ <- summ[order(summ$total_iv, decreasing = TRUE), ]
 
@@ -1564,6 +1649,28 @@ obwoe_apply <- function(data,
 
   if (length(successful) == 0) {
     stop("No successful binning results in 'obj'.")
+  }
+
+  # Multiclass models carry one WoE column per class, i.e. a bins x classes
+  # matrix. There is no single WoE column to attach to a row, and the machinery
+  # below assumes a vector: names(woe) <- bins pads a matrix with NA instead of
+  # erroring, and the lookup then linear-indexes the column-major matrix, which
+  # silently returns class 1's WoE for every row and discards the rest. Refuse
+  # rather than return a wrong answer.
+  is_multiclass <- identical(obj$target_type, "multinomial") ||
+    any(vapply(
+      obj$results[successful],
+      function(r) is.matrix(r$woe),
+      logical(1)
+    ))
+
+  if (is_multiclass) {
+    stop(
+      "Multiclass (multinomial) WoE cannot be applied with obwoe_apply(): ",
+      "each feature has one WoE value per class, not a single column. ",
+      "Use the per-class bins x classes matrix in obj$results[[feature]]$woe ",
+      "directly, and decide how to encode it for your model."
+    )
   }
 
   # Check which features are available in data
@@ -2025,6 +2132,16 @@ obwoe_gains <- function(obj,
     if (is.null(feature)) {
       # Default: Select the feature with the highest Total IV
       summ <- obj$summary[!obj$summary$error, ]
+      # which.max() on an all-NA column returns integer(0), which indexes to
+      # character(0) and only fails much later with an opaque
+      # "attempt to select less than one element in get1index" error.
+      if (nrow(summ) == 0L || !any(is.finite(summ$total_iv))) {
+        stop(
+          "Cannot pick a feature automatically: no successfully binned feature ",
+          "has a finite Information Value. Pass 'feature' explicitly, or check ",
+          "summary(obj) to see which features errored."
+        )
+      }
       feature <- summ$feature[which.max(summ$total_iv)]
     }
 

@@ -836,6 +836,23 @@ obwoe_scorecard <- function(data,
     ))
   }
 
+  # The development frame is checked for a missing target up front; validation
+  # samples reach here unchecked and used to fail deep inside
+  # .ob_score_metrics() with "missing value where TRUE/FALSE needed".
+  #
+  # The NA is rejected here rather than tolerated with na.rm = TRUE downstream:
+  # .ob_score_gains() counts positives with na.rm = TRUE and then derives
+  # neg_counts <- counts - pos_counts, which would charge every NA-target row
+  # to the non-events and silently corrupt KS and AUC. A missing outcome is not
+  # something a performance metric can be computed around.
+  y_sample <- .ob_resolve_target(df[[target]])$y
+  if (anyNA(y_sample)) {
+    stop(sprintf(
+      "Sample '%s': the target '%s' contains %d missing value(s). Performance metrics cannot be computed for rows with an unknown outcome; drop or impute them before scoring.",
+      name, target, sum(is.na(y_sample))
+    ))
+  }
+
   w <- .ob_woe_matrix(df, binning, features, control$na_woe)
 
   # Count values that landed in no fitted bin. WoE 0 is the population average,
@@ -868,7 +885,7 @@ obwoe_scorecard <- function(data,
   list(
     name = name,
     n = nrow(df),
-    y = .ob_resolve_target(df[[target]])$y,
+    y = y_sample,
     link = link,
     score = score,
     card_score = card,

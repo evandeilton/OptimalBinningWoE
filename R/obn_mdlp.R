@@ -22,6 +22,9 @@
 #'   adjusts automatically.
 #' @param max_bins Maximum number of bins to generate (default: 5). Must be greater
 #'   than or equal to \code{min_bins}. Acts as a hard constraint after MDLP optimization.
+#'   When the MDL criterion would stop at more bins than \code{max_bins} allows, merging
+#'   continues past the MDL optimum, each step taking the pair with the smallest increase
+#'   in MDL cost, until the cap is met. \code{min_bins} is never violated to satisfy it.
 #' @param bin_cutoff Minimum fraction of total observations required in each bin
 #'   (default: 0.05). Bins with frequency below this threshold are merged with adjacent
 #'   bins to ensure statistical reliability. Must be in the range (0, 1).

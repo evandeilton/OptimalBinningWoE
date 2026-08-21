@@ -229,7 +229,19 @@ private:
       double iv_total = 0.0;
       for (const auto& b : bins) iv_total += b.iv;
       if (std::fabs(iv_total - prev_iv) < convergence_threshold) {
-        converged = true; break;
+        // The IV has settled. Previously this also broke out of the loop, which
+        // abandoned the descent to max_bins and returned 10 bins for
+        // max_bins = 5 on a 12-category feature -- silently, since nothing
+        // downstream re-imposed the cap. max_bins is a documented user
+        // constraint, not a target to give up on once the IV stops moving, so
+        // we record the convergence and keep merging by the same criterion
+        // (the adjacent pair with the highest Fisher exact p-value, i.e. the
+        // most similar pair). The loop still exits on max_iterations.
+        //
+        // This does not weaken FETB's statistical rule: the merge order is
+        // unchanged and the loop's own goal was always to reach max_bins. The
+        // IV tolerance was an early exit, not a significance stopping rule.
+        converged = true;
       }
       prev_iv = iv_total;
       ++iterations;

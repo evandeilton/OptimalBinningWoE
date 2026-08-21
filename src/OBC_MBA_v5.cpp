@@ -715,6 +715,14 @@ public:
             static_cast<int>(best_bins.size()) >= min_bins) {
           bins = std::move(best_bins);
         }
+
+        // Leaving the loop because the bin-count target was reached is a valid
+        // stopping state, just like meeting the IV tolerance above. Only
+        // exhausting max_iterations leaves converged_flag == false.
+        if (iterations_done < max_iterations) {
+          converged_flag = converged_flag ||
+                           (static_cast<int>(bins.size()) <= max_bins);
+        }
       }
 
       // Final consistency check
