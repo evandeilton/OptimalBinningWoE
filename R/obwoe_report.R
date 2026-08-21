@@ -192,7 +192,30 @@
 #' @title Internal: Cutoff Strategy Table
 #' @keywords internal
 .ob_cutoff_table <- function(score, y, n_points = 20L,
-                             direction = "higher_is_safer") {
+                             direction = "higher_is_safer",
+                             sample_name = NULL) {
+  # NA is rejected at the boundary rather than swept up with na.rm = TRUE.
+  # Every column here is a proportion over the whole population -- approval
+  # rate is n_approved / length(score), and the bad rates are means over the
+  # two sides of the cut -- so a row that cannot be placed on one side or whose
+  # outcome is unknown does not have a defensible contribution. Dropping such
+  # rows silently would misstate the approval rate and the bad rates; keeping
+  # them made `if (n_app > 0L)` fail with "missing value where TRUE/FALSE
+  # needed", one bad frame killing the whole workbook.
+  where <- if (is.null(sample_name)) "" else sprintf(" for sample '%s'", sample_name)
+  if (anyNA(score)) {
+    stop(sprintf(
+      "Cannot build the cutoff table%s: %d score(s) are missing. Every cutoff row is a proportion over the full population, so unscored rows have no defensible place in it.",
+      where, sum(is.na(score))
+    ))
+  }
+  if (anyNA(y)) {
+    stop(sprintf(
+      "Cannot build the cutoff table%s: %d target value(s) are missing. Approved and rejected bad rates are undefined for rows with an unknown outcome.",
+      where, sum(is.na(y))
+    ))
+  }
+
   probs <- seq(0.05, 0.95, length.out = n_points)
   cuts <- unique(round(stats::quantile(score, probs = probs, na.rm = TRUE)))
 
@@ -453,7 +476,9 @@ obwoe_report <- function(x,
   # -- 09 Cutoff strategy -------------------------------------------------- #
   cutoffs <- lapply(names(x$samples), function(nm) {
     s <- x$samples[[nm]]
-    tb <- .ob_cutoff_table(s$score, s$y, direction = x$scaling$direction)
+    tb <- .ob_cutoff_table(s$score, s$y,
+      direction = x$scaling$direction, sample_name = nm
+    )
     tb$sample <- nm
     tb[, c("sample", setdiff(names(tb), "sample")), drop = FALSE]
   })
