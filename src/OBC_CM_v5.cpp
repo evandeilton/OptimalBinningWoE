@@ -587,8 +587,15 @@ private:
     }
     
     if (iterations_run >= max_iterations) {
-      warnings.push_back("ChiMerge reached max_iterations (" + 
+      warnings.push_back("ChiMerge reached max_iterations (" +
         std::to_string(max_iterations) + ")");
+    } else {
+      // The loop above can also end because no further merge is possible --
+      // typically because min_bins is already reached, or because the bin-count
+      // target was met by the first loop and can_merge_further() was false from
+      // the start. Those are valid stopping states, not failures; only
+      // exhausting max_iterations leaves converged == false.
+      converged = converged || (bins.size() <= static_cast<size_t>(max_bins));
     }
   }
   

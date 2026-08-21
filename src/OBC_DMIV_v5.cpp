@@ -479,6 +479,10 @@ private:
       Rcpp::Rcout << "Info: Initial number of bins (" << bins.size()
                   << ") is already <= max_bins (" << max_bins
                   << "). Skipping merging phase." << std::endl;
+      // Already at a valid stopping state: the bin-count target is met without
+      // any merging. This early return bypasses the fix-up at the end of the
+      // function, so record convergence here too.
+      converged = true;
       // Still need to check min_bins later
       return;
     }

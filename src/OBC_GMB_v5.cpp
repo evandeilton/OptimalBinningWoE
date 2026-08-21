@@ -410,6 +410,11 @@ private:
         break;
       }
     }
+
+    // Reaching the bin-count target (or min_bins) is a valid stopping state,
+    // just like meeting the IV tolerance above. Only exhausting max_iterations
+    // leaves converged == false.
+    converged = converged || (static_cast<int>(bins.size()) <= max_bins);
   }
   
   // Enhanced monotonicity enforcement with gradient relaxation

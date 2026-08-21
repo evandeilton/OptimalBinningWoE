@@ -13,6 +13,35 @@
 namespace OptimalBinning {
 
 // =============================================================================
+// CONTRACT FOR THE `converged` FLAG RETURNED BY EVERY BINNING ENGINE
+// =============================================================================
+//
+// `converged == true` means the algorithm reached a valid stopping state:
+//   - a tolerance / convergence threshold was met, or
+//   - the requested monotonicity was achieved, or
+//   - the bin-count target (max_bins, or min_bins where the algorithm splits
+//     instead of merging) was reached, or
+//   - the input was degenerate enough that the binning is exact and final
+//     (for example one bin per distinct value, or a single bin).
+//
+// `converged == false` means one thing only: the algorithm exhausted
+// `max_iterations` without settling. It is a diagnostic for the caller, not a
+// quality score for the binning.
+//
+// The common failure mode is an engine whose merge loop exits normally on
+// `bins.size() <= max_bins` without touching the flag, so ordinary well-binned
+// features report `false` while only degenerate ones report `true` -- the flag
+// ends up effectively inverted. The idiom to avoid that, on every successful
+// termination path, is:
+//
+//     converged = converged || (bins.size() <= (size_t) max_bins);
+//
+// placed after the merge loop, and never on a path that exits because
+// `iterations_run >= max_iterations`. Fast paths that `return` early, or that
+// bypass the function holding the sole assignment, must set the flag
+// themselves.
+
+// =============================================================================
 // NUMERICAL BIN STRUCTURE
 // =============================================================================
 
