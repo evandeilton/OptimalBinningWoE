@@ -702,8 +702,15 @@ public:
         prev_total_div = total_div;
         iterations_run++;
       }
+
+      // Reaching the bin-count target is a successful stopping state, exactly
+      // like meeting the divergence tolerance above. Only exhausting
+      // max_iterations leaves converged == false. This also covers the
+      // few-unique-values path in prebinning(), which produces one bin per
+      // value and never enters the loop at all.
+      converged = converged || (bins.size() <= static_cast<size_t>(max_bins));
     }
-    
+
     // Step 5: Prepare output
     Rcpp::StringVector bin_labels;
     Rcpp::NumericVector woe_values;
