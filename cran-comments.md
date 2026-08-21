@@ -105,7 +105,7 @@ policy asks packages not to override the platform's compiler flags.
 
 ## Test environments
 
-* **Local**: x86_64-pc-linux-gnu, R 4.6.x, GCC — `0 errors | 0 warnings | 3 notes`
+* **Local**: x86_64-pc-linux-gnu, R 4.6.x, GCC — `0 errors | 0 warnings | 2 notes`
 * **GitHub Actions**, all passing on the submitted commit:
   * ubuntu-latest — R devel, release, oldrel-1, oldrel-2, oldrel-3
   * windows-latest — R release
