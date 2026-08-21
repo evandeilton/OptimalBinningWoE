@@ -500,13 +500,30 @@ obwoe <- function(data,
     # Build summary row
     has_error <- !is.null(result$error)
 
-    # Calculate total_iv: use total_iv if present, otherwise sum iv vector
+    # Calculate total_iv, in decreasing order of preference:
+    #   1. the scalar `total_iv` the algorithm reported;
+    #   2. the per-bin `iv` vector (or, for multiclass, the bins x classes
+    #      matrix, whose total is the sum over every class);
+    #   3. a fallback recomputed from count_pos / count_neg, so that an
+    #      algorithm reporting neither field still gets a correct total.
     total_iv_val <- NA_real_
     if (!has_error) {
+      n_bin <- if (!is.null(result$bin)) length(result$bin) else NA_integer_
       if (!is.null(result$total_iv) && length(result$total_iv) == 1) {
         total_iv_val <- result$total_iv
-      } else if (!is.null(result$iv) && is.numeric(result$iv)) {
+      } else if (is.matrix(result$iv) && is.numeric(result$iv)) {
+        # Multiclass (e.g. jedi_mwoe) returns a bins x classes matrix. The
+        # intended scalar summary is the total across all classes; this branch
+        # makes that deliberate rather than a side effect of is.numeric()
+        # being TRUE for matrices.
         total_iv_val <- sum(result$iv, na.rm = TRUE)
+      } else if (!is.null(result$iv) && is.numeric(result$iv) &&
+        !is.na(n_bin) && length(result$iv) == n_bin) {
+        total_iv_val <- sum(result$iv, na.rm = TRUE)
+      } else if (is.numeric(result$count_pos) && is.numeric(result$count_neg) &&
+        length(result$count_pos) == length(result$count_neg) &&
+        length(result$count_pos) > 0L) {
+        total_iv_val <- .ob_iv_from_counts(result$count_pos, result$count_neg)
       }
     }
 
@@ -546,6 +563,42 @@ obwoe <- function(data,
 
   class(out) <- "obwoe"
   return(out)
+}
+
+#' Recompute a total Information Value from bin counts
+#'
+#' Last-resort fallback for algorithms that report neither a scalar
+#' \code{total_iv} nor a per-bin \code{iv} vector. Uses the standard definition
+#' \code{sum((dist_pos - dist_neg) * log(dist_pos / dist_neg))} with the same
+#' 0.5 pseudo-count smoothing the C++ engines apply, which also guards the
+#' zero-count bins that would otherwise produce infinite terms.
+#'
+#' @param count_pos Integer vector of per-bin event counts.
+#' @param count_neg Integer vector of per-bin non-event counts.
+#'
+#' @return A length-one numeric, or \code{NA_real_} when either class total is
+#'   zero (the IV is undefined then, and must not be reported as 0).
+#' @keywords internal
+#' @noRd
+.ob_iv_from_counts <- function(count_pos, count_neg) {
+  pos <- as.numeric(count_pos)
+  neg <- as.numeric(count_neg)
+  if (anyNA(pos) || anyNA(neg)) {
+    return(NA_real_)
+  }
+  total_pos <- sum(pos)
+  total_neg <- sum(neg)
+  # A degenerate target has no Information Value to report. Returning 0 here
+  # would assert "no predictive power" about something that was never
+  # measurable, so return NA instead.
+  if (!is.finite(total_pos) || !is.finite(total_neg) ||
+    total_pos <= 0 || total_neg <= 0) {
+    return(NA_real_)
+  }
+  k <- length(pos)
+  dist_pos <- (pos + 0.5) / (total_pos + k * 0.5)
+  dist_neg <- (neg + 0.5) / (total_neg + k * 0.5)
+  sum((dist_pos - dist_neg) * log(dist_pos / dist_neg))
 }
 
 #' Read the bin separator a model was fitted with
