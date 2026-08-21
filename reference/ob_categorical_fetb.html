@@ -15,7 +15,7 @@ statistically rigorous approach to optimal binning."><meta property="og:image" c
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -340,9 +340,9 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Original categories:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">cat_feature_hc</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Original categories: 30 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Final bins:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_fetb_hc</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Final bins: 18 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Final bins: 6 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Iterations:"</span>, <span class="va">result_fetb_hc</span><span class="op">$</span><span class="va">iterations</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations: 2 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations: 15 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Check for rare category merging</span></span></span>
 <span class="r-in"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">result_fetb_hc</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
@@ -351,10 +351,11 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Bin"</span>, <span class="va">i</span>, <span class="st">"contains"</span>, <span class="va">n_merged</span>, <span class="st">"merged categories\n"</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="op">}</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 1 contains 2 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 2 contains 2 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 4 contains 2 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 9 contains 10 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 1 contains 4 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 2 contains 4 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 4 contains 12 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 5 contains 6 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 6 contains 3 merged categories</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 5: Missing value handling</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">456</span><span class="op">)</span></span></span>

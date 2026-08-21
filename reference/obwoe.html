@@ -17,7 +17,7 @@ modeling workflows."><meta property="og:image" content="https://evandeilton.gith
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -358,9 +358,9 @@ WoE transformations to new data.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MDLP Results:</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_mdlp</span><span class="op">$</span><span class="va">summary</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   feature      type algorithm n_bins    total_iv converged iterations error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1     age numerical      mdlp      3 0.003789335      TRUE         17 FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  income numerical      mdlp      3 0.009144267      TRUE         17 FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   feature      type algorithm n_bins   total_iv converged iterations error</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1     age numerical      mdlp      3 0.01069822      TRUE          8 FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  income numerical      mdlp      3 0.02047466      TRUE          7 FALSE</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
 <span class="r-in"><span><span class="co"># Example 3: Custom Control Parameters</span></span></span>
@@ -406,8 +406,8 @@ WoE transformations to new data.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Algorithm Comparison (IV for 'income'):</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">iv_comparison</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         jedi         mdlp          ewb          mob </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.0092022973 0.0091442671 0.0028174937 0.0003402702 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         jedi          ewb         mdlp          mob </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.0092022973 0.0028174937 0.0003402702 0.0003402702 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># =============================================================================</span></span></span>
 <span class="r-in"><span><span class="co"># Example 5: Feature Selection Based on IV</span></span></span>

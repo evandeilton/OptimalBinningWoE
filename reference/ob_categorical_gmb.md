@@ -285,7 +285,7 @@ cat("\nTotal IV:", round(result_gmb$total_iv, 4), "\n")
 #> 
 #> Total IV: 0.5916 
 cat("Converged:", result_gmb$converged, "\n")
-#> Converged: FALSE 
+#> Converged: TRUE 
 cat("Iterations:", result_gmb$iterations, "\n")
 #> Iterations: 2 
 
@@ -324,11 +324,11 @@ cat("\nPerformance comparison (high cardinality):\n")
 #> 
 #> Performance comparison (high cardinality):
 cat("  GMB time:", round(time_gmb[3], 3), "seconds\n")
-#>   GMB time: 0.002 seconds
+#>   GMB time: 0.003 seconds
 cat("  DP time:", round(time_dp[3], 3), "seconds\n")
-#>   DP time: 0 seconds
+#>   DP time: 0.001 seconds
 cat("  Speedup:", round(time_dp[3] / time_gmb[3], 1), "x\n")
-#>   Speedup: 0 x
+#>   Speedup: 0.3 x
 cat("\n  GMB IV:", round(result_gmb_hc$total_iv, 4), "\n")
 #> 
 #>   GMB IV: 0.0431 
@@ -368,11 +368,11 @@ for (thresh in thresholds) {
   ))
 }
 #> 
-#> Threshold 1e-03: 1 iterations, converged=FALSE
+#> Threshold 1e-03: 1 iterations, converged=TRUE
 #> 
-#> Threshold 1e-06: 1 iterations, converged=FALSE
+#> Threshold 1e-06: 1 iterations, converged=TRUE
 #> 
-#> Threshold 1e-09: 1 iterations, converged=FALSE
+#> Threshold 1e-09: 1 iterations, converged=TRUE
 
 # Example 4: Handling rare categories
 set.seed(321)

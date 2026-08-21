@@ -303,6 +303,6 @@ data.frame(
 )
 #>   Method N_Bins Total_IV
 #> 1   UBSD      5 2.030524
-#> 2   MDLP     19 2.265876
+#> 2   MDLP      5 2.060908
 # }
 ```

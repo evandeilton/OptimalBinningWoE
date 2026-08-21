@@ -1,5 +1,134 @@
 # Changelog
 
+## OptimalBinningWoE 1.13.3
+
+### Audit fixes (2026-08-21)
+
+Bug-fix release from a third internal audit, covering the WoE/IV return
+contract, the `converged` flag and the `max_bins` constraint across all
+37 algorithm/type combinations. Every item below was reproduced before
+the fix and re-verified after it. The regression suite gained
+`tests/testthat/test-audit-regressions.R`, which fails on 1.13.2.
+
+#### Behavior changes (read before upgrading)
+
+- **`mdlp` (numerical), `gmb` and `fetb` (categorical) now honour
+  `max_bins`.** All three stopped on their own criterion and never
+  re-checked the cap, so `max_bins = 5` returned 18, 11 and 10 bins
+  respectively – silently, with no warning. All three roxygen blocks
+  already documented `max_bins` as a hard constraint, so the code was
+  wrong, not the documentation.
+
+  **These three algorithms now produce different bins.** For `mdlp` the
+  returned partition is no longer the unconstrained MDL optimum when the
+  cap binds: merging continues past the MDL stopping point, each step
+  taking the pair with the smallest increase in MDL cost. `min_bins` is
+  never violated to satisfy `max_bins`.
+
+- **[`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_apply.md)
+  now refuses multiclass models instead of scoring them wrongly.** A
+  multinomial fit carries a bins x classes WoE matrix; the lookup
+  linear-indexed it column-major and returned **class 1’s WoE for every
+  row**, discarding the other classes with no error and no warning. It
+  now stops with an actionable message. The per-class matrix is still in
+  `$results` for callers that want to handle it themselves.
+
+- **`dmiv` now reports a numeric `total_iv`** where `summary$total_iv`
+  was previously `NA` for every feature. Code that tested for that `NA`
+  will see a number.
+
+#### Corrected values
+
+- **The categorical `sketch` engine computed every WoE against the wrong
+  marginal.** It passed `(total_neg, total_pos)` to helpers whose
+  signature is `(total_pos, total_neg)`. On a random 8-category feature
+  with no real signal, the reported IV was **10.4021 against a true
+  value of 0.0043** – wrong by three orders of magnitude, and wrong in
+  the direction that makes a useless variable look like the strongest
+  predictor in the model. WoE deviated from `log((pos_i/TP)/(neg_i/TN))`
+  by up to 2.7721; it is now within 0.0002.
+
+  The identical defect was fixed in the numerical twin some releases ago
+  and never replicated here. A numerical-vs-categorical parity test now
+  covers every algorithm that has both variants, so this class of
+  divergence cannot recur silently.
+
+- **`dmiv` returns `iv` and `total_iv`** alongside the divergence
+  measures it already reported. IV is computed from the smoothed class
+  distributions rather than from `woe`, because the default
+  `bin_method = "woe1"` is Zeng’s log-odds
+  `ln((pos + 0.5)/(neg + 0.5))`, which differs from standard WoE by the
+  constant `ln(TP/TN)`; deriving IV from it would be wrong.
+
+- **`cm` (categorical) exposes `total_iv` at top level**, like the other
+  15 categorical engines, instead of only inside `metadata`. `metadata`
+  is unchanged, so existing callers keep working.
+
+#### Fixed crashes
+
+- **`sab` (categorical) no longer aborts with `unordered_map::at`** when
+  a category contains zero events – a routine situation in credit data.
+  The positive-count map only gained a key for categories with at least
+  one event, but was read with `.at()` in seven places.
+
+- **[`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md)
+  and the cutoff table now reject a missing target with a clear
+  message** naming the sample and the count, instead of failing deep
+  inside with `missing value where TRUE/FALSE needed`. The development
+  frame was already checked; samples passed through `validation =` were
+  not. The `NA` is rejected at the boundary rather than swept up with
+  `na.rm = TRUE`, which would have silently charged every
+  unknown-outcome row to the non-events and corrupted KS and AUC.
+
+#### `converged` now means the same thing everywhere
+
+The flag was effectively inverted in several engines: initialised
+`false` and set `true` only on a degenerate shortcut or an in-loop
+tolerance test, while the normal successful exit – reaching the
+bin-count target – set nothing. So ordinary well-binned features
+reported `FALSE` and only degenerate ones reported `TRUE`.
+
+- `dmiv` and `bb` (numerical) report `converged` on reaching the
+  bin-count target, matching the categorical `dmiv`, which already did.
+- `ir` (numerical) reports `converged` for the exact binning it produces
+  when a feature has two or fewer distinct values. **Every binary 0/1
+  feature previously reported `FALSE`** despite a correct result.
+- `dp`, `gmb`, `mba`, `sketch`, `cm` and `dmiv` (categorical) report
+  `converged` on every successful termination path, including the fast
+  paths that bypassed the flag entirely.
+
+The intended contract is now documented in
+`src/common/bin_structures.h`: `converged == true` means the algorithm
+reached a valid stopping state (tolerance met, monotonicity achieved, or
+the bin-count target reached); `false` means it exhausted
+`max_iterations`.
+
+#### Smaller items
+
+- **An unmeasured IV is no longer reported as an IV of zero.** With no
+  finite IV anywhere, [`summary()`](https://rdrr.io/r/base/summary.html)
+  printed `Total IV: 0.0000` and `IV Range: [Inf, -Inf]`, asserting “no
+  predictive power” about features that were never measured;
+  [`print()`](https://rdrr.io/r/base/print.html) on a `step_obwoe`
+  recipe printed `total IV=0.0000`. Both report `NA` with a note.
+  [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md)
+  failed with `attempt to select less than one element in get1index` and
+  `plot(type = "iv")` with `need finite 'xlim' values`; both now say
+  what is actually wrong.
+
+- **`sketch` (numerical) returns a `bin` label for a constant feature**,
+  so `summary$n_bins` is `1` instead of `NA`.
+
+- **`udt` (numerical) keeps WoE and IV finite with
+  `laplace_smoothing = 0`.** A bin holding no events gave `woe = -Inf`
+  and `iv = Inf`; both distributions are now floored with the
+  package-wide epsilon, so the parameter stays usable. Reachable only
+  through
+  [`ob_numerical_udt()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_udt.md)
+  directly –
+  [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md)
+  never forwards the argument.
+
 ## OptimalBinningWoE 1.13.2
 
 ### The fitted object now records how it was fitted

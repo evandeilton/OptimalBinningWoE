@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,6 +36,54 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.13.3" id="optimalbinningwoe-1133">OptimalBinningWoE 1.13.3<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1133"></a></h2>
+<div class="section level3">
+<h3 id="audit-fixes-1-13-3">Audit fixes (2026-08-21)<a class="anchor" aria-label="anchor" href="#audit-fixes-1-13-3"></a></h3>
+<p>Bug-fix release from a third internal audit, covering the WoE/IV return contract, the <code>converged</code> flag and the <code>max_bins</code> constraint across all 37 algorithm/type combinations. Every item below was reproduced before the fix and re-verified after it. The regression suite gained <code>tests/testthat/test-audit-regressions.R</code>, which fails on 1.13.2.</p>
+<div class="section level4">
+<h4 id="behavior-changes-read-before-upgrading-1-13-3">Behavior changes (read before upgrading)<a class="anchor" aria-label="anchor" href="#behavior-changes-read-before-upgrading-1-13-3"></a></h4>
+<ul><li>
+<p><strong><code>mdlp</code> (numerical), <code>gmb</code> and <code>fetb</code> (categorical) now honour <code>max_bins</code>.</strong> All three stopped on their own criterion and never re-checked the cap, so <code>max_bins = 5</code> returned 18, 11 and 10 bins respectively – silently, with no warning. All three roxygen blocks already documented <code>max_bins</code> as a hard constraint, so the code was wrong, not the documentation.</p>
+<p><strong>These three algorithms now produce different bins.</strong> For <code>mdlp</code> the returned partition is no longer the unconstrained MDL optimum when the cap binds: merging continues past the MDL stopping point, each step taking the pair with the smallest increase in MDL cost. <code>min_bins</code> is never violated to satisfy <code>max_bins</code>.</p>
+</li>
+<li><p><strong><code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> now refuses multiclass models instead of scoring them wrongly.</strong> A multinomial fit carries a bins x classes WoE matrix; the lookup linear-indexed it column-major and returned <strong>class 1’s WoE for every row</strong>, discarding the other classes with no error and no warning. It now stops with an actionable message. The per-class matrix is still in <code>$results</code> for callers that want to handle it themselves.</p></li>
+<li><p><strong><code>dmiv</code> now reports a numeric <code>total_iv</code></strong> where <code>summary$total_iv</code> was previously <code>NA</code> for every feature. Code that tested for that <code>NA</code> will see a number.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="corrected-values-1-13-3">Corrected values<a class="anchor" aria-label="anchor" href="#corrected-values-1-13-3"></a></h4>
+<ul><li>
+<p><strong>The categorical <code>sketch</code> engine computed every WoE against the wrong marginal.</strong> It passed <code>(total_neg, total_pos)</code> to helpers whose signature is <code>(total_pos, total_neg)</code>. On a random 8-category feature with no real signal, the reported IV was <strong>10.4021 against a true value of 0.0043</strong> – wrong by three orders of magnitude, and wrong in the direction that makes a useless variable look like the strongest predictor in the model. WoE deviated from <code>log((pos_i/TP)/(neg_i/TN))</code> by up to 2.7721; it is now within 0.0002.</p>
+<p>The identical defect was fixed in the numerical twin some releases ago and never replicated here. A numerical-vs-categorical parity test now covers every algorithm that has both variants, so this class of divergence cannot recur silently.</p>
+</li>
+<li><p><strong><code>dmiv</code> returns <code>iv</code> and <code>total_iv</code></strong> alongside the divergence measures it already reported. IV is computed from the smoothed class distributions rather than from <code>woe</code>, because the default <code>bin_method = "woe1"</code> is Zeng’s log-odds <code>ln((pos + 0.5)/(neg + 0.5))</code>, which differs from standard WoE by the constant <code>ln(TP/TN)</code>; deriving IV from it would be wrong.</p></li>
+<li><p><strong><code>cm</code> (categorical) exposes <code>total_iv</code> at top level</strong>, like the other 15 categorical engines, instead of only inside <code>metadata</code>. <code>metadata</code> is unchanged, so existing callers keep working.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="fixed-crashes-1-13-3">Fixed crashes<a class="anchor" aria-label="anchor" href="#fixed-crashes-1-13-3"></a></h4>
+<ul><li><p><strong><code>sab</code> (categorical) no longer aborts with <code>unordered_map::at</code></strong> when a category contains zero events – a routine situation in credit data. The positive-count map only gained a key for categories with at least one event, but was read with <code>.at()</code> in seven places.</p></li>
+<li><p><strong><code><a href="../reference/obwoe_scorecard.html">obwoe_scorecard()</a></code> and the cutoff table now reject a missing target with a clear message</strong> naming the sample and the count, instead of failing deep inside with <code>missing value where TRUE/FALSE needed</code>. The development frame was already checked; samples passed through <code>validation =</code> were not. The <code>NA</code> is rejected at the boundary rather than swept up with <code>na.rm = TRUE</code>, which would have silently charged every unknown-outcome row to the non-events and corrupted KS and AUC.</p></li>
+</ul></div>
+<div class="section level4">
+<h4 id="converged-now-means-the-same-thing-everywhere-1-13-3">
+<code>converged</code> now means the same thing everywhere<a class="anchor" aria-label="anchor" href="#converged-now-means-the-same-thing-everywhere-1-13-3"></a></h4>
+<p>The flag was effectively inverted in several engines: initialised <code>false</code> and set <code>true</code> only on a degenerate shortcut or an in-loop tolerance test, while the normal successful exit – reaching the bin-count target – set nothing. So ordinary well-binned features reported <code>FALSE</code> and only degenerate ones reported <code>TRUE</code>.</p>
+<ul><li>
+<code>dmiv</code> and <code>bb</code> (numerical) report <code>converged</code> on reaching the bin-count target, matching the categorical <code>dmiv</code>, which already did.</li>
+<li>
+<code>ir</code> (numerical) reports <code>converged</code> for the exact binning it produces when a feature has two or fewer distinct values. <strong>Every binary 0/1 feature previously reported <code>FALSE</code></strong> despite a correct result.</li>
+<li>
+<code>dp</code>, <code>gmb</code>, <code>mba</code>, <code>sketch</code>, <code>cm</code> and <code>dmiv</code> (categorical) report <code>converged</code> on every successful termination path, including the fast paths that bypassed the flag entirely.</li>
+</ul><p>The intended contract is now documented in <code>src/common/bin_structures.h</code>: <code>converged == true</code> means the algorithm reached a valid stopping state (tolerance met, monotonicity achieved, or the bin-count target reached); <code>false</code> means it exhausted <code>max_iterations</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="smaller-items-1-13-3">Smaller items<a class="anchor" aria-label="anchor" href="#smaller-items-1-13-3"></a></h4>
+<ul><li><p><strong>An unmeasured IV is no longer reported as an IV of zero.</strong> With no finite IV anywhere, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> printed <code>Total IV: 0.0000</code> and <code>IV Range: [Inf, -Inf]</code>, asserting “no predictive power” about features that were never measured; <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> on a <code>step_obwoe</code> recipe printed <code>total IV=0.0000</code>. Both report <code>NA</code> with a note. <code><a href="../reference/obwoe_gains.html">obwoe_gains()</a></code> failed with <code>attempt to select less than one element in get1index</code> and <code>plot(type = "iv")</code> with <code>need finite 'xlim' values</code>; both now say what is actually wrong.</p></li>
+<li><p><strong><code>sketch</code> (numerical) returns a <code>bin</code> label for a constant feature</strong>, so <code>summary$n_bins</code> is <code>1</code> instead of <code>NA</code>.</p></li>
+<li><p><strong><code>udt</code> (numerical) keeps WoE and IV finite with <code>laplace_smoothing = 0</code>.</strong> A bin holding no events gave <code>woe = -Inf</code> and <code>iv = Inf</code>; both distributions are now floored with the package-wide epsilon, so the parameter stays usable. Reachable only through <code><a href="../reference/ob_numerical_udt.html">ob_numerical_udt()</a></code> directly – <code><a href="../reference/obwoe.html">obwoe()</a></code> never forwards the argument.</p></li>
+</ul></div>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.13.2" id="optimalbinningwoe-1132">OptimalBinningWoE 1.13.2<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1132"></a></h2>
 <div class="section level3">

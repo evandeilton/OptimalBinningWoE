@@ -345,9 +345,9 @@ cat("\nHigh cardinality example:\n")
 cat("  Original categories:", length(unique(cat_feature_hc)), "\n")
 #>   Original categories: 30 
 cat("  Final bins:", length(result_fetb_hc$bin), "\n")
-#>   Final bins: 18 
+#>   Final bins: 6 
 cat("  Iterations:", result_fetb_hc$iterations, "\n")
-#>   Iterations: 2 
+#>   Iterations: 15 
 
 # Check for rare category merging
 for (i in seq_along(result_fetb_hc$bin)) {
@@ -356,10 +356,11 @@ for (i in seq_along(result_fetb_hc$bin)) {
     cat("  Bin", i, "contains", n_merged, "merged categories\n")
   }
 }
-#>   Bin 1 contains 2 merged categories
-#>   Bin 2 contains 2 merged categories
-#>   Bin 4 contains 2 merged categories
-#>   Bin 9 contains 10 merged categories
+#>   Bin 1 contains 4 merged categories
+#>   Bin 2 contains 4 merged categories
+#>   Bin 4 contains 12 merged categories
+#>   Bin 5 contains 6 merged categories
+#>   Bin 6 contains 3 merged categories
 
 # Example 5: Missing value handling
 set.seed(456)

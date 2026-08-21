@@ -413,9 +413,9 @@ cat("\nMDLP Results:\n")
 #> 
 #> MDLP Results:
 print(result_mdlp$summary)
-#>   feature      type algorithm n_bins    total_iv converged iterations error
-#> 1     age numerical      mdlp      3 0.003789335      TRUE         17 FALSE
-#> 2  income numerical      mdlp      3 0.009144267      TRUE         17 FALSE
+#>   feature      type algorithm n_bins   total_iv converged iterations error
+#> 1     age numerical      mdlp      3 0.01069822      TRUE          8 FALSE
+#> 2  income numerical      mdlp      3 0.02047466      TRUE          7 FALSE
 
 # =============================================================================
 # Example 3: Custom Control Parameters
@@ -461,8 +461,8 @@ cat("\nAlgorithm Comparison (IV for 'income'):\n")
 #> 
 #> Algorithm Comparison (IV for 'income'):
 print(sort(iv_comparison, decreasing = TRUE))
-#>         jedi         mdlp          ewb          mob 
-#> 0.0092022973 0.0091442671 0.0028174937 0.0003402702 
+#>         jedi          ewb         mdlp          mob 
+#> 0.0092022973 0.0028174937 0.0003402702 0.0003402702 
 
 # =============================================================================
 # Example 5: Feature Selection Based on IV
