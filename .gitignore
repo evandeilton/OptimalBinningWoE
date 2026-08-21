@@ -17,3 +17,8 @@ src/**/*.o
 # Dropbox conflict copies must never reach src/ (R CMD build would compile them)
 *Cópia em conflito*
 *Conflicted copy*
+
+# JOSS paper draft: held back until the new CRAN release is out.
+# Remove this entry before submitting -- JOSS requires paper.md to be
+# present in the public repository at submission time.
+inst/paper/
