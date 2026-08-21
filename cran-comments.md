@@ -1,4 +1,4 @@
-# CRAN Submission Comments — OptimalBinningWoE 1.13.2
+# CRAN Submission Comments — OptimalBinningWoE 1.13.3
 
 ## Summary
 
@@ -10,7 +10,7 @@ number of previously-wrong computed values now compute correctly — each one
 flagged in `NEWS.md` where the corrected value differs from what a caller may
 already have worked around.
 
-Four waves are included:
+Five waves are included:
 
 * **1.12.0** — `obwoe_select()`, automated variable screening by Information
   Value strength and bin ordering, and `obwoe_sql()`, generation of the
@@ -33,13 +33,23 @@ Four waves are included:
   silent defect rather than adding a feature: a model fitted with a custom
   `bin_separator` previously mis-scored most of its own training rows and
   emitted structurally broken SQL, with no error and no warning.
+* **1.13.3** — Third audit pass, covering the WoE/IV return contract, the
+  `converged` flag and the `max_bins` constraint across all 37 algorithm/type
+  combinations. The material item is a numerical correctness fix: the
+  categorical `sketch` engine computed WoE against the wrong marginal,
+  overstating Information Value by three orders of magnitude. Three
+  algorithms (`mdlp`, `gmb`, `fetb`) silently ignored the documented
+  `max_bins` and now honour it, which changes the bins they return;
+  `obwoe_apply()` now refuses multinomial models instead of scoring every row
+  with class 1's WoE. Both are called out at the top of the `NEWS.md`
+  section.
 
 The full list is in `NEWS.md`, with behavior changes called out at the top of
 each section.
 
 ### Note on the version jump
 
-The last version accepted on CRAN is 1.0.8; this submission is 1.13.2. The
+The last version accepted on CRAN is 1.0.8; this submission is 1.13.3. The
 intermediate versions were developed and used outside CRAN while the
 package's scope grew substantially (the scorecard pipeline, SQL code
 generation, `tidymodels` integration via `step_obwoe()`), and were never
@@ -62,9 +72,9 @@ tarball with vignettes:
 ```
 
 Tests, examples (including `--run-donttest`) and both vignettes build and run
-cleanly. The test suite is 1933 assertions, all passing, with no warnings.
+cleanly. The test suite is 1998 assertions, all passing, with no warnings.
 
-**NOTE 1 — `Version jumps in minor (submitted: 1.13.2, existing: 1.0.8)`.**
+**NOTE 1 — `Version jumps in minor (submitted: 1.13.3, existing: 1.0.8)`.**
 Expected; explained above.
 
 **NOTE 2 — `checking HTML version of manual`.** The check machine has no
