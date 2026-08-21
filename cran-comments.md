@@ -58,7 +58,7 @@ x86_64-pc-linux-gnu, R 4.6.x, GCC, `R CMD check --as-cran` on the built
 tarball with vignettes:
 
 ```
-0 errors | 0 warnings | 3 notes
+0 errors | 0 warnings | 2 notes
 ```
 
 Tests, examples (including `--run-donttest`) and both vignettes build and run
@@ -71,18 +71,14 @@ Expected; explained above.
 `tidy` binary and no `V8` package, so HTML validation and math rendering were
 skipped. This is a property of the machine, not of the package.
 
-**NOTE 3 — `Found the following hidden files and directories: .git`.** This
-one is an artifact of how the tarball above was built and will not appear in
-the submission tarball. It was built from a `git worktree`, where `.git` is
-an 88-byte *file* pointing at the real git directory:
-
-```
-gitdir: /.../OptimalBinningWoE/.git/worktrees/src-main
-```
-
-`R CMD build` skips a `.git` *directory* automatically, but not a file of
-that name, so the pointer was packaged. Building from an ordinary clone —
-where `.git` is a directory — does not produce this note.
+A third note, `Found the following hidden files and directories: .git`,
+appeared in an earlier run of this check and has been eliminated. It was an
+artifact of building the tarball from a `git worktree`, where `.git` is a
+small *file* pointing at the real git directory rather than a directory
+itself. `R CMD build` skips a `.git` directory automatically but not a file
+of that name, so the pointer was packaged. `.Rbuildignore` now carries
+`^\.git$`, which excludes it either way, and a rebuild from the same
+worktree confirms it is gone.
 
 ### INFO — installed size
 
