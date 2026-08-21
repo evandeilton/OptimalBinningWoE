@@ -1077,16 +1077,26 @@ summary.obwoe <- function(object, sort_by = "iv", decreasing = TRUE, ...) {
     ivs <- successful$total_iv
     bins <- successful$n_bins
 
+    # na.rm = TRUE is right for a partially-observed vector, but wrong when
+    # nothing was observed at all: it turns "IV was never measured" into
+    # sum = 0, mean = NaN and range = [Inf, -Inf], asserting "no predictive
+    # power" about features that simply have no IV recorded. Report NA instead.
+    has_iv <- any(is.finite(ivs))
+
     aggregate <- list(
       n_features = nrow(summ),
       n_successful = nrow(successful),
       n_errors = sum(summ$error),
-      total_iv_sum = sum(ivs, na.rm = TRUE),
-      mean_iv = mean(ivs, na.rm = TRUE),
-      median_iv = median(ivs, na.rm = TRUE),
-      sd_iv = sd(ivs, na.rm = TRUE),
-      mean_bins = mean(bins, na.rm = TRUE),
-      iv_range = c(min = min(ivs, na.rm = TRUE), max = max(ivs, na.rm = TRUE))
+      total_iv_sum = if (has_iv) sum(ivs, na.rm = TRUE) else NA_real_,
+      mean_iv = if (has_iv) mean(ivs, na.rm = TRUE) else NA_real_,
+      median_iv = if (has_iv) median(ivs, na.rm = TRUE) else NA_real_,
+      sd_iv = if (has_iv) sd(ivs, na.rm = TRUE) else NA_real_,
+      mean_bins = if (any(is.finite(bins))) mean(bins, na.rm = TRUE) else NA_real_,
+      iv_range = if (has_iv) {
+        c(min = min(ivs, na.rm = TRUE), max = max(ivs, na.rm = TRUE))
+      } else {
+        c(min = NA_real_, max = NA_real_)
+      }
     )
   } else {
     aggregate <- list(
@@ -1136,17 +1146,28 @@ print.summary.obwoe <- function(x, ...) {
   ))
 
   if (x$aggregate$n_successful > 0) {
-    cat(sprintf("  Total IV: %.4f\n", x$aggregate$total_iv_sum))
-    cat(sprintf(
-      "  Mean IV: %.4f (SD: %.4f)\n",
-      x$aggregate$mean_iv, x$aggregate$sd_iv
-    ))
-    cat(sprintf("  Median IV: %.4f\n", x$aggregate$median_iv))
-    cat(sprintf(
-      "  IV Range: [%.4f, %.4f]\n",
-      x$aggregate$iv_range["min"], x$aggregate$iv_range["max"]
-    ))
-    cat(sprintf("  Mean Bins: %.1f\n", x$aggregate$mean_bins))
+    if (is.na(x$aggregate$total_iv_sum)) {
+      cat("  Total IV: NA\n")
+      cat("  Note: no Information Value was reported for any feature, so the\n")
+      cat("        IV statistics are unavailable. This is not the same as an\n")
+      cat("        IV of zero -- nothing was measured.\n")
+    } else {
+      cat(sprintf("  Total IV: %.4f\n", x$aggregate$total_iv_sum))
+      cat(sprintf(
+        "  Mean IV: %.4f (SD: %.4f)\n",
+        x$aggregate$mean_iv, x$aggregate$sd_iv
+      ))
+      cat(sprintf("  Median IV: %.4f\n", x$aggregate$median_iv))
+      cat(sprintf(
+        "  IV Range: [%.4f, %.4f]\n",
+        x$aggregate$iv_range["min"], x$aggregate$iv_range["max"]
+      ))
+    }
+    if (is.na(x$aggregate$mean_bins)) {
+      cat("  Mean Bins: NA\n")
+    } else {
+      cat(sprintf("  Mean Bins: %.1f\n", x$aggregate$mean_bins))
+    }
   }
 
   # IV distribution
@@ -1275,6 +1296,17 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 
 #' @keywords internal
 .plot_iv_ranking <- function(summ, top_n, show_threshold, ...) {
+  # With no finite IV anywhere, max(..., na.rm = TRUE) is -Inf and barplot()
+  # dies on "need finite 'xlim' values". Say what is actually wrong instead.
+  if (!any(is.finite(summ$total_iv))) {
+    message(
+      "No finite Information Value is available for any feature, so the IV ",
+      "ranking cannot be plotted. Check summary(fit) for features that ",
+      "errored, or refit with an algorithm that reports IV."
+    )
+    return(invisible(NULL))
+  }
+
   # Sort by IV
   summ <- summ[order(summ$total_iv, decreasing = TRUE), ]
 
@@ -2100,6 +2132,16 @@ obwoe_gains <- function(obj,
     if (is.null(feature)) {
       # Default: Select the feature with the highest Total IV
       summ <- obj$summary[!obj$summary$error, ]
+      # which.max() on an all-NA column returns integer(0), which indexes to
+      # character(0) and only fails much later with an opaque
+      # "attempt to select less than one element in get1index" error.
+      if (nrow(summ) == 0L || !any(is.finite(summ$total_iv))) {
+        stop(
+          "Cannot pick a feature automatically: no successfully binned feature ",
+          "has a finite Information Value. Pass 'feature' explicitly, or check ",
+          "summary(obj) to see which features errored."
+        )
+      }
       feature <- summ$feature[which.max(summ$total_iv)]
     }
 
