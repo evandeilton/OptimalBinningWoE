@@ -416,6 +416,59 @@ private:
     // leaves converged == false.
     converged = converged || (static_cast<int>(bins.size()) <= max_bins);
   }
+
+  // Enforce max_bins as a hard post-condition.
+  //
+  // greedyMerge() can stop on its IV-change tolerance before the bin count
+  // reaches max_bins, leaving more bins than the caller asked for (11 against
+  // max_bins = 5 on a 12-category feature). max_bins is a documented
+  // user-facing parameter, so once the greedy rule has had its say we keep
+  // merging by the algorithm's own criterion -- the adjacent pair whose merge
+  // leaves the highest total IV, i.e. the least-IV-loss merge -- until the cap
+  // is met.
+  //
+  // This does not conflict with GMB's monotonicity guarantee: ensureMonotonicity()
+  // runs after this, and merging adjacent bins in an event-rate-sorted list can
+  // only remove monotonicity violations, never introduce them.
+  //
+  // min_bins still wins: we never merge below it.
+  void enforceMaxBins() {
+    while (static_cast<int>(bins.size()) > max_bins &&
+           static_cast<int>(bins.size()) > min_bins &&
+           bins.size() > 1) {
+      double best_score = NEG_INFINITY;
+      size_t best_index = 0;
+
+      for (size_t i = 0; i + 1 < bins.size(); ++i) {
+        CategoricalBin merged_bin;
+        merged_bin.merge_with(bins[i]);
+        merged_bin.merge_with(bins[i + 1]);
+        merged_bin.calculate_metrics(total_pos, total_neg);
+
+        std::vector<CategoricalBin> temp_bins;
+        temp_bins.reserve(bins.size() - 1);
+        temp_bins.insert(temp_bins.end(), bins.begin(), bins.begin() + i);
+        temp_bins.push_back(merged_bin);
+        if (i + 2 < bins.size()) {
+          temp_bins.insert(temp_bins.end(), bins.begin() + i + 2, bins.end());
+        }
+
+        double score = calculateIV(temp_bins);
+        if (std::isfinite(score) && score > best_score) {
+          best_score = score;
+          best_index = i;
+        }
+      }
+
+      bins[best_index].merge_with(bins[best_index + 1]);
+      bins[best_index].calculate_metrics(total_pos, total_neg);
+      bins.erase(bins.begin() + best_index + 1);
+
+      iv_cache->invalidate_row(best_index);
+      iv_cache->resize(bins.size());
+      iterations_run++;
+    }
+  }
   
   // Enhanced monotonicity enforcement with gradient relaxation
   void ensureMonotonicity() {
@@ -531,7 +584,11 @@ public:
     
     // Greedy merging
     greedyMerge();
-    
+
+    // Enforce the caller's bin budget: the greedy rule's own tolerance does
+    // not guarantee bins.size() <= max_bins.
+    enforceMaxBins();
+
     // Monotonicity enforcement
     ensureMonotonicity();
     
