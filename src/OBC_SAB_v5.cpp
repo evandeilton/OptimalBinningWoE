@@ -97,9 +97,9 @@ private:
     // Count per category
     for (size_t i = 0; i < feature.size(); ++i) {
       category_counts[feature[i]]++;
-      if (target[i] == 1) {
-        positive_counts[feature[i]]++;
-      }
+      // Touch the key unconditionally so categories with zero events still have an
+      // entry; the .at() lookups below would otherwise throw for them.
+      positive_counts[feature[i]] += (target[i] == 1) ? 1 : 0;
     }
     
     int n_categories = static_cast<int>(unique_categories.size());
