@@ -986,6 +986,9 @@ private:
       Rcpp::Named("count_neg") = counts_neg,
       Rcpp::Named("converged") = converged,
       Rcpp::Named("iterations") = iterations_run,
+      // Exposed at top level like every other categorical algorithm. It stays
+      // in `metadata` as well, so callers reading it from there keep working.
+      Rcpp::Named("total_iv") = total_iv,
       Rcpp::Named("algorithm") = use_chi2_algorithm ? "Chi2" : "ChiMerge",
       Rcpp::Named("warnings") = warnings,
       Rcpp::Named("metadata") = Rcpp::List::create(

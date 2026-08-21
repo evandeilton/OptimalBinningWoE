@@ -1187,8 +1187,14 @@ Rcpp::List optimal_binning_numerical_sketch(
     double woe = utils::safe_log(prop_event / prop_non_event);
     double iv = (prop_event - prop_non_event) * woe;
     
+    // A "bin" label is required: obwoe() derives n_bins from length(result$bin)
+    // and reported NA for this path, which returned bin_lower/bin_upper only.
+    // The single bin covers the whole line, which is exactly what every sibling
+    // algorithm labels "(-Inf;+Inf]" for a constant feature. bin_lower and
+    // bin_upper keep their existing values for backward compatibility.
     return Rcpp::List::create(
       Named("id") = NumericVector::create(1),
+      Named("bin") = CharacterVector::create("(-Inf;+Inf]"),
       Named("bin_lower") = NumericVector::create(min_val),
       Named("bin_upper") = NumericVector::create(max_val),
       Named("woe") = NumericVector::create(woe),
@@ -1196,6 +1202,7 @@ Rcpp::List optimal_binning_numerical_sketch(
       Named("count") = IntegerVector::create(total_count),
       Named("count_pos") = IntegerVector::create(count_pos),
       Named("count_neg") = IntegerVector::create(count_neg),
+      Named("total_iv") = iv,
       Named("cutpoints") = NumericVector::create(),
       Named("converged") = true,
       Named("iterations") = 0);
