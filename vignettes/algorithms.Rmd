@@ -1,0 +1,421 @@
+---
+title: "Algorithm Reference: the 37 Binning Engines"
+author: "José Evandeilton Lopes"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{Algorithm Reference: the 37 Binning Engines}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
+)
+options(width = 100, digits = 4)
+```
+
+```{r libs}
+library(OptimalBinningWoE)
+```
+
+## What this covers
+
+The package ships **28 algorithms** covering **37 algorithm/feature-type
+combinations**: 21 work on numerical features, 16 on categorical ones, and 9
+handle both. This vignette is the reference for choosing among them and for
+knowing what each one actually does — including where an algorithm's name does
+not describe its implementation, which is true more often than one would like.
+
+Every algorithm is also documented individually on its own help page. What you
+get here that you do not get there is the comparison: coverage, families,
+measured cost, and the handful of cross-cutting behaviours that only become
+visible when the engines are placed side by side.
+
+```{r registry}
+alg <- obwoe_algorithms()
+c(algorithms = nrow(alg),
+  numerical = sum(alg$numerical),
+  categorical = sum(alg$categorical),
+  both = sum(alg$numerical & alg$categorical),
+  multinomial = sum(alg$multinomial))
+```
+
+## Two ways to run an algorithm
+
+**Through `obwoe()`**, which detects feature types, dispatches, and returns a
+model object that the rest of the package understands:
+
+```{r via-obwoe}
+data_path <- system.file("extdata", "germancredit.csv.gz",
+                         package = "OptimalBinningWoE")
+gc_data <- utils::read.csv(gzfile(data_path), stringsAsFactors = FALSE)
+gc_data$target <- as.integer(1L - gc_data$credit_risk)
+gc_data$credit_risk <- NULL
+
+fit <- obwoe(gc_data, target = "target", feature = c("duration", "purpose"),
+             algorithm = "jedi", min_bins = 2, max_bins = 5)
+fit$summary[, c("feature", "type", "algorithm", "n_bins", "total_iv")]
+```
+
+**Or by calling the engine directly**, which returns a plain list for a single
+feature and no model object:
+
+```{r via-wrapper}
+direct <- ob_numerical_jedi(target = gc_data$target,
+                            feature = gc_data$duration,
+                            min_bins = 2, max_bins = 5)
+data.frame(bin = direct$bin, count = direct$count,
+           woe = round(direct$woe, 4), iv = round(direct$iv, 4))
+```
+
+### `obwoe()` does not forward algorithm-specific parameters
+
+This is the one thing worth knowing before reading the rest. `obwoe()` builds a
+fixed argument list — `min_bins`, `max_bins`, `bin_cutoff`, `max_n_prebins`,
+`convergence_threshold`, `max_iterations`, and `bin_separator` for categorical
+features — and passes nothing else. An algorithm's own parameters are **not**
+reachable through it, and passing them via `control.obwoe()` fails **silently**:
+
+```{r forwarding}
+via_obwoe <- obwoe(gc_data, target = "target", feature = "duration",
+                   algorithm = "dmiv",
+                   control = control.obwoe(divergence_method = "kl"))
+direct_dmiv <- ob_numerical_dmiv(target = gc_data$target,
+                                 feature = gc_data$duration,
+                                 divergence_method = "kl")
+
+c(`through obwoe()` = via_obwoe$results$duration$divergence_method,
+  `direct wrapper`  = direct_dmiv$divergence_method)
+```
+
+The request is dropped without a warning. **If you need an algorithm-specific
+parameter, call the engine directly.** The table in each reference entry below
+lists which parameters that applies to; an algorithm with no own parameters is
+fully configurable through `obwoe()`.
+
+## Coverage
+
+```{r coverage}
+coverage <- alg
+coverage$feature_types <- ifelse(coverage$numerical & coverage$categorical, "both",
+                     ifelse(coverage$numerical, "numerical", "categorical"))
+coverage$target <- ifelse(coverage$multinomial, "binary + multinomial", "binary")
+coverage[order(coverage$feature_types, coverage$algorithm),
+         c("algorithm", "feature_types", "target")]
+```
+
+`jedi_mwoe` is the only engine that accepts a multinomial target. With more than
+two classes `obwoe(algorithm = "auto")` resolves to it automatically; every other
+algorithm requires a binary 0/1 target.
+
+## Choosing an algorithm
+
+`algorithm = "auto"` resolves to `jedi` for a binary target and `jedi_mwoe` for a
+multinomial one. It is a fixed alias, not a search: it does not try several
+engines and pick a winner.
+
+That default is a reasonable one. On German Credit with five-fold held-out IV,
+`jedi` is within one standard error of the best available engine on 18 of 20
+variables — so for most variables the choice of algorithm is worth close to
+nothing, and the effort is better spent elsewhere. Where it does matter, it
+tends to matter on continuous variables with a long tail.
+
+Start from the constraint that actually binds:
+
+| If you need | Reach for |
+|---|---|
+| A sound general default | `jedi` |
+| A multinomial target | `jedi_mwoe` (the only option) |
+| Monotonic WoE as a hard requirement | `mob`, `ir`, `mrblp`, `mba`, `gmb` |
+| The bin count chosen for you | `mdlp`, `fast_mdlp` |
+| A statistical stopping rule | `cm` (chi-square), `fetb` (Fisher exact) |
+| The IV-optimal partition under constraints | `dp`, `ivb` |
+| High-cardinality categoricals | `sblp`, `swb`, `sketch` |
+| Streaming or out-of-core data | `sketch` |
+| An unsupervised baseline | `ewb`, `kmb`, `ubsd` |
+
+## Reference
+
+Each entry gives what the engine does, the function to call it directly, the
+feature types it accepts, and its own parameters — the ones `obwoe()` cannot
+reach.
+
+### Information-theoretic
+
+These optimise entropy, information gain, or a divergence between the class
+distributions.
+
+**`jedi`** — Joint Entropy-Driven Interval discretization. Quantile
+initialisation followed by merging that balances entropy reduction against
+statistical stability. The package default and a sound general-purpose choice.
+`ob_numerical_jedi()`, `ob_categorical_jedi()`. Both types. No own parameters.
+
+**`jedi_mwoe`** — the JEDI framework extended to multinomial Weight of Evidence.
+The only engine that accepts a target with more than two classes.
+`ob_numerical_jedi_mwoe()`, `ob_categorical_jedi_mwoe()`. Both types. No own
+parameters. Its `woe` and `iv` are matrices with one column per class, not
+vectors — see the caveats section.
+
+**`mdlp`** — Minimum Description Length Principle. Balances the cost of
+describing the model against the cost of describing the data, so it chooses the
+number of bins itself rather than taking it from you. `ob_numerical_mdlp()`.
+Numerical. Own parameter: `laplace_smoothing`.
+
+**`fast_mdlp`** — MDLP with optional WoE monotonicity constraints, optimised for
+speed. `ob_numerical_fast_mdlp()`. Numerical. Own parameter:
+`force_monotonicity`.
+
+**`dmiv`** — divergence-based hierarchical merging following Zeng (2013).
+Maximises a chosen divergence between the class distributions rather than IV.
+`ob_numerical_dmiv()`, `ob_categorical_dmiv()`. Both types. Own parameters:
+`divergence_method` (`"l2"`, `"kl"`, `"js"`, `"he"`, and others),
+`bin_method`, and `is_monotonic` on the numerical side. **Its default
+`bin_method = "woe1"` is not standard WoE** — see the caveats section.
+
+**`ivb`** — dynamic programming that maximises total IV exactly, with Bayesian
+smoothing for stability. `ob_categorical_ivb()`. Categorical. No own parameters.
+
+**`udt`** — information gain identifies the most informative split points, then
+bottom-up merging satisfies the frequency, monotonicity and bin-count
+constraints. Despite being called a "User-Defined Technique", and historically
+"Unsupervised Decision Tree", it is fully supervised. `ob_numerical_udt()`,
+`ob_categorical_udt()`. Both types. Own parameters on the numerical side:
+`laplace_smoothing`, `monotonicity_direction`.
+
+### Statistical merging
+
+These merge neighbouring bins until a hypothesis test says the remaining ones
+are meaningfully different.
+
+**`cm`** — ChiMerge (Kerber, 1992), with the optional Chi2 extension (Liu &
+Setiono, 1995). Merges adjacent bins whose chi-square statistic indicates no
+significant difference. `ob_numerical_cm()`, `ob_categorical_cm()`. Both types.
+Own parameters: `chi_merge_threshold`, `use_chi2_algorithm`, plus `init_method`
+on the numerical side. Note that `obwoe()` cannot reach `use_chi2_algorithm`, so
+through the main interface `cm` is always ChiMerge.
+
+**`fetb`** — Fisher's Exact Test as the merge criterion, merging the pair with
+the highest p-value. Exact rather than asymptotic, so it stays valid in sparse
+bins where chi-square does not. `ob_numerical_fetb()`, `ob_categorical_fetb()`.
+Both types. No own parameters.
+
+**`mob`** — Monotonic Optimal Binning. Enforces strictly monotonic WoE, which is
+a regulatory requirement in several credit-scoring contexts.
+`ob_numerical_mob()`, `ob_categorical_mob()`. Both types. Own parameter on the
+numerical side: `laplace_smoothing`.
+
+### Shape-constrained
+
+These treat monotonicity as the primary constraint.
+
+**`ir`** — Isotonic regression by the Pool Adjacent Violators Algorithm.
+Guarantees a monotonic relationship between bin index and event rate.
+`ob_numerical_ir()`. Numerical. Own parameter: `auto_monotonicity`.
+
+**`mrblp`** — greedy monotonic binning with majority-vote direction detection.
+The package's own documentation notes that, despite "Likelihood Ratio
+Pre-binning" in the name, it uses equal-frequency pre-binning.
+`ob_numerical_mrblp()`. Numerical. Own parameter: `laplace_smoothing`.
+
+**`mblp`** — greedy monotonic binning with guaranteed WoE monotonicity. Despite
+the "Linear Programming" in its name it is an iterative heuristic over quantile
+pre-bins, not an LP. `ob_numerical_mblp()`. Numerical. Own parameter:
+`force_monotonic_direction`.
+
+**`oslp`** — quantile pre-binning plus monotonicity enforcement. As with `mblp`,
+the "LP" in the name does not correspond to any linear programme.
+`ob_numerical_oslp()`. Numerical. Own parameter: `laplace_smoothing`.
+
+**`gmb`** — greedy bottom-up merging that maximises total IV, with Bayesian
+smoothing. `ob_categorical_gmb()`. Categorical. No own parameters.
+
+**`mba`** — Monotonic Binning Algorithm: enforces strict WoE monotonicity while
+optimising IV. `ob_categorical_mba()`. Categorical. No own parameters.
+
+**`swb`** — Sliding Window Binning. Frequency-threshold grouping followed by
+iterative optimisation toward monotonicity. `ob_categorical_swb()`. Categorical.
+No own parameters.
+
+### Combinatorial and dynamic programming
+
+**`dp`** — dynamic programming over the ordered bins, maximising total IV under
+the bin-count constraint, with optional monotonic trend enforcement.
+`ob_numerical_dp()`, `ob_categorical_dp()`. Both types. Own parameter:
+`monotonic_trend` (`"auto"`, `"ascending"`, `"descending"`, `"none"`).
+
+**`bb`** — a branch-and-bound-style search over candidate partitions.
+`ob_numerical_bb()`. Numerical. Own parameter: `is_monotonic`.
+
+**`milp`** — despite the name, this is a heuristic merge that maximises IV under
+a monotonicity constraint; it does not build or solve a mixed-integer programme.
+The package's own documentation says so. `ob_categorical_milp()`. Categorical.
+No own parameters.
+
+**`sblp`** — Similarity-Based Logistic Partitioning. Sorts categories by event
+rate, then partitions by dynamic programming. Well suited to high-cardinality
+categoricals, where sorting by event rate imposes a meaningful order on levels
+that have none. `ob_categorical_sblp()`. Categorical. Own parameter: `alpha`.
+
+### Density-based
+
+**`ldb`** — Local Density Binning. Kernel density estimation locates natural
+low-density regions to place cut points. `ob_numerical_ldb()`. Numerical. Own
+parameter: `enforce_monotonic`.
+
+**`lpdb`** — density estimation plus information-theoretic optimisation, placing
+boundaries at critical points of the estimated density curve.
+`ob_numerical_lpdb()`. Numerical. Own parameters: `polynomial_degree`,
+`enforce_monotonic`.
+
+### Unsupervised initialisation, supervised refinement
+
+These start from the feature's own distribution and then optimise against the
+target. They are useful as baselines and when the target is very sparse.
+
+**`ewb`** — equal-width initialisation followed by supervised IV optimisation.
+`ob_numerical_ewb()`. Numerical. Own parameter: `is_monotonic`.
+
+**`kmb`** — k-means-inspired initialisation: centroids placed across the range,
+cuts at the midpoints, then supervised refinement. `ob_numerical_kmb()`.
+Numerical. Own parameter: `enforce_monotonic`.
+
+**`ubsd`** — initialises from the mean and standard deviation, then refines with
+WoE and IV. `ob_numerical_ubsd()`. Numerical. Own parameter: `laplace_smoothing`.
+
+### Streaming
+
+**`sketch`** — the only engine built on a fundamentally different computational
+model. The numerical variant uses a KLL sketch (Karnin, Lang & Liberty, 2016)
+for approximate quantiles; the categorical variant uses a Count-Min sketch for
+category frequencies. Both trade exactness for bounded memory, which is what
+makes them the right choice for streaming or out-of-core data.
+`ob_numerical_sketch()`, `ob_categorical_sketch()`. Both types. Own parameters:
+`sketch_k` and `monotonic` on the numerical side, `sketch_width` and
+`sketch_depth` on the categorical side.
+
+### Metaheuristic
+
+**`sab`** — simulated annealing over category-to-bin assignments, maximising IV
+under a monotonicity constraint. `ob_categorical_sab()`. Categorical. Own
+parameters: `initial_temperature`, `cooling_rate`, `adaptive_cooling`. Its
+search is seeded from R's RNG stream, so `set.seed()` makes it reproducible.
+
+## Measured behaviour
+
+All 37 combinations on the bundled German Credit data, one numerical feature and
+one categorical feature, with identical constraints:
+
+```{r bench, results = "asis"}
+run_all <- function(feature, type) {
+  ids <- alg$algorithm[alg[[type]]]
+  out <- lapply(ids, function(a) {
+    r <- try(suppressWarnings(suppressMessages(
+      obwoe(gc_data, target = "target", feature = feature,
+            algorithm = a, min_bins = 2, max_bins = 5))), silent = TRUE)
+    if (inherits(r, "try-error") || r$summary$error) {
+      data.frame(algorithm = a, bins = NA_integer_, total_iv = NA_real_)
+    } else {
+      data.frame(algorithm = a, bins = r$summary$n_bins,
+                 total_iv = round(r$summary$total_iv, 4))
+    }
+  })
+  do.call(rbind, out)
+}
+
+num_res <- run_all("duration", "numerical")
+cat_res <- run_all("purpose", "categorical")
+knitr::kable(num_res[order(-num_res$total_iv), ], row.names = FALSE,
+             caption = "Numerical engines on `duration`")
+```
+
+```{r bench-cat, results = "asis"}
+knitr::kable(cat_res[order(-cat_res$total_iv), ], row.names = FALSE,
+             caption = "Categorical engines on `purpose`")
+```
+
+Read those tables as a sanity check, not as a ranking. IV measured on the same
+data that produced the bins rewards more bins automatically, and one variable
+cannot separate engines that differ by a few thousandths. A defensible
+comparison needs held-out data, which the package's cross-validation-free
+interface does not do for you.
+
+### Cost
+
+Every engine binned a 100,000-row numerical feature in under a quarter of a
+second, single-threaded, as of version 1.13.3:
+
+| Engine | Seconds | Engine | Seconds |
+|---|---|---|---|
+| `lpdb`, `ldb` | 0.018 | `kmb` | 0.031 |
+| `fetb`, `jedi` | 0.022 | `bb`, `cm` | 0.036 |
+| `ir` | 0.024 | `mrblp`, `udt` | 0.037 |
+| `jedi_mwoe` | 0.029 | `ewb` | 0.040 |
+| `mblp` | 0.048 | `sketch` | 0.050 |
+| `dp` | 0.055 | `fast_mdlp` | 0.066 |
+| `ubsd` | 0.069 | `mdlp` | 0.076 |
+| `mob` | 0.077 | `oslp` | 0.172 |
+| `dmiv` | 0.231 | | |
+
+Before 1.13.3 this table looked very different: `ldb`, `lpdb` and numerical
+`udt` scaled quadratically and took 10.7s, 10.7s and 7.4s at just 50,000 rows.
+They are now among the fastest engines in the package.
+
+## Cross-cutting caveats
+
+**Names do not always describe implementations.** `milp` is not a mixed-integer
+programme, `mblp` and `oslp` are not linear programmes, `mrblp` does not use
+likelihood-ratio pre-binning, and `udt` is not unsupervised. Each of these is
+documented on the algorithm's own help page; they are collected here so the
+family names in this vignette are not read as promises.
+
+**`dmiv` reports a non-standard WoE by default.** Its `bin_method` defaults to
+`"woe1"`, which is Zeng's log-odds `log((pos + 0.5)/(neg + 0.5))` rather than
+`log((pos_i/TP)/(neg_i/TN))`. The two differ by the constant `log(TP/TN)`, so IV
+is unaffected — the offset cancels in the sum — but the WoE values are not
+comparable with those from the other 27 engines, and a model fitted on them will
+have a different intercept. Pass `bin_method = "woe"` to the wrapper directly if
+you need the standard definition.
+
+**`jedi_mwoe` returns matrices, not vectors.** With a multinomial target, `woe`
+and `iv` carry one column per class. `summary$total_iv` sums across all classes,
+which is a number that has no counterpart in the binary case. `obwoe_apply()`
+refuses multinomial models rather than silently applying one class's WoE.
+
+**Stochastic engines are reproducible.** `sab`, `kmb` and `mba` involve random
+choices, but their generators are seeded from R's own RNG stream, so
+`set.seed()` fixes their output exactly.
+
+**`max_bins` is honoured by every engine as of 1.13.3.** Before that release,
+`mdlp`, `gmb` and `fetb` could silently exceed it — `mdlp` returned 18 bins
+against a cap of 5.
+
+**Pre-binning resolution is a modelling decision.** `max_n_prebins` runs before
+any of these engines sees the data, and its default of 20 can smear a heavy tail
+before optimisation begins. See `?control.obwoe`, which carries the measurements
+and the reason the default is nonetheless left alone.
+
+## References
+
+Kerber, R. (1992). ChiMerge: Discretization of numeric attributes. *AAAI-92*.
+
+Liu, H. & Setiono, R. (1995). Chi2: Feature selection and discretization of
+numeric attributes. *ICTAI-95*.
+
+Fayyad, U. & Irani, K. (1993). Multi-interval discretization of continuous-valued
+attributes for classification learning. *IJCAI-93*.
+
+Karnin, Z., Lang, K. & Liberty, E. (2016). Optimal quantile approximation in
+streams. *FOCS 2016*.
+
+Zeng, G. (2013). Metric divergence measures and information value in credit
+scoring. *Journal of Mathematics*.
+
+Siddiqi, N. (2006). *Credit Risk Scorecards*. Wiley.
