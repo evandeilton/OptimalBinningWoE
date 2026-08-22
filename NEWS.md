@@ -148,6 +148,24 @@ caller and never did local polynomial regression despite its name.
 
 ### Documentation
 
+*   **New vignette, `Algorithm Reference: the 37 Binning Engines`.** Reference
+    documentation for all 28 algorithms across their 37 algorithm/feature-type
+    combinations: what each engine does, the function that calls it directly,
+    the feature types it accepts, and the parameters that belong to it alone.
+
+    Three things it carries that the individual help pages cannot. First,
+    **`obwoe()` does not forward algorithm-specific parameters**, and passing
+    them through `control.obwoe()` fails silently — the vignette demonstrates
+    this live, showing `dmiv` keeping `divergence_method = "l2"` through
+    `obwoe()` while the direct wrapper honours `"kl"`. Second, it collects the
+    cases where **an algorithm's name does not describe its implementation**:
+    `milp` solves no mixed-integer programme, `mblp` and `oslp` no linear
+    programme, `mrblp` uses equal-frequency rather than likelihood-ratio
+    pre-binning, and `udt` is not unsupervised. Each is stated on its own help
+    page; gathering them stops the family names from reading as promises.
+    Third, measured cost for every engine on a 100,000-row feature.
+
+
 *   **`max_n_prebins` is documented as the modelling decision it is.** For
     numerical features, pre-binning runs before any algorithm sees the data, so
     the default of 20 quantile cells can smear a heavy tail and lose the signal
