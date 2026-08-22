@@ -68,9 +68,12 @@ ob_categorical_dmiv(
 
 - convergence_threshold:
 
-  Numeric. Convergence tolerance for the iterative merging process.
-  Merging stops when the change in minimum divergence between iterations
-  falls below this threshold. Must be \> 0. Defaults to 1e-6.
+  Numeric. Convergence tolerance for the iterative merging process. When
+  the change in minimum divergence between iterations falls below this
+  threshold, the fit is recorded as converged. It does not stop the
+  merging: `max_bins` is a hard constraint, so merging continues by the
+  same criterion until the bin count meets it. Must be \> 0. Defaults to
+  1e-6.
 
 - max_iterations:
 
@@ -322,7 +325,7 @@ result_prebin <- ob_categorical_dmiv(
 #> Info: Converged after 1 iterations (divergence change < threshold).
 
 cat("Final bins after pre-binning:", length(result_prebin$bin), "\n")
-#> Final bins after pre-binning: 49 
+#> Final bins after pre-binning: 5 
 cat("Algorithm converged:", result_prebin$converged, "\n")
 #> Algorithm converged: TRUE 
 # }

@@ -28,6 +28,7 @@ structures for credit scoring and binary classification tasks."><meta property="
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/introduction.html">Optimal Binning and Weight of Evidence: A Practical Guide</a></li>
     <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithms.html">Algorithm Reference: the 37 Binning Engines</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -116,9 +117,11 @@ when multiple categories are merged into a single bin. Defaults to "%;%".</p></d
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
 <dd><p>Numeric. Convergence tolerance for the
-iterative merging process. Merging stops when the change in minimum
-divergence between iterations falls below this threshold. Must be &gt; 0.
-Defaults to 1e-6.</p></dd>
+iterative merging process. When the change in minimum divergence between
+iterations falls below this threshold, the fit is recorded as converged.
+It does not stop the merging: <code>max_bins</code> is a hard constraint, so
+merging continues by the same criterion until the bin count meets it.
+Must be &gt; 0. Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -326,7 +329,7 @@ Credit Scoring. <em>Journal of Mathematics</em>, 2013, Article ID 848271.
 <span class="r-out co"><span class="r-pr">#&gt;</span> Info: Converged after 1 iterations (divergence change &lt; threshold).</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final bins after pre-binning:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_prebin</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Final bins after pre-binning: 49 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Final bins after pre-binning: 5 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Algorithm converged:"</span>, <span class="va">result_prebin</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Algorithm converged: TRUE </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
