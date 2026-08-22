@@ -46,9 +46,11 @@ categories are pre-merged into an "other" bin. Must be >= 2. Defaults to 20.}
 when multiple categories are merged into a single bin. Defaults to "\%;\%".}
 
 \item{convergence_threshold}{Numeric. Convergence tolerance for the
-iterative merging process. Merging stops when the change in minimum
-divergence between iterations falls below this threshold. Must be > 0.
-Defaults to 1e-6.}
+iterative merging process. When the change in minimum divergence between
+iterations falls below this threshold, the fit is recorded as converged.
+It does not stop the merging: \code{max_bins} is a hard constraint, so
+merging continues by the same criterion until the bin count meets it.
+Must be > 0. Defaults to 1e-6.}
 
 \item{max_iterations}{Integer. Maximum number of merge operations allowed.
 Prevents infinite loops in edge cases. Must be > 0. Defaults to 1000.}

@@ -181,6 +181,19 @@ caller and never did local polynomial regression despite its name.
     `max_bins` on a high-cardinality feature, at two values of `bin_cutoff`
     and two of `max_bins`.
 
+*   `?ob_categorical_dmiv` described `convergence_threshold` as stopping the
+    merging. It records convergence; `max_bins` is a hard constraint and
+    merging continues until the bin count meets it.
+
+*   `find_most_similar_bins()` now seeds its best pair with the first mergeable
+    one instead of `{0, 0}`. The search only replaces that seed on a strictly
+    smaller divergence, so a distance matrix that was entirely `double::max` --
+    or that held a `NaN`, against which every comparison is false -- would have
+    returned a pair naming the same bin twice, and merging a bin with itself
+    then erasing the duplicate would have dropped its observations. No input
+    reaching that state was found, so this closes a defensive gap rather than a
+    demonstrated defect.
+
 ### Fixed: categorical `mba` read past the end of its bin vector
 
 *   **`ob_categorical_mba()` performed an out-of-range read while reducing the

@@ -577,13 +577,22 @@ private:
    */
   std::pair<double, std::pair<size_t, size_t>> find_most_similar_bins() const {
     double min_divergence = std::numeric_limits<double>::max();
-    std::pair<size_t, size_t> best_pair = {0, 0}; // Default initialization
-    
+    // Seeded with the first mergeable pair rather than {0, 0}. The search below
+    // only replaces this on a strictly smaller divergence, so a matrix whose
+    // every entry is already double::max -- or holds a NaN, against which every
+    // comparison is false -- would otherwise leave the default in place and
+    // hand the caller a pair naming the same bin twice. Merging a bin with
+    // itself and then erasing the duplicate would drop its observations from
+    // the binning. No input reaching that state was found, so this closes a
+    // defensive gap rather than a demonstrated defect; {0, 1} is a valid merge
+    // in every case where this function is called at all.
+    std::pair<size_t, size_t> best_pair = {0, 1};
+
     const size_t n = bins.size();
     if (n < 2) {
-      return {min_divergence, best_pair}; // Cannot merge if less than 2 bins
+      return {min_divergence, {0, 0}}; // Cannot merge if less than 2 bins
     }
-    
+
     for (size_t i = 0; i < n; ++i) {
       // Only check upper triangle (j > i)
       for (size_t j = i + 1; j < n; ++j) {
@@ -593,7 +602,7 @@ private:
         }
       }
     }
-    
+
     return {min_divergence, best_pair};
   }
   
