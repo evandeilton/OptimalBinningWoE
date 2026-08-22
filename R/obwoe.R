@@ -21,6 +21,17 @@
 #' @param min_bins Integer specifying the minimum number of bins. Must satisfy
 #'   \eqn{2 \le} \code{min_bins} \eqn{\le} \code{max_bins}. Algorithms may
 #'   produce fewer bins if the data has insufficient unique values. Default is 2.
+#'
+#'   Read as a floor, but it frequently behaves as the binding constraint rather
+#'   than a safety net. Several algorithms stop merging as soon as their own
+#'   criterion is satisfied, which can be well before \code{max_bins}, so
+#'   \code{min_bins} ends up setting the partition. On the German Credit
+#'   \code{amount} variable with \code{max_bins = 5}, the default binning
+#'   returns two bins and an IV of 0.0016; requesting \code{min_bins = 4}
+#'   returns an IV of 0.0824 on the same data and the same algorithm. Raising it
+#'   is a legitimate way to ask for a finer partition, and worth trying when a
+#'   continuous predictor collapses to two bins under a larger
+#'   \code{max_bins}.
 #' @param max_bins Integer specifying the maximum number of bins. Controls the
 #'   granularity of discretization. Higher values capture more detail but risk
 #'   overfitting. Typical values range from 5 to 10 for credit scoring applications.
@@ -814,6 +825,35 @@ obwoe <- function(data,
 #' \strong{max_n_prebins}: Critical for categorical features with many levels.
 #' If a feature has 100 categories, setting \code{max_n_prebins = 20} will
 #' pre-merge similar categories into 20 groups before optimization.
+#'
+#' For \emph{numerical} features this parameter is a modelling decision, not an
+#' implementation detail, and the default of 20 is not neutral. Pre-binning runs
+#' before any algorithm sees the data, so a heavy-tailed variable whose signal
+#' sits in the upper tail can have that tail smeared across a single quantile
+#' cell and lost before optimization begins. The effect is silent: the fit
+#' reports \code{converged = TRUE} and no warning.
+#'
+#' Benchmarks on two open datasets (76,020 x 369 and 590,540 x 454, five-fold
+#' held-out IV, \code{min_bins} and \code{max_bins} held fixed) show the size
+#' of it. Raising \code{max_n_prebins} from 20 to 200 moved the median
+#' held-out IV of heavy-tailed numerical predictors by \strong{+129\%} and
+#' \strong{+39\%} respectively, while leaving discrete and categorical
+#' predictors untouched. The bin count barely moved, so this is the placement
+#' of cut points changing, not extra splits.
+#'
+#' It moves results in \strong{both} directions, which is why the default is
+#' left alone. On one of the two benchmarks, raising it improved the portfolio
+#' but cost 15\% of held-out IV on the twenty-five strongest predictors --
+#' exactly the ones a scorecard would keep -- while inflating IV on weak
+#' predictors no model would select. No cheap rule separated the two cases:
+#' gating on the tail ratio worked cleanly on one dataset and captured almost
+#' nothing on the other, and for roughly half of all predictors the default of
+#' 20 was already the best value tested.
+#'
+#' The practical advice is therefore per-variable rather than global: leave the
+#' default, and tune it against \emph{held-out} data for continuous predictors
+#' with a long tail. Tuning on in-sample IV will always favour more resolution
+#' and is not evidence of anything.
 #'
 #' \strong{convergence_threshold}: Trade-off between precision and speed.
 #' For exploratory analysis, \eqn{10^{-4}} is sufficient. For production
