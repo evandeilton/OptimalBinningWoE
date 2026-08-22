@@ -77,6 +77,43 @@
 </ul><p>The intended contract is now documented in <code>src/common/bin_structures.h</code>: <code>converged == true</code> means the algorithm reached a valid stopping state (tolerance met, monotonicity achieved, or the bin-count target reached); <code>false</code> means it exhausted <code>max_iterations</code>.</p>
 </div>
 <div class="section level4">
+<h4 id="three-algorithms-were-quadratic-in-the-number-of-rows-1-13-3">Three algorithms were quadratic in the number of rows<a class="anchor" aria-label="anchor" href="#three-algorithms-were-quadratic-in-the-number-of-rows-1-13-3"></a></h4>
+<p><code>lpdb</code>, <code>ldb</code> and numerical <code>udt</code> scaled as n^2.00, n^2.00 and n^2.30. A single variable with 10^6 rows would have taken <code>lpdb</code> roughly 72 minutes; measured against <code>jedi</code> at the same size they were 2,772x the median algorithm’s cost. Nothing warned about it.</p>
+<p>Two distinct causes, neither of them inherent to the methods:</p>
+<ul><li><p><strong><code>ldb</code> and <code>lpdb</code> estimated the density with a naive double loop</strong>, evaluating the Gaussian kernel of every observation against every other one. The same defect had been written twice, in two files, which is how it survived. It is replaced by the standard linear-binning estimator – the one R’s own <code><a href="https://rdrr.io/r/stats/density.html" class="external-link">density()</a></code> uses – which now lives once in <code>src/common/optimal_binning_common.h</code> so the two cannot diverge again.</p></li>
+<li><p><strong><code>udt</code> rescanned every observation once per candidate split</strong>, allocating two vectors and recomputing the parent entropy each time, giving O(u x n). Information gain depends only on integer counts, so a single sweep carrying running totals produces the identical value.</p></li>
+</ul><p>Measured at n = 50,000, against a build of the previous revision:</p>
+<table class="table"><thead><tr><th>algorithm</th>
+<th>before</th>
+<th>after</th>
+<th>speedup</th>
+</tr></thead><tbody><tr><td><code>ldb</code></td>
+<td>10.740s</td>
+<td>0.010s</td>
+<td>1074x</td>
+</tr><tr><td><code>lpdb</code></td>
+<td>10.725s</td>
+<td>0.011s</td>
+<td>975x</td>
+</tr><tr><td><code>udt</code></td>
+<td>7.354s</td>
+<td>0.019s</td>
+<td>387x</td>
+</tr></tbody></table><p>All three now scale linearly and land within a factor of two of <code>jedi</code>, the package default. At n = 400,000 they take 0.085s, 0.087s and 0.170s against <code>jedi</code>’s 0.103s – sizes the previous code could not reach at all.</p>
+<p><strong>Results.</strong> <code>udt</code> and <code>ldb</code> are bit-identical to the previous revision: <code>udt</code> by construction, and <code>ldb</code>’s local-minimum search resolves the grid estimate to the same cut points. Both are pinned by a new regression test.</p>
+<p><strong><code>lpdb</code> changes.</strong> It differentiates the density twice to find inflection points, and finite differences taken between adjacent observations are not the same thing as finite differences on a properly sampled curve. Its critical points are now located on the estimation grid. On German Credit the partitions generally improve – <code>duration</code> goes from 2 bins and IV 0.0923 to 5 bins and IV 0.2635, <code>age</code> from 2 bins and 0.0628 to 4 bins and 0.0781 – and no variable tested got materially worse. Anyone with a fitted <code>lpdb</code> model should expect different cut points.</p>
+<p>Also removed <code>OBN_LPDB::local_polynomial_density()</code>, which no longer had a caller and never did local polynomial regression despite its name.</p>
+</div>
+<div class="section level4">
+<h4 id="documentation-1-13-3">Documentation<a class="anchor" aria-label="anchor" href="#documentation-1-13-3"></a></h4>
+<ul><li>
+<p><strong><code>max_n_prebins</code> is documented as the modelling decision it is.</strong> For numerical features, pre-binning runs before any algorithm sees the data, so the default of 20 quantile cells can smear a heavy tail and lose the signal in it before optimization begins – silently, with <code>converged = TRUE</code>. Benchmarks on two open datasets (76,020 x 369 and 590,540 x 454, five-fold held-out IV) move the median held-out IV of heavy-tailed numerical predictors by +129% and +39% when the parameter is raised from 20 to 200, with the bin count essentially unchanged.</p>
+<p>The default is deliberately <strong>not</strong> changed. The same experiment shows the effect runs both ways: on the larger benchmark, raising it cost 15% of held-out IV on the twenty-five strongest predictors while inflating IV on weak ones, and no cheap rule separated the two cases. <code><a href="../reference/control.obwoe.html">?control.obwoe</a></code> now says so, and recommends per-variable tuning against held-out data.</p>
+</li>
+<li><p><strong><code>min_bins</code> is documented as frequently binding.</strong> It reads as a safety floor but often sets the partition, because several algorithms stop merging on their own criterion well before <code>max_bins</code>. On German Credit <code>amount</code> with <code>max_bins = 5</code>, the default returns two bins and an IV of 0.0016 while <code>min_bins = 4</code> returns 0.0824 – same data, same algorithm.</p></li>
+<li><p><strong>Corrected the 1.13.0 entry on binary size.</strong> It described <code>-Os</code>, <code>-fvisibility=hidden</code>, <code>-ffunction-sections</code>, <code>-Wl,--gc-sections</code> and a <code>cleanup</code> script, none of which are in the package: the visibility and section flags hid Rcpp symbols and broke the build on every platform and were reverted in <code>b74e95b</code>. The entry is corrected rather than deleted so the flags are not reinstated by someone reading the old claim.</p></li>
+</ul></div>
+<div class="section level4">
 <h4 id="smaller-items-1-13-3">Smaller items<a class="anchor" aria-label="anchor" href="#smaller-items-1-13-3"></a></h4>
 <ul><li><p><strong>An unmeasured IV is no longer reported as an IV of zero.</strong> With no finite IV anywhere, <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> printed <code>Total IV: 0.0000</code> and <code>IV Range: [Inf, -Inf]</code>, asserting “no predictive power” about features that were never measured; <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> on a <code>step_obwoe</code> recipe printed <code>total IV=0.0000</code>. Both report <code>NA</code> with a note. <code><a href="../reference/obwoe_gains.html">obwoe_gains()</a></code> failed with <code>attempt to select less than one element in get1index</code> and <code>plot(type = "iv")</code> with <code>need finite 'xlim' values</code>; both now say what is actually wrong.</p></li>
 <li><p><strong><code>sketch</code> (numerical) returns a <code>bin</code> label for a constant feature</strong>, so <code>summary$n_bins</code> is <code>1</code> instead of <code>NA</code>.</p></li>
@@ -417,7 +454,11 @@
 <ul><li>
 <p><strong>CRITICAL CRAN Fixes (2026-01-24)</strong> - Addressing ERROR and NOTE on macOS platforms:</p>
 <ul><li><p><strong>Fixed macOS vignette ERROR</strong>: Added comprehensive validation for duplicate cutpoints in <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> and <code><a href="../reference/bake.step_obwoe.html">bake.step_obwoe()</a></code>. The R base <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut()</a></code> function now receives guaranteed unique, sorted breaks, preventing the <code>"'breaks' are not unique"</code> error that was causing vignette build failures on macOS platforms.</p></li>
-<li><p><strong>Reduced package binary size from 42.7MB to ~15-18MB</strong> (60% reduction): Implemented size optimization flags (<code>-Os</code>, <code>-fvisibility=hidden</code>, <code>-ffunction-sections</code>, <code>-fdata-sections</code>) in <code>src/Makevars</code> and <code>src/Makevars.win</code>. Added linker flag <code>-Wl,--gc-sections</code> to remove unused code sections. Created <code>cleanup</code> script for automatic symbol stripping on Linux/macOS builds.</p></li>
+<li>
+<p><strong>Attempted to reduce the package binary size</strong> with size optimization flags (<code>-Os</code>, <code>-fvisibility=hidden</code>, <code>-ffunction-sections</code>, <code>-fdata-sections</code>), the <code>-Wl,--gc-sections</code> linker flag and a <code>cleanup</code> script for symbol stripping.</p>
+<p><strong>This was reverted and no longer describes the package.</strong> <code>-fvisibility=hidden</code> and <code>-Wl,--gc-sections</code> hid Rcpp symbols and broke the build on every platform, so they were removed in commit <code>b74e95b</code>; <code>-Os</code> and the <code>cleanup</code> script did not survive either. <code>src/Makevars</code> now sets only the OpenMP and BLAS/LAPACK flags. The entry is corrected here rather than deleted so that nobody reinstates flags that are already known to break the build.</p>
+<p>The size itself is not a problem: the shared object is large only because it carries debug symbols. Measured on 1.13.3, <code>.debug_info</code> alone is 33Mb against 2.2Mb of <code>.text</code>, and stripping takes the library from 70.4Mb to 2.6Mb. <code>R CMD check --as-cran</code> reports the installed size as INFO, not as a NOTE.</p>
+</li>
 </ul></li>
 <li>
 <p><strong>Internal Changes</strong>:</p>

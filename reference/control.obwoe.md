@@ -91,6 +91,35 @@ smoothing (applied automatically by most algorithms).
 If a feature has 100 categories, setting `max_n_prebins = 20` will
 pre-merge similar categories into 20 groups before optimization.
 
+For *numerical* features this parameter is a modelling decision, not an
+implementation detail, and the default of 20 is not neutral. Pre-binning
+runs before any algorithm sees the data, so a heavy-tailed variable
+whose signal sits in the upper tail can have that tail smeared across a
+single quantile cell and lost before optimization begins. The effect is
+silent: the fit reports `converged = TRUE` and no warning.
+
+Benchmarks on two open datasets (76,020 x 369 and 590,540 x 454,
+five-fold held-out IV, `min_bins` and `max_bins` held fixed) show the
+size of it. Raising `max_n_prebins` from 20 to 200 moved the median
+held-out IV of heavy-tailed numerical predictors by **+129%** and
+**+39%** respectively, while leaving discrete and categorical predictors
+untouched. The bin count barely moved, so this is the placement of cut
+points changing, not extra splits.
+
+It moves results in **both** directions, which is why the default is
+left alone. On one of the two benchmarks, raising it improved the
+portfolio but cost 15% of held-out IV on the twenty-five strongest
+predictors – exactly the ones a scorecard would keep – while inflating
+IV on weak predictors no model would select. No cheap rule separated the
+two cases: gating on the tail ratio worked cleanly on one dataset and
+captured almost nothing on the other, and for roughly half of all
+predictors the default of 20 was already the best value tested.
+
+The practical advice is therefore per-variable rather than global: leave
+the default, and tune it against *held-out* data for continuous
+predictors with a long tail. Tuning on in-sample IV will always favour
+more resolution and is not evidence of anything.
+
 **convergence_threshold**: Trade-off between precision and speed. For
 exploratory analysis, \\10^{-4}\\ is sufficient. For production models
 requiring reproducibility, use \\10^{-8}\\ or smaller.
