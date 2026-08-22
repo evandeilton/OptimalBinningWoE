@@ -146,6 +146,41 @@ different cut points.
 Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
 caller and never did local polynomial regression despite its name.
 
+### Fixed: categorical `dmiv` ignored `max_bins`
+
+*   **`ob_categorical_dmiv()` returned `L - 1` bins for an `L`-category
+    feature, whatever `max_bins` was set to.** The merge loop compared the cost
+    of the best available merge against `convergence_threshold` and broke out
+    when it had barely moved. With many similarly sized categories the
+    second-cheapest merge costs exactly what the cheapest one did, so the test
+    fired on the second iteration, after a single merge, and nothing
+    re-imposed the cap afterwards. Reported as `converged = TRUE`, with no
+    warning.
+
+    Reproduced at n = 60,000 with `max_bins` of 3, 5 and 8 alike: 40 levels
+    returned 31 bins, 60 returned 50, 120 returned 119 and 300 returned 299.
+    All nine `divergence_method` choices and both `bin_method` choices were
+    affected. The roxygen already documented `max_bins` as a hard constraint,
+    so the code was wrong, not the documentation.
+
+    The loop now records the convergence and keeps merging by the same
+    criterion — the pair with the lowest divergence, i.e. the most similar
+    pair — until the cap is met (`src/OBC_DMIV_v5.cpp`). This is the remedy
+    already applied to `fetb`, whose loop had the same shape. The merge
+    ordering is unchanged, and `min_bins` is never violated to satisfy
+    `max_bins`.
+
+    **`dmiv` produces different bins wherever the cap used to be abandoned**;
+    on inputs where it was reached anyway, results are **byte-identical** to
+    the previous release — verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data, 208 combinations, with the
+    RNG stream fixed so the stochastic engines are comparable. The numerical
+    `dmiv` never had the defect and is untouched.
+
+    A new regression test asserts that every categorical engine honours
+    `max_bins` on a high-cardinality feature, at two values of `bin_cutoff`
+    and two of `max_bins`.
+
 ### Fixed: categorical `mba` read past the end of its bin vector
 
 *   **`ob_categorical_mba()` performed an out-of-range read while reducing the

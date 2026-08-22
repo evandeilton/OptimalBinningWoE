@@ -510,9 +510,33 @@ private:
       // Check convergence based on small absolute change in min divergence
       if (previous_min_divergence >= 0 && // Check after first iteration
           std::fabs(current_min_divergence - previous_min_divergence) < convergence_threshold) {
+        // The cost of the best available merge has settled. Previously this
+        // also broke out of the loop, which abandoned the descent to max_bins
+        // and returned L - 1 bins for an L-category feature (299 bins for
+        // max_bins = 5 on 300 levels) -- silently, since converged was still
+        // reported as TRUE and nothing downstream re-imposed the cap. With
+        // many similarly sized categories the second-cheapest merge costs
+        // almost exactly what the cheapest one did, so the test fired on the
+        // second iteration, after a single merge.
+        //
+        // max_bins is a documented user constraint, not a target to give up on
+        // once the divergence stops moving, so we record the convergence and
+        // keep merging by the same criterion (the pair with the lowest
+        // divergence, i.e. the most similar pair). The loop still exits on
+        // max_iterations.
+        //
+        // This does not weaken the divergence rule: the merge order is
+        // unchanged and the loop's own goal was always to reach max_bins. The
+        // divergence tolerance was an early exit, not a statistical stopping
+        // rule. min_bins is not violated either: initialize_bins() clamps
+        // min_bins <= max_bins, so merging down to max_bins stays above it.
+        //
+        // Only the first crossing is reported, since the loop now continues
+        // past it.
+        if (!converged) {
+          Rcpp::Rcout << "Info: Converged after " << iterations_run << " iterations (divergence change < threshold)." << std::endl;
+        }
         converged = true;
-        Rcpp::Rcout << "Info: Converged after " << iterations_run << " iterations (divergence change < threshold)." << std::endl;
-        break;
       }
       // Check convergence if min divergence becomes excessively large (no good merges left)
       // Using a threshold relative to initial divergences might be better, but absolute check is simpler

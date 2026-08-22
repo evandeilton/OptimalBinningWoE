@@ -578,3 +578,61 @@ test_that("categorical engines represent every observation in their bins", {
     }
   }
 })
+
+test_that("categorical engines honour max_bins on a high-cardinality feature", {
+  # OBC_DMIV stopped merging as soon as the change in the best available merge
+  # divergence fell below convergence_threshold, and nothing re-imposed the
+  # cap afterwards. With many similarly sized categories the second-cheapest
+  # merge costs exactly what the cheapest one did, so the test fired on the
+  # second iteration and the fit returned L - 1 bins for an L-category
+  # feature: 59 bins for 60 levels, at max_bins = 3 and max_bins = 5 alike,
+  # reported as converged = TRUE with no warning.
+  #
+  # "every algorithm honours max_bins" above already guards the same
+  # invariant, but only on a 12-level feature, where the divergences are far
+  # enough apart that the early exit never fires. The cardinality here is what
+  # makes exact ties between successive merge costs common, so it is the
+  # regime the defect lives in -- hence a second block rather than an edit to
+  # the first.
+  #
+  # The invariant is checked for every categorical engine and at two values of
+  # max_bins, not only for dmiv, because "the fit returns at most max_bins
+  # bins" is a property the whole family has to satisfy.
+  set.seed(4)
+  n <- 60000L
+  d <- data.frame(
+    target = rbinom(n, 1, 0.2),
+    f = sample(paste0("L", seq_len(60)), n, TRUE),
+    stringsAsFactors = FALSE
+  )
+
+  ids <- obwoe_algorithms()
+  ids <- ids$algorithm[ids$categorical]
+
+  violations <- character()
+
+  for (a in ids) {
+    for (cutoff in c(0.05, 0.005)) {
+      for (mb in c(3L, 5L)) {
+        set.seed(20260822)  # sab and mba are stochastic
+        fit <- try(suppressWarnings(suppressMessages(
+          obwoe(d, target = "target", feature = "f", algorithm = a,
+                min_bins = 2, max_bins = mb,
+                control = control.obwoe(bin_cutoff = cutoff, max_n_prebins = 20))
+        )), silent = TRUE)
+
+        if (inherits(fit, "try-error") || isTRUE(fit$summary$error)) next
+
+        nb <- fit$summary$n_bins
+        if (!is.na(nb) && nb > mb) {
+          violations <- c(violations, sprintf(
+            "%s at bin_cutoff = %s, max_bins = %d returned %d bins",
+            a, format(cutoff), mb, nb))
+        }
+      }
+    }
+  }
+
+  expect_equal(violations, character(0),
+    info = paste("max_bins violated by:", paste(violations, collapse = "; ")))
+})
