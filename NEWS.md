@@ -150,20 +150,39 @@ caller and never did local polynomial regression despite its name.
 
 *   **New vignette, `Algorithm Reference: the 37 Binning Engines`.** Reference
     documentation for all 28 algorithms across their 37 algorithm/feature-type
-    combinations: what each engine does, the function that calls it directly,
-    the feature types it accepts, and the parameters that belong to it alone.
+    combinations, written from a reading of the C++ implementation of every
+    engine and a check of that reading against the literature each one invokes.
+    Entries are organised by the mechanism the code actually uses — exact
+    dynamic programming, recursive entropy partitioning, statistical merging,
+    isotonic regression, density estimation, divergence, streaming,
+    metaheuristic, and greedy IV merging — which groups the engines differently
+    from their names.
 
-    Three things it carries that the individual help pages cannot. First,
-    **`obwoe()` does not forward algorithm-specific parameters**, and passing
-    them through `control.obwoe()` fails silently — the vignette demonstrates
-    this live, showing `dmiv` keeping `divergence_method = "l2"` through
-    `obwoe()` while the direct wrapper honours `"kl"`. Second, it collects the
-    cases where **an algorithm's name does not describe its implementation**:
-    `milp` solves no mixed-integer programme, `mblp` and `oslp` no linear
-    programme, `mrblp` uses equal-frequency rather than likelihood-ratio
-    pre-binning, and `udt` is not unsupervised. Each is stated on its own help
-    page; gathering them stops the family names from reading as promises.
-    Third, measured cost for every engine on a 100,000-row feature.
+    Two rules governed it: a claim appears only if it traces to a specific line
+    of the shipped source or to a publication verified to exist, and the name is
+    never taken as evidence of the mechanism. Where neither could be
+    established, the vignette says so — it closes with a section listing what
+    could **not** be verified, including the provenance of the Information Value
+    interpretation bands and whether Kerber's ChiMerge uses the continuity
+    correction this package implements.
+
+    Substantive findings it documents: **`obwoe()` does not forward
+    algorithm-specific parameters** and drops them silently, demonstrated live;
+    **`mdlp` does not implement the Fayyad–Irani criterion it cites** while
+    `fast_mdlp` does; **`fetb` computes a hypergeometric point probability, not
+    a Fisher exact-test p-value**; **`bb` neither branches nor bounds** and
+    numerical `dp` builds no dynamic-programming table, while the package's only
+    real DP sits inside `sketch` behind an `n <= 50` threshold; the numerical
+    `sketch` **departs from the KLL construction it cites** in both compactor
+    capacity and compaction rule, so the quoted error bound does not transfer;
+    and `dmiv`'s default `bin_method = "woe1"` is a per-bin log-odds rather
+    than standard WoE.
+
+    It also records parameters that are accepted and never read
+    (`polynomial_degree` in `lpdb`; `max_n_prebins` in `fast_mdlp`, numerical
+    `sketch`, categorical `fetb` and `sab`), `convergence_threshold` being inert
+    in five numerical engines, and three citation errors in the shipped
+    documentation.
 
 
 *   **`max_n_prebins` is documented as the modelling decision it is.** For
