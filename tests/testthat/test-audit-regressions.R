@@ -560,13 +560,6 @@ test_that("categorical engines represent every observation in their bins", {
   ids <- obwoe_algorithms()
   ids <- ids$algorithm[ids$categorical]
 
-  # `mba` is excluded, not exonerated: on this input it aborts the R process
-  # with an out-of-range std::vector<CategoricalBin> access, in both the fixed
-  # and the pre-fix build. That is a separate, pre-existing memory-safety
-  # defect, and running it here would take the whole suite down with it rather
-  # than reporting a failure. Remove this exclusion once it is fixed.
-  ids <- setdiff(ids, "mba")
-
   for (a in ids) {
     for (cutoff in c(0.05, 0.005)) {
       set.seed(20260822)  # sab and mba are stochastic

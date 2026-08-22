@@ -146,6 +146,27 @@ different cut points.
 Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
 caller and never did local polynomial regression despite its name.
 
+### Fixed: categorical `mba` read past the end of its bin vector
+
+*   **`ob_categorical_mba()` performed an out-of-range read while reducing the
+    pre-bins.** The list of candidate bins to merge is built before any merging
+    starts, and every merge erases a bin, so an index taken later in that list
+    could point past the end of the shrunken vector. The existing guard only
+    clamped the indices passed to the merge itself, not the read that selects a
+    merge partner.
+
+    This is undefined behaviour, not a wrong number: under a checked standard
+    library it aborts the R session, and without one it reads foreign memory and
+    carries on. Reproduced with 60 categories, `max_n_prebins = 20` and
+    `n = 60,000`, at either the default `bin_cutoff` or a smaller one.
+
+    Stale indices are now skipped. The guard fires only where the previous code
+    was already out of range, so results are **byte-identical** on every input
+    that worked before — verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data. `mba` rejoins the regression
+    test that asserts every categorical engine's bins account for every
+    observation.
+
 ### Fixed: categorical `ivb` and `gmb` dropped observations
 
 *   **`ob_categorical_ivb()` and `ob_categorical_gmb()` discarded the categories
