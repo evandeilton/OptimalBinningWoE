@@ -374,6 +374,26 @@ private:
     return (n * sum_xy - sum_x * sum_y) / denominator;
   }
   
+  // Binary entropy from counts alone. Mirrors calculate_entropy(vector) term for
+  // term -- same order, same guards -- so that the sweep in
+  // get_entropy_based_cutpoints reproduces its results exactly rather than
+  // approximately.
+  double calculate_entropy_counts(int count, int count_pos) const {
+    if (count <= 0) {
+      return 0.0;
+    }
+    int count_neg = count - count_pos;
+
+    double p_pos = static_cast<double>(count_pos) / count;
+    double p_neg = static_cast<double>(count_neg) / count;
+
+    double entropy = 0.0;
+    if (p_pos > 0) entropy -= p_pos * std::log2(p_pos);
+    if (p_neg > 0) entropy -= p_neg * std::log2(p_neg);
+
+    return entropy;
+  }
+
   double calculate_entropy(const std::vector<int> &y) {
     if (y.empty()) {
       return 0.0;
@@ -442,11 +462,21 @@ private:
     // Sort by x value
     std::sort(data_pairs.begin(), data_pairs.end());
     
-    // Extract unique x values as potential split points
+    // Extract unique x values as potential split points, recording for each one
+    // how many observations fall to its left and how many of those are events.
+    // data_pairs is sorted, so a candidate placed between positions i-1 and i
+    // sends exactly the first i observations left; carrying the running counts
+    // here is what lets the gains below be computed without rescanning.
     std::vector<double> unique_values;
+    std::vector<int> left_n;
+    std::vector<int> left_pos;
+    int running_pos = 0;
     for (size_t i = 1; i < data_pairs.size(); ++i) {
+      running_pos += data_pairs[i-1].second;
       if (data_pairs[i].first > data_pairs[i-1].first) {
         unique_values.push_back((data_pairs[i].first + data_pairs[i-1].first) / 2.0);
+        left_n.push_back(static_cast<int>(i));
+        left_pos.push_back(running_pos);
       }
     }
     
@@ -459,11 +489,39 @@ private:
       return unique_values;
     }
     
-    // Calculate information gain for each potential split point
+    // Information gain for every candidate split, in one sweep.
+    //
+    // This used to call calculate_info_gain() per candidate, and that function
+    // rescans all of x, allocates two vectors and recomputes the parent entropy
+    // every time -- O(u * n) with an allocation per candidate, measured at
+    // n^2.30 and by far the dominant cost of this algorithm. The gain depends
+    // only on integer counts, so the running totals collected above give the
+    // identical value with a single pass and no allocation.
+    const int total_n = static_cast<int>(y.size());
+    const int total_pos = std::accumulate(y.begin(), y.end(), 0);
+    const double entropy_before = calculate_entropy_counts(total_n, total_pos);
+
     std::vector<std::pair<double, double>> info_gains; // (split_point, info_gain)
-    for (double split_point : unique_values) {
-      double gain = calculate_info_gain(x, y, split_point);
-      info_gains.push_back({split_point, gain});
+    info_gains.reserve(unique_values.size());
+    for (size_t c = 0; c < unique_values.size(); ++c) {
+      const int ln = left_n[c];
+      const int lp = left_pos[c];
+      const int rn = total_n - ln;
+      const int rp = total_pos - lp;
+
+      // calculate_info_gain() returned 0 when either side came out empty.
+      if (ln <= 0 || rn <= 0) {
+        info_gains.push_back({unique_values[c], 0.0});
+        continue;
+      }
+
+      const double entropy_left = calculate_entropy_counts(ln, lp);
+      const double entropy_right = calculate_entropy_counts(rn, rp);
+      const double p_left = static_cast<double>(ln) / total_n;
+      const double p_right = static_cast<double>(rn) / total_n;
+
+      info_gains.push_back({unique_values[c],
+        entropy_before - (p_left * entropy_left + p_right * entropy_right)});
     }
     
     // Sort by information gain in descending order

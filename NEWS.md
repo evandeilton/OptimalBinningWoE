@@ -97,6 +97,55 @@ The intended contract is now documented in `src/common/bin_structures.h`:
 (tolerance met, monotonicity achieved, or the bin-count target reached);
 `false` means it exhausted `max_iterations`.
 
+### Three algorithms were quadratic in the number of rows
+
+`lpdb`, `ldb` and numerical `udt` scaled as n^2.00, n^2.00 and n^2.30. A single
+variable with 10^6 rows would have taken `lpdb` roughly 72 minutes; measured
+against `jedi` at the same size they were 2,772x the median algorithm's cost.
+Nothing warned about it.
+
+Two distinct causes, neither of them inherent to the methods:
+
+*   **`ldb` and `lpdb` estimated the density with a naive double loop**,
+    evaluating the Gaussian kernel of every observation against every other
+    one. The same defect had been written twice, in two files, which is how it
+    survived. It is replaced by the standard linear-binning estimator -- the
+    one R's own `density()` uses -- which now lives once in
+    `src/common/optimal_binning_common.h` so the two cannot diverge again.
+
+*   **`udt` rescanned every observation once per candidate split**, allocating
+    two vectors and recomputing the parent entropy each time, giving O(u x n).
+    Information gain depends only on integer counts, so a single sweep carrying
+    running totals produces the identical value.
+
+Measured at n = 50,000, against a build of the previous revision:
+
+| algorithm | before | after | speedup |
+|---|---|---|---|
+| `ldb` | 10.740s | 0.010s | 1074x |
+| `lpdb` | 10.725s | 0.011s | 975x |
+| `udt` | 7.354s | 0.019s | 387x |
+
+All three now scale linearly and land within a factor of two of `jedi`, the
+package default. At n = 400,000 they take 0.085s, 0.087s and 0.170s against
+`jedi`'s 0.103s -- sizes the previous code could not reach at all.
+
+**Results.** `udt` and `ldb` are bit-identical to the previous revision: `udt`
+by construction, and `ldb`'s local-minimum search resolves the grid estimate to
+the same cut points. Both are pinned by a new regression test.
+
+**`lpdb` changes.** It differentiates the density twice to find inflection
+points, and finite differences taken between adjacent observations are not the
+same thing as finite differences on a properly sampled curve. Its critical
+points are now located on the estimation grid. On German Credit the partitions
+generally improve -- `duration` goes from 2 bins and IV 0.0923 to 5 bins and IV
+0.2635, `age` from 2 bins and 0.0628 to 4 bins and 0.0781 -- and no variable
+tested got materially worse. Anyone with a fitted `lpdb` model should expect
+different cut points.
+
+Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
+caller and never did local polynomial regression despite its name.
+
 ### Documentation
 
 *   **`max_n_prebins` is documented as the modelling decision it is.** For
