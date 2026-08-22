@@ -29,8 +29,19 @@ If \code{NULL} (default), all columns except \code{target} are processed.
 Features containing only missing values are automatically skipped with a warning.}
 
 \item{min_bins}{Integer specifying the minimum number of bins. Must satisfy
-\eqn{2 \le} \code{min_bins} \eqn{\le} \code{max_bins}. Algorithms may
-produce fewer bins if the data has insufficient unique values. Default is 2.}
+  \eqn{2 \le} \code{min_bins} \eqn{\le} \code{max_bins}. Algorithms may
+  produce fewer bins if the data has insufficient unique values. Default is 2.
+
+  Read as a floor, but it frequently behaves as the binding constraint rather
+  than a safety net. Several algorithms stop merging as soon as their own
+  criterion is satisfied, which can be well before \code{max_bins}, so
+  \code{min_bins} ends up setting the partition. On the German Credit
+  \code{amount} variable with \code{max_bins = 5}, the default binning
+  returns two bins and an IV of 0.0016; requesting \code{min_bins = 4}
+  returns an IV of 0.0824 on the same data and the same algorithm. Raising it
+  is a legitimate way to ask for a finer partition, and worth trying when a
+  continuous predictor collapses to two bins under a larger
+  \code{max_bins}.}
 
 \item{max_bins}{Integer specifying the maximum number of bins. Controls the
 granularity of discretization. Higher values capture more detail but risk

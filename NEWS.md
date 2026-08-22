@@ -97,6 +97,85 @@ The intended contract is now documented in `src/common/bin_structures.h`:
 (tolerance met, monotonicity achieved, or the bin-count target reached);
 `false` means it exhausted `max_iterations`.
 
+### Three algorithms were quadratic in the number of rows
+
+`lpdb`, `ldb` and numerical `udt` scaled as n^2.00, n^2.00 and n^2.30. A single
+variable with 10^6 rows would have taken `lpdb` roughly 72 minutes; measured
+against `jedi` at the same size they were 2,772x the median algorithm's cost.
+Nothing warned about it.
+
+Two distinct causes, neither of them inherent to the methods:
+
+*   **`ldb` and `lpdb` estimated the density with a naive double loop**,
+    evaluating the Gaussian kernel of every observation against every other
+    one. The same defect had been written twice, in two files, which is how it
+    survived. It is replaced by the standard linear-binning estimator -- the
+    one R's own `density()` uses -- which now lives once in
+    `src/common/optimal_binning_common.h` so the two cannot diverge again.
+
+*   **`udt` rescanned every observation once per candidate split**, allocating
+    two vectors and recomputing the parent entropy each time, giving O(u x n).
+    Information gain depends only on integer counts, so a single sweep carrying
+    running totals produces the identical value.
+
+Measured at n = 50,000, against a build of the previous revision:
+
+| algorithm | before | after | speedup |
+|---|---|---|---|
+| `ldb` | 10.740s | 0.010s | 1074x |
+| `lpdb` | 10.725s | 0.011s | 975x |
+| `udt` | 7.354s | 0.019s | 387x |
+
+All three now scale linearly and land within a factor of two of `jedi`, the
+package default. At n = 400,000 they take 0.085s, 0.087s and 0.170s against
+`jedi`'s 0.103s -- sizes the previous code could not reach at all.
+
+**Results.** `udt` and `ldb` are bit-identical to the previous revision: `udt`
+by construction, and `ldb`'s local-minimum search resolves the grid estimate to
+the same cut points. Both are pinned by a new regression test.
+
+**`lpdb` changes.** It differentiates the density twice to find inflection
+points, and finite differences taken between adjacent observations are not the
+same thing as finite differences on a properly sampled curve. Its critical
+points are now located on the estimation grid. On German Credit the partitions
+generally improve -- `duration` goes from 2 bins and IV 0.0923 to 5 bins and IV
+0.2635, `age` from 2 bins and 0.0628 to 4 bins and 0.0781 -- and no variable
+tested got materially worse. Anyone with a fitted `lpdb` model should expect
+different cut points.
+
+Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
+caller and never did local polynomial regression despite its name.
+
+### Documentation
+
+*   **`max_n_prebins` is documented as the modelling decision it is.** For
+    numerical features, pre-binning runs before any algorithm sees the data, so
+    the default of 20 quantile cells can smear a heavy tail and lose the signal
+    in it before optimization begins -- silently, with `converged = TRUE`.
+    Benchmarks on two open datasets (76,020 x 369 and 590,540 x 454, five-fold
+    held-out IV) move the median held-out IV of heavy-tailed numerical
+    predictors by +129% and +39% when the parameter is raised from 20 to 200,
+    with the bin count essentially unchanged.
+
+    The default is deliberately **not** changed. The same experiment shows the
+    effect runs both ways: on the larger benchmark, raising it cost 15% of
+    held-out IV on the twenty-five strongest predictors while inflating IV on
+    weak ones, and no cheap rule separated the two cases. `?control.obwoe` now
+    says so, and recommends per-variable tuning against held-out data.
+
+*   **`min_bins` is documented as frequently binding.** It reads as a safety
+    floor but often sets the partition, because several algorithms stop merging
+    on their own criterion well before `max_bins`. On German Credit `amount`
+    with `max_bins = 5`, the default returns two bins and an IV of 0.0016 while
+    `min_bins = 4` returns 0.0824 -- same data, same algorithm.
+
+*   **Corrected the 1.13.0 entry on binary size.** It described `-Os`,
+    `-fvisibility=hidden`, `-ffunction-sections`, `-Wl,--gc-sections` and a
+    `cleanup` script, none of which are in the package: the visibility and
+    section flags hid Rcpp symbols and broke the build on every platform and
+    were reverted in `b74e95b`. The entry is corrected rather than deleted so
+    the flags are not reinstated by someone reading the old claim.
+
 ### Smaller items
 
 *   **An unmeasured IV is no longer reported as an IV of zero.** With no finite
@@ -835,7 +914,24 @@ all 36 binning algorithms. No public R API was changed.
 
     *   **Fixed macOS vignette ERROR**: Added comprehensive validation for duplicate cutpoints in `obwoe_apply()` and `bake.step_obwoe()`. The R base `cut()` function now receives guaranteed unique, sorted breaks, preventing the `"'breaks' are not unique"` error that was causing vignette build failures on macOS platforms.
 
-    *   **Reduced package binary size from 42.7MB to ~15-18MB** (60% reduction): Implemented size optimization flags (`-Os`, `-fvisibility=hidden`, `-ffunction-sections`, `-fdata-sections`) in `src/Makevars` and `src/Makevars.win`. Added linker flag `-Wl,--gc-sections` to remove unused code sections. Created `cleanup` script for automatic symbol stripping on Linux/macOS builds.
+    *   **Attempted to reduce the package binary size** with size optimization
+        flags (`-Os`, `-fvisibility=hidden`, `-ffunction-sections`,
+        `-fdata-sections`), the `-Wl,--gc-sections` linker flag and a `cleanup`
+        script for symbol stripping.
+
+        **This was reverted and no longer describes the package.**
+        `-fvisibility=hidden` and `-Wl,--gc-sections` hid Rcpp symbols and broke
+        the build on every platform, so they were removed in commit `b74e95b`;
+        `-Os` and the `cleanup` script did not survive either. `src/Makevars`
+        now sets only the OpenMP and BLAS/LAPACK flags. The entry is corrected
+        here rather than deleted so that nobody reinstates flags that are
+        already known to break the build.
+
+        The size itself is not a problem: the shared object is large only
+        because it carries debug symbols. Measured on 1.13.3, `.debug_info`
+        alone is 33Mb against 2.2Mb of `.text`, and stripping takes the library
+        from 70.4Mb to 2.6Mb. `R CMD check --as-cran` reports the installed size
+        as INFO, not as a NOTE.
 
 *   **Internal Changes**:
 

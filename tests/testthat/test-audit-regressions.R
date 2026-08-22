@@ -473,3 +473,63 @@ test_that("dmiv matches its own woe1 definition on both variants", {
     )
   }
 })
+
+test_that("lpdb, ldb and udt scale linearly rather than quadratically", {
+  # OBN_LDB and OBN_LPDB each estimated the density with a naive O(n^2) double
+  # loop, and OBN_UDT rescanned every observation once per candidate split.
+  # Measured scaling was n^2.00, n^2.00 and n^2.30, which put a single
+  # 10^6-row variable at roughly 72 minutes and made all three unusable.
+  #
+  # A wall-clock budget is the only way to pin this: the defect is asymptotic,
+  # not a wrong value. At n = 50,000 the old code took 7-11 s per algorithm and
+  # the fixed code takes 0.01-0.02 s, so a two-second budget sits two orders of
+  # magnitude above the fix and five times below the defect. Skipped on CRAN,
+  # whose machines are deliberately slow and heavily shared.
+  skip_on_cran()
+
+  set.seed(11)
+  n <- 50000L
+  y <- rbinom(n, 1, 0.2)
+  d <- data.frame(target = y, x = rnorm(n) + y)
+
+  for (a in c("lpdb", "ldb", "udt")) {
+    elapsed <- system.time(
+      res <- suppressWarnings(suppressMessages(
+        obwoe(d, target = "target", feature = "x", algorithm = a,
+              min_bins = 2, max_bins = 5)
+      ))
+    )[["elapsed"]]
+
+    expect_lt(elapsed, 2)
+    expect_false(res$summary$error)
+    expect_true(is.finite(res$summary$total_iv))
+    expect_lte(res$summary$n_bins, 5L)
+  }
+})
+
+test_that("the shared KDE keeps ldb and udt bit-identical to the double loop", {
+  # The udt fix is an exact rewrite -- information gain depends only on integer
+  # counts, so sweeping prefix totals reproduces the per-candidate rescan
+  # exactly. ldb's density feeds a local-minimum search that the grid estimator
+  # resolves identically at this size. Both were verified against a build of
+  # the previous revision; these values pin them so a future change to the
+  # shared estimator cannot move them silently.
+  #
+  # Unlike the scaling guard above this asserts values, not wall-clock time,
+  # so it runs everywhere, CRAN included.
+
+  set.seed(5)
+  n <- 25000L
+  y <- rbinom(n, 1, 0.2)
+  d <- data.frame(target = y, x = rnorm(n) + y)
+
+  udt <- suppressWarnings(suppressMessages(
+    obwoe(d, target = "target", feature = "x", algorithm = "udt")))$results$x
+  expect_equal(length(udt$bin), 3L)
+  expect_equal(sum(udt$iv), 0.6877321502, tolerance = 1e-8)
+
+  ldb <- suppressWarnings(suppressMessages(
+    obwoe(d, target = "target", feature = "x", algorithm = "ldb")))$results$x
+  expect_equal(length(ldb$bin), 2L)
+  expect_equal(sum(ldb$iv), 0.6267022265, tolerance = 1e-8)
+})

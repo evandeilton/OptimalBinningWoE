@@ -220,18 +220,6 @@ private:
       int min_count);
   
   /**
-   * Calculate local polynomial regression for density estimation
-   * Fits polynomials locally for robust nonparametric density estimation
-   * 
-   * @param x Sorted feature values
-   * @param bandwidth Smoothing bandwidth
-   * @return Vector of density estimates at each point
-   */
-  std::vector<double> local_polynomial_density(
-      const std::vector<double> &x, 
-      double bandwidth);
-  
-  /**
    * Find critical points in the density curve
    * Identifies local minima, maxima, and inflection points
    * 
@@ -795,13 +783,21 @@ std::vector<NumericalBin> OBN_LPDB::polynomial_density_prebinning(
   // Calculate bandwidth
   double bandwidth = 0.9 * std_dev * std::pow(n, -0.2);
   
-  // Estimate density using local polynomial regression
-  std::vector<double> density = local_polynomial_density(sorted_feature, bandwidth);
-  
-  // Find critical points in density curve
+  // Estimate the density on a grid rather than at every observation.
+  //
+  // find_density_critical_points() differentiates the density twice by finite
+  // differences between neighbouring points. Evaluated at the sample points
+  // that is fine but costs O(n^2); evaluated on a grid and then interpolated
+  // back it becomes piecewise linear, the differences vanish inside each
+  // segment, and the extrema and inflection points it looks for disappear --
+  // which collapsed this algorithm to two bins when it was tried that way.
+  // Feeding the grid straight in keeps the curve properly sampled, and the
+  // critical points it returns are x values, which is all the caller needs.
+  const KdeGrid kde = gaussian_kde_grid(sorted_feature, bandwidth);
+
   int max_critical_points = std::min(max_n_prebins - 1, static_cast<int>(sorted_feature.size() / 10));
   std::vector<double> critical_points = find_density_critical_points(
-    sorted_feature, density, max_critical_points);
+    kde.x, kde.density, max_critical_points);
   
   // Add quantile-based points if not enough critical points found
   if (critical_points.size() < static_cast<size_t>(min_bins - 1)) {
@@ -935,46 +931,6 @@ size_t OBN_LPDB::find_bin_index(
   
   // If all else fails, put in the last bin
   return bins.size() - 1;
-}
-
-/**
- * Calculate local polynomial density estimation
- */
-std::vector<double> OBN_LPDB::local_polynomial_density(
-    const std::vector<double> &x, 
-    double bandwidth) {
-  
-  size_t n = x.size();
-  std::vector<double> density(n, 0.0);
-  
-  // Quick check for trivial case
-  if (n <= 1) {
-    return density;
-  }
-  
-  // Ensure positive bandwidth
-  if (bandwidth <= EPSILON) {
-    bandwidth = std::max(
-      (x.back() - x.front()) / static_cast<double>(n), 
-      EPSILON * 10.0);
-  }
-  
-  // Simple kernel density estimation with Gaussian kernel
-  // For more complex datasets, a true local polynomial regression would be better
-  for (size_t i = 0; i < n; ++i) {
-    double xi = x[i];
-    double sum = 0.0;
-    
-    for (size_t j = 0; j < n; ++j) {
-      double xj = x[j];
-      double z = (xi - xj) / bandwidth;
-      sum += std::exp(-0.5 * z * z);
-    }
-    
-    density[i] = sum / (n * bandwidth * std::sqrt(2.0 * M_PI));
-  }
-  
-  return density;
 }
 
 /**
