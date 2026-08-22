@@ -146,7 +146,139 @@ different cut points.
 Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
 caller and never did local polynomial regression despite its name.
 
+### Fixed: categorical `dmiv` ignored `max_bins`
+
+*   **`ob_categorical_dmiv()` returned `L - 1` bins for an `L`-category
+    feature, whatever `max_bins` was set to.** The merge loop compared the cost
+    of the best available merge against `convergence_threshold` and broke out
+    when it had barely moved. With many similarly sized categories the
+    second-cheapest merge costs exactly what the cheapest one did, so the test
+    fired on the second iteration, after a single merge, and nothing
+    re-imposed the cap afterwards. Reported as `converged = TRUE`, with no
+    warning.
+
+    Reproduced at n = 60,000 with `max_bins` of 3, 5 and 8 alike: 40 levels
+    returned 31 bins, 60 returned 50, 120 returned 119 and 300 returned 299.
+    All nine `divergence_method` choices and both `bin_method` choices were
+    affected. The roxygen already documented `max_bins` as a hard constraint,
+    so the code was wrong, not the documentation.
+
+    The loop now records the convergence and keeps merging by the same
+    criterion — the pair with the lowest divergence, i.e. the most similar
+    pair — until the cap is met (`src/OBC_DMIV_v5.cpp`). This is the remedy
+    already applied to `fetb`, whose loop had the same shape. The merge
+    ordering is unchanged, and `min_bins` is never violated to satisfy
+    `max_bins`.
+
+    **`dmiv` produces different bins wherever the cap used to be abandoned**;
+    on inputs where it was reached anyway, results are **byte-identical** to
+    the previous release — verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data, 208 combinations, with the
+    RNG stream fixed so the stochastic engines are comparable. The numerical
+    `dmiv` never had the defect and is untouched.
+
+    A new regression test asserts that every categorical engine honours
+    `max_bins` on a high-cardinality feature, at two values of `bin_cutoff`
+    and two of `max_bins`.
+
+*   `?ob_categorical_dmiv` described `convergence_threshold` as stopping the
+    merging. It records convergence; `max_bins` is a hard constraint and
+    merging continues until the bin count meets it.
+
+*   `find_most_similar_bins()` now seeds its best pair with the first mergeable
+    one instead of `{0, 0}`. The search only replaces that seed on a strictly
+    smaller divergence, so a distance matrix that was entirely `double::max` --
+    or that held a `NaN`, against which every comparison is false -- would have
+    returned a pair naming the same bin twice, and merging a bin with itself
+    then erasing the duplicate would have dropped its observations. No input
+    reaching that state was found, so this closes a defensive gap rather than a
+    demonstrated defect.
+
+### Fixed: categorical `mba` read past the end of its bin vector
+
+*   **`ob_categorical_mba()` performed an out-of-range read while reducing the
+    pre-bins.** The list of candidate bins to merge is built before any merging
+    starts, and every merge erases a bin, so an index taken later in that list
+    could point past the end of the shrunken vector. The existing guard only
+    clamped the indices passed to the merge itself, not the read that selects a
+    merge partner.
+
+    This is undefined behaviour, not a wrong number: under a checked standard
+    library it aborts the R session, and without one it reads foreign memory and
+    carries on. Reproduced with 60 categories, `max_n_prebins = 20` and
+    `n = 60,000`, at either the default `bin_cutoff` or a smaller one.
+
+    Stale indices are now skipped. The guard fires only where the previous code
+    was already out of range, so results are **byte-identical** on every input
+    that worked before — verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data. `mba` rejoins the regression
+    test that asserts every categorical engine's bins account for every
+    observation.
+
+### Fixed: categorical `ivb` and `gmb` dropped observations
+
+*   **`ob_categorical_ivb()` and `ob_categorical_gmb()` discarded the categories
+    that did not fit within `max_n_prebins` instead of pooling them**, so those
+    observations left the binning entirely. The vector of bins was resized, and
+    everything past the cap was destroyed along with its counts. Nothing
+    signalled it: no warning, `error = FALSE`, `converged = TRUE`, and a
+    `total_iv` reported as if it described the whole sample.
+
+    Default settings hide the defect — `bin_cutoff = 0.05` lets at most 20
+    categories survive the rare-category merge, which is exactly the default
+    `max_n_prebins` — but a smaller cutoff reaches it. With 60 levels and
+    `bin_cutoff = 0.005`, both engines lost **39,306 of 60,000 rows (65.5%)**;
+    `dp` and `jedi` accounted for every row on the same input.
+
+    Both now fold the excess into the smallest retained bin
+    (`src/OBC_IVB_v5.cpp`, `src/OBC_GMB_v5.cpp`). Which categories are kept as
+    separate identities is unchanged — still the `max_n_prebins` most frequent —
+    so results on the path where the cap never bound are **byte-identical** to
+    the previous release: verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data, 208 combinations, with the RNG
+    stream fixed so the stochastic engines are comparable.
+
+    A new regression test asserts that every categorical engine's bins account
+    for every observation.
+
 ### Documentation
+
+*   **New vignette, `Algorithm Reference: the 37 Binning Engines`.** Reference
+    documentation for all 28 algorithms across their 37 algorithm/feature-type
+    combinations, written from a reading of the C++ implementation of every
+    engine and a check of that reading against the literature each one invokes.
+    Entries are organised by the mechanism the code actually uses — exact
+    dynamic programming, recursive entropy partitioning, statistical merging,
+    isotonic regression, density estimation, divergence, streaming,
+    metaheuristic, and greedy IV merging — which groups the engines differently
+    from their names.
+
+    Two rules governed it: a claim appears only if it traces to a specific line
+    of the shipped source or to a publication verified to exist, and the name is
+    never taken as evidence of the mechanism. Where neither could be
+    established, the vignette says so — it closes with a section listing what
+    could **not** be verified, including the provenance of the Information Value
+    interpretation bands and whether Kerber's ChiMerge uses the continuity
+    correction this package implements.
+
+    Substantive findings it documents: **`obwoe()` does not forward
+    algorithm-specific parameters** and drops them silently, demonstrated live;
+    **`mdlp` does not implement the Fayyad–Irani criterion it cites** while
+    `fast_mdlp` does; **`fetb` computes a hypergeometric point probability, not
+    a Fisher exact-test p-value**; **`bb` neither branches nor bounds** and
+    numerical `dp` builds no dynamic-programming table, while the package's only
+    real DP sits inside `sketch` behind an `n <= 50` threshold; the numerical
+    `sketch` **departs from the KLL construction it cites** in both compactor
+    capacity and compaction rule, so the quoted error bound does not transfer;
+    and `dmiv`'s default `bin_method = "woe1"` is a per-bin log-odds rather
+    than standard WoE.
+
+    It also records parameters that are accepted and never read
+    (`polynomial_degree` in `lpdb`; `max_n_prebins` in `fast_mdlp`, numerical
+    `sketch`, categorical `fetb` and `sab`), `convergence_threshold` being inert
+    in five numerical engines, and three citation errors in the shipped
+    documentation.
+
 
 *   **`max_n_prebins` is documented as the modelling decision it is.** For
     numerical features, pre-binning runs before any algorithm sees the data, so

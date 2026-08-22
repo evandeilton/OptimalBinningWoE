@@ -240,6 +240,17 @@ private:
           break;
         }
 
+        // small_bin_indices was built before any merging, and every merge
+        // erases a bin, so an index taken later in the list can point past the
+        // end of the shrunken vector. Reading bins[idx] below would then be out
+        // of range -- undefined behaviour, which aborts under a checked
+        // standard library and silently reads foreign memory without one. The
+        // bin this index referred to has already been absorbed, so there is
+        // nothing left to merge and the entry is skipped.
+        if (idx >= bins.size()) {
+          continue;
+        }
+
         // Find best merge candidate based on similarity
         double best_similarity = -1.0;
         size_t best_candidate = 0;

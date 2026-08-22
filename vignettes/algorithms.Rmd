@@ -1,0 +1,651 @@
+---
+title: "Algorithm Reference: the 37 Binning Engines"
+author: "José Evandeilton Lopes"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+vignette: >
+  %\VignetteIndexEntry{Algorithm Reference: the 37 Binning Engines}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  warning = FALSE,
+  message = FALSE
+)
+options(width = 100, digits = 4)
+```
+
+```{r libs}
+library(OptimalBinningWoE)
+```
+
+## Scope, and how this was written
+
+The package ships **28 algorithms** covering **37 algorithm/feature-type
+combinations**: 21 accept numerical features, 16 accept categorical ones, 9
+accept both, and 1 accepts a multinomial target.
+
+This reference was produced by reading the C++ implementation of every engine
+and comparing it against the literature its documentation invokes. Two rules
+governed the writing:
+
+1. **A claim is made only if it can be traced** — either to a specific line of
+   the shipped source, or to a publication whose existence was verified. Where
+   neither was possible, the text says so rather than filling the gap.
+2. **The name is not evidence.** Several engines in this package are named for
+   methods they do not implement. Each entry below states what the code does,
+   and separately whether the name describes it.
+
+That second rule is not a criticism of the package so much as a description of
+it: much of the documentation already says the same thing. `R/obn_mblp.R`,
+`R/obn_mrblp.R` and `R/obn_dp.R` disclaim their own names in detail, and
+`R/obn_oslp.R` goes as far as recommending against its own algorithm. This
+vignette collects those disclosures in one place and adds the ones that had not
+been made.
+
+```{r registry}
+alg <- obwoe_algorithms()
+c(algorithms = nrow(alg),
+  numerical = sum(alg$numerical),
+  categorical = sum(alg$categorical),
+  both = sum(alg$numerical & alg$categorical),
+  multinomial = sum(alg$multinomial))
+```
+
+## Two ways to run an algorithm
+
+**Through `obwoe()`**, which detects feature types, dispatches, and returns a
+model object the rest of the package understands:
+
+```{r via-obwoe}
+data_path <- system.file("extdata", "germancredit.csv.gz",
+                         package = "OptimalBinningWoE")
+gc_data <- utils::read.csv(gzfile(data_path), stringsAsFactors = FALSE)
+gc_data$target <- as.integer(1L - gc_data$credit_risk)
+gc_data$credit_risk <- NULL
+
+fit <- obwoe(gc_data, target = "target", feature = c("duration", "purpose"),
+             algorithm = "jedi", min_bins = 2, max_bins = 5)
+fit$summary[, c("feature", "type", "algorithm", "n_bins", "total_iv")]
+```
+
+**Or by calling the engine directly**, which returns a plain list for one
+feature:
+
+```{r via-wrapper}
+direct <- ob_numerical_jedi(target = gc_data$target,
+                            feature = gc_data$duration,
+                            min_bins = 2, max_bins = 5)
+data.frame(bin = direct$bin, count = direct$count,
+           woe = round(direct$woe, 4), iv = round(direct$iv, 4))
+```
+
+### `obwoe()` does not forward algorithm-specific parameters
+
+`obwoe()` builds a fixed argument list — `min_bins`, `max_bins`, `bin_cutoff`,
+`max_n_prebins`, `convergence_threshold`, `max_iterations`, and
+`bin_separator` for categorical features — and passes nothing else. An
+engine's own parameters are unreachable through it, and routing them via
+`control.obwoe()` fails **silently**:
+
+```{r forwarding}
+via_obwoe <- obwoe(gc_data, target = "target", feature = "duration",
+                   algorithm = "dmiv",
+                   control = control.obwoe(divergence_method = "kl"))
+direct_dmiv <- ob_numerical_dmiv(target = gc_data$target,
+                                 feature = gc_data$duration,
+                                 divergence_method = "kl")
+
+c(`through obwoe()` = via_obwoe$results$duration$divergence_method,
+  `direct wrapper`  = direct_dmiv$divergence_method)
+```
+
+**If you need an algorithm-specific parameter, call the engine directly.**
+
+## Coverage
+
+```{r coverage}
+coverage <- alg
+coverage$feature_types <- ifelse(coverage$numerical & coverage$categorical, "both",
+                          ifelse(coverage$numerical, "numerical", "categorical"))
+coverage$target <- ifelse(coverage$multinomial, "binary + multinomial", "binary")
+coverage[order(coverage$feature_types, coverage$algorithm),
+         c("algorithm", "feature_types", "target")]
+```
+
+## The quantity being optimised
+
+Nearly every engine here optimises Information Value, so it is worth stating
+what that is. For bins \(i\) with good/bad counts \(g_i, b_i\) and totals
+\(g, b\):
+
+\[
+\mathrm{WoE}_i = \ln\frac{g_i/g}{b_i/b}, \qquad
+\mathrm{IV} = \sum_i \left(\frac{g_i}{g} - \frac{b_i}{b}\right)\mathrm{WoE}_i
+\]
+
+IV is the symmetrised Kullback–Leibler divergence between the good and bad
+distributions — the Jeffreys divergence. Zeng (2013, §3.2) states this
+identity explicitly, which is what makes the divergence-based engine `dmiv` a
+generalisation rather than a different idea.
+
+The **weight of evidence** itself long predates credit scoring. Good (1985,
+p. 249) records that the log-likelihood-ratio form was first published by
+Wrinch and Jeffreys (1921); that Turing named the quantity informally in
+classified work at Bletchley Park in 1941; and that Good (1950) published and
+popularised the term. Kullback–Leibler divergence is its expectation.
+
+**Smoothing is not uniform across the package.** Most engines add a
+pseudo-count before taking the logarithm, but the constant, its scaling, and
+whether IV uses the same smoothed proportions as WoE all vary. Four engines —
+`ldb`, `lpdb`, `kmb` and numerical `dp` — compute WoE from *smoothed*
+proportions but IV from *raw* ones. In `ldb` this is visible at
+`src/OBN_LDB_v5.cpp:117-150`: `calculateWOE()` divides by
+`total_pos + num_bins * ALPHA`, while `calculateIV()` divides by `total_pos`.
+The effect is small at \(\alpha = 0.5\) and moderate \(n\), but it is real, and
+it means reported IV is not exactly the IV of the model whose WoE is reported.
+
+## Choosing an algorithm
+
+`algorithm = "auto"` resolves to `jedi` for a binary target and `jedi_mwoe` for
+a multinomial one. It is a fixed alias, not a search.
+
+On German Credit with five-fold held-out IV, `jedi` is within one standard
+error of the best available engine on 18 of 20 variables. For most variables
+the choice of engine is worth close to nothing; where it matters, it tends to
+matter on continuous variables with a long tail.
+
+| If you need | Reach for | Because |
+|---|---|---|
+| A sound general default | `jedi` | Fast, monotonicity-aware, rarely beaten by enough to matter |
+| A multinomial target | `jedi_mwoe` | The only engine that accepts one |
+| A genuine statistical stopping rule | `cm` | ChiMerge with a significance threshold |
+| Provably IV-optimal bins given the ordering | `ivb`, `dp` (categorical), `sblp` | Real dynamic programming over the ordered levels |
+| The bin count decided by theory | `fast_mdlp` | The only faithful Fayyad–Irani implementation here |
+| Guaranteed monotone WoE | `ir` | Isotonic regression, not a merge heuristic |
+| Very high cardinality | `sketch` (categorical) | Memory independent of the number of levels |
+| An unsupervised baseline | `ewb` | Equal-width initialisation, honestly labelled |
+
+## Reference, organised by mechanism
+
+Grouping engines by what they *do* rather than by what they are called
+produces a different and more useful taxonomy than the names suggest.
+
+### Exact dynamic programming
+
+Three engines genuinely solve an optimal-partition problem: having fixed an
+ordering of the levels, they find the contiguous partition maximising total IV
+by Bellman recursion, not by greedy merging.
+
+**`ivb`** (`ob_categorical_ivb()`) — sorts levels by event rate, then runs an
+interval DP with cumulative-sum caching, so each DP cell is \(O(1)\)
+(`src/OBC_IVB_v5.cpp:34-158, 369-442`). \(O(L^2 k)\). No own parameters.
+
+**`dp`, categorical** (`ob_categorical_dp()`) — the same DP, but with the
+monotonicity constraint built into the transition rather than repaired
+afterwards (`src/OBC_DP_v5.cpp:666-717`): transitions that would violate the
+requested trend are simply never considered. Own parameter: `monotonic_trend`
+(`"auto"`, `"ascending"`, `"descending"`, `"none"`). The `"auto"` direction is
+detected by a Welford-stable online correlation (Welford, 1962).
+
+**`sblp`** (`ob_categorical_sblp()`) — event-rate ordering, a rate-similarity
+pre-merge for rare levels, then interval DP. Its DP re-sums each candidate
+segment instead of using cumulative sums (`src/OBC_SBLP_v5.cpp:485-505`),
+making it \(O(L^3 k)\) where `ivb` and `dp` are \(O(L^2 k)\). Own parameter:
+`alpha` (Laplace constant). *Name note:* no logistic regression is fitted
+anywhere; the R documentation's analogy to Jenks natural breaks has no
+counterpart in the code.
+
+There is a fourth, hidden DP: **`sketch`, numerical** contains a correct
+Bellman DP over "best IV splitting the first *i* points into *j* bins"
+(`src/OBN_Sketch_v5.cpp:277-470`) — but it runs only when \(n \le 50\), a
+threshold hardcoded at `src/OBN_Sketch_v5.cpp:979` and not exposed. For any
+real dataset, `sketch` takes its greedy branch.
+
+### Recursive entropy partitioning
+
+**`fast_mdlp`** (`ob_numerical_fast_mdlp()`) — the only engine implementing the
+Fayyad–Irani (1993) criterion as published. It recursively splits top-down,
+accepting a cut when the information gain exceeds
+
+\[
+\frac{\log_2(N-1)}{N} + \frac{\Delta}{N},
+\qquad \Delta = \log_2(3^k - 2) - \bigl[k\,\mathrm{Ent}(S) - k_1\mathrm{Ent}(S_1) - k_2\mathrm{Ent}(S_2)\bigr]
+\]
+
+which for binary targets reduces to the `log2(7) - 2*E_parent` at
+`src/OBN_FastMDLPM_v5.cpp:176`. Own parameter: `force_monotonicity`.
+
+*Two caveats.* `max_n_prebins` and `bin_cutoff` appear exactly once each in the
+file — in the signature — and have no effect. And `max_bins` is enforced by
+discarding the **last-discovered** splits (`src/OBN_FastMDLPM_v5.cpp:548-575`),
+by recursion order rather than by information content; the source comment
+admits this is "for simplicity".
+
+**`udt`, numerical** (`ob_numerical_udt()`) — scores every candidate midpoint
+by information gain in a single prefix-sum sweep, keeps the top
+`max_n_prebins` by gain, then merges bottom-up. Own parameters:
+`laplace_smoothing`, `monotonicity_direction`. Its split phase rescans the full
+feature vector per bin (`src/OBN_UDT_v5.cpp:778-880`), which the R
+documentation correctly warns is expensive. *Name note:* the package's own
+roxygen states it plainly — the method is supervised and builds no tree.
+
+### Bottom-up MDL cost
+
+**`mdlp`** (`ob_numerical_mdlp()`) — merges the adjacent pair that most reduces
+a global cost \(\log_2(k-1) + N H(S) - \sum_i n_i H(S_i)\)
+(`src/OBN_MDLP_v5.cpp:915-966`), then enforces `max_bins` as a hard
+post-condition. Own parameter: `laplace_smoothing`.
+
+*Name note.* This is an MDL-flavoured cost, but it is **not** the Fayyad–Irani
+criterion: the term \(\log_2(3^k-2)\) appears nowhere in the file, and the
+algorithm is agglomerative bottom-up where the cited paper is recursive
+top-down. `R/obn_mdlp.R:134` nonetheless claims a "Theoretical Guarantee
+(Fayyad & Irani, 1993)". The guarantee does not transfer. Confusingly, the
+engine that *does* implement the paper is the one named `fast_mdlp`, whose name
+suggests it is merely a faster variant of this one.
+
+### Statistical merging
+
+**`cm`** (`ob_numerical_cm()`, `ob_categorical_cm()`) — ChiMerge (Kerber,
+1992): repeatedly merge the adjacent pair with the smallest \(\chi^2\), stop
+when the smallest exceeds a critical value. Own parameters:
+`chi_merge_threshold`, `use_chi2_algorithm`, and `init_method` on the numerical
+side. Setting `use_chi2_algorithm = TRUE` gives the genuine Chi2 extension of
+Liu and Setiono (1995): the same merge swept over a decreasing schedule of
+significance levels, stopping on an inconsistency-rate criterion.
+
+Two implementation notes. The statistic includes a **Yates continuity
+correction**, \(\sum(|O-E| - 0.5)^2/E\) (`src/OBN_CM_v5.cpp:266-310`), which is
+not the form usually attributed to Kerber; the primary source could not be
+consulted directly to confirm whether Kerber's own text includes it. And
+critical values come from a hard-coded 14-entry table for one degree of
+freedom, with the nearest tabulated level substituted for an untabulated
+`chi_merge_threshold`.
+
+**`fetb`** (`ob_numerical_fetb()`, `ob_categorical_fetb()`) — merges the
+adjacent pair whose 2×2 table is least distinguishable. No own parameters.
+
+*What it computes.* `fisherProb()` returns the **hypergeometric point
+probability of the single observed table**
+(`src/OBN_FETB_v5.cpp:58-65`), which is one term of a Fisher exact-test
+p-value, not the summed tail. The package is internally inconsistent about
+this: the function's own comment says "point probability" and the roxygen says
+"the exact hypergeometric probability of independence" — both accurate — while
+the file header at `src/OBN_FETB_v5.cpp:23` calls it a "two‑tail Fisher
+p‑value", which it is not. As a similarity criterion the statistic is
+defensible; as a significance test it is not, and there is no α-based stopping
+rule. On the categorical side, `max_n_prebins` is accepted and never read.
+
+### Isotonic regression
+
+**`ir`** (`ob_numerical_ir()`) — the one engine whose name fully survives
+inspection. Weighted Pool Adjacent Violators on bin event rates, correctly
+implemented (`src/OBN_IR_v5.cpp:776-856`), and — importantly — the bins that
+PAVA pools are then genuinely merged rather than having fitted values written
+over them, so the reported counts and the isotonic fit stay consistent. Own
+parameter: `auto_monotonicity`. `min_bins` is a target, not a guarantee:
+pooling can legitimately end below it, and the roxygen says so.
+
+*Two notes.* The source comment at `src/OBN_IR_v5.cpp:761` claims \(O(n)\), but
+the block merge shifts the whole vector (`:822-827`), making it \(O(k^2)\).
+And `R/obn_ir.R:55` credits PAVA to Best and Chakravarti (1990) — a real paper
+about active-set methods for isotonic regression, but not the algorithm's
+origin, which is Ayer, Brunk, Ewing, Reid and Silverman (1955).
+
+### Density-based
+
+Both engines locate cut points from a Gaussian kernel density estimate,
+computed by linear binning on a grid and convolution — the technique of
+Silverman (1982), with linear binning as formalised by Wand (1994) — in the
+shared helper `gaussian_kde_grid()`. The grid is 512 points and is not
+user-adjustable, so structure narrower than 1/511 of the feature's range is not
+resolved.
+
+**`ldb`** (`ob_numerical_ldb()`) — cuts at local minima of the density.
+Bandwidth `0.9 * min(sd, IQR/1.34) * n^(-1/5)` (`src/OBN_LDB_v5.cpp:383`), an
+exact match to Silverman's rule of thumb (1986, p. 48, eq. 3.31). Own
+parameter: `enforce_monotonic`.
+
+**`lpdb`** (`ob_numerical_lpdb()`) — cuts at extrema *and inflection points*,
+found by finite differences of the gridded density. Own parameters:
+`polynomial_degree`, `enforce_monotonic`.
+
+*Name note.* No polynomial is fitted. `polynomial_degree` is validated and
+never read — setting it changes nothing. The R documentation already says the
+density is "currently approximated via KDE". Its bandwidth also drops the
+robustness term, using `0.9 * sd * n^(-1/5)` (`src/OBN_LPDB_v5.cpp:784`), which
+makes it more outlier-sensitive than `ldb`.
+
+### Distribution-based initialisation
+
+**`ewb`** (`ob_numerical_ewb()`) — equal-width intervals, then supervised
+merging. Honestly labelled as hybrid. Own parameter: `is_monotonic`. Its WoE
+and IV use the *same* smoothed proportions, unlike `ldb`/`lpdb`/`kmb`/`dp`.
+
+**`kmb`** (`ob_numerical_kmb()`) — centroids placed at
+`min + (i+0.5)·range/n_bins` and boundaries at their midpoints
+(`src/OBN_KMB_v5.cpp:279-332`). *Name note:* there is no assignment/update
+iteration, so this is not Lloyd's algorithm (1982) — evenly spaced centroids
+with midpoint boundaries is equal-width binning under another name. The roxygen
+is careful and says "k-means **inspired**". Two further quirks: bin assignment
+is a linear scan per observation, \(O(nk)\), the only engine not using binary
+search; and the initial bin count is capped at `max_bins`, so raising
+`max_n_prebins` above `max_bins` does nothing.
+
+**`ubsd`** (`ob_numerical_ubsd()`) — edges at \(\mu \pm \sigma, \mu \pm 2\sigma\)
+unioned with equal-width points, then supervised refinement. Own parameter:
+`laplace_smoothing`. *Note:* alone among the numerical engines it offers **no
+way to disable monotonicity enforcement** — there is no such argument in the
+constructor or the exported function. The roxygen already corrects the
+"unsupervised" in its name: only initialisation is unsupervised.
+
+### Divergence-driven
+
+**`dmiv`** (`ob_numerical_dmiv()`, `ob_categorical_dmiv()`) — merges by one of
+nine divergences: Hellinger, KL, triangular, J-divergence, symmetric \(\chi^2\),
+Jensen–Shannon (Lin, 1991), L1, L2, L∞. Own parameters: `divergence_method`,
+`bin_method`, and `is_monotonic` on the numerical side.
+
+**`bin_method` defaults to `"woe1"`, which is not standard WoE.** Zeng's WOE1
+is \(\ln(g_i/b_i)\) — a per-bin log-odds with no normalisation by the totals —
+so it differs from standard WoE by the constant \(\ln(g/b)\). IV is unaffected,
+because the offset cancels in the sum, and the code computes IV separately for
+exactly that reason (`src/OBN_DMIV_v5.cpp:724-761`). But the WoE values are not
+comparable with the other 27 engines, and a scorecard fitted on them carries a
+different intercept. Pass `bin_method = "woe"` to the wrapper for the standard
+definition.
+
+*Attribution note.* The package presents the **smoothed** form
+\(\ln((g_i+0.5)/(b_i+0.5))\) as Zeng's (`R/obc_dmiv.R:38`). Zeng's published
+WOE1 is unsmoothed; the pseudo-count is this package's own numerical-stability
+addition. Two further citation issues: `R/obn_dmiv.R:86` gives the venue as
+*Journal of the Operational Research Society* 64(5), 712–731, but the verified
+publication is *Journal of Mathematics* 2013, article 848271; and two
+divergence methods behave globally rather than per bin — `l2` rescales each
+bin's share of the global norm, and `l∞` assigns the maximum to whichever bins
+attain it and zero to all others.
+
+### Streaming
+
+**`sketch`** (`ob_numerical_sketch()`, `ob_categorical_sketch()`) — the only
+engine whose memory does not grow with the data. The categorical variant uses
+Count-Min sketches (Cormode and Muthukrishnan, 2005) for category frequencies,
+making its cost independent of the number of levels; the numerical variant uses
+a multi-level compactor for approximate quantiles. Own parameters: `sketch_k`
+and `monotonic` (numerical); `sketch_width`, `sketch_depth` (categorical).
+
+*Two qualifications on the numerical side.* The compactor uses the **same
+capacity at every level** and a **deterministic parity rule** to choose which
+item of a compacted pair survives (`src/OBN_Sketch_v5.cpp:81, 107-108`).
+Karnin, Lang and Liberty (2016) obtain their optimal bound from geometrically
+decreasing capacities and a randomised coin flip; neither is present here. The
+implementation is in the KLL *family*, but the \(\varepsilon \approx O(1/k)\)
+guarantee quoted in the documentation is not established for this variant. And
+`max_n_prebins` is never read — the candidate quantile grid is hardcoded.
+
+### Greedy merging under an IV or WoE criterion
+
+The largest group. All follow the same shape — pre-bin, merge rare bins, merge
+until `max_bins`, repair monotonicity — and differ in three choices: how the
+levels are ordered, how the merge direction is decided, and which IV expression
+selects the merge.
+
+| Engine | Types | Ordering / direction rule | Merge criterion |
+|---|---|---|---|
+| `jedi` | both | Majority vote over WoE increments | Smallest summed current IV |
+| `jedi_mwoe` | both | Per-class, all classes checked | Smallest IV summed over classes |
+| `mob` | both | First two bins' WoE | Minimum IV loss after merge |
+| `mrblp` | numerical | Majority vote | Smallest \(|IV_i - IV_{i+1}|\) |
+| `mblp` | numerical | Pearson correlation | Minimum IV loss after merge |
+| `oslp` | numerical | Majority vote | Smallest \(IV_i + IV_{i+1}\) |
+| `bb` | numerical | Both directions simulated, higher IV wins | Globally minimum-IV bin |
+| `gmb` | categorical | Event rate, adjacent only | Highest post-merge total IV |
+| `mba` | categorical | Count, then all-pairs rate similarity | Minimum IV loss |
+| `milp` | categorical | All-pairs rate similarity | Minimum \(|IV|\) |
+| `swb` | categorical | WoE order, JS divergence | Minimum JS divergence |
+| `udt` | categorical | WoE order, JS divergence | Minimum JS divergence |
+
+Own parameters: `laplace_smoothing` for `mob`, `mrblp`, `oslp`;
+`force_monotonic_direction` for `mblp`; `is_monotonic` for `bb`; none for the
+rest.
+
+**`jedi` and `jedi_mwoe` are the package author's own construction**, combining
+adjacent published techniques rather than implementing a named method — there
+is no paper to cite and none is claimed. The numerical heuristic is: quantile
+pre-binning; merge bins below `bin_cutoff` into the smaller neighbour; infer
+trend direction by majority vote over pairwise WoE increments; merge violating
+adjacent pairs until monotone; then merge until `max_bins`, each time taking
+the adjacent pair with the smallest summed current IV; iterate until total IV
+stops changing by more than `convergence_threshold`
+(`src/OBN_JEDI_v5.cpp:113-129, 235-425`). `jedi_mwoe` is the same procedure
+with one-vs-rest WoE per class, requiring monotonicity in every class
+simultaneously. *Name note:* despite "Joint Entropy-Driven" in the title, the
+numerical implementation computes no entropy — the file contains no entropy,
+`log2` or information-gain term anywhere. The optimisation is entirely
+WoE/IV-driven. The roxygen also describes the merge as choosing the smallest
+*decrease* in IV, while the code chooses the smallest summed current IV; those
+are different rules.
+
+**`bb`** is named "Branch and Bound" but neither branches nor bounds: it
+repeatedly merges the single lowest-IV bin and never reconsiders
+(`src/OBN_BB_v5.cpp:449-517`). **`dp`, numerical** is named "Dynamic
+Programming" and builds no DP table — its own source comment says so and cites
+Navas-Palencia (2020) as what a real formulation would look like. **`milp`**
+solves no mixed-integer programme, and its header says so. **`mblp`** and
+**`oslp`** contain no linear programme. **`mrblp`** does no likelihood-ratio
+pre-binning: the word "likelihood" appears only in comments. **`swb`** slides
+no window — for unordered levels there is no axis to slide along; it is greedy
+divergence merging with an adjacency preference.
+
+`R/obn_oslp.R:135` recommends against `oslp` outright: "Use OSLP: Never. Use
+MBLP or MOB instead."
+
+### Metaheuristic
+
+**`sab`** (`ob_categorical_sab()`) — simulated annealing (Kirkpatrick, Gelatt
+and Vecchi, 1983) over category-to-bin assignments. Alone among the categorical
+engines it can move a level between **non-adjacent** bins, so it is not
+restricted to a single ordering. Rare-bin and monotonicity violations enter the
+objective as penalties rather than being repaired afterwards
+(`src/OBC_SAB_v5.cpp:161-215`). Own parameters: `initial_temperature`,
+`cooling_rate`, `adaptive_cooling`. Its generator is seeded from R's RNG
+stream, so `set.seed()` makes it reproducible. `max_n_prebins` is validated and
+never used, so it anneals over the full level set.
+
+## Measured behaviour
+
+All 37 combinations on the bundled German Credit data, identical constraints:
+
+```{r bench, results = "asis"}
+run_all <- function(feature, type) {
+  ids <- alg$algorithm[alg[[type]]]
+  out <- lapply(ids, function(a) {
+    r <- try(suppressWarnings(suppressMessages(
+      obwoe(gc_data, target = "target", feature = feature,
+            algorithm = a, min_bins = 2, max_bins = 5))), silent = TRUE)
+    if (inherits(r, "try-error") || r$summary$error) {
+      data.frame(algorithm = a, bins = NA_integer_, total_iv = NA_real_)
+    } else {
+      data.frame(algorithm = a, bins = r$summary$n_bins,
+                 total_iv = round(r$summary$total_iv, 4))
+    }
+  })
+  do.call(rbind, out)
+}
+num_res <- run_all("duration", "numerical")
+knitr::kable(num_res[order(-num_res$total_iv), ], row.names = FALSE,
+             caption = "Numerical engines on `duration`")
+```
+
+```{r bench-cat, results = "asis"}
+cat_res <- run_all("purpose", "categorical")
+knitr::kable(cat_res[order(-cat_res$total_iv), ], row.names = FALSE,
+             caption = "Categorical engines on `purpose`")
+```
+
+Read those as a sanity check, not a ranking. IV measured on the same data that
+produced the bins rewards more bins automatically, and one variable cannot
+separate engines differing by thousandths. A defensible comparison needs
+held-out data.
+
+As of version 1.13.3 every engine bins a 100,000-row numerical feature in under
+a quarter of a second. Before that release `ldb`, `lpdb` and numerical `udt`
+scaled quadratically and took 10.7s, 10.7s and 7.4s at only 50,000 rows.
+
+## Known limitations
+
+Collected so they are findable, with the source location for each.
+
+**Parameters accepted and never read.** `polynomial_degree` in `lpdb`;
+`max_n_prebins` in `fast_mdlp`, numerical `sketch`, categorical `fetb` and
+`sab`; `bin_cutoff` in `fast_mdlp` and categorical `dmiv`, whose rare-level
+handling uses a hardcoded threshold of 5 observations instead.
+
+**`convergence_threshold` is inert in five numerical engines** — `ldb`,
+`lpdb`, `ewb`, `kmb` and `dp` accept and validate it but never compare against
+it. Only `bb`, `ubsd` and `sketch` use it.
+
+**Silent level truncation in `ivb` and `gmb`.** When more levels survive the
+rare-level merge than `max_n_prebins` allows, both **discard** the excess
+rather than pooling it (`src/OBC_IVB_v5.cpp:315`,
+`src/OBC_GMB_v5.cpp:273`), and the observations leave the binning entirely.
+Default settings hide this — with `bin_cutoff = 0.05` at most 20 levels can
+survive — but at a lower cutoff it is reachable, and no warning is emitted.
+Prefer `dp` or `jedi` for high-cardinality features under a small
+`bin_cutoff`.
+
+**Multiclass monotonicity is not simultaneous.** In categorical `jedi_mwoe`,
+`ensure_monotonic_order()` re-sorts by each class in turn without re-checking
+earlier classes (`src/OBC_JEDIMWoE_v5.cpp:854-869`), so a later class's sort
+can reintroduce a violation in an earlier one.
+
+**Citation errors in the shipped documentation.** `R/obc_cm.R:94` gives the
+Chi2 author as "Liu, B." (it is Huan Liu) and pages 372–377 (they are 388–391;
+`R/obn_cm.R` has them right). `src/OBN_OSLP_v5.cpp:46` attributes "Optimal
+Binning: Mathematical Programming Formulation" to "Belcastro, L., et al."; the
+paper is by Guillermo Navas-Palencia. `R/obc_sab.R` has no references at all,
+though simulated annealing is its namesake.
+
+## References
+
+Every entry below was verified to exist. Works the package cites that could not
+be confirmed are listed in the following section instead.
+
+Ayer, M., Brunk, H. D., Ewing, G. M., Reid, W. T., & Silverman, E. (1955). An
+empirical distribution function for sampling with incomplete information.
+*Annals of Mathematical Statistics*, 26, 641–647.
+
+Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
+*Statistical Inference Under Order Restrictions*. Wiley.
+
+Best, M. J., & Chakravarti, N. (1990). Active set algorithms for isotonic
+regression: a unifying framework. *Mathematical Programming*, 47, 425–439.
+
+Cormode, G., & Muthukrishnan, S. (2005). An improved data stream summary: the
+count-min sketch and its applications. *Journal of Algorithms*, 55(1), 58–75.
+
+Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of
+continuous-valued attributes for classification learning. *IJCAI-93*,
+1022–1027.
+
+Fisher, R. A. (1922). On the interpretation of χ² from contingency tables, and
+the calculation of P. *Journal of the Royal Statistical Society*, 85(1), 87–94.
+
+Good, I. J. (1950). *Probability and the Weighing of Evidence*. Charles Griffin.
+
+Good, I. J. (1985). Weight of evidence: a brief survey. In *Bayesian Statistics
+2*, 249–270. Elsevier.
+
+Karnin, Z., Lang, K., & Liberty, E. (2016). Optimal quantile approximation in
+streams. *FOCS 2016*, 71–78.
+
+Kerber, R. (1992). ChiMerge: discretization of numeric attributes. *AAAI-92*,
+123–128.
+
+Kirkpatrick, S., Gelatt, C. D., & Vecchi, M. P. (1983). Optimization by
+simulated annealing. *Science*, 220(4598), 671–680.
+
+Kullback, S., & Leibler, R. A. (1951). On information and sufficiency. *Annals
+of Mathematical Statistics*, 22(1), 79–86.
+
+Lin, J. (1991). Divergence measures based on the Shannon entropy. *IEEE
+Transactions on Information Theory*, 37(1), 145–151.
+
+Liu, H., & Setiono, R. (1995). Chi2: feature selection and discretization of
+numeric attributes. *ICTAI-95*, 388–391.
+
+Lloyd, S. P. (1982). Least squares quantization in PCM. *IEEE Transactions on
+Information Theory*, 28(2), 129–137.
+
+Navas-Palencia, G. (2020). Optimal binning: mathematical programming
+formulation. arXiv:2001.08025.
+
+Parzen, E. (1962). On estimation of a probability density function and mode.
+*Annals of Mathematical Statistics*, 33(3), 1065–1076.
+
+Rosenblatt, M. (1956). Remarks on some nonparametric estimates of a density
+function. *Annals of Mathematical Statistics*, 27(3), 832–837.
+
+Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing
+Intelligent Credit Scoring*. Wiley.
+
+Silverman, B. W. (1982). Algorithm AS 176: kernel density estimation using the
+fast Fourier transform. *Journal of the Royal Statistical Society, Series C*,
+31(1), 93–99.
+
+Silverman, B. W. (1986). *Density Estimation for Statistics and Data Analysis*.
+Chapman & Hall.
+
+Wand, M. P. (1994). Fast computation of multivariate kernel estimators.
+*Journal of Computational and Graphical Statistics*, 3(4), 433–445.
+
+Welford, B. P. (1962). Note on a method for calculating corrected sums of
+squares and products. *Technometrics*, 4(3), 419–420.
+
+Wrinch, D., & Jeffreys, H. (1921). On certain fundamental principles of
+scientific inquiry. *Philosophical Magazine*, 42, 369–390.
+
+Zeng, G. (2013). Metric divergence measures and information value in credit
+scoring. *Journal of Mathematics*, 2013, article 848271.
+
+Zeng, G. (2014). A necessary condition for a good binning algorithm in credit
+scoring. *Applied Mathematical Sciences*, 8(65), 3229–3242.
+
+## What could not be verified
+
+Stated so that absence of a citation is not mistaken for absence of a source.
+
+**The IV interpretation bands.** The scale (< 0.02 unpredictive, 0.02–0.1 weak,
+0.1–0.3 medium, 0.3+ strong) is attributed to Siddiqi (2006) by two independent
+sources that quote it with page numbers, and Zeng (2013, §3.2) cites Siddiqi
+for it as well. The book's text was not consulted directly, and the sources
+disagree on whether a fifth band exists and what it says — the widely repeated
+"> 0.5 suspiciously high, check for overfitting" wording could not be traced to
+Siddiqi's own text.
+
+**Whether Kerber's ChiMerge uses a continuity correction.** The primary source
+could not be retrieved. Secondary descriptions give the uncorrected
+\(\sum (O-E)^2/E\); this package implements the Yates-corrected form.
+
+**The mechanism of Mironchyk and Tchistiakov (2017)**, cited by `mob`, `mrblp`,
+`mblp`, `gmb` and `mba`. The paper is real; access was blocked, and its
+characterisation as a PAVA-based construction rests on secondary descriptions.
+If that characterisation is right, none of the five engines citing it
+reproduces its mechanism — `ir` is the package's only PAVA implementation.
+
+**The error bound of this package's compactor sketch.** What it does
+differently from Karnin, Lang and Liberty (2016) is documented above; deriving
+a corrected bound for the deterministic equal-capacity variant would require a
+proof not attempted here.
+
+**Whether a *Journal of the Operational Research Society* version of Zeng
+(2013) exists**, as `R/obn_dmiv.R:86` states. Only the *Journal of Mathematics*
+version was found.
