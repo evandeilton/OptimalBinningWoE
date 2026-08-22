@@ -297,6 +297,11 @@ private:
 
       bins.resize(keep);
 
+      // Resort by positive rate
+      for (const auto& bin : bins) {
+        (void)bin; // Suppress unused variable warning - event_rate() calculated dynamically
+      }
+
       std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
         return a.event_rate() < b.event_rate();
       });

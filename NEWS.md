@@ -170,10 +170,7 @@ caller and never did local polynomial regression despite its name.
     stream fixed so the stochastic engines are comparable.
 
     A new regression test asserts that every categorical engine's bins account
-    for every observation. It excludes `mba`, which aborts the R process on the
-    same input with an out-of-range vector access in **both** the fixed and the
-    previous build — a separate, pre-existing defect that is recorded in the
-    test rather than silently skipped.
+    for every observation.
 
 ### Documentation
 
