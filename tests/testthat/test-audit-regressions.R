@@ -533,3 +533,55 @@ test_that("the shared KDE keeps ldb and udt bit-identical to the double loop", {
   expect_equal(length(ldb$bin), 2L)
   expect_equal(sum(ldb$iv), 0.6267022265, tolerance = 1e-8)
 })
+
+test_that("categorical engines represent every observation in their bins", {
+  # OBC_IVB and OBC_GMB reduced an over-large category set by resizing the bin
+  # vector, which dropped the excess categories outright instead of pooling
+  # them: their observations left the binning entirely. Nothing signalled it --
+  # no warning, error = FALSE, converged = TRUE -- so WoE and IV were reported
+  # for a subsample while claiming to describe the whole one.
+  #
+  # Default settings hide the defect, because bin_cutoff = 0.05 lets at most 20
+  # categories survive the rare-category merge and max_n_prebins is 20. A
+  # smaller cutoff makes it reachable: 60 levels at bin_cutoff = 0.005 lost
+  # 39,306 of 60,000 rows before the fix.
+  #
+  # The invariant is checked for every categorical engine, not only the two
+  # that were wrong, because "the bins account for the sample" is a property
+  # the whole family has to satisfy.
+  set.seed(4)
+  n <- 60000L
+  d <- data.frame(
+    target = rbinom(n, 1, 0.2),
+    f = sample(paste0("L", seq_len(60)), n, TRUE),
+    stringsAsFactors = FALSE
+  )
+
+  ids <- obwoe_algorithms()
+  ids <- ids$algorithm[ids$categorical]
+
+  # `mba` is excluded, not exonerated: on this input it aborts the R process
+  # with an out-of-range std::vector<CategoricalBin> access, in both the fixed
+  # and the pre-fix build. That is a separate, pre-existing memory-safety
+  # defect, and running it here would take the whole suite down with it rather
+  # than reporting a failure. Remove this exclusion once it is fixed.
+  ids <- setdiff(ids, "mba")
+
+  for (a in ids) {
+    for (cutoff in c(0.05, 0.005)) {
+      set.seed(20260822)  # sab and mba are stochastic
+      fit <- try(suppressWarnings(suppressMessages(
+        obwoe(d, target = "target", feature = "f", algorithm = a,
+              min_bins = 2, max_bins = 5,
+              control = control.obwoe(bin_cutoff = cutoff, max_n_prebins = 20))
+      )), silent = TRUE)
+
+      if (inherits(fit, "try-error") || isTRUE(fit$summary$error)) next
+
+      counts <- fit$results$f$count
+      expect_equal(sum(counts), n,
+        info = sprintf("%s at bin_cutoff = %s dropped %d of %d observations",
+                       a, format(cutoff), n - sum(counts), n))
+    }
+  }
+})

@@ -146,6 +146,35 @@ different cut points.
 Also removed `OBN_LPDB::local_polynomial_density()`, which no longer had a
 caller and never did local polynomial regression despite its name.
 
+### Fixed: categorical `ivb` and `gmb` dropped observations
+
+*   **`ob_categorical_ivb()` and `ob_categorical_gmb()` discarded the categories
+    that did not fit within `max_n_prebins` instead of pooling them**, so those
+    observations left the binning entirely. The vector of bins was resized, and
+    everything past the cap was destroyed along with its counts. Nothing
+    signalled it: no warning, `error = FALSE`, `converged = TRUE`, and a
+    `total_iv` reported as if it described the whole sample.
+
+    Default settings hide the defect — `bin_cutoff = 0.05` lets at most 20
+    categories survive the rare-category merge, which is exactly the default
+    `max_n_prebins` — but a smaller cutoff reaches it. With 60 levels and
+    `bin_cutoff = 0.005`, both engines lost **39,306 of 60,000 rows (65.5%)**;
+    `dp` and `jedi` accounted for every row on the same input.
+
+    Both now fold the excess into the smallest retained bin
+    (`src/OBC_IVB_v5.cpp`, `src/OBC_GMB_v5.cpp`). Which categories are kept as
+    separate identities is unchanged — still the `max_n_prebins` most frequent —
+    so results on the path where the cap never bound are **byte-identical** to
+    the previous release: verified across all 16 categorical engines and 13
+    variables of the bundled German Credit data, 208 combinations, with the RNG
+    stream fixed so the stochastic engines are comparable.
+
+    A new regression test asserts that every categorical engine's bins account
+    for every observation. It excludes `mba`, which aborts the R process on the
+    same input with an out-of-range vector access in **both** the fixed and the
+    previous build — a separate, pre-existing defect that is recorded in the
+    test rather than silently skipped.
+
 ### Documentation
 
 *   **New vignette, `Algorithm Reference: the 37 Binning Engines`.** Reference

@@ -264,19 +264,39 @@ private:
     
     bins = std::move(merged_bins);
     
-    // Limit number of pre-bins if necessary
+    // Limit number of pre-bins if necessary.
+    //
+    // The excess bins are folded into the smallest of the retained ones. They
+    // used to be dropped instead: the vector was simply resized, which removed
+    // those categories' observations from the binning altogether. The loss was
+    // silent -- no warning, no error flag, and `converged` still true -- and it
+    // is reachable whenever more than max_n_prebins bins survive the rare-bin
+    // merge above, which a bin_cutoff below 1/max_n_prebins allows.
+    //
+    // Folding rather than dropping keeps every observation represented, so the
+    // reported counts, WoE and IV describe the whole sample as they claim to.
+    // Which categories are kept as separate identities is unchanged: still the
+    // max_n_prebins largest.
     if (static_cast<int>(bins.size()) > max_n_prebins) {
+      // validateInputs() enforces min_bins >= 2 and max_n_prebins >= min_bins,
+      // so keep is at least 2 and the absorber index below is always in range.
+      const int keep = max_n_prebins;
+      const int n_bins = static_cast<int>(bins.size());
+
       // Sort by bin size before limiting
       std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
         return a.count > b.count;  // Descending order
       });
-      bins.resize(max_n_prebins);
-      
-      // Resort by positive rate
-      for (const auto& bin : bins) {
-        (void)bin; // Suppress unused variable warning - event_rate() calculated dynamically
+
+      // Fold the remainder into the smallest retained bin. The sort above is
+      // descending by count, so that is the last of the retained block.
+      CategoricalBin& absorber = bins[keep - 1];
+      for (int i = keep; i < n_bins; ++i) {
+        absorber.merge_with(bins[i]);
       }
-      
+
+      bins.resize(keep);
+
       std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
         return a.event_rate() < b.event_rate();
       });
