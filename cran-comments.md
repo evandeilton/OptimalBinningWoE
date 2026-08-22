@@ -35,14 +35,25 @@ Five waves are included:
   emitted structurally broken SQL, with no error and no warning.
 * **1.13.3** — Third audit pass, covering the WoE/IV return contract, the
   `converged` flag and the `max_bins` constraint across all 37 algorithm/type
-  combinations. The material item is a numerical correctness fix: the
-  categorical `sketch` engine computed WoE against the wrong marginal,
-  overstating Information Value by three orders of magnitude. Three
-  algorithms (`mdlp`, `gmb`, `fetb`) silently ignored the documented
-  `max_bins` and now honour it, which changes the bins they return;
-  `obwoe_apply()` now refuses multinomial models instead of scoring every row
-  with class 1's WoE. Both are called out at the top of the `NEWS.md`
-  section.
+  combinations, plus a new reference vignette documenting every engine against
+  its implementation.
+
+  Seventeen defects were fixed. The material ones: the categorical `sketch`
+  engine computed WoE against the wrong marginal, overstating Information
+  Value by three orders of magnitude; `ivb` and `gmb` discarded categories
+  beyond `max_n_prebins` instead of pooling them, losing up to 65% of the
+  observations while reporting an IV as though it covered the whole sample;
+  `mba` read past the end of its bin vector; and four algorithms (`mdlp`,
+  `gmb`, `fetb`, categorical `dmiv`) silently ignored the documented
+  `max_bins`. `obwoe_apply()` now refuses multinomial models rather than
+  scoring every row with one class's WoE.
+
+  Three engines that scaled quadratically in the number of rows (`lpdb`,
+  `ldb`, numerical `udt`) are now linear, between 387x and 1074x faster at
+  n = 50,000.
+
+  Five of these change results for code that already works, and each is called
+  out at the top of the `NEWS.md` section.
 
 The full list is in `NEWS.md`, with behavior changes called out at the top of
 each section.
@@ -71,8 +82,14 @@ tarball with vignettes:
 0 errors | 0 warnings | 2 notes
 ```
 
-Tests, examples (including `--run-donttest`) and both vignettes build and run
-cleanly. The test suite is 1998 assertions, all passing, with no warnings.
+Tests, examples (including `--run-donttest`) and all three vignettes build and
+run cleanly. The test suite is 2047 assertions, all passing, with no warnings.
+
+Every fix in this release that could change a computed value was verified
+byte-identical to the previous build on inputs that already worked — all 16
+categorical engines across 13 variables of the bundled benchmark, 208
+combinations, comparing one fresh R process per build with the RNG stream
+fixed.
 
 **NOTE 1 — `Version jumps in minor (submitted: 1.13.3, existing: 1.0.8)`.**
 Expected; explained above.
