@@ -503,7 +503,7 @@ cat("  Original categories:", length(unique(cat_feature_hc)), "\n")
 cat("  Final bins:", length(result_jedi_hc$bin), "\n")
 #>   Final bins: 7 
 cat("  Execution time:", round(time_jedi_hc[3], 3), "seconds\n")
-#>   Execution time: 0.001 seconds
+#>   Execution time: 0.002 seconds
 cat("  Total IV:", round(result_jedi_hc$total_iv, 4), "\n")
 #>   Total IV: 0.1435 
 cat("  Converged:", result_jedi_hc$converged, "\n")
