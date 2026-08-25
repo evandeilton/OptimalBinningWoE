@@ -80,10 +80,11 @@ test_that("the WoE emitted by SQL equals the WoE applied in R", {
   for (f in feats) {
     alias <- paste0(f, "_woe")
     if (!alias %in% names(cases)) next
-    expect_equal(
-      sql_eval_case_num(cases[[alias]], df[[f]], f),
-      scored[[alias]],
-      tolerance = 0, info = f
+    got <- sql_eval_case_num(cases[[alias]], df[[f]], f)
+    ref <- scored[[alias]]
+    expect_equal(got, ref,
+      tolerance = sql_read_tolerance(),
+      info = sql_woe_mismatch(f, cases[[alias]], got, ref)
     )
   }
 })
@@ -121,6 +122,39 @@ test_that("values sitting exactly on a cut point fall in the lower bin", {
 })
 
 
+test_that("boundaries hold for cut points that need full double precision", {
+  # The cut points above are small integers, which any literal writer renders
+  # exactly. Cut points taken from continuous data need all 17 significant
+  # digits, and a literal one bit short pushes the boundary observation into
+  # the next bin.
+  set.seed(37)
+  n <- 900
+  x <- rnorm(n)
+  df <- data.frame(x = x, target = rbinom(n, 1, stats::plogis(x)))
+  model <- obwoe(df, target = "target")
+  skip_if(!is.null(model$results$x$error), "binning failed")
+  cp <- sort(unique(model$results$x$cutpoints))
+  skip_if(length(cp) == 0, "no cut points produced")
+  skip_if(!any(x %in% cp), "no cut point coincides with an observation")
+
+  cases <- obwoe_sql(model,
+    output = "index", style = "case",
+    comment = FALSE, quote_identifiers = "never"
+  )
+  skip_if(!"x_idx" %in% names(cases), "no SQL expression produced")
+  case <- cases[["x_idx"]]
+
+  expect_equal(sql_eval_case_num(case, cp, "x"), as.numeric(seq_along(cp)))
+  expect_equal(
+    sql_eval_case_num(case, x, "x"),
+    as.numeric(cut(x,
+      breaks = c(-Inf, cp, Inf), labels = FALSE,
+      right = TRUE, include.lowest = TRUE
+    ))
+  )
+})
+
+
 test_that("cut points survive the decimal round trip exactly", {
   f <- OptimalBinningWoE:::.ob_sql_num
 
@@ -130,17 +164,41 @@ test_that("cut points survive the decimal round trip exactly", {
     .Machine$double.eps, 1 - .Machine$double.eps
   )
   lit <- f(tricky)
-  expect_equal(as.numeric(lit), tricky, tolerance = 0)
+  expect_equal(as.numeric(lit), tricky, tolerance = sql_read_tolerance())
 
   # No scientific notation: dialects disagree on how such literals are typed
   expect_false(any(grepl("e", lit, ignore.case = TRUE)))
 
+  # A cut point that loses a single bit moves observations across a boundary,
+  # so the round trip is checked in bulk rather than on hand-picked values.
+  # Writing the literal through format() used to fail here on platforms whose
+  # long double is no wider than a double.
+  set.seed(4049)
+  bulk <- c(
+    rnorm(2000), rnorm(500) / 1e6, runif(500, -1e6, 1e6),
+    seq(-3, 3, length.out = 500), 0
+  )
+  lit_bulk <- f(bulk)
+  expect_equal(as.numeric(lit_bulk), bulk, tolerance = sql_read_tolerance())
+  expect_false(any(grepl("e", lit_bulk, ignore.case = TRUE)))
+
+  # Negative zero is written as "0". SQL has no signed zero to write it into,
+  # and the two compare equal as numbers, so this loses nothing -- but it is
+  # not bit-identical, which is why it is asserted on the literal instead of
+  # being folded into the round trip above.
+  expect_equal(f(-0), "0")
+
   # NA and infinities degrade safely
   expect_equal(f(NA_real_), "NULL")
   expect_equal(f(c(-Inf, Inf)), c("-1e308", "1e308"))
+  expect_equal(f(numeric(0)), character(0))
+  expect_equal(f(c(NA, Inf, 0, 0.5)), c("NULL", "1e308", "0", "0.5"))
 
-  # Rounding is opt-in
+  # Rounding is opt-in and counts decimal places, including past the seven
+  # significant digits R prints by default
   expect_equal(f(pi, digits = 3), "3.142")
+  expect_equal(f(1234.5678901234, digits = 8), "1234.56789012")
+  expect_equal(f(c(2.5, -0.0001), digits = 2), c("2.5", "0"))
 })
 
 

@@ -1,3 +1,62 @@
+# OptimalBinningWoE 1.13.4
+
+## SQL literals on platforms without an extended long double (2026-08-25)
+
+Single-defect release. The CRAN checks for 1.13.3 failed on
+`r-release-macos-arm64` and `r-oldrel-macos-arm64` only; every other flavour,
+macOS on x86_64 included, was clean.
+
+*   **`obwoe_sql()` could write a cut point one bit away from the fitted
+    value on Apple silicon**, moving any observation that sits exactly on
+    that boundary into the next bin. The generated SQL was internally
+    consistent and gave no warning; it simply scored those rows with the
+    wrong bin's Weight of Evidence.
+
+    The literal writer searched for the shortest decimal string that parses
+    back to the identical double, checking each candidate with `as.numeric()`
+    before emitting it. **That check is not sound on aarch64.** R accumulates
+    the decimal digits of a string in `LDOUBLE`, which on aarch64 macOS is no
+    wider than a `double`, so beyond about fifteen digits `as.numeric()` can
+    land one bit from the nearest double -- rejecting a literal that does round
+    trip and accepting one that does not. With every candidate rejected, the
+    search fell through to a fallback that wrote fewer digits than the value
+    needs: the cut point `-0.13964785691628961` came out as
+    `-0.13964785691629`, which is the smaller number, so an observation equal
+    to the cut point failed `x <= -0.13964785691629` and fell one bin up.
+
+    The search now decides for itself. A candidate with `nd` decimals is
+    checked as `m / 10^nd`, where `m` is its digits read as an integer: while
+    `m` is below 2^53 and `nd` is at most 22, both operands are exact, so IEEE
+    754 gives the correctly rounded quotient -- the nearest double to the
+    candidate -- on every platform R runs on. Candidates outside those bounds
+    are not judged at all; the value falls back to seventeen significant
+    digits, the width that identifies a double uniquely. `as.numeric()` still
+    has to agree before a candidate is accepted, not to decide the question but
+    so that a literal R itself reads back as a different double is never
+    written into an audit artifact.
+
+    Cut points that are exact in binary -- integers, halves, quarters -- still
+    read short. About five per cent of values now carry one more digit than
+    they did in 1.13.3, being those the new check declines to judge.
+
+*   **`digits` now means decimal places, as documented.** It rounded to the
+    requested number of places and then formatted the result with R's default
+    seven significant digits, so `digits = 8` on `1234.5678901234` emitted
+    `1234.568` rather than `1234.56789012`. Values needing at most seven
+    significant digits -- the common case, and the one the test suite covered
+    -- were unaffected.
+
+`macos-latest` is back in the GitHub Actions check matrix. It had been
+disabled while `infer` had no ARM64 binary; that binary is back, and the
+architecture is the one this release repairs.
+
+Three regression tests were added to `tests/testthat/test-obwoe-sql.R`: a bulk
+round trip over 3,500 values, a boundary check on cut points taken from
+continuous data, and a diagnostic that spells out a one-bit disagreement
+between the SQL and `obwoe_apply()`, which `waldo` reports only as "don't know
+how to show the difference". The existing boundary test used integer-valued cut
+points, which any literal writer renders exactly, and so could not catch this.
+
 # OptimalBinningWoE 1.13.3
 
 ## Audit fixes (2026-08-21)

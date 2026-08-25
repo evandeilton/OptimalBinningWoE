@@ -183,6 +183,62 @@ sql_eval_case_str <- function(case_sql, values, col) {
   }, character(1), USE.NAMES = FALSE)
 }
 
+#' Tolerance for a comparison that reads a generated literal back with as.numeric()
+#'
+#' R accumulates the decimal digits of a string in `LDOUBLE`, which on aarch64
+#' macOS is no wider than a `double`. There `as.numeric()` can land one bit from
+#' the nearest double for a literal carrying more than fifteen digits, so a
+#' bit-exact comparison would be testing R's own string-to-double conversion
+#' rather than the SQL the package generated. The probe below detects that and
+#' relaxes those comparisons to a few ULP; everywhere else -- Linux, Windows,
+#' macOS on x86_64 -- they stay exact.
+#'
+#' @return `0` where R parses exactly, a small tolerance where it does not.
+sql_read_tolerance <- function() {
+  set.seed(20260825)
+  probe <- c(
+    rnorm(200), 0.43675438268898403, -0.16634225323308749,
+    0.73219048278227306, -0.36497312083599037
+  )
+  if (all(as.numeric(sprintf("%.17g", probe)) == probe)) 0 else 1e-14
+}
+
+
+#' Spell out a disagreement between SQL-evaluated WoE and R-applied WoE
+#'
+#' waldo cannot diff two doubles that print alike, so a one-bit disagreement
+#' reports only "actual != expected but don't know how to show the difference",
+#' which says nothing about where it came from. This renders the offending row
+#' at full precision along with the literals the CASE offers, so a failure on a
+#' machine we cannot reach is still diagnosable from the check artifact.
+#'
+#' @param feature Feature name, used as the label when nothing differs.
+#' @param case_sql The generated CASE expression.
+#' @param got WoE obtained by evaluating the SQL.
+#' @param ref WoE obtained from `obwoe_apply()`.
+#'
+#' @return A character scalar for `expect_equal(info = )`.
+sql_woe_mismatch <- function(feature, case_sql, got, ref) {
+  if (identical(got, ref)) {
+    return(feature)
+  }
+  differs <- !vapply(
+    seq_along(got), function(j) identical(got[j], ref[j]), logical(1)
+  )
+  if (!any(differs)) {
+    return(feature)
+  }
+  j <- which(differs)[1L]
+  lines <- trimws(strsplit(as.character(case_sql), "\n", fixed = TRUE)[[1L]])
+  thens <- sub("^.*THEN ", "", grep(" THEN ", lines, fixed = TRUE, value = TRUE))
+  sprintf(
+    "%s: %d of %d rows differ; row %d sql=%.17g apply=%.17g; THEN literals: %s",
+    feature, sum(differs), length(got), j, got[j], ref[j],
+    paste(utils::head(unique(thens), 12L), collapse = " ")
+  )
+}
+
+
 #' Bin labels compare equal ignoring R's declared encoding
 #'
 #' Bin labels come back from the C++ layer as byte strings with no encoding

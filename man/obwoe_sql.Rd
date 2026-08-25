@@ -103,9 +103,10 @@ branches cascade with upper bounds only, which is shorter and equally
 exact given the top-down evaluation order of \code{CASE}.}
 
 \item{digits}{Integer or \code{NULL} (default). \code{NULL} writes cut
-points and WoE values at full precision, as the shortest decimal string
-that parses back to the identical double. Supplying a value rounds the
-literals for readability, at the cost of exactness on bin boundaries.}
+points and WoE values at full precision, as a decimal string that parses
+back to the identical double. Supplying a value rounds the literals to
+that many decimal places for readability, at the cost of exactness on bin
+boundaries.}
 
 \item{quote_identifiers}{Character string: \code{"auto"} (default) quotes
 only identifiers that need it, \code{"always"} quotes everything,
@@ -175,11 +176,12 @@ skipped with a warning rather than exported with a wrong mapping.
 
 \subsection{Numeric literals}{
 
-With \code{digits = NULL} each cut point is written as the shortest
-fixed-notation decimal that parses back to the identical IEEE 754 double.
-Rounding a boundary such as \code{4049.5} to fewer digits would silently
-move observations between bins, so exactness is the default; scientific
-notation is avoided because dialects differ on how they type such literals.
+With \code{digits = NULL} each cut point is written with the seventeen
+significant digits that identify an IEEE 754 double uniquely, trailing zeros
+removed, so a value that is exact in binary still reads short. Rounding a
+boundary such as \code{4049.5} to fewer digits would silently move
+observations between bins, so exactness is the default; scientific notation
+is avoided because dialects differ on how they type such literals.
 }
 
 \subsection{NULL handling}{

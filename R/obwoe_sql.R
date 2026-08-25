@@ -123,40 +123,118 @@
 }
 
 
-#' @title Internal: Round-Trip-Safe SQL Numeric Literal
+#' @title Internal: Fixed-Notation Decimal With a Given Number of Decimals
 #'
 #' @description
-#' Renders a double as the shortest fixed-notation decimal string that parses
+#' Formats finite doubles with \code{nd} decimal places and drops the trailing
+#' zeros. \code{sprintf()} is used rather than \code{format()} because it
+#' delegates to the C library's correctly rounded binary-to-decimal
+#' conversion, which behaves identically on every platform R runs on.
+#'
+#' @param v Numeric vector of finite values.
+#' @param nd Number of decimal places; recycled against \code{v}.
+#'
+#' @return A character vector in plain decimal notation.
+#'
+#' @keywords internal
+.ob_sql_decimal <- function(v, nd) {
+  s <- sprintf("%.*f", as.integer(nd), v)
+  # Only a string that has a decimal point may lose its trailing zeros; the
+  # zeros of an integer-valued literal are digits, not padding.
+  dot <- grepl(".", s, fixed = TRUE)
+  s[dot] <- sub("\\.?0+$", "", s[dot])
+  s[s == "-0" | s == ""] <- "0"
+  s
+}
+
+
+#' @title Internal: SQL Numeric Literal That Survives the Round Trip
+#'
+#' @description
+#' Renders a double as a plain decimal string that any conforming reader parses
 #' back to the identical binary value. Cut points and WoE values must survive
-#' the round trip exactly, otherwise an observation sitting on a boundary
-#' could fall into the wrong bin.
+#' the round trip exactly, otherwise an observation sitting on a boundary could
+#' fall into the wrong bin.
+#'
+#' Seventeen significant digits identify an IEEE 754 double uniquely, so that
+#' width is always safe and is what a value falls back to. Shorter strings are
+#' preferred when one of them is exact, which keeps a cut point of \code{2.3}
+#' reading as \code{2.3}.
+#'
+#' Whether a shorter string is exact is decided without \code{as.numeric()}.
+#' R accumulates decimal digits in \code{long double}, which on aarch64 macOS
+#' is no wider than a \code{double}, so there \code{as.numeric()} can land one
+#' bit from the nearest double -- accepting a literal that does not round trip
+#' and rejecting one that does. A candidate with \code{nd} decimals is instead
+#' checked as \code{m / 10^nd}, where \code{m} is its digits read as an
+#' integer: while \code{m} is below \eqn{2^{53}} and \code{nd} at most 22
+#' both operands are exact, so IEEE 754 gives the correctly rounded quotient --
+#' the nearest double to the candidate -- on every platform. Candidates outside
+#' those bounds are not judged, they simply lose to the fallback.
+#'
+#' \code{as.numeric()} still has to agree before a candidate is accepted. It is
+#' not trusted to decide, but a literal R itself reads back as a different
+#' double would be a poor thing to write into an audit artifact, and on x86_64
+#' its 80-bit division rounded down to 64 bits disagrees with the correctly
+#' rounded one about twice in every hundred thousand values.
 #'
 #' @param x Numeric vector.
-#' @param digits Optional integer. When supplied, values are rounded to that
-#'   many significant digits instead of being written exactly.
+#' @param digits Optional integer. When supplied, values are written with that
+#'   many decimal places instead of at full precision.
 #'
 #' @return Character vector of SQL numeric literals.
 #'
 #' @keywords internal
 .ob_sql_num <- function(x, digits = NULL) {
-  vapply(as.numeric(x), function(v) {
-    if (is.na(v)) {
-      return("NULL")
+  v <- as.numeric(x)
+  out <- character(length(v))
+  if (length(v) == 0L) {
+    return(out)
+  }
+
+  na <- is.na(v)
+  out[na] <- "NULL"
+  inf <- !na & is.infinite(v)
+  out[inf] <- ifelse(v[inf] > 0, "1e308", "-1e308")
+  todo <- which(!na & !inf)
+
+  if (!is.null(digits)) {
+    out[todo] <- .ob_sql_decimal(v[todo], digits)
+    return(out)
+  }
+
+  zero <- todo[v[todo] == 0]
+  out[zero] <- "0"
+  todo <- setdiff(todo, zero)
+  if (length(todo) == 0L) {
+    return(out)
+  }
+
+  # Decimals needed for 17 significant digits. The exponent is read off the
+  # rendering itself: log10() would be a guess that can be one out at a power
+  # of ten, and one digit short is a literal that no longer identifies the
+  # double.
+  sci <- sprintf("%.16e", v[todo])
+  full <- pmax(0L, 16L - as.integer(substring(sci, regexpr("e", sci) + 1L)))
+  names(full) <- as.character(todo)
+
+  pending <- todo
+  for (nd in 0:min(22L, max(full))) {
+    if (length(pending) == 0L) {
+      break
     }
-    if (is.infinite(v)) {
-      return(if (v > 0) "1e308" else "-1e308")
-    }
-    if (!is.null(digits)) {
-      return(format(round(v, digits), scientific = FALSE, trim = TRUE))
-    }
-    for (dg in 1:17) {
-      s <- format(v, digits = dg, scientific = FALSE, trim = TRUE)
-      if (!is.na(suppressWarnings(as.numeric(s))) && as.numeric(s) == v) {
-        return(s)
-      }
-    }
-    format(v, digits = 22, scientific = FALSE, trim = TRUE)
-  }, character(1))
+    cand <- .ob_sql_decimal(v[pending], nd)
+    # Digits as an integer: dropping the point multiplies by 10^nd exactly.
+    m <- as.numeric(sub(".", "", cand, fixed = TRUE))
+    ok <- abs(m) < 9007199254740992 & m / 10^nd == v[pending] &
+      as.numeric(cand) == v[pending]
+    out[pending[ok]] <- cand[ok]
+    pending <- pending[!ok]
+  }
+  if (length(pending) > 0L) {
+    out[pending] <- .ob_sql_decimal(v[pending], full[as.character(pending)])
+  }
+  out
 }
 
 
@@ -375,9 +453,10 @@
 #'   branches cascade with upper bounds only, which is shorter and equally
 #'   exact given the top-down evaluation order of \code{CASE}.
 #' @param digits Integer or \code{NULL} (default). \code{NULL} writes cut
-#'   points and WoE values at full precision, as the shortest decimal string
-#'   that parses back to the identical double. Supplying a value rounds the
-#'   literals for readability, at the cost of exactness on bin boundaries.
+#'   points and WoE values at full precision, as a decimal string that parses
+#'   back to the identical double. Supplying a value rounds the literals to
+#'   that many decimal places for readability, at the cost of exactness on bin
+#'   boundaries.
 #' @param quote_identifiers Character string: \code{"auto"} (default) quotes
 #'   only identifiers that need it, \code{"always"} quotes everything,
 #'   \code{"never"} emits bare names.
@@ -432,11 +511,12 @@
 #'
 #' \subsection{Numeric literals}{
 #'
-#' With \code{digits = NULL} each cut point is written as the shortest
-#' fixed-notation decimal that parses back to the identical IEEE 754 double.
-#' Rounding a boundary such as \code{4049.5} to fewer digits would silently
-#' move observations between bins, so exactness is the default; scientific
-#' notation is avoided because dialects differ on how they type such literals.
+#' With \code{digits = NULL} each cut point is written with the seventeen
+#' significant digits that identify an IEEE 754 double uniquely, trailing zeros
+#' removed, so a value that is exact in binary still reads short. Rounding a
+#' boundary such as \code{4049.5} to fewer digits would silently move
+#' observations between bins, so exactness is the default; scientific notation
+#' is avoided because dialects differ on how they type such literals.
 #' }
 #'
 #' \subsection{NULL handling}{
