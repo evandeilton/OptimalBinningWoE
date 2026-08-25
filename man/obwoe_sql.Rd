@@ -105,7 +105,8 @@ exact given the top-down evaluation order of \code{CASE}.}
 \item{digits}{Integer or \code{NULL} (default). \code{NULL} writes cut
 points and WoE values at full precision, as the shortest decimal string
 that parses back to the identical double. Supplying a value rounds the
-literals for readability, at the cost of exactness on bin boundaries.}
+literals to that many decimal places for readability, at the cost of
+exactness on bin boundaries.}
 
 \item{quote_identifiers}{Character string: \code{"auto"} (default) quotes
 only identifiers that need it, \code{"always"} quotes everything,

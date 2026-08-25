@@ -1,73 +1,84 @@
-# CRAN Submission Comments — OptimalBinningWoE 1.13.3
+# CRAN Submission Comments — OptimalBinningWoE 1.13.4
 
 ## Summary
 
-This release adds user-facing functionality on top of a mostly-unchanged C++
-engine, followed by two bug-fix passes from an internal code audit. Existing
-code continues to work: nothing was removed or renamed except two
-internal-only API adjustments requested by the author (see `NEWS.md`), and a
-number of previously-wrong computed values now compute correctly — each one
-flagged in `NEWS.md` where the corrected value differs from what a caller may
-already have worked around.
+Single-defect bug-fix release. It fixes the check ERROR reported for 1.13.3 on
+`r-release-macos-arm64` and `r-oldrel-macos-arm64`. No other flavour was
+affected: both macOS x86_64 flavours, all Linux flavours and all Windows
+flavours were OK.
 
-Five waves are included:
+There are no new features, no new dependencies and no user-visible API change.
 
-* **1.12.0** — `obwoe_select()`, automated variable screening by Information
-  Value strength and bin ordering, and `obwoe_sql()`, generation of the
-  equivalent SQL `CASE` expressions for in-database scoring (14 dialects).
-* **1.13.0** — `obwoe_scorecard()`, an end-to-end scorecard pipeline
-  (split, binning, screening, fitting, PDO scaling) whose result can be
-  written as a multi-sheet `.xlsx` model document by `obwoe_report()`, plus
-  the supporting `obwoe_scale()`, `obwoe_score()`, `obwoe_prune()` and
-  `obwoe_psi()`.
-* **1.13.1** — Bug-fix release from an internal audit: correctness fixes to
-  gains-table ordering and KS, `step_obwoe()`'s `"auto"` algorithm
-  resolution, `obwoe_gains()`'s WoE regrouping, missing-value handling in
-  `obwoe_apply()`/`obwoe_sql()`, and several smaller items. Two internal
-  functions were un-exported or renamed (neither advertised as stable public
-  API — see `NEWS.md`).
-* **1.13.2** — Second audit pass. `obwoe()` now returns the `control` it was
-  fitted with, so a saved model records its own configuration; everything
-  that has to split grouped categories out of a bin label reads the
-  separator from there instead of assuming the package default. This fixed a
-  silent defect rather than adding a feature: a model fitted with a custom
-  `bin_separator` previously mis-scored most of its own training rows and
-  emitted structurally broken SQL, with no error and no warning.
-* **1.13.3** — Third audit pass, covering the WoE/IV return contract, the
-  `converged` flag and the `max_bins` constraint across all 37 algorithm/type
-  combinations, plus a new reference vignette documenting every engine against
-  its implementation.
+This arrives only days after 1.13.3 was accepted, which the incoming checks
+flag as `Days since last update: 2`. The submission is made this soon because
+it repairs a failing CRAN check on two flavours, not to ship anything new.
 
-  Seventeen defects were fixed. The material ones: the categorical `sketch`
-  engine computed WoE against the wrong marginal, overstating Information
-  Value by three orders of magnitude; `ivb` and `gmb` discarded categories
-  beyond `max_n_prebins` instead of pooling them, losing up to 65% of the
-  observations while reporting an IV as though it covered the whole sample;
-  `mba` read past the end of its bin vector; and four algorithms (`mdlp`,
-  `gmb`, `fetb`, categorical `dmiv`) silently ignored the documented
-  `max_bins`. `obwoe_apply()` now refuses multinomial models rather than
-  scoring every row with one class's WoE.
+## The failure and its cause
 
-  Three engines that scaled quadratically in the number of rows (`lpdb`,
-  `ldb`, numerical `udt`) are now linear, between 387x and 1074x faster at
-  n = 50,000.
+```
+── Failure ('test-obwoe-sql.R:559:3'): multinomial models require an explicit class ──
+Expected `sql_eval_case_num(cases[["x_woe"]], df$x, "x")` to equal `...[]`.
+Differences:
+  `actual[131:137]`: -0.010 -0.051 0.090 -0.010 -0.010 -0.010 -0.051
+`expected[131:137]`: -0.010 -0.051 0.090 -0.051 -0.010 -0.010 -0.051
+```
 
-  Five of these change results for code that already works, and each is called
-  out at the top of the `NEWS.md` section.
+One observation out of 900 was scored by the wrong bin. It is the observation
+whose value is *exactly* a fitted cut point, and the test asserts that the
+generated SQL puts it in the same bin `cut(..., right = TRUE)` does.
 
-The full list is in `NEWS.md`, with behavior changes called out at the top of
-each section.
+`obwoe_sql()` writes each cut point as the shortest fixed-notation decimal
+string that parses back to the identical double, so that an observation on a
+boundary cannot drift into the neighbouring bin. The old implementation found
+that string by asking `format(v, digits = dg, scientific = FALSE)` for
+`dg = 1, ..., 17` and returning the first one that satisfied
+`as.numeric(s) == v`, falling back to `digits = 22`.
 
-### Note on the version jump
+`format()`'s significant-digit search runs in `long double`. On aarch64 macOS
+`long double` is no wider than `double`, so the search can conclude that fewer
+digits suffice than actually do; every width from 1 to 17 then fails the
+round-trip test and the fallback returns the same short string. The cut point
+`-0.13964785691628961` was written as `-0.13964785691629`, which is the
+smaller number, so the observation equal to the cut point failed
+`x <= -0.13964785691629` and was scored one bin up. On x86_64 the 80-bit
+extended long double leaves the search enough precision to terminate
+correctly, which is why the failure was confined to one architecture.
 
-The last version accepted on CRAN is 1.0.8; this submission is 1.13.3. The
-intermediate versions were developed and used outside CRAN while the
-package's scope grew substantially (the scorecard pipeline, SQL code
-generation, `tidymodels` integration via `step_obwoe()`), and were never
-submitted. There is no CRAN-visible history between 1.0.8 and this
-submission; `NEWS.md` documents every version in between for completeness.
+Literals are now built with `sprintf("%.*f", ...)`, which delegates to the C
+library's correctly rounded binary-to-decimal conversion and behaves the same
+way on every platform R supports. The round-trip check is unchanged, and the
+search is now over decimal places rather than over `format()`'s notion of
+significant digits.
 
-This produces the expected `Version jumps in minor` NOTE below.
+The same commit fixes a second, smaller defect found while auditing that code
+path: `digits` rounded to the requested number of decimal places and then
+formatted the result with R's default seven significant digits, so
+`digits = 8` on `1234.5678901234` emitted `1234.568`.
+
+### Verification
+
+The emitted SQL is byte-identical to 1.13.3 on x86_64 for 33,000 random and
+adversarial doubles — the fix changes *which* code produces the digits, not
+the digits themselves, on a platform where the old code was already correct.
+The only difference found is for denormals, where the old code emitted
+scientific notation that the documentation promises never to use.
+
+Two regression tests were added to `tests/testthat/test-obwoe-sql.R`:
+
+* a bulk round trip over 3,500 values, which asserts
+  `as.numeric(.ob_sql_num(v)) == v` exactly; and
+* a boundary check on cut points taken from continuous data.
+
+The pre-existing boundary test used a feature whose cut points are small
+integers, which any literal writer renders exactly, and so could not catch
+this class of defect.
+
+We have no aarch64 macOS machine, so the failing configuration was reproduced
+by inspection rather than by execution: the value that fails, the string
+`format()` must have produced for the observed result, and the resulting bin
+assignment are all shown above and were confirmed on x86_64 by feeding the
+short literal back through the comparison. The fix removes the platform
+dependence entirely rather than compensating for it.
 
 ---
 
@@ -75,92 +86,55 @@ This produces the expected `Version jumps in minor` NOTE below.
 
 ### Local check
 
-x86_64-pc-linux-gnu, R 4.6.x, GCC, `R CMD check --as-cran` on the built
-tarball with vignettes:
+x86_64-pc-linux-gnu, R 4.6.x, GCC, `R CMD check --as-cran --run-donttest` on
+the built tarball with vignettes:
 
 ```
 0 errors | 0 warnings | 2 notes
 ```
 
 Tests, examples (including `--run-donttest`) and all three vignettes build and
-run cleanly. The test suite is 2047 assertions, all passing, with no warnings.
+run cleanly. The test suite runs 2,043 assertions with no failures and no
+warnings.
 
-Every fix in this release that could change a computed value was verified
-byte-identical to the previous build on inputs that already worked — all 16
-categorical engines across 13 variables of the bundled benchmark, 208
-combinations, comparing one fresh R process per build with the RNG stream
-fixed.
-
-**NOTE 1 — `Version jumps in minor (submitted: 1.13.3, existing: 1.0.8)`.**
-Expected; explained above.
+**NOTE 1 — `checking CRAN incoming feasibility`: `Days since last update: 2`.**
+Expected, and explained above: this release exists to repair the check ERROR
+on the two aarch64 macOS flavours.
 
 **NOTE 2 — `checking HTML version of manual`.** The check machine has no
 `tidy` binary and no `V8` package, so HTML validation and math rendering were
 skipped. This is a property of the machine, not of the package.
 
-A third note, `Found the following hidden files and directories: .git`,
-appeared in an earlier run of this check and has been eliminated. It was an
-artifact of building the tarball from a `git worktree`, where `.git` is a
-small *file* pointing at the real git directory rather than a directory
-itself. `R CMD build` skips a `.git` directory automatically but not a file
-of that name, so the pointer was packaged. `.Rbuildignore` now carries
-`^\.git$`, which excludes it either way, and a rebuild from the same
-worktree confirms it is gone.
-
 ### INFO — installed size
 
 ```
-installed size is 71.9Mb
+installed size is 72.3Mb
 sub-directories of 1Mb or more:
-  libs  70.3Mb
+  libs  70.6Mb
 ```
 
-The package compiles 37 binning algorithms as separate translation units, so
-the shared object is large. Essentially all of the reported size is debug
-symbols from the local `-g` compiler default. Measured on this build:
-
-| | size |
-|---|---|
-| `OptimalBinningWoE.so` as built | 70.3 MB |
-| same object after `strip --strip-debug` | 2.8 MB |
-
-So ~96% of the figure is symbols that a stripping install removes. We have
-not added `-Os` or an explicit strip step to `src/Makevars`, since CRAN
-policy asks packages not to override the platform's compiler flags.
+Unchanged from 1.13.3, and explained there: the package compiles 37 binning
+algorithms as separate translation units, and essentially all of the reported
+size is debug symbols from the local `-g` compiler default. The same object
+after `strip --strip-debug` is 2.9 MB. We have not added `-Os` or an explicit
+strip step to `src/Makevars`, since CRAN policy asks packages not to override
+the platform's compiler flags.
 
 ---
 
 ## Test environments
 
 * **Local**: x86_64-pc-linux-gnu, R 4.6.x, GCC — `0 errors | 0 warnings | 2 notes`
-* **GitHub Actions**, all passing on the submitted commit:
-  * ubuntu-latest — R devel, release, oldrel-1, oldrel-2, oldrel-3
-  * windows-latest — R release
-* **win-builder (R-release)**: to be verified before submission
-* **win-builder (R-devel)**: to be verified before submission
-* **macOS builder**: **not yet verified.** macOS is currently disabled in the
-  CI matrix, so no macOS build has been exercised for this release. The
-  package is C++17 and links against `RcppEigen` and `RcppNumerical`, so this
-  is the platform most likely to surface a compilation difference. It will be
-  checked on the macOS builder before submission.
+* **macOS builder (aarch64, R release)**: to be verified before submission —
+  this is the configuration that failed on 1.13.3, so it is the one that
+  matters for this release.
+* **win-builder (R-release and R-devel)**: to be verified before submission
 
 ---
 
 ## Dependencies
 
-No new `Imports` or `Depends`.
-
-`Suggests` changed since 1.13.0:
-
-* `dplyr` **removed** — it was declared but never used.
-* `tune` **added** — used by one regression test that constructs
-  `step_obwoe(algorithm = tune::tune())`, guarded with
-  `skip_if_not_installed("tune")`.
-
-`openxlsx` and `glmnet` remain optional, as added in 1.13.0: `openxlsx` is
-needed only to write the `.xlsx` workbook, `glmnet` only for
-`engine = "glmnet"`. Each is guarded with `requireNamespace()` and produces
-an informative error naming the package when absent.
+No change. No new `Imports`, `Depends` or `Suggests`.
 
 ---
 

@@ -123,6 +123,32 @@
 }
 
 
+#' @title Internal: Fixed-Notation Decimal With a Given Number of Decimals
+#'
+#' @description
+#' Formats finite doubles with \code{nd} decimal places and drops the
+#' trailing zeros. \code{sprintf()} is used rather than \code{format()} because
+#' it delegates to the C library's correctly rounded binary-to-decimal
+#' conversion, which behaves identically on every platform R runs on.
+#'
+#' @param v Numeric vector of finite values.
+#' @param nd Number of decimal places (a non-negative integer scalar).
+#'
+#' @return A character vector in plain decimal notation.
+#'
+#' @keywords internal
+.ob_sql_decimal <- function(v, nd) {
+  nd <- as.integer(nd)
+  s <- sprintf("%.*f", nd, v)
+  if (nd > 0L) {
+    s <- sub("0+$", "", s)
+    s <- sub("\\.$", "", s)
+  }
+  s[s == "-0"] <- "0"
+  s
+}
+
+
 #' @title Internal: Round-Trip-Safe SQL Numeric Literal
 #'
 #' @description
@@ -131,32 +157,65 @@
 #' the round trip exactly, otherwise an observation sitting on a boundary
 #' could fall into the wrong bin.
 #'
+#' The search runs over decimal places and accepts the first width that parses
+#' back to the same double. Seventeen significant digits always round trip, so
+#' the exponent of the value bounds the search. \code{format()} is deliberately
+#' not used: its significant-digit search runs in \code{long double} and
+#' therefore drops digits on platforms where \code{long double} is no wider
+#' than \code{double} (Apple silicon among them), which silently moves a cut
+#' point off a boundary value.
+#'
 #' @param x Numeric vector.
-#' @param digits Optional integer. When supplied, values are rounded to that
-#'   many significant digits instead of being written exactly.
+#' @param digits Optional integer. When supplied, values are written with that
+#'   many decimal places instead of being written exactly.
 #'
 #' @return Character vector of SQL numeric literals.
 #'
 #' @keywords internal
 .ob_sql_num <- function(x, digits = NULL) {
-  vapply(as.numeric(x), function(v) {
-    if (is.na(v)) {
-      return("NULL")
+  v <- as.numeric(x)
+  out <- character(length(v))
+  if (length(v) == 0L) {
+    return(out)
+  }
+
+  na <- is.na(v)
+  out[na] <- "NULL"
+  inf <- !na & is.infinite(v)
+  out[inf] <- ifelse(v[inf] > 0, "1e308", "-1e308")
+  todo <- which(!na & !inf)
+
+  if (!is.null(digits)) {
+    out[todo] <- .ob_sql_decimal(v[todo], digits)
+    return(out)
+  }
+
+  zero <- todo[v[todo] == 0]
+  out[zero] <- "0"
+  todo <- setdiff(todo, zero)
+  if (length(todo) == 0L) {
+    return(out)
+  }
+
+  # Seventeen significant digits always round trip; the smallest exponent in
+  # play says how many decimal places that many digits can need.
+  expo <- as.integer(floor(log10(abs(v[todo]))))
+  nd_max <- min(400L, max(0L, 16L - min(expo)) + 2L)
+
+  for (nd in 0:nd_max) {
+    s <- .ob_sql_decimal(v[todo], nd)
+    parsed <- as.numeric(s)
+    ok <- !is.na(parsed) & parsed == v[todo]
+    out[todo[ok]] <- s[ok]
+    todo <- todo[!ok]
+    if (length(todo) == 0L) {
+      break
     }
-    if (is.infinite(v)) {
-      return(if (v > 0) "1e308" else "-1e308")
-    }
-    if (!is.null(digits)) {
-      return(format(round(v, digits), scientific = FALSE, trim = TRUE))
-    }
-    for (dg in 1:17) {
-      s <- format(v, digits = dg, scientific = FALSE, trim = TRUE)
-      if (!is.na(suppressWarnings(as.numeric(s))) && as.numeric(s) == v) {
-        return(s)
-      }
-    }
-    format(v, digits = 22, scientific = FALSE, trim = TRUE)
-  }, character(1))
+  }
+  if (length(todo) > 0L) {
+    out[todo] <- .ob_sql_decimal(v[todo], nd_max)
+  }
+  out
 }
 
 
@@ -377,7 +436,8 @@
 #' @param digits Integer or \code{NULL} (default). \code{NULL} writes cut
 #'   points and WoE values at full precision, as the shortest decimal string
 #'   that parses back to the identical double. Supplying a value rounds the
-#'   literals for readability, at the cost of exactness on bin boundaries.
+#'   literals to that many decimal places for readability, at the cost of
+#'   exactness on bin boundaries.
 #' @param quote_identifiers Character string: \code{"auto"} (default) quotes
 #'   only identifiers that need it, \code{"always"} quotes everything,
 #'   \code{"never"} emits bare names.

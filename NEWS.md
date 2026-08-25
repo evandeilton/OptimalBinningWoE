@@ -1,3 +1,47 @@
+# OptimalBinningWoE 1.13.4
+
+## SQL literals on platforms without an extended long double (2026-08-25)
+
+Single-defect release. The CRAN checks for 1.13.3 failed on
+`r-release-macos-arm64` and `r-oldrel-macos-arm64` only; every other flavour,
+macOS on x86_64 included, was clean.
+
+*   **`obwoe_sql()` could write a cut point one bit away from the fitted
+    value on Apple silicon**, moving any observation that sits exactly on
+    that boundary into the next bin. The generated SQL was internally
+    consistent and gave no warning; it simply scored those rows with the
+    wrong bin's Weight of Evidence.
+
+    The literal writer asked `format()` for the shortest decimal string that
+    parses back to the identical double, checking the round trip before
+    emitting it. `format()`'s significant-digit search runs in `long double`,
+    which on aarch64 macOS is no wider than a `double`; there it can drop
+    digits, so the round-trip check rejected every width from 1 to 17 and the
+    fallback wrote a 15-digit literal that is *not* the fitted cut point.
+    A cut point of `-0.13964785691628961` was written as
+    `-0.13964785691629`, which is smaller, so an observation equal to the cut
+    point failed `x <= -0.13964785691629` and fell one bin up. This is why the
+    failure only ever appeared on one architecture: on x86_64 the extended
+    long double keeps enough precision for the search to terminate correctly.
+
+    Literals are now built with `sprintf("%.*f", ...)`, which delegates to the
+    C library's correctly rounded binary-to-decimal conversion and behaves
+    identically on every platform R supports. The emitted text is unchanged on
+    x86_64 for every value tested, denormals aside, where the old code emitted
+    scientific notation that the documentation promises never to use.
+
+*   **`digits` now means decimal places, as documented.** It rounded to the
+    requested number of places and then formatted the result with R's default
+    seven significant digits, so `digits = 8` on `1234.5678901234` emitted
+    `1234.568` rather than `1234.56789012`. Values needing at most seven
+    significant digits -- the common case, and the one the test suite covered
+    -- were unaffected.
+
+Two regression tests were added to `tests/testthat/test-obwoe-sql.R`: a bulk
+round-trip over 3,500 values, and a boundary check on cut points taken from
+continuous data. The existing boundary test used integer-valued cut points,
+which any literal writer renders exactly, and so could not catch this.
+
 # OptimalBinningWoE 1.13.3
 
 ## Audit fixes (2026-08-21)

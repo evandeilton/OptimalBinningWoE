@@ -9,8 +9,8 @@
 \arguments{
 \item{x}{Numeric vector.}
 
-\item{digits}{Optional integer. When supplied, values are rounded to that
-many significant digits instead of being written exactly.}
+\item{digits}{Optional integer. When supplied, values are written with that
+many decimal places instead of being written exactly.}
 }
 \value{
 Character vector of SQL numeric literals.
@@ -20,5 +20,13 @@ Renders a double as the shortest fixed-notation decimal string that parses
 back to the identical binary value. Cut points and WoE values must survive
 the round trip exactly, otherwise an observation sitting on a boundary
 could fall into the wrong bin.
+
+The search runs over decimal places and accepts the first width that parses
+back to the same double. Seventeen significant digits always round trip, so
+the exponent of the value bounds the search. \code{format()} is deliberately
+not used: its significant-digit search runs in \code{long double} and
+therefore drops digits on platforms where \code{long double} is no wider
+than \code{double} (Apple silicon among them), which silently moves a cut
+point off a boundary value.
 }
 \keyword{internal}
