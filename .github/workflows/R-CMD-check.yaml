@@ -24,8 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # macOS temporarily disabled - infer 1.0.9 binary unavailable for ARM64
-          # - {os: macos-latest,   r: 'release'}
+          # macos-latest is Apple silicon. Keep it: the aarch64 long double is
+          # no wider than a double, so R's format() drops digits there that it
+          # keeps on x86_64, which is how 1.13.3 shipped SQL cut points that
+          # missed the fitted value on this architecture alone. It was disabled
+          # for a while because 'infer' had no ARM64 binary, blocking the
+          # tidymodels branch of Suggests; that binary is back on CRAN.
+          - {os: macos-latest,   r: 'release'}
 
           - {os: windows-latest, r: 'release'}
           # use 4.0 or 4.1 to check with rtools40's older compiler
