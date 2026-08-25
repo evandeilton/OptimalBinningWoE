@@ -80,10 +80,11 @@ test_that("the WoE emitted by SQL equals the WoE applied in R", {
   for (f in feats) {
     alias <- paste0(f, "_woe")
     if (!alias %in% names(cases)) next
-    expect_equal(
-      sql_eval_case_num(cases[[alias]], df[[f]], f),
-      scored[[alias]],
-      tolerance = 0, info = f
+    got <- sql_eval_case_num(cases[[alias]], df[[f]], f)
+    ref <- scored[[alias]]
+    expect_equal(got, ref,
+      tolerance = 0,
+      info = sql_woe_mismatch(f, cases[[alias]], got, ref)
     )
   }
 })
@@ -175,11 +176,17 @@ test_that("cut points survive the decimal round trip exactly", {
   set.seed(4049)
   bulk <- c(
     rnorm(2000), rnorm(500) / 1e6, runif(500, -1e6, 1e6),
-    seq(-3, 3, length.out = 500), 0, -0
+    seq(-3, 3, length.out = 500), 0
   )
   lit_bulk <- f(bulk)
   expect_equal(as.numeric(lit_bulk), bulk, tolerance = 0)
   expect_false(any(grepl("e", lit_bulk, ignore.case = TRUE)))
+
+  # Negative zero is written as "0". SQL has no signed zero to write it into,
+  # and the two compare equal as numbers, so this loses nothing -- but it is
+  # not bit-identical, which is why it is asserted on the literal instead of
+  # being folded into the round trip above.
+  expect_equal(f(-0), "0")
 
   # NA and infinities degrade safely
   expect_equal(f(NA_real_), "NULL")
