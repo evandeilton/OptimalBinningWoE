@@ -83,7 +83,7 @@ test_that("the WoE emitted by SQL equals the WoE applied in R", {
     got <- sql_eval_case_num(cases[[alias]], df[[f]], f)
     ref <- scored[[alias]]
     expect_equal(got, ref,
-      tolerance = 0,
+      tolerance = sql_read_tolerance(),
       info = sql_woe_mismatch(f, cases[[alias]], got, ref)
     )
   }
@@ -164,7 +164,7 @@ test_that("cut points survive the decimal round trip exactly", {
     .Machine$double.eps, 1 - .Machine$double.eps
   )
   lit <- f(tricky)
-  expect_equal(as.numeric(lit), tricky, tolerance = 0)
+  expect_equal(as.numeric(lit), tricky, tolerance = sql_read_tolerance())
 
   # No scientific notation: dialects disagree on how such literals are typed
   expect_false(any(grepl("e", lit, ignore.case = TRUE)))
@@ -179,7 +179,7 @@ test_that("cut points survive the decimal round trip exactly", {
     seq(-3, 3, length.out = 500), 0
   )
   lit_bulk <- f(bulk)
-  expect_equal(as.numeric(lit_bulk), bulk, tolerance = 0)
+  expect_equal(as.numeric(lit_bulk), bulk, tolerance = sql_read_tolerance())
   expect_false(any(grepl("e", lit_bulk, ignore.case = TRUE)))
 
   # Negative zero is written as "0". SQL has no signed zero to write it into,

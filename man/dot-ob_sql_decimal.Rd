@@ -9,15 +9,15 @@
 \arguments{
 \item{v}{Numeric vector of finite values.}
 
-\item{nd}{Number of decimal places (a non-negative integer scalar).}
+\item{nd}{Number of decimal places; recycled against \code{v}.}
 }
 \value{
 A character vector in plain decimal notation.
 }
 \description{
-Formats finite doubles with \code{nd} decimal places and drops the
-trailing zeros. \code{sprintf()} is used rather than \code{format()} because
-it delegates to the C library's correctly rounded binary-to-decimal
+Formats finite doubles with \code{nd} decimal places and drops the trailing
+zeros. \code{sprintf()} is used rather than \code{format()} because it
+delegates to the C library's correctly rounded binary-to-decimal
 conversion, which behaves identically on every platform R runs on.
 }
 \keyword{internal}

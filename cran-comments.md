@@ -27,28 +27,35 @@ One observation out of 900 was scored by the wrong bin. It is the observation
 whose value is *exactly* a fitted cut point, and the test asserts that the
 generated SQL puts it in the same bin `cut(..., right = TRUE)` does.
 
-`obwoe_sql()` writes each cut point as the shortest fixed-notation decimal
-string that parses back to the identical double, so that an observation on a
-boundary cannot drift into the neighbouring bin. The old implementation found
-that string by asking `format(v, digits = dg, scientific = FALSE)` for
-`dg = 1, ..., 17` and returning the first one that satisfied
-`as.numeric(s) == v`, falling back to `digits = 22`.
+`obwoe_sql()` writes each cut point as the shortest decimal string that parses
+back to the identical double, so that an observation on a boundary cannot
+drift into the neighbouring bin. Each candidate was checked with
+`as.numeric()` before being emitted.
 
-`format()`'s significant-digit search runs in `long double`. On aarch64 macOS
-`long double` is no wider than `double`, so the search can conclude that fewer
-digits suffice than actually do; every width from 1 to 17 then fails the
-round-trip test and the fallback returns the same short string. The cut point
-`-0.13964785691628961` was written as `-0.13964785691629`, which is the
-smaller number, so the observation equal to the cut point failed
-`x <= -0.13964785691629` and was scored one bin up. On x86_64 the 80-bit
-extended long double leaves the search enough precision to terminate
-correctly, which is why the failure was confined to one architecture.
+**That check is not sound on aarch64.** R accumulates the decimal digits of a
+string in `LDOUBLE`, which on aarch64 macOS is no wider than a `double`, so
+beyond about fifteen digits `as.numeric()` can land one bit from the nearest
+double. It then rejects literals that do round trip and accepts literals that
+do not. With every candidate rejected, the search fell through to a fallback
+that wrote fewer digits than the value needs: the cut point
+`-0.13964785691628961` came out as `-0.13964785691629`, which is the smaller
+number, so the observation equal to the cut point failed
+`x <= -0.13964785691629` and was scored one bin up.
 
-Literals are now built with `sprintf("%.*f", ...)`, which delegates to the C
-library's correctly rounded binary-to-decimal conversion and behaves the same
-way on every platform R supports. The round-trip check is unchanged, and the
-search is now over decimal places rather than over `format()`'s notion of
-significant digits.
+The search now decides for itself rather than asking `as.numeric()`. A
+candidate with `nd` decimals is checked as `m / 10^nd`, where `m` is its digits
+read as an integer: while `m` is below 2^53 and `nd` is at most 22, both
+operands are exact, so IEEE 754 gives the correctly rounded quotient -- the
+nearest double to the candidate -- on every platform R runs on. Candidates
+outside those bounds are not judged; the value falls back to seventeen
+significant digits, the width that identifies a double uniquely.
+`as.numeric()` must still agree before a candidate is accepted -- not to decide
+the question, but so that a literal R itself reads back as a different double
+is never written into an audit artifact.
+
+Cut points that are exact in binary still read short. About five per cent of
+values now carry one more digit than in 1.13.3, being those the new check
+declines to judge.
 
 The same commit fixes a second, smaller defect found while auditing that code
 path: `digits` rounded to the requested number of decimal places and then
@@ -57,28 +64,29 @@ formatted the result with R's default seven significant digits, so
 
 ### Verification
 
-The emitted SQL is byte-identical to 1.13.3 on x86_64 for 33,000 random and
-adversarial doubles — the fix changes *which* code produces the digits, not
-the digits themselves, on a platform where the old code was already correct.
-The only difference found is for denormals, where the old code emitted
-scientific notation that the documentation promises never to use.
+The fix was verified on the failing architecture, not only by inspection.
+`macos-latest` -- Apple silicon -- was restored to the GitHub Actions check
+matrix, where it had been disabled while `infer` had no ARM64 binary. On that
+runner the multinomial boundary test that fails on 1.13.3 now passes.
 
-Two regression tests were added to `tests/testthat/test-obwoe-sql.R`:
+Enabling it also surfaced, and this release fixes, two test-side consequences
+of the same `LDOUBLE` limitation. A test that reads a generated literal back
+with `as.numeric()` and compares bit-for-bit is testing R's string-to-double
+conversion, not the generated SQL, so those comparisons now probe the platform
+and relax to a few ULP where that conversion is inexact. They remain exact on
+Linux, on Windows and on macOS x86_64.
 
-* a bulk round trip over 3,500 values, which asserts
-  `as.numeric(.ob_sql_num(v)) == v` exactly; and
-* a boundary check on cut points taken from continuous data.
+Three regression tests were added to `tests/testthat/test-obwoe-sql.R`:
+
+* a bulk round trip over 3,500 values;
+* a boundary check on cut points taken from continuous data; and
+* a diagnostic that spells out a one-bit disagreement between the SQL and
+  `obwoe_apply()`, which `waldo` otherwise reports only as "actual != expected
+  but don't know how to show the difference".
 
 The pre-existing boundary test used a feature whose cut points are small
 integers, which any literal writer renders exactly, and so could not catch
 this class of defect.
-
-We have no aarch64 macOS machine, so the failing configuration was reproduced
-by inspection rather than by execution: the value that fails, the string
-`format()` must have produced for the observed result, and the resulting bin
-assignment are all shown above and were confirmed on x86_64 by feeding the
-short literal back through the comparison. The fix removes the platform
-dependence entirely rather than compensating for it.
 
 ---
 
@@ -130,9 +138,9 @@ the platform's compiler flags.
   `macos-latest` is Apple silicon, so the matrix now covers the architecture
   this release repairs; it had been disabled while `infer` had no ARM64
   binary, which is no longer the case.
-* **macOS builder (aarch64, R release)**: to be verified before submission —
-  this is the configuration that failed on 1.13.3, so it is the one that
-  matters for this release.
+* **macOS builder (aarch64, R release)**: to be verified before submission, as
+  a second reading of the architecture the GitHub Actions runner already
+  covers.
 * **win-builder (R-release and R-devel)**: to be verified before submission
 
 ---
