@@ -22,3 +22,7 @@ src/**/*.o
 # Remove this entry before submitting -- JOSS requires paper.md to be
 # present in the public repository at submission time.
 inst/paper/
+
+# Build artifacts must never be packaged or committed
+*.tar.gz
+*.Rcheck/
