@@ -193,11 +193,15 @@ sql_eval_case_str <- function(case_sql, values, col) {
 #' relaxes those comparisons to a few ULP; everywhere else -- Linux, Windows,
 #' macOS on x86_64 -- they stay exact.
 #'
+#' The probe is built arithmetically rather than drawn at random: a helper that
+#' reseeds the global stream would silently move every random draw made after
+#' it, and this one is called from inside a loop.
+#'
 #' @return `0` where R parses exactly, a small tolerance where it does not.
 sql_read_tolerance <- function() {
-  set.seed(20260825)
   probe <- c(
-    rnorm(200), 0.43675438268898403, -0.16634225323308749,
+    (1:400) / 7, sqrt(1:200), exp((1:100) / 11), 1 / ((1:200) + 0.5),
+    0.43675438268898403, -0.16634225323308749,
     0.73219048278227306, -0.36497312083599037
   )
   if (all(as.numeric(sprintf("%.17g", probe)) == probe)) 0 else 1e-14
