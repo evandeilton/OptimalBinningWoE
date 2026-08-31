@@ -78,6 +78,151 @@ sql_parse_strings <- function(s) {
   out
 }
 
+# ---------------------------------------------------------------------------#
+# Exact decimal helpers
+#
+# Enough decimal arithmetic to name the double a literal denotes. Digit strings
+# padded to a common shape compare and add exactly, and `sprintf()` hands the
+# rendering to the C library, which is correctly rounded everywhere -- so none
+# of this depends on how wide R's `LDOUBLE` happens to be.
+# ---------------------------------------------------------------------------#
+
+#' Pad plain non-negative decimals to a common shape and drop the point
+#'
+#' The results are equal-length digit strings, so comparing or adding them
+#' digit by digit is comparing or adding the numbers they spell.
+dec_align <- function(x) {
+  ip <- sub("\\..*$", "", x)
+  fp <- ifelse(grepl(".", x, fixed = TRUE), sub("^[^.]*\\.", "", x), "")
+  paste0(
+    strrep("0", max(nchar(ip)) - nchar(ip)), ip,
+    fp, strrep("0", max(nchar(fp)) - nchar(fp))
+  )
+}
+
+#' Compare two aligned digit strings: -1, 0 or 1
+dec_cmp <- function(a, b) {
+  d <- which(utf8ToInt(a) != utf8ToInt(b))
+  if (length(d) == 0L) {
+    0L
+  } else if (utf8ToInt(a)[d[1L]] < utf8ToInt(b)[d[1L]]) {
+    -1L
+  } else {
+    1L
+  }
+}
+
+#' Add two aligned digit strings, carrying into one extra leading digit
+dec_add <- function(a, b) {
+  s <- rev((utf8ToInt(a) - 48L) + (utf8ToInt(b) - 48L))
+  carry <- 0L
+  for (i in seq_along(s)) {
+    tot <- s[i] + carry
+    s[i] <- tot %% 10L
+    carry <- tot %/% 10L
+  }
+  paste(c(carry, rev(s)), collapse = "")
+}
+
+#' The exact decimal expansion of a positive double
+#'
+#' A double is `m * 2^e`, so its expansion terminates after `-e` decimals and
+#' `sprintf()` prints it in full rather than rounding it.
+dec_exact <- function(x) {
+  nd <- pmin(1074L, pmax(0L, 53L - as.integer(floor(log2(x)))))
+  vapply(seq_along(x), function(i) sprintf("%.*f", nd[i], x[i]),
+    character(1L)
+  )
+}
+
+
+#' Read a generated numeric literal back to the double it denotes
+#'
+#' `as.numeric()` accumulates the digits of a decimal string in `LDOUBLE`,
+#' which is no wider than a `double` where R is built without long double
+#' support (CRAN's noLD flavour) and on aarch64 macOS. A literal spelling out
+#' all 17 significant digits can then come back a few ULP from the double it
+#' names, and a probe sitting exactly on a cut point is pushed into the next
+#' bin -- a failure of R's string-to-double conversion, not of the SQL the
+#' package wrote. A database reads the literal correctly, so this evaluator
+#' has to as well, or it is not emulating one.
+#'
+#' Three routes, none of which trusts `as.numeric()` with a literal it cannot
+#' be shown to parse exactly:
+#'
+#' * Digits below 2^53 and at most 22 decimals: the value is `m / 10^nd`, one
+#'   correctly rounded division of two exactly representable doubles.
+#' * Otherwise, when the literal carries more digits than are needed to
+#'   separate two doubles, exactly one double prints back as the literal, so
+#'   `as.numeric()`'s answer is accepted once `sprintf()` confirms it.
+#' * Otherwise the neighbouring doubles are bracketed around the literal by
+#'   exact decimal comparison and the nearer of the two wins, deciding the
+#'   midpoint as `2*lit` against `a + b` so that no inexact subtraction enters.
+#'
+#' @param lit Character literals, as they appear in the generated SQL.
+#' @return The doubles they denote; `NA` for `NULL` and for anything that is
+#'   not a plain decimal.
+sql_read_number <- function(lit) {
+  lit <- as.character(lit)
+  key <- unique(lit)
+  val <- vapply(key, sql_read_number1, numeric(1L), USE.NAMES = FALSE)
+  val[match(lit, key)]
+}
+
+sql_read_number1 <- function(s) {
+  s <- trimws(s)
+  z <- suppressWarnings(as.numeric(s))
+  # Only a plain decimal is decoded here. Scientific notation, NULL and
+  # non-numbers are left to as.numeric().
+  if (is.na(z) || !is.finite(z) || z == 0 ||
+    !grepl("^-?[0-9]+(\\.[0-9]+)?$", s)) {
+    return(z)
+  }
+  neg <- startsWith(s, "-")
+  if (neg) s <- substring(s, 2L)
+  dot <- regexpr(".", s, fixed = TRUE)
+  nd <- if (dot < 0L) 0L else nchar(s) - dot
+  sgn <- if (neg) -1 else 1
+
+  m <- as.numeric(gsub(".", "", s, fixed = TRUE))
+  if (m < 9007199254740992 && nd <= 22L) {
+    return(sgn * (m / 10^nd))
+  }
+
+  z <- abs(z)
+  u <- 2^(floor(log2(z)) - 52L)
+  if (nd * log(10) > -log(u) && identical(sprintf("%.*f", nd, z), s)) {
+    return(sgn * z)
+  }
+
+  # Every double within a few ULP of R's reading, walked in half steps too so
+  # that the finer grid below a power of two is covered as well.
+  off <- c(-64:-1, 1:64)
+  cand <- sort(unique(c(z, z + off * u, z + off * (u / 2))))
+  cand <- cand[cand > 0]
+  pad <- dec_align(c(s, dec_exact(cand)))
+  ord <- vapply(pad[-1L], dec_cmp, integer(1L), b = pad[1L], USE.NAMES = FALSE)
+  if (any(ord == 0L)) {
+    return(sgn * cand[which(ord == 0L)[1L]])
+  }
+  lo <- which(ord < 0L)
+  hi <- which(ord > 0L)
+  if (length(lo) == 0L || length(hi) == 0L) {
+    return(sgn * z) # literal outside the window; nothing better to offer
+  }
+  a <- max(lo)
+  b <- min(hi)
+  # Nearer of the two, i.e. which side of (a + b)/2 the literal falls on.
+  two <- dec_align(c(dec_add(pad[1L], pad[1L]), dec_add(pad[a + 1L], pad[b + 1L])))
+  side <- dec_cmp(two[1L], two[2L])
+  if (side == 0L) {
+    # Exactly halfway: to even, as IEEE 754 rounds.
+    side <- if ((cand[a] / u) %% 2 == 0) -1L else 1L
+  }
+  sgn * if (side < 0L) cand[a] else cand[b]
+}
+
+
 #' Evaluate a single SQL predicate against a column of values
 #'
 #' @param pred The predicate text, e.g. `x > 7 AND x <= 10`.
@@ -118,7 +263,7 @@ sql_eval_predicate <- function(pred, values, col) {
     a <- strip_col(a)
     op <- regmatches(a, regexpr("^(<=|>=|<>|<|>|=)", a))
     if (length(op) != 1L) stop("unparseable predicate in generated SQL: ", pred)
-    lit <- as.numeric(trimws(sub("^(<=|>=|<>|<|>|=)", "", a)))
+    lit <- sql_read_number(sub("^(<=|>=|<>|<|>|=)", "", a))
     cmp <- switch(op,
       "<=" = v <= lit,
       ">=" = v >= lit,
@@ -168,7 +313,7 @@ sql_eval_case <- function(case_sql, values, col) {
 #' Evaluate a CASE expression and decode the results as numbers
 sql_eval_case_num <- function(case_sql, values, col) {
   lit <- sql_eval_case(case_sql, values, col)
-  suppressWarnings(as.numeric(lit))
+  sql_read_number(lit)
 }
 
 #' Evaluate a CASE expression and decode the results as strings

@@ -202,6 +202,34 @@ test_that("cut points survive the decimal round trip exactly", {
 })
 
 
+test_that("the evaluator reads a literal back to the double a database would", {
+  # The boundary tests above are only as trustworthy as the reader underneath
+  # them. `as.numeric()` is not that reader: it accumulates decimal digits in
+  # `LDOUBLE`, so where R is built without long double support it lands a few
+  # ULP out on a seventeen-digit literal, and where `LDOUBLE` is 80 bits it can
+  # double-round a shorter one. Either way an observation sitting exactly on a
+  # cut point crosses into the next bin and the SQL takes the blame for it.
+  f <- OptimalBinningWoE:::.ob_sql_num
+
+  set.seed(2026)
+  v <- c(
+    rnorm(2000), runif(500, -1, 1), rnorm(300) * 1e6, rnorm(300) * 1e-8,
+    seq(-3, 3, length.out = 200), (1:200) / 8, (1:200) / 100,
+    0.1, 0.3, 1 / 3, pi, exp(1), 4049.5, 1e-9, 1e9, -1e-7,
+    .Machine$double.eps, 1 - .Machine$double.eps
+  )
+  expect_identical(sql_read_number(f(v)), v)
+
+  # Literals the writer never produces are left to as.numeric()
+  expect_identical(sql_read_number(c("NULL", "abc")), c(NA_real_, NA_real_))
+  expect_identical(sql_read_number(f(c(-Inf, Inf, 0, NA))), c(-1e308, 1e308, 0, NA))
+
+  # A literal one digit short names a different double, and still says so
+  short <- sub("[0-9]$", "", f(0.43675438268898403))
+  expect_false(sql_read_number(short) == 0.43675438268898403)
+})
+
+
 test_that("string literals are escaped for the target dialect", {
   esc <- OptimalBinningWoE:::.ob_sql_str
   ansi <- OptimalBinningWoE:::.ob_sql_dialect("ansi")

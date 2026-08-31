@@ -1,3 +1,56 @@
+# OptimalBinningWoE 1.13.5
+
+## The SQL test evaluator now reads literals the way a database does (2026-08-31)
+
+Single-defect release, and the defect is in the test suite rather than in the
+package. The CRAN checks for 1.13.4 were OK on all thirteen regular flavours;
+the additional `noLD` check -- x86_64 Linux with R-devel configured
+`--disable-long-double` -- reported two test failures.
+
+*   **`tests/testthat/test-obwoe-sql.R` failed on `noLD`** at the boundary
+    check "boundaries hold for cut points that need full double precision":
+    the observation sitting exactly on the first cut point was reported in
+    bin 2 rather than bin 1, twice.
+
+    The generated SQL was correct. `obwoe_sql()` wrote the cut point
+    `-1.3003598122031599` with all seventeen significant digits it needs, and
+    any conforming reader -- every database this SQL targets included -- parses
+    that string back to exactly the fitted double.
+
+    The fault was in the miniature CASE evaluator the tests use to score the
+    generated SQL. It read each literal back with `as.numeric()`, and
+    **`as.numeric()` is not a conforming reader on a build without long
+    double.** R accumulates the decimal digits of a string in `LDOUBLE`; where
+    that is no wider than a `double`, a literal carrying more than fifteen
+    digits can come back a few ULP from the double it names. There
+    `-1.3003598122031599` was read one ULP low, so the observation equal to the
+    cut point failed `x <= -1.3003598122031599` and fell through to the next
+    branch. The evaluator, not the SQL, put it in the wrong bin.
+
+    The evaluator now decodes a literal without trusting `as.numeric()` with
+    anything it cannot be shown to parse exactly. Digits below 2^53 with at
+    most 22 decimals are read as `m / 10^nd`, one correctly rounded division of
+    two exactly representable doubles. Otherwise `sprintf()` -- which hands the
+    rendering to the C library, correctly rounded on every platform -- confirms
+    `as.numeric()`'s answer by printing it back, and where it does not print
+    back, the neighbouring doubles are bracketed around the literal by exact
+    decimal comparison and the nearer of the two wins.
+
+    This also removes a smaller inaccuracy in the other direction: where
+    `LDOUBLE` is 80 bits, as on x86_64, `as.numeric()` can double-round a
+    sixteen-digit literal and disagree with the database over a literal the
+    package considers valid.
+
+*   **A regression test was added** for the evaluator's reader itself, over
+    3,600 values spanning 1e-9 to 1e9: the literal `obwoe_sql()` writes must
+    decode back to the identical double. The boundary tests are only as
+    trustworthy as that reader, and on `noLD` this is what fails first if it
+    regresses.
+
+No package code changed, so no generated SQL, no fitted binning and no API
+changed with this release.
+
+
 # OptimalBinningWoE 1.13.4
 
 ## SQL literals on platforms without an extended long double (2026-08-25)
