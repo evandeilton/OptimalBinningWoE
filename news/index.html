@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,7 +38,23 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="1.13.4" id="optimalbinningwoe-1134">OptimalBinningWoE 1.13.4<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1134"></a></h2>
+<h2 class="pkg-version" data-toc-text="1.13.5" id="optimalbinningwoe-1135">OptimalBinningWoE 1.13.5<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1135"></a></h2>
+<div class="section level3">
+<h3 id="the-sql-test-evaluator-now-reads-literals-the-way-a-database-does-1-13-5">The SQL test evaluator now reads literals the way a database does (2026-08-31)<a class="anchor" aria-label="anchor" href="#the-sql-test-evaluator-now-reads-literals-the-way-a-database-does-1-13-5"></a></h3>
+<p>Single-defect release, and the defect is in the test suite rather than in the package. The CRAN checks for 1.13.4 were OK on all thirteen regular flavours; the additional <code>noLD</code> check – x86_64 Linux with R-devel configured <code>--disable-long-double</code> – reported two test failures.</p>
+<ul><li>
+<p><strong><code>tests/testthat/test-obwoe-sql.R</code> failed on <code>noLD</code></strong> at the boundary check “boundaries hold for cut points that need full double precision”: the observation sitting exactly on the first cut point was reported in bin 2 rather than bin 1, twice.</p>
+<p>The generated SQL was correct. <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> wrote the cut point <code>-1.3003598122031599</code> with all seventeen significant digits it needs, and any conforming reader – every database this SQL targets included – parses that string back to exactly the fitted double.</p>
+<p>The fault was in the miniature CASE evaluator the tests use to score the generated SQL. It read each literal back with <code><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric()</a></code>, and <strong><code><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric()</a></code> is not a conforming reader on a build without long double.</strong> R accumulates the decimal digits of a string in <code>LDOUBLE</code>; where that is no wider than a <code>double</code>, a literal carrying more than fifteen digits can come back a few ULP from the double it names. There <code>-1.3003598122031599</code> was read one ULP low, so the observation equal to the cut point failed <code>x &lt;= -1.3003598122031599</code> and fell through to the next branch. The evaluator, not the SQL, put it in the wrong bin.</p>
+<p>The evaluator now decodes a literal without trusting <code><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric()</a></code> with anything it cannot be shown to parse exactly. Digits below 2^53 with at most 22 decimals are read as <code>m / 10^nd</code>, one correctly rounded division of two exactly representable doubles. Otherwise <code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code> – which hands the rendering to the C library, correctly rounded on every platform – confirms <code><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric()</a></code>’s answer by printing it back, and where it does not print back, the neighbouring doubles are bracketed around the literal by exact decimal comparison and the nearer of the two wins.</p>
+<p>This also removes a smaller inaccuracy in the other direction: where <code>LDOUBLE</code> is 80 bits, as on x86_64, <code><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric()</a></code> can double-round a sixteen-digit literal and disagree with the database over a literal the package considers valid.</p>
+</li>
+<li><p><strong>A regression test was added</strong> for the evaluator’s reader itself, over 3,600 values spanning 1e-9 to 1e9: the literal <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> writes must decode back to the identical double. The boundary tests are only as trustworthy as that reader, and on <code>noLD</code> this is what fails first if it regresses.</p></li>
+</ul><p>No package code changed, so no generated SQL, no fitted binning and no API changed with this release.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.13.4" id="optimalbinningwoe-1134">OptimalBinningWoE 1.13.4<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1134"></a></h2><p class="text-muted">CRAN release: 2026-08-26</p>
 <div class="section level3">
 <h3 id="sql-literals-on-platforms-without-an-extended-long-double-1-13-4">SQL literals on platforms without an extended long double (2026-08-25)<a class="anchor" aria-label="anchor" href="#sql-literals-on-platforms-without-an-extended-long-double-1-13-4"></a></h3>
 <p>Single-defect release. The CRAN checks for 1.13.3 failed on <code>r-release-macos-arm64</code> and <code>r-oldrel-macos-arm64</code> only; every other flavour, macOS on x86_64 included, was clean.</p>
