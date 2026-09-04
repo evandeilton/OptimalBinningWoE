@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,15 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.13.6" id="optimalbinningwoe-1136">OptimalBinningWoE 1.13.6<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1136"></a></h2>
+<div class="section level3">
+<h3 id="two-scorecard-reporting-defects-fixed-at-the-origin-1-13-6">Two scorecard reporting defects fixed at the origin (2026-09-03)<a class="anchor" aria-label="anchor" href="#two-scorecard-reporting-defects-fixed-at-the-origin-1-13-6"></a></h3>
+<p>Both were long known and patched downstream by <code>fisiv</code>; they now live where the defect is.</p>
+<ul><li><p><strong><code>.ob_score_metrics()</code> ignored the scaling direction.</strong> The AUC was always mirrored (<code>1 - AUC_event</code>), which is right for a <code>higher_is_safer</code> score and reports the complement for <code>higher_is_riskier</code> – AUC 0.05 next to a KS of 0.78 in the <code>01_Model_Summary</code> sheet. <code><a href="../reference/obwoe_scorecard.html">obwoe_scorecard()</a></code> now passes <code>scaling$direction</code> and the mirror applies only when the score is high-for-safe. Gini follows. KS was never affected.</p></li>
+<li><p><strong><code>07_Score_Gains$mean_score</code> was hard-coded <code>NA</code>.</strong> <code><a href="../reference/obwoe_report.html">obwoe_report()</a></code> now fills it from the frozen training bands (new <code>band_breaks</code> element of the <code>obwoe_scorecard</code> object; recomputed from the training score for objects saved by earlier versions). Rows are matched by band label, so a label that does not reproduce yields <code>NA</code> rather than a shifted number.</p></li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.13.5" id="optimalbinningwoe-1135">OptimalBinningWoE 1.13.5<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1135"></a></h2>
 <div class="section level3">
