@@ -461,7 +461,7 @@ obwoe_report <- function(x,
     s <- x$samples[[nm]]
     g <- s$gains
     g$sample <- nm
-    g$mean_score <- NA_real_
+    g$mean_score <- .ob_band_mean_score(s$score, g, x)
     g[, c("sample", setdiff(names(g), "sample")), drop = FALSE]
   })
   .ob_xlsx_sheet(wb, "07_Score_Gains",
@@ -555,4 +555,30 @@ obwoe_report <- function(x,
     sql = strsplit(sql, "\n", fixed = TRUE)[[1L]],
     stringsAsFactors = FALSE
   )
+}
+
+#' @keywords internal
+#' @title Internal: Mean Score per Frozen Band
+#' @description
+#' Mean of the continuous score inside each band of the 07_Score_Gains sheet.
+#' Bands are the ones frozen on the training sample (`x$band_breaks`, or
+#' recomputed from the training score for objects fitted before 1.13.6), and
+#' rows are matched by band label so a mismatch yields `NA`, never a shifted
+#' number.
+#' @keywords internal
+.ob_band_mean_score <- function(score, g, x) {
+  out <- rep(NA_real_, nrow(g))
+  if (is.null(score) || !length(score) || !"bin" %in% names(g)) return(out)
+  breaks <- x$band_breaks
+  if (is.null(breaks)) {
+    ref <- if (!is.null(x$samples$train$score)) x$samples$train$score else score
+    n_groups <- if (is.null(x$control$n_groups)) 10L else x$control$n_groups
+    breaks <- .ob_score_breaks(ref, n_groups)
+  }
+  band <- cut(score, breaks = breaks, include.lowest = TRUE)
+  m <- tapply(score, band, mean)
+  hit <- match(as.character(g$bin), names(m))
+  ok <- !is.na(hit)
+  out[ok] <- as.numeric(m[hit[ok]])
+  out
 }

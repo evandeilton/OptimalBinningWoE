@@ -589,7 +589,7 @@ obwoe_scorecard <- function(data,
   band_breaks <- .ob_score_breaks(scored$train$score, control$n_groups)
   scored <- lapply(scored, function(s) {
     s$gains <- .ob_score_gains(s$score, s$y, band_breaks)
-    s$metrics <- .ob_score_metrics(s$score, s$y)
+    s$metrics <- .ob_score_metrics(s$score, s$y, scaling$direction)
     s
   })
 
@@ -642,6 +642,7 @@ obwoe_scorecard <- function(data,
     points = points,
     samples = scored,
     stability = stability,
+    band_breaks = band_breaks,
     warnings = warn
   )
   class(out) <- "obwoe_scorecard"
@@ -944,7 +945,7 @@ obwoe_scorecard <- function(data,
 
 
 #' @keywords internal
-.ob_score_metrics <- function(score, y) {
+.ob_score_metrics <- function(score, y, direction = "higher_is_safer") {
   # Discrimination of the continuous score: rank-based AUC, no binning loss.
   n1 <- sum(y == 1L)
   n0 <- sum(y == 0L)
@@ -954,7 +955,11 @@ obwoe_scorecard <- function(data,
   }
   r <- rank(score)
   # score is high-for-safe, so the event's AUC is the mirrored statistic
-  auc <- 1 - (sum(r[y == 1L]) - n1 * (n1 + 1) / 2) / (n1 * n0)
+  auc_event <- (sum(r[y == 1L]) - n1 * (n1 + 1) / 2) / (n1 * n0)
+  # 1.13.6: the mirror applies only when the score is high-for-safe. A
+  # higher_is_riskier score already ranks events on top, and mirroring it
+  # reported the complement (AUC 0.05 for a 0.95 model, negative Gini).
+  auc <- if (identical(direction, "higher_is_riskier")) auc_event else 1 - auc_event
 
   o <- order(score)
   f1 <- cumsum(y[o] == 1L) / n1

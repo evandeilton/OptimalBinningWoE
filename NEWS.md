@@ -1,3 +1,24 @@
+# OptimalBinningWoE 1.13.6
+
+## Two scorecard reporting defects fixed at the origin (2026-09-03)
+
+Both were long known and patched downstream by `fisiv`; they now live where
+the defect is.
+
+*   **`.ob_score_metrics()` ignored the scaling direction.** The AUC was
+    always mirrored (`1 - AUC_event`), which is right for a
+    `higher_is_safer` score and reports the complement for
+    `higher_is_riskier` -- AUC 0.05 next to a KS of 0.78 in the
+    `01_Model_Summary` sheet. `obwoe_scorecard()` now passes
+    `scaling$direction` and the mirror applies only when the score is
+    high-for-safe. Gini follows. KS was never affected.
+
+*   **`07_Score_Gains$mean_score` was hard-coded `NA`.** `obwoe_report()`
+    now fills it from the frozen training bands (new `band_breaks` element
+    of the `obwoe_scorecard` object; recomputed from the training score for
+    objects saved by earlier versions). Rows are matched by band label, so a
+    label that does not reproduce yields `NA` rather than a shifted number.
+
 # OptimalBinningWoE 1.13.5
 
 ## The SQL test evaluator now reads literals the way a database does (2026-08-31)
