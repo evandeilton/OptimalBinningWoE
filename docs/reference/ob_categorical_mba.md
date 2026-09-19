@@ -456,14 +456,14 @@ for (thresh in thresholds) {
 #> Threshold 1e-06:
 #>   Final bins: 4 
 #>   Total IV: 0.0404 
-#>   Converged: FALSE 
+#>   Converged: TRUE 
 #>   Iterations: 1 
 #>   Monotonic: TRUE 
 #> 
 #> Threshold 1e-09:
 #>   Final bins: 4 
 #>   Total IV: 0.0404 
-#>   Converged: FALSE 
+#>   Converged: TRUE 
 #>   Iterations: 1 
 #>   Monotonic: TRUE 
 

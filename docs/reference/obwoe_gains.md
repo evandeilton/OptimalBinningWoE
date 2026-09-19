@@ -78,9 +78,13 @@ obwoe_gains(
 
   Character string specifying sort order for bins:
 
+  `"id"`
+
+  :   The algorithm's own internal bin order - default
+
   `"woe"`
 
-  :   Descending WoE (highest risk first) - default
+  :   Descending WoE (highest risk first)
 
   `"event_rate"`
 
@@ -88,7 +92,12 @@ obwoe_gains(
 
   `"bin"`
 
-  :   Alphabetical/natural order
+  :   The bins' natural (level) order if `obj` is a factor column,
+      alphabetical order of the bin labels otherwise
+
+  **Note:** the default is `"id"`, not `"woe"` – kept as-is in 1.13.1 to
+  avoid changing existing callers' output; only this documentation was
+  wrong before.
 
 - n_groups:
 
@@ -289,10 +298,10 @@ print(gains)
 #>   AUC: 0.4662
 #> 
 #>                    bin count pos_rate     woe     iv cum_pos_pct   ks lift
-#>       (-Inf;37.699632]   450   14.00% -0.1270 0.0069       40.4% 5.5%  0.9
-#>  (37.699632;59.237138]   450   16.22%  0.0465 0.0010       87.2% 3.3%  0.9
-#>  (59.237138;62.999207]    50   20.00%  0.3020 0.0050       93.6% 1.7%  0.9
-#>       (62.999207;+Inf]    50   20.00%  0.3020 0.0050      100.0% 0.0%  0.9
+#>       (-Inf;37.699632]   450   14.00% -0.1270 0.0069       40.4% 5.5% 0.90
+#>  (37.699632;59.237138]   450   16.22%  0.0465 0.0010       87.2% 3.3% 1.04
+#>  (59.237138;62.999207]    50   20.00%  0.3020 0.0050       93.6% 1.7% 1.28
+#>       (62.999207;+Inf]    50   20.00%  0.3020 0.0050      100.0% 0.0% 1.28
 
 # Access metrics
 cat("KS:", gains$metrics$ks, "%\n")
@@ -319,7 +328,6 @@ gains_woe <- obwoe_gains(scored,
   target = df$target, feature = "age",
   use_column = "woe", n_groups = 5
 )
-#> Warning: NAs introduced by coercion
 
 # =============================================================================
 # Example 4: Any Variable - Score Decile Analysis
@@ -350,14 +358,14 @@ print(gains_score)
 #>  bin count pos_rate     woe     iv cum_pos_pct   ks lift
 #>    1   100   15.00% -0.0463 0.0002        9.6% 0.5% 0.96
 #>    2   100   15.00% -0.0463 0.0002       19.2% 0.9% 0.96
-#>    3   100   14.00% -0.1270 0.0015       28.2% 2.1% 0.96
-#>    4   100   19.00%  0.2383 0.0062       40.4% 0.5% 0.96
-#>    5   100   13.00% -0.2127 0.0042       48.7% 1.5% 0.96
-#>    6   100   21.00%  0.3634 0.0149       62.2% 2.6% 0.96
-#>    7   100   19.00%  0.2383 0.0062       74.4% 5.2% 0.96
-#>    8   100   11.00% -0.4024 0.0141       81.4% 1.7% 0.96
-#>    9   100   13.00% -0.2127 0.0042       89.7% 0.3% 0.96
-#>   10   100   16.00%  0.0301 0.0001      100.0% 0.0% 0.96
+#>    3   100   14.00% -0.1270 0.0015       28.2% 2.1% 0.90
+#>    4   100   19.00%  0.2383 0.0062       40.4% 0.5% 1.22
+#>    5   100   13.00% -0.2127 0.0042       48.7% 1.5% 0.83
+#>    6   100   21.00%  0.3634 0.0149       62.2% 2.6% 1.35
+#>    7   100   19.00%  0.2383 0.0062       74.4% 5.2% 1.22
+#>    8   100   11.00% -0.4024 0.0141       81.4% 1.7% 0.71
+#>    9   100   13.00% -0.2127 0.0042       89.7% 0.3% 0.83
+#>   10   100   16.00%  0.0301 0.0001      100.0% 0.0% 1.03
 
 # =============================================================================
 # Example 5: Automatic Decile Creation

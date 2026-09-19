@@ -374,7 +374,7 @@ cat(
   "  GMB:", round(result_gmb_comp$total_iv, 4),
   "- converged:", result_gmb_comp$converged, "\n"
 )
-#>   GMB: 0.0436 - converged: TRUE 
+#>   GMB: 0.0427 - converged: TRUE 
 
 # Example 3: Bayesian smoothing with sparse data
 set.seed(789)

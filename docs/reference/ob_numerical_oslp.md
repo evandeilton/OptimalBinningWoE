@@ -289,9 +289,9 @@ result <- ob_numerical_oslp(
 )
 
 print(result$woe)
-#> [1]  0.8025010  0.5114407 -0.2910587 -1.2743136 -1.3945886
+#> [1]  0.91838635  0.58910541 -0.07046574 -1.27431365 -1.39250961
 print(result$total_iv)
-#> [1] 0.3691969
+#> [1] 0.2926024
 
 # Compare with MRBLP (should be nearly identical)
 result_mrblp <- ob_numerical_mrblp(
@@ -307,7 +307,7 @@ data.frame(
   N_Bins = c(length(result$woe), length(result_mrblp$woe))
 )
 #>   Method  Total_IV N_Bins
-#> 1   OSLP 0.3691969      5
+#> 1   OSLP 0.2926024      5
 #> 2  MRBLP 0.3847959      5
 # }
 ```

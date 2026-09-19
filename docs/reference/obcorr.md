@@ -48,7 +48,11 @@ obcorr(df, method = "all", threads = 0L)
 - threads:
 
   An integer specifying the number of threads to use for parallel
-  computation. If 0 (default), uses all available cores. Ignored if
+  computation. If 0 (the default), at most 2 threads are used, honouring
+  any lower limit already set via `OMP_NUM_THREADS`; this follows CRAN
+  policy, which requires packages not to use more than two cores by
+  default. Pass a positive value to request more explicitly. The number
+  of threads never affects the results or their row order. Ignored if
   OpenMP is not available.
 
 ## Value
@@ -159,18 +163,18 @@ result_all <- obcorr(df)
 head(result_all)
 #>    x  y     pearson    spearman      kendall    hoeffding  distance    biweight
 #> 1 x1 x2  0.86981390  0.87913591  0.700202020  0.397341844 1.4207684  0.87255023
-#> 2 x2 x4 -0.02020361 -0.01039282 -0.008528029 -0.008435515 0.1420518 -0.02020361
-#> 3 x3 x4 -0.09009510 -0.06720693 -0.055147919 -0.006921340 0.1976969 -0.09009510
-#> 4 x1 x3  0.09556132  0.06517852  0.048080808  0.047496185 0.7460724  0.11266947
-#> 5 x2 x3  0.10385820  0.07159916  0.050505051  0.016285581 0.5003787  0.15306172
-#> 6 x1 x4  0.11946052  0.11432107  0.093808315 -0.005827769 0.2600756  0.11946052
+#> 2 x1 x3  0.09556132  0.06517852  0.048080808  0.047496185 0.7460724  0.11266947
+#> 3 x1 x4  0.11946052  0.11432107  0.093808315 -0.005827769 0.2600756  0.11946052
+#> 4 x2 x3  0.10385820  0.07159916  0.050505051  0.016285581 0.5003787  0.15306172
+#> 5 x2 x4 -0.02020361 -0.01039282 -0.008528029 -0.008435515 0.1420518 -0.02020361
+#> 6 x3 x4 -0.09009510 -0.06720693 -0.055147919 -0.006921340 0.1976969 -0.09009510
 #>         pbend
 #> 1  0.88270163
-#> 2 -0.01342052
-#> 3 -0.04556955
-#> 4  0.06725434
-#> 5  0.08868743
-#> 6  0.09814141
+#> 2  0.06725434
+#> 3  0.09814141
+#> 4  0.08868743
+#> 5 -0.01342052
+#> 6 -0.04556955
 
 # Compute only robust correlations
 result_robust <- obcorr(df, method = "robust")

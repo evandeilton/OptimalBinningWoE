@@ -6,6 +6,8 @@
   : Apply the Optimal Binning Transformation
 - [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md)
   : Control Parameters for Optimal Binning Algorithms
+- [`control.obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe_scorecard.md)
+  : Control Parameters for the Scorecard Pipeline
 - [`.categorical_only_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/dot-categorical_only_algorithms.md)
   : Categorical-Only Algorithms
 - [`.numerical_only_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/dot-numerical_only_algorithms.md)
@@ -14,8 +16,6 @@
   : Universal Algorithms
 - [`.valid_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/reference/dot-valid_algorithms.md)
   : Valid Binning Algorithms
-- [`fit_logistic_regression()`](https://evandeilton.github.io/OptimalBinningWoE/reference/fit_logistic_regression.md)
-  : Fit Logistic Regression Model
 - [`ob_apply_woe_cat()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_cat.md)
   : Apply Optimal Weight of Evidence (WoE) to a Categorical Feature
 - [`ob_apply_woe_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.md)
@@ -65,10 +65,6 @@
   : Binning Categorical Variables using Custom Cutpoints
 - [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_cutpoints_num.md)
   : Binning Numerical Variables using Custom Cutpoints
-- [`ob_gains_table()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table.md)
-  : Compute Comprehensive Gains Table from Binning Results
-- [`ob_gains_table_feature()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_gains_table_feature.md)
-  : Compute Gains Table for a Binned Feature Vector
 - [`ob_numerical_bb()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_bb.md)
   : Optimal Binning for Numerical Variables using Branch and Bound
   Algorithm
@@ -138,18 +134,42 @@
   : Bin Cutoff Parameter
 - [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains.md)
   : Gains Table Statistics for Credit Risk Scorecard Evaluation
+- [`obwoe_gains_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_score.md)
+  : Compute Comprehensive Gains Table from Binning Results
+- [`obwoe_gains_variable()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_gains_variable.md)
+  : Compute Gains Table for a Binned Feature Vector
 - [`obwoe_max_bins()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_max_bins.md)
   : Maximum Bins Parameter
 - [`obwoe_min_bins()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_min_bins.md)
   : Minimum Bins Parameter
+- [`obwoe_prune()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_prune.md)
+  : Prune Redundant Variables by Correlation
+- [`obwoe_psi()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_psi.md)
+  : Population Stability Index
+- [`obwoe_report()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_report.md)
+  : Write a Scorecard Workbook
+- [`obwoe_scale()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scale.md)
+  : Points-to-Double-the-Odds Score Scaling
+- [`obwoe_score()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_score.md)
+  : Turn Log-Odds into Scorecard Points
+- [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_scorecard.md)
+  : Automated Scorecard Pipeline
+- [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md)
+  : Automated Variable Selection for Weight of Evidence Scorecards
+- [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md)
+  : Generate SQL for a Fitted Optimal Binning
 - [`plot(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/plot.obwoe.md)
   : Plot Method for obwoe Objects
 - [`plot(`*`<obwoe_gains>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/plot.obwoe_gains.md)
   : Plot Gains Table
+- [`predict(`*`<obwoe_scorecard>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/predict.obwoe_scorecard.md)
+  : Score New Data With a Fitted Scorecard
 - [`prep(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/prep.step_obwoe.md)
   : Prepare the Optimal Binning Step
 - [`print(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.obwoe.md)
   : Print Method for obwoe Objects
+- [`print(`*`<obwoe_sql>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.obwoe_sql.md)
+  : Print Method for Generated SQL
 - [`print(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/print.step_obwoe.md)
   : Print Method for step_obwoe
 - [`required_pkgs(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/reference/required_pkgs.step_obwoe.md)

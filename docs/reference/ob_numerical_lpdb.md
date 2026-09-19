@@ -163,8 +163,8 @@ result <- ob_numerical_lpdb(feature, target,
 )
 
 print(result$bin) # Should ideally find cuts near -1.5 and 1.5
-#> [1] "(-Inf; -1.851192]"     "(-1.851192; 0.120719]" "(0.120719; 1.985886]" 
-#> [4] "(1.985886; 3.046734]"  "(3.046734; +Inf]"     
+#> [1] "(-Inf; -1.843137]"     "(-1.843137; 0.115924]" "(0.115924; 1.988873]" 
+#> [4] "(1.988873; 3.022224]"  "(3.022224; +Inf]"     
 print(result$monotonicity)
 #> [1] "increasing"
 ```
