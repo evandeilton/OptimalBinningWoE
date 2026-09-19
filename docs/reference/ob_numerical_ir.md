@@ -36,8 +36,10 @@ ob_numerical_ir(
 
 - min_bins:
 
-  Integer. The minimum number of bins to produce. Must be \\\ge\\ 2.
-  Defaults to 3.
+  Integer. The target minimum number of bins. Must be \\\ge\\ 2.
+  Defaults to 3. Enforcing monotonicity can require pooling bins
+  together, so the result may hold fewer bins than requested; see
+  Details.
 
 - max_bins:
 
@@ -86,9 +88,9 @@ A list containing the binning results:
 
 - `count`: Integer vector of total observations per bin.
 
-- `count_pos`: Integer vector of positive cases.
+- `count_pos`: Integer vector of positive cases observed in the bin.
 
-- `count_neg`: Integer vector of negative cases.
+- `count_neg`: Integer vector of negative cases observed in the bin.
 
 - `cutpoints`: Numeric vector of upper boundaries (excluding Inf).
 
@@ -123,10 +125,24 @@ achieved. This guarantees an optimal solution in \\O(n)\\ time.
     determine if the relationship should be increasing or decreasing.
 
 4.  **Shape Enforcement:** Applies PAVA to the sequence of bin event
-    rates, producing a new set of rates that conform exactly to the
-    monotonic constraint.
+    rates and *merges* the bins that the algorithm pools into each
+    block, so the surviving bins are monotonic in their own observed
+    event rate.
 
-5.  **Metric Calculation:** Derives WoE and IV from the adjusted rates.
+5.  **Metric Calculation:** Derives WoE and IV from the observed counts
+    of those bins.
+
+**Pooling merges bins:** with the bin counts as weights, the fitted rate
+PAVA assigns to a block is exactly \\\sum count\\pos / \sum count\\ over
+the block's members. Merging them therefore reproduces the isotonic fit
+exactly while `count`, `count_pos` and `count_neg` remain the counts
+actually observed between the reported `cutpoints`. A consequence is
+that `min_bins` is a *target* rather than a guarantee for this
+algorithm: when the empirical event rate violates the trend,
+monotonicity can only be restored by pooling, and the result may hold
+fewer bins than requested. Use a non-shape-constrained method such as
+[`ob_numerical_mdlp`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_mdlp.md)
+when the bin count matters more than the shape constraint.
 
 **Advantages:**
 
@@ -171,10 +187,10 @@ result <- ob_numerical_ir(feature, target,
 )
 
 print(result$bin)
-#> [1] "(-Inf;-0.945409]"      "(-0.945409;-0.388780]" "(-0.388780;0.020451]" 
-#> [4] "(0.020451;0.418982]"   "(0.418982;0.976973]"   "(0.976973;+Inf]"      
+#> [1] "(-Inf;-0.945409]"     "(-0.945409;0.418982]" "(0.418982;0.976973]" 
+#> [4] "(0.976973;+Inf]"     
 print(round(result$woe, 3))
-#> [1] -0.339 -0.070 -0.096 -0.096  0.071  0.532
+#> [1] -0.339 -0.088  0.071  0.532
 print(paste("Monotonic Increasing:", result$monotone_increasing))
 #> [1] "Monotonic Increasing: TRUE"
 ```

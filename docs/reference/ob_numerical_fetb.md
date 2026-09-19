@@ -126,5 +126,5 @@ result <- ob_numerical_fetb(feature, target,
 print(result$bin)
 #> [1] "(-inf; -1.06782]"    "(-1.06782; 1.36065]" "(1.36065; inf]"     
 print(result$woe)
-#> [1] -1.6521490  0.1035344  0.1685980
+#> [1] -1.7431208  0.1035344  0.2937611
 ```

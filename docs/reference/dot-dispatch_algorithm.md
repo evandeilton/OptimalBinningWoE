@@ -12,6 +12,7 @@ Internal Algorithm Dispatcher
   feat_vec,
   min_bins,
   max_bins,
-  control
+  control,
+  target_type = "binary"
 )
 ```

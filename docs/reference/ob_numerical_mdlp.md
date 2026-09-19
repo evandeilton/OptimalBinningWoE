@@ -42,7 +42,7 @@ ob_numerical_mdlp(
 
 - min_bins:
 
-  Minimum number of bins to generate (default: 3). Must be at least 1.
+  Minimum number of bins to generate (default: 3). Must be at least 2.
   If the number of unique feature values is less than `min_bins`, the
   algorithm adjusts automatically.
 
@@ -50,7 +50,10 @@ ob_numerical_mdlp(
 
   Maximum number of bins to generate (default: 5). Must be greater than
   or equal to `min_bins`. Acts as a hard constraint after MDLP
-  optimization.
+  optimization. When the MDL criterion would stop at more bins than
+  `max_bins` allows, merging continues past the MDL optimum, each step
+  taking the pair with the smallest increase in MDL cost, until the cap
+  is met. `min_bins` is never violated to satisfy it.
 
 - bin_cutoff:
 
@@ -359,8 +362,9 @@ result <- ob_numerical_mdlp(
 
 # Inspect results
 print(result$bin)
-#> [1] "[-Inf;732.055011)"       "[732.055011;778.058805)"
-#> [3] "[778.058805;+Inf)"      
+#> [1] "(-Inf;510.448911]"       "(510.448911;603.704976]"
+#> [3] "(603.704976;667.853713]" "(667.853713;721.516875]"
+#> [5] "(721.516875;+Inf]"      
 print(data.frame(
   Bin = result$bin,
   WoE = round(result$woe, 4),
@@ -368,17 +372,19 @@ print(data.frame(
   Count = result$count
 ))
 #>                       Bin     WoE     IV Count
-#> 1       [-Inf;732.055011)  0.1350 0.0152  8000
-#> 2 [732.055011;778.058805) -0.7283 0.0618  1500
-#> 3       [778.058805;+Inf) -0.7213 0.0203   500
+#> 1       (-Inf;510.448911]  0.7667 0.0372   500
+#> 2 (510.448911;603.704976]  0.5199 0.0638  2000
+#> 3 (603.704976;667.853713]  0.1584 0.0066  2500
+#> 4 (667.853713;721.516875] -0.3299 0.0243  2500
+#> 5       (721.516875;+Inf] -0.7151 0.0996  2500
 
 cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
 #> 
-#> Total IV: 0.0973
+#> Total IV: 0.2315
 cat(sprintf("Converged: %s\n", result$converged))
 #> Converged: TRUE
 cat(sprintf("Iterations: %d\n", result$iterations))
-#> Iterations: 16
+#> Iterations: 3
 
 # Verify monotonicity
 is_monotonic <- all(diff(result$woe) >= -1e-10)
@@ -406,9 +412,11 @@ data.frame(
   WoE_high_smooth = result_highsmooth$woe
 )
 #>   Bin WoE_default WoE_no_smooth WoE_high_smooth
-#> 1   1   0.1349518     0.1354243       0.1335385
-#> 2   2  -0.7283036    -0.7310697      -0.7200885
-#> 3   3  -0.7213401    -0.7310697      -0.6929202
+#> 1   1   0.7667188     0.7659946       0.7688491
+#> 2   2   0.5198715     0.5204231       0.5182245
+#> 3   3   0.1584371     0.1588396       0.1572366
+#> 4   4  -0.3298914    -0.3300563      -0.3293986
+#> 5   5  -0.7150561    -0.7158989      -0.7125453
 
 # Visualize binning structure
 oldpar <- par(mfrow = c(1, 2))

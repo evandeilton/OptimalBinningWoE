@@ -49,6 +49,16 @@ obwoe(
   `min_bins` \\\le\\ `max_bins`. Algorithms may produce fewer bins if
   the data has insufficient unique values. Default is 2.
 
+  Read as a floor, but it frequently behaves as the binding constraint
+  rather than a safety net. Several algorithms stop merging as soon as
+  their own criterion is satisfied, which can be well before `max_bins`,
+  so `min_bins` ends up setting the partition. On the German Credit
+  `amount` variable with `max_bins = 5`, the default binning returns two
+  bins and an IV of 0.0016; requesting `min_bins = 4` returns an IV of
+  0.0824 on the same data and the same algorithm. Raising it is a
+  legitimate way to ask for a finer partition, and worth trying when a
+  continuous predictor collapses to two bins under a larger `max_bins`.
+
 - max_bins:
 
   Integer specifying the maximum number of bins. Controls the
@@ -413,9 +423,9 @@ cat("\nMDLP Results:\n")
 #> 
 #> MDLP Results:
 print(result_mdlp$summary)
-#>   feature      type algorithm n_bins     total_iv converged iterations error
-#> 1     age numerical      mdlp      3 0.0003386014      TRUE         16 FALSE
-#> 2  income numerical      mdlp      3 0.0022781944      TRUE         16 FALSE
+#>   feature      type algorithm n_bins   total_iv converged iterations error
+#> 1     age numerical      mdlp      3 0.01069822      TRUE          8 FALSE
+#> 2  income numerical      mdlp      3 0.02047466      TRUE          7 FALSE
 
 # =============================================================================
 # Example 3: Custom Control Parameters
@@ -462,7 +472,7 @@ cat("\nAlgorithm Comparison (IV for 'income'):\n")
 #> Algorithm Comparison (IV for 'income'):
 print(sort(iv_comparison, decreasing = TRUE))
 #>         jedi          ewb         mdlp          mob 
-#> 0.0092022973 0.0028174937 0.0023796596 0.0003402702 
+#> 0.0092022973 0.0028174937 0.0003402702 0.0003402702 
 
 # =============================================================================
 # Example 5: Feature Selection Based on IV

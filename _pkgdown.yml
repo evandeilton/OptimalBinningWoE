@@ -13,6 +13,19 @@ template:
     heading_font:
       google: "Source Serif 4"
 
+navbar:
+  structure:
+    left:  [intro, reference, articles, cheatsheet, news]
+    right: [search, github]
+  components:
+    cheatsheet:
+      text: Cheatsheet
+      menu:
+      - text: View the two sheets
+        href: cheatsheet/optimalbinningwoe-cheatsheet.html
+      - text: Download the PDF
+        href: cheatsheet/optimalbinningwoe-cheatsheet.pdf
+
 articles:
   - title: "Guides"
     navbar: ~
