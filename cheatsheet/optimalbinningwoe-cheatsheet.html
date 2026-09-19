@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OptimalBinningWoE Cheat Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<style>
+:root{
+  --ground:#e9edf1; --sheet:#ffffff;
+  --ink:#131c28; --ink2:#3a4a5c; --muted:#6c7c8b;
+  --line:#d3dce3; --line-soft:#e9eef2;
+  --brand:#1a5276; --brand-soft:#e9f0f6;
+  --accent:#0f7a55; --accent-soft:#e3f3ec;
+  --code-bg:#f3f6f8;
+  --r1:#b93f39; --r2:#c06c25; --r3:#b58c10; --r4:#7d8f33; --r5:#0f7a55;
+  --shadow:0 1px 2px rgba(19,28,40,.07), 0 10px 26px rgba(19,28,40,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0a1119; --sheet:#121c26;
+    --ink:#e7eef4; --ink2:#b6c4d0; --muted:#8497a5;
+    --line:#26333f; --line-soft:#1b2630;
+    --brand:#7fb6dd; --brand-soft:#16293a;
+    --accent:#2ecc8f; --accent-soft:#122c23;
+    --code-bg:#0e1821;
+    --r1:#e2685f; --r2:#e08a3c; --r3:#dcb632; --r4:#a8bc50; --r5:#2ecc8f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0a1119; --sheet:#121c26;
+  --ink:#e7eef4; --ink2:#b6c4d0; --muted:#8497a5;
+  --line:#26333f; --line-soft:#1b2630;
+  --brand:#7fb6dd; --brand-soft:#16293a;
+  --accent:#2ecc8f; --accent-soft:#122c23;
+  --code-bg:#0e1821;
+  --r1:#e2685f; --r2:#e08a3c; --r3:#dcb632; --r4:#a8bc50; --r5:#2ecc8f;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  padding-block:22px; padding-left:16px; padding-right:16px;
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+}
+.stack{display:flex; flex-direction:column; align-items:center; gap:22px}
+.page{container-type:inline-size; width:100%; max-width:1190px}
+.toolbar{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:.3em 1.2em;
+  font-family:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  font-size:13px; color:var(--muted); padding:0 2px 2px;
+}
+.toolbar a{
+  color:var(--brand); font-weight:600; text-decoration:none;
+  border-bottom:1px solid currentColor; margin-left:auto;
+}
+.toolbar a:hover{color:var(--accent)}
+.toolbar a:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+@media screen and (max-width:880px){.toolbar a{margin-left:0}}
+.sheet{
+  background:var(--sheet); border:1px solid var(--line); box-shadow:var(--shadow);
+  font-size:clamp(8px, 1.015cqw, 12.6px); line-height:1.36;
+  padding:2.1em 2.2em 1.5em;
+}
+
+/* ---------- masthead ---------- */
+.mast{display:flex; align-items:flex-start; gap:1.1em; border-bottom:.22em solid var(--ink); padding-bottom:.7em}
+.mark{flex:0 0 auto; width:3.6em; height:3.9em}
+.mast-id{flex:1 1 auto; min-width:0}
+.wordmark{
+  font-family:"Source Serif 4",Georgia,serif; font-weight:700;
+  font-size:2.25em; line-height:1; letter-spacing:-.012em; color:var(--ink);
+  text-wrap:balance;
+}
+.kicker{
+  font-size:.74em; text-transform:uppercase; letter-spacing:.17em;
+  font-weight:600; color:var(--accent); margin-top:.5em;
+}
+.mast-lede{font-size:1.02em; color:var(--ink2); max-width:46em; margin-top:.35em}
+.mast-side{
+  flex:0 0 auto; align-self:stretch; display:flex; flex-direction:column; justify-content:flex-end;
+  align-items:flex-end; gap:.3em; text-align:right;
+}
+.chip{
+  display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.78em;
+  border:1px solid var(--line); padding:.18em .55em; color:var(--muted);
+  white-space:nowrap;
+}
+.mast-side code{font-size:.82em; white-space:nowrap}
+
+/* ---------- pipeline ---------- */
+.pipe{display:grid; grid-template-columns:repeat(4,1fr); gap:.5em; margin:1em 0 .2em}
+.step{
+  border-top:.24em solid var(--accent); background:var(--accent-soft);
+  padding:.5em .65em .55em; display:flex; flex-direction:column; gap:.12em;
+  position:relative;
+}
+.step:not(:last-child)::after{
+  content:"→"; position:absolute; right:-.62em; top:50%; transform:translateY(-50%);
+  color:var(--accent); font-size:1.1em; line-height:1; z-index:1;
+}
+.step-n{font-size:.7em; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:700}
+.step-t{font-family:"Source Serif 4",Georgia,serif; font-weight:700; font-size:1.12em; color:var(--ink)}
+.step-f{font-family:"IBM Plex Mono",monospace; font-size:.82em; color:var(--brand); font-weight:500}
+.step-d{font-size:.84em; color:var(--ink2)}
+
+/* ---------- grid ---------- */
+.cols{display:grid; grid-template-columns:repeat(3,1fr); gap:1.4em; margin-top:1.05em; align-items:start}
+.col{display:flex; flex-direction:column; gap:1.1em; min-width:0}
+
+/* ---------- blocks ---------- */
+.blk{min-width:0}
+.blk > h2{
+  font-family:"Source Serif 4",Georgia,serif; font-weight:700; font-size:1.2em;
+  color:var(--brand); margin:0 0 .4em; padding-bottom:.22em;
+  border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:.5em;
+  text-wrap:balance;
+}
+.blk > h2 small{
+  font-family:"Source Sans 3",sans-serif; font-weight:600; font-size:.6em;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--muted);
+  margin-left:auto; white-space:nowrap;
+}
+.blk h3{
+  font-size:.76em; text-transform:uppercase; letter-spacing:.13em; font-weight:700;
+  color:var(--muted); margin:.52em 0 .2em;
+}
+.blk p{margin:.3em 0; font-size:.93em; color:var(--ink2)}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace}
+pre{
+  margin:.3em 0; padding:.45em .6em; background:var(--code-bg);
+  border-left:2px solid var(--line); font-size:.86em; line-height:1.38;
+  white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink);
+}
+pre b{color:var(--brand); font-weight:600}
+pre i{color:var(--muted); font-style:normal}
+p code,li code,td code,dd code,dt code{font-size:.88em; color:var(--ink)}
+.fn{color:var(--brand); font-weight:600}
+
+/* definition rows */
+.args{display:grid; grid-template-columns:max-content 1fr; gap:.12em .7em; font-size:.9em; margin:.35em 0}
+.args dt{font-family:"IBM Plex Mono",monospace; font-size:.92em; color:var(--ink); white-space:nowrap}
+.args dd{margin:0; color:var(--ink2)}
+
+/* tables */
+table{border-collapse:collapse; width:100%; font-size:.88em; margin:.35em 0}
+th{
+  text-align:left; font-size:.85em; text-transform:uppercase; letter-spacing:.1em;
+  color:var(--muted); font-weight:700; border-bottom:1px solid var(--line);
+  padding:.16em .4em .16em 0;
+}
+td{padding:.1em .4em .1em 0; border-bottom:1px solid var(--line-soft); vertical-align:top; color:var(--ink2)}
+td:first-child{color:var(--ink)}
+tr:last-child td{border-bottom:0}
+.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+.mono{font-family:"IBM Plex Mono",monospace; font-size:.94em; color:var(--ink)}
+
+/* IV band ramp */
+.ramp{display:grid; grid-template-columns:repeat(5,1fr); gap:.18em; margin:.45em 0 .25em}
+.band{padding:.3em .35em .35em; color:#fff; display:flex; flex-direction:column; gap:.05em}
+.band b{font-size:.92em; font-weight:700; line-height:1.1}
+.band span{font-size:.76em; opacity:.92; font-variant-numeric:tabular-nums}
+.b1{background:var(--r1)} .b2{background:var(--r2)} .b3{background:var(--r3)}
+.b4{background:var(--r4)} .b5{background:var(--r5)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .band{color:#0a1119}}
+:root[data-theme="dark"] .band{color:#0a1119}
+
+/* formula */
+.formula{
+  font-family:"Source Serif 4",Georgia,serif; font-size:1.05em; color:var(--ink);
+  background:var(--brand-soft); padding:.45em .6em; margin:.35em 0; text-align:center;
+}
+.formula var{font-style:italic}
+.formula .op{color:var(--muted)}
+
+/* note */
+.note{
+  font-size:.88em; color:var(--ink2); border-left:2px solid var(--accent);
+  padding:.1em 0 .1em .55em; margin:.4em 0; font-style:italic;
+}
+.note b{font-style:normal; color:var(--ink)}
+
+/* tag lists */
+.tags{display:flex; flex-wrap:wrap; gap:.22em; margin:.3em 0}
+.tag{
+  font-family:"IBM Plex Mono",monospace; font-size:.8em; border:1px solid var(--line);
+  padding:.06em .35em; color:var(--ink2); white-space:nowrap;
+}
+ul.tight{margin:.3em 0; padding-left:1.05em; font-size:.91em; color:var(--ink2)}
+ul.tight li{margin:.08em 0}
+ul.tight li::marker{color:var(--accent)}
+
+/* type markers in the algorithm table */
+.tt{white-space:nowrap; width:2.9em}
+.t{display:inline-block; width:1.15em; text-align:center; font-weight:700; font-size:.9em}
+.tn{color:var(--brand)} .tc{color:var(--accent)} .to{color:var(--line)}
+
+/* footer */
+.foot{
+  display:flex; flex-wrap:wrap; gap:.3em 1.2em; align-items:baseline;
+  border-top:1px solid var(--line); margin-top:.7em; padding-top:.32em;
+  font-size:.78em; color:var(--muted);
+}
+.foot .sp{margin-left:auto}
+.foot b{color:var(--ink2); font-weight:600}
+
+@media screen and (max-width:880px){
+  .sheet{font-size:13px; padding:1.4em}
+  .cols{grid-template-columns:1fr}
+  .pipe{grid-template-columns:1fr}
+  .step:not(:last-child)::after{content:"↓"; right:auto; left:50%; top:auto; bottom:-.75em; transform:translateX(-50%)}
+  .mast{flex-wrap:wrap}
+  .mast-side{align-self:flex-start; align-items:flex-start; text-align:left}
+  .foot .sp{margin-left:0}
+}
+
+@media print{
+  :root,:root[data-theme="dark"]{
+    --ground:#ffffff; --sheet:#ffffff;
+    --ink:#131c28; --ink2:#3a4a5c; --muted:#6c7c8b;
+    --line:#cfd8e0; --line-soft:#e9eef2;
+    --brand:#1a5276; --brand-soft:#eef3f8;
+    --accent:#0f7a55; --accent-soft:#e8f4ef;
+    --code-bg:#f4f7f9;
+    --r1:#b93f39; --r2:#c06c25; --r3:#b58c10; --r4:#7d8f33; --r5:#0f7a55;
+    --shadow:none;
+  }
+  :root[data-theme="dark"] .band{color:#fff}
+  @page{size:11in 8.5in; margin:0}
+  body{padding:0; background:#fff}
+  .stack{gap:0}
+  .page{max-width:none}
+  .sheet{
+    width:11in; height:8.5in; font-size:6.85pt; border:0; box-shadow:none;
+    padding:.32in .36in .26in; break-after:page; overflow:hidden;
+  }
+  .screen-only{display:none !important}
+  .sheet:last-child{break-after:auto}
+  .cols{grid-template-columns:repeat(3,1fr)}
+  .pipe{grid-template-columns:repeat(4,1fr)}
+  .step:not(:last-child)::after{content:"\2192"; left:auto; right:-.62em; top:50%; bottom:auto; transform:translateY(-50%)}
+}
+</style>
+</head>
+<body>
+<div class="stack">
+
+<div class="page screen-only"><div class="toolbar">
+  <span>Two sheets, sized for Letter landscape &mdash; print at 100&thinsp;% scale, no margins.</span>
+  <a href="https://evandeilton.github.io/OptimalBinningWoE/cheatsheet/optimalbinningwoe-cheatsheet.pdf"
+     target="_blank" rel="noopener">Download the PDF</a>
+</div></div>
+
+<!-- =========================== SHEET 1 =========================== -->
+<div class="page"><section class="sheet">
+
+  <header class="mast">
+    <svg class="mark" viewBox="0 0 60 66" aria-label="OptimalBinningWoE logo">
+      <path d="M30 1.5 57.5 17v32L30 64.5 2.5 49V17z" fill="none" stroke="var(--accent)" stroke-width="3.4"/>
+      <line x1="12" y1="40" x2="48" y2="40" stroke="var(--muted)" stroke-width="1.2"/>
+      <rect x="12.5" y="40" width="5.6" height="12.5" fill="var(--r1)"/>
+      <rect x="19.9" y="40" width="5.6" height="7" fill="var(--r2)"/>
+      <rect x="27.2" y="38.2" width="5.6" height="1.8" fill="var(--r3)"/>
+      <rect x="34.6" y="31.5" width="5.6" height="8.5" fill="var(--r4)"/>
+      <rect x="42" y="24" width="5.6" height="16" fill="var(--r5)"/>
+    </svg>
+    <div class="mast-id">
+      <div class="wordmark">OptimalBinningWoE</div>
+      <div class="kicker">Cheat sheet &middot; sheet 1 of 2 &middot; bin, screen, transform</div>
+      <p class="mast-lede">Optimal binning and Weight of Evidence for credit scoring and risk
+        modelling: 37 C++ binning implementations behind one R interface, from a raw feature
+        store to a deployed scorecard.</p>
+    </div>
+    <div class="mast-side">
+      <span class="chip">version 1.13.6</span>
+      <code>install.packages("OptimalBinningWoE")</code>
+      <code>library(OptimalBinningWoE)</code>
+    </div>
+  </header>
+
+  <div class="pipe">
+    <div class="step">
+      <span class="step-n">Step 1</span><span class="step-t">Fit</span>
+      <span class="step-f">obwoe()</span>
+      <span class="step-d">Bin every column, numerical and categorical, in one call.</span>
+    </div>
+    <div class="step">
+      <span class="step-n">Step 2</span><span class="step-t">Screen</span>
+      <span class="step-f">obwoe_select()</span>
+      <span class="step-d">One verdict and one reason per candidate. Nothing is dropped silently.</span>
+    </div>
+    <div class="step">
+      <span class="step-n">Step 3</span><span class="step-t">Transform</span>
+      <span class="step-f">obwoe_apply()</span>
+      <span class="step-d">Apply the fitted bins to new data, or inside a recipe.</span>
+    </div>
+    <div class="step">
+      <span class="step-n">Step 4</span><span class="step-t">Deploy</span>
+      <span class="step-f">obwoe_sql()</span>
+      <span class="step-d">The same transform as SQL <code>CASE</code>, for 14 dialects.</span>
+    </div>
+  </div>
+
+  <div class="cols">
+
+    <!-- ============ column 1 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>What the transform measures</h2>
+        <p>Binning replaces a raw column by its bins; WoE replaces each bin by the log-ratio of
+          the event and non-event distributions it holds.</p>
+        <div class="formula">
+          WoE<sub><var>i</var></sub> <span class="op">=</span> ln(<var>p</var><sub><var>i</var></sub> / <var>q</var><sub><var>i</var></sub>)
+          &nbsp;&nbsp;<span class="op">&middot;</span>&nbsp;&nbsp;
+          IV <span class="op">=</span> &sum;<sub><var>i</var></sub> (<var>p</var><sub><var>i</var></sub> &minus; <var>q</var><sub><var>i</var></sub>) &middot; WoE<sub><var>i</var></sub>
+        </div>
+        <p><var>p</var><sub>i</sub> = share of the events that fall in bin <var>i</var>;
+          <var>q</var><sub>i</sub> = share of the non-events. A positive WoE is a riskier bin.</p>
+        <h3>IV strength bands (Siddiqi, 2006)</h3>
+        <div class="ramp">
+          <div class="band b1"><b>Unpredictive</b><span>&lt; 0.02</span></div>
+          <div class="band b2"><b>Weak</b><span>0.02 &ndash; 0.10</span></div>
+          <div class="band b3"><b>Medium</b><span>0.10 &ndash; 0.30</span></div>
+          <div class="band b4"><b>Strong</b><span>0.30 &ndash; 0.50</span></div>
+          <div class="band b5"><b>Suspicious</b><span>&ge; 0.50</span></div>
+        </div>
+        <p class="note">An IV at or above <b>0.50</b> is far more often leakage than signal, which
+          is why <code>obwoe_select()</code> rejects it by default. Medium is where the workhorses
+          of a scorecard sit.</p>
+      </section>
+
+      <section class="blk">
+        <h2>Fit <small>step 1</small></h2>
+        <pre><b>obwoe</b>(data, target, feature = NULL,
+      min_bins = 2, max_bins = 7,
+      algorithm = "auto",
+      control = control.obwoe())</pre>
+        <dl class="args">
+          <dt>data</dt><dd>Data frame holding the target and the candidates.</dd>
+          <dt>target</dt><dd>Column name. Binary 0/1, or multinomial 0,1,2,&hellip;</dd>
+          <dt>feature</dt><dd><code>NULL</code> bins every column but the target.</dd>
+          <dt>min_bins<br>max_bins</dt><dd>Bin-count envelope the optimiser must respect.</dd>
+          <dt>algorithm</dt><dd>One of the 28 names, or <code>"auto"</code>: <code>jedi</code>
+            for a binary target, <code>jedi_mwoe</code> for a multinomial one.</dd>
+          <dt>control</dt><dd>See <code>control.obwoe()</code> on sheet 2.</dd>
+        </dl>
+        <h3>What comes back: an <span class="mono">obwoe</span> object</h3>
+        <pre>m <span class="op">&lt;-</span> <b>obwoe</b>(german, target = "default", max_bins = 6)
+
+m$summary      <i># feature, type, algorithm, n_bins, total_iv</i>
+m$results$age  <i># bin, woe, iv, count, count_pos, count_neg,</i>
+               <i>#   cutpoints, converged, iterations</i>
+m$target_type  <i># "binary" or "multinomial"</i></pre>
+        <h3>Look at it</h3>
+        <dl class="args">
+          <dt>summary(m)</dt><dd>Feature table, <code>sort_by = "iv"</code>, decreasing.</dd>
+          <dt>print(m)</dt><dd>Compact fit report.</dd>
+          <dt>plot(m, type=)</dt><dd><code>"iv"</code> ranking bar chart &middot;
+            <code>"woe"</code> profile of one feature &middot; <code>"bins"</code> counts and
+            event rate. Pass <code>feature=</code>, <code>top_n = 15</code>.</dd>
+        </dl>
+      </section>
+
+    </div>
+
+    <!-- ============ column 2 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>Screen <small>step 2</small></h2>
+        <p>Two criteria govern admission: Information Value strength and guaranteed rank
+          ordering. Every candidate returns a row, so an automatic verdict stays reviewable.</p>
+        <pre>sel <span class="op">&lt;-</span> <b>obwoe_select</b>(m,
+    detail = "summary",     <i># or "full": one row per bin</i>
+    iv_min = 0.02, iv_max = 0.5,
+    require_monotonic = "numeric",  <i># "all" | "none"</i>
+    monotonicity = "weak",  <i># or "strict"</i>
+    min_bins = 2, max_bins = Inf,
+    min_bin_pct = 0, allow_degenerate = FALSE,
+    top_n = NULL, sort_by = "iv", decreasing = TRUE)</pre>
+        <h3>Columns that carry the verdict</h3>
+        <dl class="args">
+          <dt>total_iv, iv_class</dt><dd>IV and its Siddiqi band.</dd>
+          <dt>ks, gini, auc</dt><dd>Discrimination of the binned score.</dd>
+          <dt>monotonic<br>monotonic_strict</dt><dd>Event-rate ordering, plus
+            <code>monotonic_direction</code>, <code>n_violations</code>, <code>spearman</code>.</dd>
+          <dt>n_degenerate_bins</dt><dd>Bins with no events or no non-events.</dd>
+          <dt>quality</dt><dd>Excellent &middot; Good &middot; Fair &middot; Rejected.</dd>
+          <dt>selected</dt><dd>The flag. <code>reason</code> and <code>reason_desc</code> say why.</dd>
+        </dl>
+        <h3>Reason codes <span class="mono">(joined by ";")</span></h3>
+        <div class="tags">
+          <span class="tag">OK</span><span class="tag">IV_BELOW_MIN</span>
+          <span class="tag">IV_SUSPICIOUS</span><span class="tag">NOT_MONOTONIC</span>
+          <span class="tag">TOO_FEW_BINS</span><span class="tag">TOO_MANY_BINS</span>
+          <span class="tag">SMALL_BIN</span><span class="tag">DEGENERATE_BIN</span>
+          <span class="tag">NOT_IN_TOP_N</span><span class="tag">BINNING_ERROR</span>
+        </div>
+        <pre>keep <span class="op">&lt;-</span> sel$feature[sel$selected]</pre>
+      </section>
+
+      <section class="blk">
+        <h2>Transform <small>step 3</small></h2>
+        <pre><b>obwoe_apply</b>(data, obj,
+            suffix_bin = "_bin", suffix_woe = "_woe",
+            keep_original = TRUE, na_woe = 0)</pre>
+        <p>Adds <code>&lt;feature&gt;_bin</code> and <code>&lt;feature&gt;_woe</code> per binned
+          column. <code>na_woe</code> is the fallback for an unseen category or an unmodelled
+          missing value. Numerical intervals are half-open on the right, <code>(a, b]</code>.</p>
+        <h3>The manual path, one column at a time</h3>
+        <dl class="args">
+          <dt>ob_cutpoints_num()</dt><dd>Bin a numeric vector at cut points you supply.</dd>
+          <dt>ob_cutpoints_cat()</dt><dd>Same for a categorical vector.</dd>
+          <dt>ob_apply_woe_num()</dt><dd>Map a numeric vector through a fitted result;
+            <code>missing_values = c(-999)</code>.</dd>
+          <dt>ob_apply_woe_cat()</dt><dd>Categorical counterpart;
+            <code>missing_values = c("NA","Missing","")</code>.</dd>
+        </dl>
+      </section>
+
+    </div>
+
+    <!-- ============ column 3 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>Evaluate</h2>
+        <pre>g <span class="op">&lt;-</span> <b>obwoe_gains</b>(m, feature = "duration")
+g <span class="op">&lt;-</span> <b>obwoe_gains</b>(scored, target = "default",
+                 feature = "score_decile",
+                 use_column = "direct", n_groups = 10)</pre>
+        <dl class="args">
+          <dt>use_column</dt><dd><code>"auto"</code> &middot; <code>"bin"</code> &middot;
+            <code>"woe"</code> &middot; <code>"direct"</code>.</dd>
+          <dt>sort_by</dt><dd><code>"id"</code> (the algorithm's own order, default) &middot;
+            <code>"woe"</code> &middot; <code>"event_rate"</code> &middot; <code>"bin"</code>.</dd>
+          <dt>n_groups</dt><dd>Cut a continuous score into that many quantile groups.</dd>
+        </dl>
+        <h3>18 statistics per bin</h3>
+        <div class="tags">
+          <span class="tag">count</span><span class="tag">count_pct</span>
+          <span class="tag">pos_count</span><span class="tag">neg_count</span>
+          <span class="tag">pos_rate</span><span class="tag">neg_rate</span>
+          <span class="tag">pos_pct</span><span class="tag">neg_pct</span>
+          <span class="tag">odds</span><span class="tag">log_odds</span>
+          <span class="tag">woe</span><span class="tag">iv</span>
+          <span class="tag">cum_pos_pct</span><span class="tag">cum_neg_pct</span>
+          <span class="tag">ks</span><span class="tag">lift</span>
+          <span class="tag">capture_rate</span>
+        </div>
+        <pre>g$metrics   <i># ks, gini, auc, total_iv, ks_bin</i>
+plot(g, type = "cumulative")  <i># "ks" | "lift" | "woe_iv"</i></pre>
+        <p class="note">Related helpers: <code>obwoe_gains_score()</code> for the bin-level
+          engine behind a fitted result, <code>obwoe_gains_variable()</code> for any binned
+          data frame plus a grouping column.</p>
+      </section>
+
+      <section class="blk">
+        <h2>Prepare the raw column</h2>
+        <pre><b>ob_preprocess</b>(feature, target,
+   num_miss_value = -999, char_miss_value = "N/A",
+   outlier_method = "iqr",   <i># "zscore" | "grubbs"</i>
+   outlier_process = FALSE,
+   preprocess = "both",
+   iqr_k = 1.5, zscore_threshold = 3,
+   grubbs_alpha = 0.05)</pre>
+        <p>Missing values become a value of their own rather than a dropped row, so the bin that
+          holds them carries its own WoE and stays visible in the model document.</p>
+        <pre><b>ob_check_distincts</b>(x, target)  <i># cardinality and</i>
+                              <i># separation warnings</i></pre>
+      </section>
+
+      <section class="blk">
+        <h2>Runnable from a clean session</h2>
+        <p>The Statlog (German Credit) benchmark ships with the package.</p>
+        <pre>german <span class="op">&lt;-</span> read.csv(gzfile(system.file(
+  "extdata", "germancredit.csv.gz",
+  package = "OptimalBinningWoE")),
+  stringsAsFactors = FALSE)
+
+german$default <span class="op">&lt;-</span> 1L - german$credit_risk
+german$credit_risk <span class="op">&lt;-</span> NULL
+
+m   <span class="op">&lt;-</span> <b>obwoe</b>(german, "default", max_bins = 6)
+sel <span class="op">&lt;-</span> <b>obwoe_select</b>(m)
+out <span class="op">&lt;-</span> <b>obwoe_apply</b>(german, m)</pre>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span><b>OptimalBinningWoE</b> 1.13.6 &middot; MIT &middot; José Evandeilton Lopes</span>
+    <span>evandeilton.github.io/OptimalBinningWoE</span>
+    <span class="sp">Sheet 1 of 2 &mdash; continues with algorithms, scorecards and SQL</span>
+  </footer>
+
+</section></div>
+
+<!-- =========================== SHEET 2 =========================== -->
+<div class="page"><section class="sheet">
+
+  <header class="mast">
+    <svg class="mark" viewBox="0 0 60 66" aria-hidden="true">
+      <path d="M30 1.5 57.5 17v32L30 64.5 2.5 49V17z" fill="none" stroke="var(--accent)" stroke-width="3.4"/>
+      <line x1="12" y1="40" x2="48" y2="40" stroke="var(--muted)" stroke-width="1.2"/>
+      <rect x="12.5" y="40" width="5.6" height="12.5" fill="var(--r1)"/>
+      <rect x="19.9" y="40" width="5.6" height="7" fill="var(--r2)"/>
+      <rect x="27.2" y="38.2" width="5.6" height="1.8" fill="var(--r3)"/>
+      <rect x="34.6" y="31.5" width="5.6" height="8.5" fill="var(--r4)"/>
+      <rect x="42" y="24" width="5.6" height="16" fill="var(--r5)"/>
+    </svg>
+    <div class="mast-id">
+      <div class="wordmark">Choose, score, deploy</div>
+      <div class="kicker">Cheat sheet &middot; sheet 2 of 2 &middot; algorithms, scorecard, SQL</div>
+      <p class="mast-lede">28 algorithm names cover 37 implementations &mdash; 21 accept a
+        numerical feature, 16 a categorical one, 9 both. Every one is callable on its own, and
+        the whole pipeline is callable as a single function.</p>
+    </div>
+    <div class="mast-side">
+      <span class="chip">C++ via Rcpp / RcppEigen</span>
+      <code>obwoe_algorithms()</code>
+      <code>vignette("introduction")</code>
+    </div>
+  </header>
+
+  <div class="cols">
+
+    <!-- ============ column 1 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>The 28 algorithms <small><span class="t tn">N</span>umerical &middot; <span class="t tc">C</span>ategorical</small></h2>
+        <table>
+          <thead><tr><th>Family</th><th>Name</th><th class="tt">N&nbsp;C</th><th>Optimises</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="6" style="border-bottom:1px solid var(--line)">Information-<br>theoretic</td>
+                <td class="mono">jedi</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Joint entropy-driven intervals <i>(default)</i></td></tr>
+            <tr><td class="mono">jedi_mwoe</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>JEDI for a multinomial target</td></tr>
+            <tr><td class="mono">mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Fayyad&ndash;Irani MDL stopping rule</td></tr>
+            <tr><td class="mono">fast_mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>MDLP with a monotonicity constraint</td></tr>
+            <tr><td class="mono">dmiv</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Divergence measures (Zeng, 2013)</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">ivb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>IV by dynamic programming</td></tr>
+
+            <tr><td rowspan="3" style="border-bottom:1px solid var(--line)">Statistical<br>merging</td>
+                <td class="mono">cm</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Enhanced ChiMerge, &chi;&sup2; on neighbours</td></tr>
+            <tr><td class="mono">fetb</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Fisher's exact test on neighbours</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">mob</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Monotonic optimal binning</td></tr>
+
+            <tr><td rowspan="7" style="border-bottom:1px solid var(--line)">Shape-<br>constrained</td>
+                <td class="mono">ir</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Isotonic regression (PAVA)</td></tr>
+            <tr><td class="mono">mrblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Monotonic risk + likelihood-ratio pre-bins</td></tr>
+            <tr><td class="mono">mblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Monotonic binning by linear programming</td></tr>
+            <tr><td class="mono">oslp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Optimal supervised partitioning</td></tr>
+            <tr><td class="mono">ldb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Local density binning</td></tr>
+            <tr><td class="mono">lpdb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Local polynomial density binning</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">gmb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Greedy merge under monotonicity</td></tr>
+
+            <tr><td rowspan="4" style="border-bottom:1px solid var(--line)">Exact<br>optimisation</td>
+                <td class="mono">dp</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Dynamic programming, global optimum</td></tr>
+            <tr><td class="mono">bb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Branch and bound</td></tr>
+            <tr><td class="mono">milp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Mixed-integer formulation</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">sblp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Sequential bounded partitioning</td></tr>
+
+            <tr><td rowspan="4" style="border-bottom:1px solid var(--line)">Search &amp;<br>metaheuristic</td>
+                <td class="mono">udt</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Entropy-based tree partitioning</td></tr>
+            <tr><td class="mono">sab</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Simulated annealing</td></tr>
+            <tr><td class="mono">mba</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Agglomerative monotonic merging</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">swb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Sliding window over ordered levels</td></tr>
+
+            <tr><td rowspan="4">Unsupervised<br>&amp; streaming</td>
+                <td class="mono">sketch</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Streaming quantile sketch, <code>sketch_k</code></td></tr>
+            <tr><td class="mono">ewb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Equal width, then IV refinement</td></tr>
+            <tr><td class="mono">kmb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>K-means initialisation</td></tr>
+            <tr><td class="mono">ubsd</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Standard-deviation cut points</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="blk">
+        <h2>Picking one</h2>
+        <ul class="tight">
+          <li><b>Must the WoE be monotone?</b> Numerical: <code>ir</code>, <code>mrblp</code>,
+            <code>mblp</code>, <code>mob</code>. Categorical: <code>gmb</code>,
+            <code>mob</code>, <code>mba</code>.</li>
+          <li><b>Millions of rows, or a stream?</b> <code>sketch</code>, then <code>ewb</code>
+            or <code>kmb</code>.</li>
+          <li><b>Need the provable optimum?</b> <code>dp</code> and <code>bb</code> for numerical,
+            <code>milp</code> and <code>sblp</code> for categorical.</li>
+          <li><b>High cardinality with rare levels?</b> <code>sketch</code>, <code>mba</code>,
+            <code>swb</code>.</li>
+          <li><b>None of the above:</b> keep <code>algorithm = "auto"</code>.</li>
+        </ul>
+      </section>
+
+      <section class="blk">
+        <h2>Points and scaling</h2>
+        <pre>sc <span class="op">&lt;-</span> <b>obwoe_scale</b>(pdo = 20, score_ref = 600,
+                 odds_ref = 50,
+                 direction = "higher_is_safer")
+s  <span class="op">&lt;-</span> <b>obwoe_score</b>(link, sc, round = TRUE)</pre>
+        <div class="formula">
+          Score <span class="op">=</span> Offset <span class="op">&minus;</span> Factor &middot; <var>&eta;</var>,
+          &nbsp; Factor <span class="op">=</span> PDO / ln&nbsp;2
+        </div>
+        <p>The models predict the log-odds of the <i>event</i>, so the sign is negative: a high
+          WoE is a risky bin and must score <i>fewer</i> points. Two identities pin the scale
+          &mdash; a case at <code>odds_ref</code> scores exactly <code>score_ref</code>, and
+          doubling the good-to-bad odds adds exactly <code>pdo</code> points, everywhere.</p>
+      </section>
+
+    </div>
+
+    <!-- ============ column 2 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>Tune the binning</h2>
+        <pre><b>control.obwoe</b>(
+   bin_cutoff = 0.05,            <i># min share per bin</i>
+   max_n_prebins = 20,           <i># pre-merge ceiling</i>
+   convergence_threshold = 1e-6,
+   max_iterations = 1000,
+   bin_separator = "%;%",        <i># joins merged levels</i>
+   verbose = FALSE)</pre>
+        <p class="note"><b>max_n_prebins is a modelling decision, not a detail.</b> Pre-binning
+          runs before the optimiser sees the data, so a heavy tail can be smeared into one
+          quantile cell and lost with no warning. Leave the default, and tune it against
+          <i>held-out</i> IV for long-tailed continuous predictors only.</p>
+      </section>
+
+      <section class="blk">
+        <h2>Call one algorithm directly</h2>
+        <pre>r <span class="op">&lt;-</span> <b>ob_numerical_ir</b>(german$duration, y,
+        min_bins = 3, max_bins = 5,
+        bin_cutoff = 0.05, max_n_prebins = 20,
+        auto_monotonicity = TRUE)
+
+r <span class="op">&lt;-</span> <b>ob_categorical_jedi</b>(german$purpose, y,
+        bin_separator = "%;%")</pre>
+        <p>Every name in the table is exported as <code>ob_numerical_&lt;name&gt;()</code>,
+          <code>ob_categorical_&lt;name&gt;()</code>, or both. They return the same bin, woe, iv
+          and count vectors that <code>obwoe()</code> stores per feature.</p>
+      </section>
+
+      <section class="blk">
+        <h2>The whole pipeline in one call</h2>
+        <pre>card <span class="op">&lt;-</span> <b>obwoe_scorecard</b>(german,
+    target = "default", split = 0.7,
+    validation = NULL,      <i># an out-of-time frame</i>
+    exclude = NULL, feature = NULL,
+    binning = list(max_bins = 6),
+    screening = list(iv_max = 0.5),
+    engine = "glm",         <i># "obwoe" | "glmnet" | list()</i>
+    control = control.obwoe_scorecard(),
+    file = "scorecard.xlsx", seed = 42)</pre>
+        <p>Split, bin, screen by IV and correlation, fit, scale to points, and write the model
+          document. Three properties are enforced rather than assumed:</p>
+        <ul class="tight">
+          <li>Binning is fitted on the <b>training rows only</b>, so the hold-out is not
+            inflated by supervised leakage.</li>
+          <li>A variable whose WoE coefficient comes out <b>negative</b> is dropped and the model
+            refitted &mdash; the WoE already carries the direction.</li>
+          <li>The generated points SQL reproduces the R card score <b>exactly</b>, unseen
+            categories included.</li>
+        </ul>
+        <h3>Reading the object</h3>
+        <dl class="args">
+          <dt>card$points</dt><dd>The fixed points table, one row per variable and bin.</dd>
+          <dt>card$screening</dt><dd><code>obwoe_select()</code> plus a <code>stage</code> column:
+            <code>in_model</code>, <code>sign_rejected</code>, <code>corr_pruned</code>,
+            <code>constant_woe</code>, <code>screened_out</code>.</dd>
+          <dt>card$samples</dt><dd>Per sample: scores, gains table, headline metrics.</dd>
+          <dt>card$stability</dt><dd>PSI for the score and for every variable in the model.</dd>
+          <dt>card$warnings</dt><dd>Everything the pipeline wants a human to read.</dd>
+        </dl>
+        <pre>predict(card, new_data, type = "score")
+<i># "card" | "link" | "prob" | "woe"</i></pre>
+      </section>
+
+    </div>
+
+    <!-- ============ column 3 ============ -->
+    <div class="col">
+
+      <section class="blk">
+        <h2>Redundancy and stability</h2>
+        <pre><b>obcorr</b>(df, method = "all", threads = 0)</pre>
+        <div class="tags">
+          <span class="tag">pearson</span><span class="tag">spearman</span>
+          <span class="tag">kendall</span><span class="tag">hoeffding</span>
+          <span class="tag">distance</span><span class="tag">biweight</span>
+          <span class="tag">pbend</span><span class="tag">robust</span>
+          <span class="tag">alternative</span>
+        </div>
+        <pre>p <span class="op">&lt;-</span> <b>obwoe_prune</b>(woe_df, ranking = keep,
+                  cutoff = 0.7, method = "pearson")
+p$keep; p$dropped   <i># variable, correlated_with, correlation</i></pre>
+        <p>Prune in the <b>WoE space</b> &mdash; that is the space the model actually sees.</p>
+        <pre>s <span class="op">&lt;-</span> <b>obwoe_psi</b>(base, compare, n_groups = 10)
+s$psi; s$table; s$flag</pre>
+        <table>
+          <thead><tr><th>PSI</th><th>Flag</th><th>Reading</th></tr></thead>
+          <tbody>
+            <tr><td class="num">&lt; 0.10</td><td>stable</td><td>No action</td></tr>
+            <tr><td class="num">0.10 &ndash; 0.25</td><td>watch</td><td>Monitor the shift</td></tr>
+            <tr><td class="num">&gt; 0.25</td><td>act</td><td>Population has moved</td></tr>
+          </tbody>
+        </table>
+        <p class="note">A band populated in one vintage and empty in the other reports
+          <code>Inf</code> rather than being smoothed away &mdash; a segment that has vanished is
+          exactly what monitoring exists to catch.</p>
+      </section>
+
+      <section class="blk">
+        <h2>tidymodels</h2>
+        <pre>rec <span class="op">&lt;-</span> recipe(default ~ ., data = german) |&gt;
+  <b>step_obwoe</b>(all_predictors(), outcome = "default",
+             algorithm = "auto",
+             min_bins = 2, max_bins = 10,
+             bin_cutoff = 0.05, output = "woe",
+             na_woe = 0)</pre>
+        <p><code>prep()</code>, <code>bake()</code>, <code>tidy()</code> and
+          <code>required_pkgs()</code> are all implemented. Four parameters are tunable, each with
+          a <code>dials</code> constructor:</p>
+        <table>
+          <thead><tr><th>tune()</th><th>dials</th><th>Range</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">algorithm</td><td class="mono">obwoe_algorithm()</td><td>28 names</td></tr>
+            <tr><td class="mono">min_bins</td><td class="mono">obwoe_min_bins()</td><td class="num">2 &ndash; 5</td></tr>
+            <tr><td class="mono">max_bins</td><td class="mono">obwoe_max_bins()</td><td class="num">5 &ndash; 20</td></tr>
+            <tr><td class="mono">bin_cutoff</td><td class="mono">obwoe_bin_cutoff()</td><td class="num">0.01 &ndash; 0.10</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="blk">
+        <h2>Deploy to SQL <small>step 4</small></h2>
+        <pre><b>obwoe_sql</b>(m, table = "risk.applications",
+   features = keep,
+   output = "woe",       <i># "bin" | "index" | "both"</i>
+   style = "select",     <i># "case" | "cte" | "view"</i>
+   dialect = "postgres",
+   na_value = 0, explicit_bounds = TRUE,
+   quote_identifiers = "auto", file = NULL)</pre>
+        <div class="tags">
+          <span class="tag">ansi</span><span class="tag">postgres</span><span class="tag">mysql</span>
+          <span class="tag">mariadb</span><span class="tag">sqlserver</span><span class="tag">oracle</span>
+          <span class="tag">spark</span><span class="tag">hive</span><span class="tag">databricks</span>
+          <span class="tag">bigquery</span><span class="tag">snowflake</span><span class="tag">redshift</span>
+          <span class="tag">duckdb</span><span class="tag">sqlite</span>
+        </div>
+        <pre><b>CASE WHEN</b> duration <b>IS NULL THEN</b> 0
+     <b>WHEN</b> duration &lt;= 7 <b>THEN</b> -1.31218638896617
+     <b>WHEN</b> duration &gt; 7 <b>AND</b> duration &lt;= 10 <b>THEN</b> -0.4519851
+     <i>... </i><b>ELSE</b> 0 <b>END AS</b> duration_woe</pre>
+        <p class="note">Every expression opens with an explicit <code>IS NULL</code> branch,
+          because <code>NULL &lt;= 5</code> is <code>NULL</code> in SQL, not <code>FALSE</code>.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span><b>obwoe_report</b>(card, file) writes the 13-sheet model document: summary,
+      scorecard, coefficients, bin statistics, screening funnel, correlations before and after
+      pruning, score gains, PSI, cut-off strategy, SQL in WoE and in points form, reproducibility.</span>
+    <span class="sp">Sheet 2 of 2 &middot; CC BY-SA</span>
+  </footer>
+
+</section></div>
+
+</div>
+</body>
+</html>

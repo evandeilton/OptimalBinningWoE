@@ -852,7 +852,7 @@ needs:
 sessionInfo()
 #> R version 4.6.1 (2026-06-24)
 #> Platform: x86_64-pc-linux-gnu
-#> Running under: Ubuntu 24.04.4 LTS
+#> Running under: Ubuntu 24.04.5 LTS
 #> 
 #> Matrix products: default
 #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
@@ -873,7 +873,7 @@ sessionInfo()
 #> [1] recipes_1.4.0            dplyr_1.2.1              OptimalBinningWoE_1.13.6
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] xfun_0.60           bslib_0.12.0        lattice_0.22-9      vctrs_0.7.3        
+#>  [1] xfun_0.61           bslib_0.12.0        lattice_0.22-9      vctrs_0.7.3        
 #>  [5] tools_4.6.1         generics_0.1.4      parallel_4.6.1      tibble_3.3.1       
 #>  [9] pkgconfig_2.0.3     Matrix_1.7-5        data.table_1.18.6.1 RColorBrewer_1.1-3 
 #> [13] desc_1.4.3          lifecycle_1.0.5     compiler_4.6.1      farver_2.1.2       
@@ -887,7 +887,7 @@ sessionInfo()
 #> [45] survival_3.8-6      utf8_1.2.6          future.apply_1.20.2 withr_3.0.3        
 #> [49] scales_1.4.0        lubridate_1.9.5     timechange_0.4.0    rmarkdown_2.32     
 #> [53] globals_0.19.1      otel_0.2.0          nnet_7.3-20         timeDate_4052.112  
-#> [57] ragg_1.5.2          evaluate_1.0.5      knitr_1.51          hardhat_1.4.3      
+#> [57] ragg_1.5.2          evaluate_1.0.5      knitr_1.52          hardhat_1.4.3      
 #> [61] rlang_1.3.0         Rcpp_1.1.2          glue_1.8.1          ipred_0.9-16       
 #> [65] jsonlite_2.0.0      R6_2.6.1            systemfonts_1.3.2   fs_2.1.0
 ```

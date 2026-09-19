@@ -30,6 +30,11 @@ approximation to optimal binning suitable for high-cardinality features."><meta 
     <li><a class="dropdown-item" href="../articles/industrial-pipeline.html">An Industrial Scorecard Pipeline</a></li>
     <li><a class="dropdown-item" href="../articles/algorithms.html">Algorithm Reference: the 37 Binning Engines</a></li>
   </ul></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-cheatsheet" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Cheatsheet</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-cheatsheet"><li><a class="dropdown-item" href="../cheatsheet/optimalbinningwoe-cheatsheet.html">View the two sheets</a></li>
+    <li><a class="dropdown-item" href="../cheatsheet/optimalbinningwoe-cheatsheet.pdf">Download the PDF</a></li>
+  </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -312,7 +317,7 @@ for credit risk modeling. <em>SSRN Electronic Journal</em>.
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Performance comparison (high cardinality):</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  GMB time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_gmb</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   GMB time: 0.002 seconds</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   GMB time: 0.001 seconds</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  DP time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_dp</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   DP time: 0 seconds</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Speedup:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_dp</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">/</span> <span class="va">time_gmb</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"x\n"</span><span class="op">)</span></span></span>

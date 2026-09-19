@@ -26,6 +26,8 @@ where the defect is.
 
 ## OptimalBinningWoE 1.13.5
 
+CRAN release: 2026-08-31
+
 ### The SQL test evaluator now reads literals the way a database does (2026-08-31)
 
 Single-defect release, and the defect is in the test suite rather than
