@@ -26,10 +26,14 @@
 #'   Information Value change between iterations. Algorithm stops when
 #'   \eqn{|\Delta IV| <} \code{convergence_threshold}. Must be > 0.
 #'   Defaults to 1e-6.
-#' @param max_iterations Integer. Maximum number of merge operations allowed.
-#'   Prevents excessive computation. Must be > 0. Defaults to 1000.
+#' @param max_iterations Integer. Iteration budget for the merge phase. Must be > 0.
+#'   Defaults to 1000. When it is used up before the convergence tolerance is
+#'   met, \code{converged} is \code{FALSE}; merging still continues until
+#'   \code{max_bins} is satisfied, since \code{max_bins} is a hard constraint.
 #' @param bin_separator Character string used to concatenate category names
 #'   when multiple categories are merged into a single bin. Defaults to "\%;\%".
+#'   A warning is issued when a category name contains it, since such labels
+#'   cannot be split back into categories.
 #'
 #' @return A list containing the binning results with the following components:
 #'   \describe{
@@ -53,7 +57,9 @@
 #' \strong{Algorithm Workflow:}
 #' \enumerate{
 #'   \item Data preprocessing and frequency computation
-#'   \item Rare category identification and pre-merging (frequencies < \code{bin_cutoff})
+#'   \item Rare category identification and pre-merging (frequencies < \code{bin_cutoff});
+#'     if pooling all rare categories would leave fewer than \code{min_bins} bins,
+#'     they are pooled in event-rate order into groups of at least \code{bin_cutoff}
 #'   \item Initial bin creation (one category per bin)
 #'   \item Iterative merging phase:
 #'     \itemize{
@@ -75,12 +81,19 @@
 #'   Negatives \tab \eqn{b} \tab \eqn{d}
 #' }
 #'
-#' The exact probability under the null hypothesis of independence is:
+#' Under the null hypothesis of identical event rates, with all margins fixed,
+#' the number of positives in Bin 1 is hypergeometric, and the probability of
+#' a table with \eqn{x} positives in Bin 1 is
 #'
-#' \deqn{p = \frac{(a+b)!(c+d)!(a+c)!(b+d)!}{n! \cdot a! \cdot b! \cdot c! \cdot d!}}
+#' \deqn{P(x) = \frac{\binom{a+b}{x}\binom{c+d}{a+c-x}}{\binom{n}{a+c}}, \quad n = a + b + c + d.}
 #'
-#' where \eqn{n = a + b + c + d}. Higher p-values indicate greater similarity
+#' The two-sided p-value is the total probability of all tables with the same
+#' margins that are no more likely than the observed one,
+#' \eqn{p = \sum_{x:\,P(x) \le P(a)} P(x)} (with the relative tolerance
+#' \eqn{10^{-7}} used by \code{\link[stats]{fisher.test}}), which is the value
+#' \code{fisher.test()} reports. Higher p-values indicate greater similarity
 #' (less evidence against the null hypothesis of identical distributions).
+#' Monotonicity repairs stop at \code{min_bins}.
 #'
 #' \strong{Key Features:}
 #' \itemize{
@@ -275,7 +288,7 @@ ob_categorical_fetb <- function(feature, target,
     feature <- as.character(feature)
   }
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Invoke C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_fetb",

@@ -146,8 +146,8 @@
 #' \strong{Computational Complexity:}
 #' \itemize{
 #'   \item Time: \eqn{O(k^2 \cdot C \cdot m)} where \eqn{k} = bins, \eqn{C} = classes, \eqn{m} = iterations
-#'   \item Space: \eqn{O(k^2 \cdot C)} for M-WoE cache
-#'   \item Cache hit rate typically > 60\% for \eqn{k > 10}
+#'   \item Space: \eqn{O(k \cdot C)}; during pre-binning each bin keeps its
+#'         most similar partner, so a merge rescans only the affected bins
 #' }
 #'
 #' \strong{Key Innovations:}
@@ -459,7 +459,7 @@ ob_categorical_jedi_mwoe <- function(feature, target,
   # [D8] Standardized to "NA", matching the other 14 categorical wrappers
   # (this one and ob_categorical_sketch() were the only two using "N/A").
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Validate target classes are consecutive integers starting from 0
   unique_targets <- sort(unique(target))

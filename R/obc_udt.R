@@ -10,7 +10,9 @@
 #'   \item \strong{Initialization}: Each unique category is initially placed in
 #'         its own bin.
 #'   \item \strong{Frequency Filtering}: Categories below the \code{bin_cutoff}
-#'         frequency threshold are grouped into a single "rare" bin.
+#'         frequency threshold are grouped into a single "rare" bin. A rare
+#'         category keeps its own bin only when that is needed to reach
+#'         \code{min_bins}, the largest rare categories first.
 #'   \item \strong{Iterative Optimization}: Bins are progressively merged based
 #'         on statistical similarity (measured by Jensen-Shannon divergence)
 #'         until the desired number of bins (\code{max_bins}) is achieved.
@@ -154,7 +156,7 @@ ob_categorical_udt <- function(feature,
   feature[is.na(feature)] <- "NA"
 
   # Ensure target is integer
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_udt",

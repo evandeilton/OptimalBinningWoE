@@ -56,8 +56,9 @@ cooling. Default is 0.995.}
 optimization process. Must be positive. Default is 1000.}
 
 \item{convergence_threshold}{Numeric. Threshold for determining algorithm
-convergence based on changes in Information Value. Must be positive.
-Default is 1e-6.}
+convergence based on changes in Information Value: the search stops once
+the best IV has not improved by more than this amount for 200 consecutive
+iterations (checked every 10 iterations). Must be positive. Default is 1e-6.}
 
 \item{adaptive_cooling}{Logical. Whether to use adaptive cooling that
 modifies the cooling rate based on search progress. Default is TRUE.}
@@ -136,6 +137,9 @@ where \eqn{T} is the current temperature.
         computational time compared to heuristic approaches.
   \item When the number of unique categories is less than \code{max_bins},
         each category will form its own bin.
+  \item Every random draw of the search comes from R's random number
+        generator, so \code{set.seed()} makes the result reproducible, and
+        identical on every platform.
 }
 }
 \examples{

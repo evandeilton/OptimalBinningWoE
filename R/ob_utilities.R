@@ -168,3 +168,55 @@ obwoe_gains_score <- function(binning_result) {
 obwoe_gains_variable <- function(binned_df, target, group_var = "bin") {
   .Call("_OptimalBinningWoE_OBGainsTableFeature", binned_df, as.numeric(target), group_var, PACKAGE = "OptimalBinningWoE")
 }
+
+
+#' @title Internal: Coerce a Target to Integer Class Labels
+#'
+#' @description
+#' Every binning wrapper used to call \code{as.integer(target)} directly. That
+#' truncates silently: a target of \code{0.7} became class \code{0}, a factor
+#' \code{factor(c(0, 1))} became the level codes \code{1, 2}, and a character
+#' \code{"yes"} became \code{NA} with only a coercion warning. This helper
+#' accepts the encodings that carry integer class labels unambiguously
+#' (integer, whole-valued double, logical, and factor or character whose
+#' values read as whole numbers) and stops on anything else. Missing values are
+#' passed through so that each algorithm reports them with its own message.
+#'
+#' @param target Vector of class labels.
+#'
+#' @return An integer vector of the same length.
+#'
+#' @keywords internal
+#' @noRd
+.ob_integer_target <- function(target) {
+  if (is.integer(target)) {
+    return(target)
+  }
+  if (is.logical(target)) {
+    return(as.integer(target))
+  }
+  if (is.factor(target)) {
+    target <- as.character(target)
+  }
+  if (is.character(target)) {
+    num <- suppressWarnings(as.numeric(target))
+    if (any(is.na(num) & !is.na(target))) {
+      stop("Target must contain numeric class labels (e.g. 0 and 1).", call. = FALSE)
+    }
+    target <- num
+  }
+  if (!is.numeric(target)) {
+    stop("Target must be a numeric, integer, logical or factor vector.", call. = FALSE)
+  }
+  ok <- is.na(target) | (is.finite(target) & target == round(target))
+  if (!all(ok)) {
+    stop("Target must contain whole-number class labels (e.g. 0 and 1); ",
+      "found a non-integer or infinite value.",
+      call. = FALSE
+    )
+  }
+  if (any(abs(target[!is.na(target)]) > .Machine$integer.max)) {
+    stop("Target class labels are out of the integer range.", call. = FALSE)
+  }
+  as.integer(target)
+}

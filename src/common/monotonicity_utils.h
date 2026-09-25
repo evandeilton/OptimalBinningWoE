@@ -59,8 +59,8 @@ inline MonotonicTrend detect_trend_from_correlation(
     double delta_f = f - mean_f;
     double delta_t = t - mean_t;
 
-    mean_f += delta_f / (i + 1);
-    mean_t += delta_t / (i + 1);
+    mean_f += delta_f / static_cast<double>(i + 1);
+    mean_t += delta_t / static_cast<double>(i + 1);
 
     // Update sum of squared deviations
     double delta_f_new = f - mean_f;
@@ -78,9 +78,10 @@ inline MonotonicTrend detect_trend_from_correlation(
     return MonotonicTrend::ASCENDING;
   }
 
-  double var_f = M2_f / (n - 1);
-  double var_t = M2_t / (n - 1);
-  double cov_ft = M_ft / (n - 1);
+  const double dof = static_cast<double>(n - 1);
+  double var_f = M2_f / dof;
+  double var_t = M2_t / dof;
+  double cov_ft = M_ft / dof;
 
   // Compute correlation
   double denom = std::sqrt(var_f * var_t);
@@ -114,7 +115,7 @@ inline MonotonicTrend detect_trend_welford_woe(const std::vector<double>& woe_va
   // P3.5 fix (2026-05-16): eliminated redundant indices[] allocation —
   // loop index cast directly to double avoids O(n) heap allocation.
   double mean_x = 0.0, mean_y = 0.0;
-  double M2_x = 0.0, M2_y = 0.0;
+  double M2_x = 0.0;   // (the y spread is not needed for the slope's sign)
   double M_xy = 0.0;
 
   for (size_t i = 0; i < n; ++i) {
@@ -124,14 +125,13 @@ inline MonotonicTrend detect_trend_welford_woe(const std::vector<double>& woe_va
     double delta_x = x - mean_x;
     double delta_y = y - mean_y;
 
-    mean_x += delta_x / (i + 1);
-    mean_y += delta_y / (i + 1);
+    mean_x += delta_x / static_cast<double>(i + 1);
+    mean_y += delta_y / static_cast<double>(i + 1);
 
     double delta_x_new = x - mean_x;
     double delta_y_new = y - mean_y;
 
     M2_x += delta_x * delta_x_new;
-    M2_y += delta_y * delta_y_new;
     M_xy += delta_x * delta_y_new;
   }
 

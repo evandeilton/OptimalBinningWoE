@@ -40,7 +40,9 @@ greedy merging phase. Controls computational complexity. Must be >=
 \code{min_bins}. Defaults to 20.}
 
 \item{bin_separator}{Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "\%;\%".}
+when multiple categories are merged into a single bin. Defaults to "\%;\%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.}
 
 \item{convergence_threshold}{Numeric. Convergence tolerance for IV change
 between iterations. Algorithm stops when \eqn{|\Delta IV| <}
@@ -81,14 +83,15 @@ solutions with significantly reduced computational cost.
 \enumerate{
   \item Input validation and preprocessing
   \item Initial bin creation (one category per bin)
-  \item Rare category merging (frequencies < \code{bin_cutoff})
+  \item Rare category merging (frequencies < \code{bin_cutoff}); if this would
+    leave fewer than \code{min_bins} bins, rare neighbours are pooled only
+    until each pool reaches \code{bin_cutoff}
   \item Pre-bin limitation (if bins > \code{max_n_prebins})
   \item Greedy merging phase:
     \itemize{
       \item Evaluate IV for all possible adjacent bin merges
       \item Select merge that maximizes total IV
       \item Apply tie-breaking rules for similar merges
-      \item Update IV cache incrementally
       \item Check convergence criteria
     }
   \item Adaptive monotonicity enforcement

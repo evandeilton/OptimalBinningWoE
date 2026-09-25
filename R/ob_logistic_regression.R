@@ -2,7 +2,8 @@
 #'
 #' This function fits a logistic regression model to binary classification data.
 #' It supports both dense and sparse matrix inputs for the predictor variables.
-#' The optimization is performed using the L-BFGS algorithm.
+#' The likelihood is maximised by Newton-Raphson (iteratively reweighted least
+#' squares) with step halving, the same fixed point as \code{stats::glm}.
 #'
 #' The logistic regression model estimates the probability of the binary outcome
 #' \eqn{y_i \in \{0, 1\}} given predictors \eqn{x_i}:
@@ -19,12 +20,13 @@
 #'   Rows represent observations and columns represent features.
 #' @param y_r A numeric vector of binary outcome values (0 or 1). Must have the
 #'   same number of observations as rows in \code{X_r}.
-#' @param maxit Integer. Maximum number of iterations for the optimizer.
-#'   Default is 300.
-#' @param eps_f Numeric. Convergence tolerance for the function value.
-#'   Default is 1e-8.
-#' @param eps_g Numeric. Convergence tolerance for the gradient norm.
-#'   Default is 1e-5.
+#' @param maxit Integer. Maximum number of Newton iterations. Default is 300
+#'   (a regular fit converges in 4 to 8).
+#' @param eps_f Numeric. Convergence tolerance on the relative change of the
+#'   deviance, \eqn{|D_t - D_{t-1}| / (|D_t| + 0.1)}, as in
+#'   \code{stats::glm.control}. Default is 1e-8.
+#' @param eps_g Numeric. Gradient-norm tolerance used to accept the estimate
+#'   as converged when \code{maxit} is exhausted. Default is 1e-5.
 #'
 #' @return A list containing the results of the logistic regression fit:
 #' \describe{
@@ -35,8 +37,10 @@
 #'   \item{\code{loglikelihood}}{Scalar. The maximized log-likelihood value.}
 #'   \item{\code{gradient}}{Numeric vector. The gradient at the solution.}
 #'   \item{\code{hessian}}{Matrix. The Hessian matrix evaluated at the solution.}
-#'   \item{\code{convergence}}{Logical. Whether the algorithm converged successfully.}
-#'   \item{\code{iterations}}{Integer. Number of iterations performed.}
+#'   \item{\code{convergence}}{Logical. Whether the algorithm converged
+#'     successfully (\code{FALSE} if step halving failed, or if \code{maxit}
+#'     was exhausted without meeting the gradient criterion).}
+#'   \item{\code{iterations}}{Integer. Number of Newton iterations performed.}
 #'   \item{\code{message}}{Character. Convergence message.}
 #' }
 #'
@@ -44,9 +48,11 @@
 #' \itemize{
 #'   \item An intercept term is not automatically included. Users should add a column
 #'         of ones to \code{X_r} if an intercept is desired.
-#'   \item If the Hessian matrix is singular (determinant is zero), standard errors,
+#'   \item If the Hessian matrix is singular or numerically ill-conditioned
+#'         (reciprocal condition number below 1e-12), standard errors,
 #'         z-scores, and p-values will be returned as \code{NA}.
-#'   \item The function uses the L-BFGS quasi-Newton optimization method.
+#'   \item The p x p Newton systems are solved by Cholesky factorisation in
+#'         plain C++; a sparse \code{dgCMatrix} is densified first.
 #' }
 #'
 #' @examples
@@ -106,6 +112,18 @@
   if (!all(y_r %in% c(0, 1))) {
     stop("y_r must contain only 0 and 1 values.")
   }
+
+  # The C++ side maps the storage directly: it needs doubles (an integer or
+  # logical matrix used to fail with "Wrong R type for mapped matrix"), and a
+  # missing value would silently turn every estimate into NaN.
+  if (inherits(X_r, "dgCMatrix")) {
+    if (anyNA(X_r@x)) stop("X_r must not contain missing values.")
+  } else {
+    if (!is.numeric(X_r) && !is.logical(X_r)) stop("X_r must be numeric.")
+    if (anyNA(X_r)) stop("X_r must not contain missing values.")
+    if (!is.double(X_r)) storage.mode(X_r) <- "double"
+  }
+  y_r <- as.double(y_r)
 
   # Ensure integer types for parameters
   maxit <- as.integer(maxit)

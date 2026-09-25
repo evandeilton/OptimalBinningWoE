@@ -1,3 +1,175 @@
+# OptimalBinningWoE 1.14.0
+
+## Full audit of the C++ engines and the R layer (2026-09-25)
+
+Every algorithm file in `src/` was read end to end and checked against the
+method it implements, then against a battery of adversarial inputs (ties,
+two-value and constant features, NA/NaN/±Inf, ±1e308, tiny scales, heavy
+tails, 500 to 5000 categories, separators inside category names, n from 1 to
+10^6). Each fix below has a regression test that fails on 1.13.6. Pure
+refactors were proved bit-identical to 1.13.6 on the same battery. **Many
+fitted bins change**: in every such case the old result broke the documented
+algorithm or contract. No argument was added or removed and every returned
+list keeps its names, types and order.
+
+### Crashes, hangs and memory safety
+
+*   Session crashes fixed: `ob_numerical_cm()` segfaulted on a range that
+    overflows (−1e308, 1e308); `ob_numerical_fetb()` and
+    `ob_categorical_dp()` crashed on `max_n_prebins = 0`; `ob_numerical_ir()`
+    aborted on empty input; `ob_apply_woe_num()` segfaulted on a one-bin fit
+    (no cut points); `ob_cutpoints_cat()` segfaulted on `character(0)`.
+*   Infinite loops fixed: `ob_categorical_jedi_mwoe()` with `max_bins = 1`,
+    `ob_numerical_udt()` when `3 <= distinct values < min_bins`, and
+    `ob_categorical_swb()` when `min_bins > max_bins`.
+*   Out-of-bounds reads fixed in `ob_numerical_fast_mdlp()` (monotonic merge
+    indexed merged vectors with pre-merge positions; `sum(count)` could exceed
+    n threefold), `ob_categorical_ivb()` (feature shorter than target),
+    `ob_cutpoints_num()` (short target), `ob_preprocess()` (IQR with n <= 2),
+    and undefined behaviour in `ob_apply_woe_cat()` (`trim("")`), in
+    `std::sort` over NaN (fetb, mdlp), in the KDE grid on an infinite span
+    (ldb, lpdb) and in `int` overflow of count products (cm numerical and
+    categorical, shared chi-square helper) once bins exceed ~46k rows.
+*   `ob_preprocess()` overwrote the caller's feature vector in place and
+    `ob_cutpoints_num()` sorted the caller's `cutpoints` in place.
+
+### One contract for missing and infinite values
+
+The 21 numerical binners disagreed: six stopped on an NA feature (including
+the default `jedi`, so `obwoe()` failed on any numeric feature with a missing
+value), eleven dropped it, `fetb` sorted NaN into a bin and `udt` gave it a
+bin of its own. They now all follow one rule, implemented in C++ so that the
+`ob_numerical_*()` wrappers and `obwoe()` agree:
+
+*   NA/NaN feature values are excluded from the fit silently; bin counts sum
+    to the non-missing rows. (`ob_numerical_udt()` keeps its documented
+    trailing `"NA"` bin, which now holds NaN only.)
+*   ±Inf is an ordinary extreme value in the first or last bin and never a
+    cut point; no algorithm returns a NaN or infinite cut point or WoE.
+*   An NA target is a clear error.
+*   The NA warnings of `jedi`, `jedi_mwoe`, `lpdb`, `ewb`, `ir`, `kmb`,
+    `fast_mdlp`, `mdlp` and `mob` are gone.
+
+Targets are now validated instead of truncated: every wrapper used
+`as.integer(target)`, which turned 0.7 into class 0 and `"yes"` into NA. Integer,
+whole-valued double, logical, and factor/character holding whole numbers are
+accepted; anything else is an error.
+
+### Algorithms that did not do what they document
+
+*   **ChiMerge** (`cm`, both types): the critical value came from a table keyed
+    by confidence instead of significance, so the default
+    `chi_merge_threshold = 0.05` gave 0.004 instead of 3.841 and the
+    significance rule almost never merged; it is now `qchisq(1 - alpha, 1)`
+    (Kerber, 1992). The Yates correction is clamped at zero as in
+    `chisq.test()`. The numerical chi-square cache returned stale values
+    after merges (its invalidation was a no-op); it is replaced by an
+    incrementally updated vector of adjacent-pair statistics, which matches
+    an independent `chisq.test()`-based ChiMerge on 30/30 samples (0/30
+    before). The categorical default now merges more.
+*   **Fisher exact test** (`fetb`, both types): the merge criterion was the
+    point probability of the observed table, not a p-value. It is now the
+    two-sided Fisher p-value, matching `fisher.test()`. The numerical loop
+    could stop on IV convergence with more than `max_bins` bins.
+*   **MDLP**: `fast_mdlp`'s acceptance test omitted the
+    `k1 E(S1) + k2 E(S2)` term of Fayyad & Irani (1993) and now agrees with a
+    reference implementation on 292/292 datasets (265 before); when `max_bins`
+    binds, splits are kept best-first by gain instead of dropping the
+    rightmost ones. `mdlp`'s documentation of its merge cost and bin format
+    was corrected.
+*   **IV-optimal DP** (`ivb`): a banded search excluded valid partitions, so
+    the result was not optimal; the monotonic repair could drop the last bin's
+    categories. **DP** (`dp`, categorical): recovered counts by splitting
+    labels on the separator and rejected valid partitions with a bogus
+    monotonicity test.
+*   **Stale merge caches** keyed by bin position chose the wrong pairs after
+    the first merge in `jedi`, `jedi_mwoe`, `mba` and `gmb` (categorical).
+*   **Monotonicity promised but not delivered**: fixed in `bb`, `dmiv`, `dp`,
+    `ldb`, `lpdb`, `mblp`, `mdlp`, `mob`, `mrblp`, `oslp` (numerical) and
+    `milp`, `sblp` (categorical), mostly by refreshing WoE after merges and
+    re-checking after the `max_bins` reduction.
+*   **`max_bins` / `min_bins` not honoured**: `ldb`, `lpdb`, `dmiv`
+    (categorical: 2000 bins for `max_bins = 5`), `fetb`, `sketch`, `sblp`,
+    `mba`, `sab`, `swb`, `udt` and `fetb`/`gmb`/`ivb` on high-cardinality
+    features, which collapsed to a single bin with IV 0.
+*   **Wrong statistics reported**: `ob_numerical_udt()` returned Gini as
+    2·AUC instead of 2·AUC − 1 and merged on an IV that was always 0;
+    `ob_numerical_kmb()` reported grid centroids instead of bin means;
+    `ob_categorical_mob()` gave every initial bin a count of 1;
+    `ob_categorical_sketch()` returned count-min estimates as bin counts;
+    `ldb`/`lpdb` WoE used the pre-bin count in its Laplace denominator.
+*   **Labels**: `oslp` and `ubsd` labelled bins `[a;b)` while assigning
+    `(a;b]`; `ewb`, numerical `sketch` and `ubsd` produced empty bins or
+    labels that excluded the minimum.
+*   `ob_categorical_sab()` stopped after one iteration whenever the first
+    move was rejected, and now draws from R's RNG only, so results are
+    reproducible across platforms under `set.seed()`.
+*   `ob_categorical_milp()` merged the two WoE extremes together; its merge
+    phase now combines WoE-adjacent bins with the least IV loss.
+*   Rare-category pooling kept the `min_bins` *rarest* categories in `jedi`,
+    `jedi_mwoe` and categorical `udt`; it keeps the most frequent ones.
+*   The categorical `dmiv` pooled bin was labelled `"PREBIN_OTHER"`, so its
+    categories could not be scored; it now lists them.
+
+### R interface
+
+*   `obwoe_apply()` is vectorised (`match()` instead of two closures per
+    row): 25 to 50 times faster on wide or long data. The scorecard applies
+    the binning once, to the model variables only (`predict()` about 40 times
+    faster).
+*   A category equal to `""` was lost when splitting labels, and was scored
+    as missing by `obwoe_apply()`, `obwoe_sql()` and `bake()`.
+*   `step_obwoe()` ignored `control = list(bin_separator = ...)`;
+    `obwoe_sql()` and `obwoe_select()` now default to the fitted separator.
+*   A category listed in two bins now resolves to the first bin in
+    `obwoe_apply()`, as in `obwoe_sql()` and `ob_apply_woe_cat()`.
+*   `obwoe_gains()` sorted a numeric grouping column as text (KS 25.7%
+    instead of 50%); `obwoe_gains_variable()` pooled distinct WoE values that
+    agree to six decimals.
+*   `ob_apply_woe_cat()` now scores NA with the fitted missing-value bin, as
+    `obwoe_apply()` and the SQL do, and matches categories in O(n).
+*   Missing values of a `udt` feature go to its `"NA"` bin in `obwoe_apply()`
+    and in the SQL (every row used to get the mean WoE).
+*   `obwoe_apply()` on a 0-row frame, `obwoe_select()` on an infinite WoE and
+    `obwoe_psi()` with NA or repeated `levels` no longer fail.
+
+### Other functions
+
+*   `obcorr()`: the distance correlation was wrong (a column against itself
+    gave 1.69); it is now Székely's V-statistic in O(n log n). Ties are exact
+    (results were scale-dependent), Pearson is two-pass, Spearman uses
+    pairwise-complete observations. Kendall and Hoeffding are O(n log n):
+    about 500 and 300 times faster at n = 10^4.
+*   `ob_check_distincts()` compared numbers through six-decimal strings.
+*   `obcorr(threads = n)` no longer warns on a build without OpenMP (the
+    macOS default); `threads` is ignored there, as documented.
+*   The `"obwoe"` scorecard engine's logistic regression is now a plain C++
+    Newton-IRLS (glm's convergence rule); it no longer drops standard errors
+    of well-conditioned small-scale designs and reports the real iteration
+    count.
+
+### Performance
+
+Median speed-ups at n = 10^6 unless stated: `mdlp` 11x, `mob` 24x, `oslp`
+28x, `ubsd` 75x, `dmiv` 7x, `ewb` 4x, `kmb` 4x, `jedi` (the default) 2.5x,
+`fast_mdlp` 2.6x (24x on alternating classes); categorical with 2000 levels:
+`milp` 190x, `mob` 21x, `jedi` 19x, `jedi_mwoe` 14x; `dmiv` with 3000 levels
+160x; `swb`/`sketch`/`udt` with 5000 levels 175-600x; `ob_apply_woe_cat()`
+270x; `ob_preprocess(method = "grubbs")` 65x. The test suite runs in under a
+minute (about five before).
+
+### Build
+
+*   `RcppEigen` and `RcppNumerical` are no longer needed (`LinkingTo: Rcpp`
+    only) and the unused BLAS/LAPACK link flags are gone. Their headers
+    emitted several hundred `-Wignored-attributes` warnings on every source
+    install; the package now compiles without a single warning under gcc
+    (`-Wall -Wextra -Wpedantic -Wshadow -Wconversion`) and clang (`-Wall
+    -Wextra -Wpedantic -Wshadow`).
+*   No algorithm prints to the console any more (`dmiv`, `bb`).
+*   The full test suite passes with zero warnings, and under AddressSanitizer
+    and UndefinedBehaviorSanitizer.
+
 # OptimalBinningWoE 1.13.6
 
 ## Two scorecard reporting defects fixed at the origin (2026-09-03)

@@ -69,8 +69,9 @@
 #' @param max_iterations Integer. Maximum number of iterations for the
 #'   optimization process. Must be positive. Default is 1000.
 #' @param convergence_threshold Numeric. Threshold for determining algorithm
-#'   convergence based on changes in Information Value. Must be positive.
-#'   Default is 1e-6.
+#'   convergence based on changes in Information Value: the search stops once
+#'   the best IV has not improved by more than this amount for 200 consecutive
+#'   iterations (checked every 10 iterations). Must be positive. Default is 1e-6.
 #' @param adaptive_cooling Logical. Whether to use adaptive cooling that
 #'   modifies the cooling rate based on search progress. Default is TRUE.
 #'
@@ -102,6 +103,9 @@
 #'         computational time compared to heuristic approaches.
 #'   \item When the number of unique categories is less than \code{max_bins},
 #'         each category will form its own bin.
+#'   \item Every random draw of the search comes from R's random number
+#'         generator, so \code{set.seed()} makes the result reproducible, and
+#'         identical on every platform.
 #' }
 #'
 #' @examples
@@ -150,7 +154,7 @@ ob_categorical_sab <- function(feature,
 
   # Convert NA values to "NA" string
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_sab",

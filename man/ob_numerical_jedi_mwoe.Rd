@@ -17,10 +17,14 @@ ob_numerical_jedi_mwoe(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be excluded prior to execution.}
+Rows whose value is missing (\code{NA}/\code{NaN}) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+\code{-Inf} and \code{+Inf} are kept as extreme values of the first and
+last bin and never become a cutpoint.}
 
 \item{target}{An integer vector of multiclass outcomes (0, 1, ..., K-1)
-corresponding to each observation in \code{feature}. Must have at least 2 distinct classes.}
+corresponding to each observation in \code{feature}. Must have at least 2 distinct classes.
+A missing value in \code{target} is an error.}
 
 \item{min_bins}{Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 Defaults to 3.}
@@ -77,9 +81,10 @@ using a "One-vs-Rest" approach:
         it may be merged. This ensures the variable is predictive across the entire
         spectrum of outcomes.
   \item \strong{Global IV Optimization:} When reducing the number of bins to \code{max_bins},
-        the algorithm merges the pair of bins that minimizes the loss of the
-        \emph{Sum of IVs} across all classes:
-        \deqn{Loss = \sum_{k=0}^{K-1} \Delta IV_k}
+        the algorithm repeatedly merges the adjacent pair of bins with the
+        smallest combined IV summed over all classes,
+        \eqn{\sum_{k=0}^{K-1} (IV_{i,k} + IV_{i+1,k})}, a greedy proxy for the
+        merge that loses the least total IV.
 }
 
 This method is ideal for use cases like:

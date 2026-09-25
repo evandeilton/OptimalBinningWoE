@@ -16,6 +16,9 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
+// Everything but the exported entry point has internal linkage, so no helper
+// or class here can clash with a same-named symbol in another translation unit.
+namespace {
 
 // Enumeration for monotonicity direction
 enum class MonotonicityDirection {
@@ -37,11 +40,6 @@ MonotonicityDirection string_to_monotonicity_direction(const std::string& str) {
 // Local NumericalBin definition removed
 
 
-// Comparator for sorting bins
-bool compareBins(const NumericalBin &a, const NumericalBin &b) {
-  return a.lower_bound < b.lower_bound;
-}
-
 // Forward declarations
 Rcpp::List handle_few_unique_values(
     const std::vector<double>& feature_vec,
@@ -54,6 +52,11 @@ class OBN_UDT {
 private:
   std::vector<double> feature;
   std::vector<int> target;
+  // Non-missing observations (NaN goes to missing_bin; +-Inf stay here and
+  // fall in the first/last bin). Bin splitting must work on these: the raw
+  // vectors still hold the missing values.
+  std::vector<double> feature_clean;
+  std::vector<int> target_clean;
   int min_bins;
   int max_bins;
   double bin_cutoff;
@@ -72,26 +75,26 @@ private:
   
 public:
   OBN_UDT(
-    std::vector<double> feature,
-    std::vector<int> target,
-    int min_bins = 3,
-    int max_bins = 5,
-    double bin_cutoff = 0.05,
-    int max_n_prebins = 20,
-    double laplace_smoothing = 0.5,
-    MonotonicityDirection monotonicity_direction = MonotonicityDirection::NONE,
-    double convergence_threshold = 1e-6,
-    int max_iterations = 1000) 
-    : feature(std::move(feature)), 
-      target(std::move(target)), 
-      min_bins(std::max(2, min_bins)),
-      max_bins(std::max(this->min_bins, max_bins)),
-      bin_cutoff(bin_cutoff),
-      max_n_prebins(max_n_prebins),
-      laplace_smoothing(laplace_smoothing),
-      monotonicity_direction(monotonicity_direction),
-      convergence_threshold(convergence_threshold),
-      max_iterations(max_iterations),
+    std::vector<double> feature_in,
+    std::vector<int> target_in,
+    int min_bins_in = 3,
+    int max_bins_in = 5,
+    double bin_cutoff_in = 0.05,
+    int max_n_prebins_in = 20,
+    double laplace_smoothing_in = 0.5,
+    MonotonicityDirection monotonicity_direction_in = MonotonicityDirection::NONE,
+    double convergence_threshold_in = 1e-6,
+    int max_iterations_in = 1000)
+    : feature(std::move(feature_in)),
+      target(std::move(target_in)),
+      min_bins(std::max(2, min_bins_in)),
+      max_bins(std::max(this->min_bins, max_bins_in)),
+      bin_cutoff(bin_cutoff_in),
+      max_n_prebins(max_n_prebins_in),
+      laplace_smoothing(laplace_smoothing_in),
+      monotonicity_direction(monotonicity_direction_in),
+      convergence_threshold(convergence_threshold_in),
+      max_iterations(max_iterations_in),
       converged(false),
       iterations_run(0),
       total_iv(0.0),
@@ -104,9 +107,9 @@ public:
   
   void fit() {
     // Handle missing values
-    std::vector<double> feature_clean;
-    std::vector<int> target_clean;
-    handle_missing_values(feature, target, feature_clean, target_clean, missing_bin);
+    feature_clean.clear();
+    target_clean.clear();
+    handle_missing_values();
     
     // Auto-detect monotonicity if needed
     if (monotonicity_direction == MonotonicityDirection::AUTO) {
@@ -222,22 +225,23 @@ public:
   
   // Main method to calculate WoE and IV for regular bins
   // Does not modify the missing bin - that's handled separately in calculate_woe_iv_all
-  void calculate_woe_iv(std::vector<NumericalBin> &bins, double laplace_smoothing = 0.5) {
+  void calculate_woe_iv(std::vector<NumericalBin> &bin_vec, double smoothing = 0.5) {
     int total_pos = 0, total_neg = 0;
-    for (const auto &bin : bins) {
+    for (const auto &bin : bin_vec) {
       total_pos += bin.count_pos;
       total_neg += bin.count_neg;
     }
-    
+
     double total_pos_d = static_cast<double>(total_pos);
     double total_neg_d = static_cast<double>(total_neg);
-    
-    for (auto &bin : bins) {
+    const double nb = static_cast<double>(bin_vec.size());
+
+    for (auto &bin : bin_vec) {
       // Apply Laplace smoothing to handle zero counts
-      double dist_pos = (static_cast<double>(bin.count_pos) + laplace_smoothing) / 
-        (total_pos_d + laplace_smoothing * bins.size());
-      double dist_neg = (static_cast<double>(bin.count_neg) + laplace_smoothing) /
-        (total_neg_d + laplace_smoothing * bins.size());
+      double dist_pos = (static_cast<double>(bin.count_pos) + smoothing) /
+        (total_pos_d + smoothing * nb);
+      double dist_neg = (static_cast<double>(bin.count_neg) + smoothing) /
+        (total_neg_d + smoothing * nb);
 
       // With laplace_smoothing = 0 a bin holding no events (or no non-events)
       // gives dist = 0, hence woe = -Inf/+Inf and iv = Inf. Floor both
@@ -276,10 +280,11 @@ public:
       double total_neg_d = static_cast<double>(total_neg);
       
       // Calculate WoE and IV for missing bin using the same formula
-      double dist_pos_missing = (static_cast<double>(missing_bin.count_pos) + laplace_smoothing) / 
-        (total_pos_d + laplace_smoothing * (bins.size() + 1));
+      const double nb1 = static_cast<double>(bins.size() + 1);
+      double dist_pos_missing = (static_cast<double>(missing_bin.count_pos) + laplace_smoothing) /
+        (total_pos_d + laplace_smoothing * nb1);
       double dist_neg_missing = (static_cast<double>(missing_bin.count_neg) + laplace_smoothing) /
-        (total_neg_d + laplace_smoothing * (bins.size() + 1));
+        (total_neg_d + laplace_smoothing * nb1);
 
       // Same EPSILON floor as the regular bins above: without it a missing-value
       // bin containing only one class yields an infinite WoE and IV whenever
@@ -317,13 +322,14 @@ public:
   }
   
 private:
-  void handle_missing_values(
-      const std::vector<double> &feature, 
-      const std::vector<int> &target, 
-      std::vector<double> &feature_clean,
-      std::vector<int> &target_clean,
-      NumericalBin &missing_bin) {
-    
+  // Splits feature/target into feature_clean/target_clean (non-NaN values)
+  // and the counts of missing_bin (NaN).
+  //
+  // +-Inf used to be counted in the missing-value bin as well. They are valid
+  // extremes: they now belong to the first (-Inf) or last (+Inf) bin, which is
+  // also where obwoe_apply() and obwoe_sql() route them. They never produce a
+  // cut point (see split_point candidates below).
+  void handle_missing_values() {
     missing_bin.count = 0;
     missing_bin.count_pos = 0;
     missing_bin.count_neg = 0;
@@ -332,7 +338,7 @@ private:
     target_clean.reserve(feature.size());
     
     for (size_t i = 0; i < feature.size(); ++i) {
-      if (std::isnan(feature[i]) || std::isinf(feature[i])) {
+      if (std::isnan(feature[i])) {
         missing_bin.count++;
         if (target[i] == 1) {
           missing_bin.count_pos++;
@@ -351,27 +357,38 @@ private:
       return 0.0;
     }
     
-    double sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0;
-    double sum_x2 = 0.0, sum_y2 = 0.0;
-    size_t n = x.size();
-    
+    // Only the sign is used (auto monotonicity). Centred two-pass sums: the
+    // one-pass n*sum_x2 - sum_x^2 cancels catastrophically for features with a
+    // large offset (e.g. 1e9 + noise) and could return a wrong sign or 0, and
+    // its absolute 1e-10 threshold on the denominator made the direction
+    // depend on the feature's unit.
+    // +-Inf observations carry no usable magnitude and are skipped.
+    const size_t n = x.size();
+    size_t m = 0;
+    double mx = 0.0, my = 0.0;
     for (size_t i = 0; i < n; ++i) {
-      double x_i = x[i];
-      double y_i = static_cast<double>(y[i]);
-      
-      sum_x += x_i;
-      sum_y += y_i;
-      sum_xy += x_i * y_i;
-      sum_x2 += x_i * x_i;
-      sum_y2 += y_i * y_i;
+      if (!std::isfinite(x[i])) continue;
+      mx += x[i];
+      my += static_cast<double>(y[i]);
+      ++m;
     }
-    
-    double denominator = std::sqrt((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y));
-    if (std::abs(denominator) < 1e-10) {
+    if (m < 2) return 0.0;
+    const double dn = static_cast<double>(m);
+    mx /= dn;
+    my /= dn;
+    double sxx = 0.0, syy = 0.0, sxy = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+      if (!std::isfinite(x[i])) continue;
+      const double dx = x[i] - mx;
+      const double dy = static_cast<double>(y[i]) - my;
+      sxx += dx * dx;
+      syy += dy * dy;
+      sxy += dx * dy;
+    }
+    if (!(sxx > 0.0) || !(syy > 0.0) || !std::isfinite(sxy)) {
       return 0.0;
     }
-    
-    return (n * sum_xy - sum_x * sum_y) / denominator;
+    return sxy / (std::sqrt(sxx) * std::sqrt(syy));
   }
   
   // Binary entropy from counts alone. Mirrors calculate_entropy(vector) term for
@@ -394,55 +411,17 @@ private:
     return entropy;
   }
 
-  double calculate_entropy(const std::vector<int> &y) {
-    if (y.empty()) {
-      return 0.0;
-    }
-    
-    int count = y.size();
-    int count_pos = std::accumulate(y.begin(), y.end(), 0);
-    int count_neg = count - count_pos;
-    
-    double p_pos = static_cast<double>(count_pos) / count;
-    double p_neg = static_cast<double>(count_neg) / count;
-    
-    double entropy = 0.0;
-    if (p_pos > 0) entropy -= p_pos * std::log2(p_pos);
-    if (p_neg > 0) entropy -= p_neg * std::log2(p_neg);
-    
-    return entropy;
+  // Cut point between two consecutive distinct values a < b. The midpoint is
+  // used, except when a and b are adjacent doubles and (a + b) / 2 rounds up
+  // to b: bins are right-closed, so that cut would send b to the left bin and
+  // the "split" would not separate the two values.
+  static double split_point_between(double a, double b) {
+    const double mid = a + (b - a) / 2.0;
+    const double mid0 = (a + b) / 2.0;   // the historical formula, kept when valid
+    if (mid0 >= a && mid0 < b && std::isfinite(mid0)) return mid0;
+    return (mid >= a && mid < b) ? mid : a;
   }
-  
-  double calculate_info_gain(const std::vector<double> &x, const std::vector<int> &y, 
-                             double split_point) {
-    if (x.empty() || y.empty() || x.size() != y.size()) {
-      return 0.0;
-    }
-    
-    std::vector<int> left_y, right_y;
-    
-    for (size_t i = 0; i < x.size(); ++i) {
-      if (x[i] <= split_point) {
-        left_y.push_back(y[i]);
-      } else {
-        right_y.push_back(y[i]);
-      }
-    }
-    
-    if (left_y.empty() || right_y.empty()) {
-      return 0.0;
-    }
-    
-    double entropy_before = calculate_entropy(y);
-    double entropy_left = calculate_entropy(left_y);
-    double entropy_right = calculate_entropy(right_y);
-    
-    double p_left = static_cast<double>(left_y.size()) / y.size();
-    double p_right = static_cast<double>(right_y.size()) / y.size();
-    
-    return entropy_before - (p_left * entropy_left + p_right * entropy_right);
-  }
-  
+
   std::vector<double> get_entropy_based_cutpoints(
       const std::vector<double> &x, 
       const std::vector<int> &y, 
@@ -473,8 +452,9 @@ private:
     int running_pos = 0;
     for (size_t i = 1; i < data_pairs.size(); ++i) {
       running_pos += data_pairs[i-1].second;
-      if (data_pairs[i].first > data_pairs[i-1].first) {
-        unique_values.push_back((data_pairs[i].first + data_pairs[i-1].first) / 2.0);
+      if (data_pairs[i].first > data_pairs[i-1].first &&
+          std::isfinite(data_pairs[i].first) && std::isfinite(data_pairs[i-1].first)) {
+        unique_values.push_back(split_point_between(data_pairs[i-1].first, data_pairs[i].first));
         left_n.push_back(static_cast<int>(i));
         left_pos.push_back(running_pos);
       }
@@ -542,8 +522,8 @@ private:
   }
   
   std::vector<NumericalBin> initial_binning(
-      const std::vector<double> &feature,
-      const std::vector<int> &target,
+      const std::vector<double> &x,
+      const std::vector<int> &y,
       const std::vector<double> &cut_points) {
     
     if (cut_points.empty()) {
@@ -551,12 +531,12 @@ private:
       NumericalBin single_bin;
       single_bin.lower_bound = -std::numeric_limits<double>::infinity();
       single_bin.upper_bound = std::numeric_limits<double>::infinity();
-      single_bin.count = feature.size();
+      single_bin.count = static_cast<int>(x.size());
       single_bin.count_pos = 0;
       single_bin.count_neg = 0;
       
-      for (size_t i = 0; i < feature.size(); ++i) {
-        if (target[i] == 1) single_bin.count_pos++;
+      for (size_t i = 0; i < x.size(); ++i) {
+        if (y[i] == 1) single_bin.count_pos++;
         else single_bin.count_neg++;
       }
       
@@ -578,12 +558,12 @@ private:
       initial_bins[i].count_neg = 0;
     }
     
-    for (size_t i = 0; i < feature.size(); ++i) {
-      double val = feature[i];
+    for (size_t i = 0; i < x.size(); ++i) {
+      double val = x[i];
       int bin_idx = find_bin_index(val, boundaries);
       if (bin_idx >= 0 && static_cast<size_t>(bin_idx) < n_bins) {
         initial_bins[bin_idx].count++;
-        if (target[i] == 1) {
+        if (y[i] == 1) {
           initial_bins[bin_idx].count_pos++;
         } else {
           initial_bins[bin_idx].count_neg++;
@@ -600,7 +580,7 @@ private:
   int find_bin_index(double value, const std::vector<double> &boundaries) {
     // Optimized binary search to find bin index
     int left = 0;
-    int right = boundaries.size() - 1;
+    int right = static_cast<int>(boundaries.size()) - 1;
     
     while (left < right - 1) {
       int mid = left + (right - left) / 2;
@@ -698,8 +678,12 @@ private:
       }
       
       // Ensure minimum number of bins
+      // split_optimal_bin() reports whether it split anything. It used to
+      // return silently, and this loop then spun forever whenever no bin could
+      // be split -- e.g. every feature with 3 <= #distinct < min_bins, where
+      // each pre-bin holds a single value.
       while (static_cast<int>(bins.size()) < min_bins && bins.size() > 1) {
-        split_optimal_bin();
+        if (!split_optimal_bin()) break;
       }
       
       // Calculate total IV
@@ -724,17 +708,34 @@ private:
     
     size_t best_merge_idx = 0;
     double min_iv_loss = std::numeric_limits<double>::max();
-    
+
+    // IV of the merged bin must be evaluated against the same class totals and
+    // smoothing denominators as the bins it replaces. It used to be computed
+    // by calling calculate_woe_iv() on a one-bin vector, where the merged bin
+    // is its own total: both distributions are 1, WoE = 0 and IV = 0 for every
+    // candidate, so "minimum IV loss" degenerated into "merge the pair with the
+    // smallest IV", which is not the documented criterion.
+    int total_pos = 0, total_neg = 0;
+    for (const auto &bin : bins) {
+      total_pos += bin.count_pos;
+      total_neg += bin.count_neg;
+    }
+    const double nb = static_cast<double>(bins.size());
+    const double den_pos = static_cast<double>(total_pos) + laplace_smoothing * nb;
+    const double den_neg = static_cast<double>(total_neg) + laplace_smoothing * nb;
+
     for (size_t i = 0; i < bins.size() - 1; ++i) {
       // Calculate IV before merge
       double iv_before = bins[i].iv + bins[i + 1].iv;
-      
-      // Calculate IV after merge
-      NumericalBin merged = merge_bins(bins[i], bins[i + 1]);
-      std::vector<NumericalBin> temp_bins = {merged};
-      calculate_woe_iv(temp_bins, laplace_smoothing);
-      double iv_after = temp_bins[0].iv;
-      
+
+      // Calculate IV after merge (same formula and EPSILON floor as
+      // calculate_woe_iv)
+      const double cp = static_cast<double>(bins[i].count_pos + bins[i + 1].count_pos);
+      const double cn = static_cast<double>(bins[i].count_neg + bins[i + 1].count_neg);
+      const double dist_pos = std::max((cp + laplace_smoothing) / den_pos, EPSILON);
+      const double dist_neg = std::max((cn + laplace_smoothing) / den_neg, EPSILON);
+      const double iv_after = (dist_pos - dist_neg) * std::log(dist_pos / dist_neg);
+
       // Calculate IV loss
       double iv_loss = iv_before - iv_after;
       
@@ -775,110 +776,105 @@ private:
     }
   }
   
-  void split_optimal_bin() {
-    if (bins.empty()) return;
-    
-    // Find the bin with highest internal variance to split
+  // Splits the bin whose best cut (on the finite observations) has the largest
+  // information gain. Returns false when no bin can be split.
+  //
+  // Fixed here: observations were read from the raw feature vector (NaN/Inf
+  // included, so -Inf values already counted in the missing bin were counted
+  // again) and assigned to [lower, upper) intervals while every bin is labelled
+  // and applied as (lower, upper]; the gain of each candidate was recomputed
+  // by rescanning the bin (O(n^2) per bin).
+  // Membership in a right-closed bin (lower, upper]; the first bin also holds
+  // -Inf (its lower bound).
+  static bool in_bin(double v, const NumericalBin &b) {
+    return (v > b.lower_bound || (std::isinf(b.lower_bound) && b.lower_bound < 0)) &&
+      v <= b.upper_bound;
+  }
+
+  bool split_optimal_bin() {
+    if (bins.empty()) return false;
+
     size_t best_bin_idx = 0;
-    double max_improvement = -std::numeric_limits<double>::max();
+    double max_improvement = 0.0;
     double best_split_point = 0.0;
-    
+    bool found = false;
+
+    std::vector<std::pair<double, int>> pairs;
     for (size_t i = 0; i < bins.size(); ++i) {
       const NumericalBin &current_bin = bins[i];
-      
+
       // Skip bins with too few observations
       if (current_bin.count < 10) continue;
-      
-      // Find observations in this bin
-      std::vector<double> bin_features;
-      std::vector<int> bin_targets;
-      
-      for (size_t j = 0; j < feature.size(); ++j) {
-        if (feature[j] >= current_bin.lower_bound && feature[j] < current_bin.upper_bound) {
-          bin_features.push_back(feature[j]);
-          bin_targets.push_back(target[j]);
+
+      pairs.clear();
+      for (size_t j = 0; j < feature_clean.size(); ++j) {
+        const double v = feature_clean[j];
+        if (in_bin(v, current_bin)) {
+          pairs.push_back({v, target_clean[j]});
         }
       }
-      
-      if (bin_features.size() < 10) continue;
-      
-      // Find best split point within this bin
-      // Entropy calculation moved to calculate_info_gain function
-      
-      // Create pairs for sorting
-      std::vector<std::pair<double, int>> pairs;
-      for (size_t j = 0; j < bin_features.size(); ++j) {
-        pairs.push_back({bin_features[j], bin_targets[j]});
-      }
+      if (pairs.size() < 10) continue;
       std::sort(pairs.begin(), pairs.end());
-      
-      // Find potential split points (unique values)
-      std::vector<double> split_candidates;
-      for (size_t j = 1; j < pairs.size(); ++j) {
-        if (pairs[j].first > pairs[j-1].first) {
-          split_candidates.push_back((pairs[j].first + pairs[j-1].first) / 2.0);
-        }
-      }
-      
-      // Find best split point
+
+      const int total_n = static_cast<int>(pairs.size());
+      int total_pos = 0;
+      for (const auto &pr : pairs) total_pos += pr.second;
+      const double entropy_before = calculate_entropy_counts(total_n, total_pos);
+
       double max_gain = 0.0;
       double best_point = 0.0;
-      
-      for (double split_point : split_candidates) {
-        double gain = calculate_info_gain(bin_features, bin_targets, split_point);
+      int running_pos = 0;
+      for (size_t j = 1; j < pairs.size(); ++j) {
+        running_pos += pairs[j - 1].second;
+        if (!(pairs[j].first > pairs[j - 1].first)) continue;
+        if (!std::isfinite(pairs[j].first) || !std::isfinite(pairs[j - 1].first)) continue;
+        const int ln = static_cast<int>(j);
+        const int rn = total_n - ln;
+        const double gain = entropy_before -
+          (static_cast<double>(ln) / total_n * calculate_entropy_counts(ln, running_pos) +
+           static_cast<double>(rn) / total_n * calculate_entropy_counts(rn, total_pos - running_pos));
         if (gain > max_gain) {
           max_gain = gain;
-          best_point = split_point;
+          best_point = split_point_between(pairs[j - 1].first, pairs[j].first);
         }
       }
-      
+
       if (max_gain > max_improvement) {
         max_improvement = max_gain;
         best_bin_idx = i;
         best_split_point = best_point;
+        found = true;
       }
     }
-    
-    // If we found a good split
-    if (max_improvement > 0) {
-      // Create two new bins
-      NumericalBin left_bin = bins[best_bin_idx];
-      NumericalBin right_bin = bins[best_bin_idx];
-      
-      left_bin.upper_bound = best_split_point;
-      right_bin.lower_bound = best_split_point;
-      
-      // Redistribute observations
-      left_bin.count = 0;
-      left_bin.count_pos = 0;
-      left_bin.count_neg = 0;
-      
-      right_bin.count = 0;
-      right_bin.count_pos = 0;
-      right_bin.count_neg = 0;
-      
-      for (size_t i = 0; i < feature.size(); ++i) {
-        double val = feature[i];
-        if (val >= left_bin.lower_bound && val < left_bin.upper_bound) {
-          left_bin.count++;
-          if (target[i] == 1) left_bin.count_pos++;
-          else left_bin.count_neg++;
-        } else if (val >= right_bin.lower_bound && val < right_bin.upper_bound) {
-          right_bin.count++;
-          if (target[i] == 1) right_bin.count_pos++;
-          else right_bin.count_neg++;
-        }
+
+    if (!found) return false;
+
+    NumericalBin left_bin = bins[best_bin_idx];
+    NumericalBin right_bin = bins[best_bin_idx];
+    left_bin.upper_bound = best_split_point;
+    right_bin.lower_bound = best_split_point;
+    left_bin.count = left_bin.count_pos = left_bin.count_neg = 0;
+    right_bin.count = right_bin.count_pos = right_bin.count_neg = 0;
+
+    for (size_t i = 0; i < feature_clean.size(); ++i) {
+      const double val = feature_clean[i];
+      if (in_bin(val, left_bin)) {
+        left_bin.count++;
+        if (target_clean[i] == 1) left_bin.count_pos++;
+        else left_bin.count_neg++;
+      } else if (in_bin(val, right_bin)) {
+        right_bin.count++;
+        if (target_clean[i] == 1) right_bin.count_pos++;
+        else right_bin.count_neg++;
       }
-      
-      // Replace original bin with two new bins
-      bins[best_bin_idx] = left_bin;
-      bins.insert(bins.begin() + best_bin_idx + 1, right_bin);
-      
-      // Update statistics
-      calculate_woe_iv(bins, laplace_smoothing);
     }
+
+    bins[best_bin_idx] = left_bin;
+    bins.insert(bins.begin() + static_cast<std::ptrdiff_t>(best_bin_idx) + 1, right_bin);
+    calculate_woe_iv(bins, laplace_smoothing);
+    return true;
   }
-  
+
   double calculate_total_iv() {
     double total = 0.0;
     for (const auto &bin : bins) {
@@ -906,7 +902,7 @@ private:
     }
     
     double gini = 0.0;
-    double cum_pos = 0.0, cum_neg = 0.0;
+    double cum_neg = 0.0;
     
     // Sort bins by WoE for Gini calculation
     std::vector<NumericalBin> sorted_bins = bins;
@@ -924,13 +920,15 @@ private:
       double pos_rate = static_cast<double>(bin.count_pos) / total_pos;
       double neg_rate = static_cast<double>(bin.count_neg) / total_neg;
       
-      cum_pos += pos_rate;
       cum_neg += neg_rate;
       
       gini += pos_rate * (cum_neg - 0.5 * neg_rate);
     }
     
-    return 2.0 * gini;
+    // The sum above is the AUC of the binned score (bins by ascending WoE);
+    // Gini = 2 * AUC - 1 as documented. The "- 1" was missing, so the value
+    // reported was the Gini plus one (e.g. 1.60 for a binned AUC of 0.80).
+    return 2.0 * gini - 1.0;
   }
   
   double calculate_ks_statistic() {
@@ -995,24 +993,16 @@ Rcpp::List handle_few_unique_values(
   
   size_t unique_size = unique_values_set.size();
   
-  if (unique_size == 0) {
-    // All values are NaN/Inf, create a single bin for missing values
-    NumericalBin b;
-    b.lower_bound = std::numeric_limits<double>::quiet_NaN();
-    b.upper_bound = std::numeric_limits<double>::quiet_NaN();
-    b.count = feature_vec.size();
-    b.count_pos = 0;
-    b.count_neg = 0;
-    
-    for (size_t i = 0; i < feature_vec.size(); ++i) {
-      if (target_vec[i] == 1) b.count_pos++;
-      else b.count_neg++;
-    }
-    
-    // b.event_rate() assignment removed (calculated dynamically)
-    
-    unique_bins.push_back(b);
-  } else if (unique_size == 1) {
+  // +-Inf are valid extremes (first/last bin); only NaN is missing.
+  size_t n_inf = 0;
+  for (double val : feature_vec) if (std::isinf(val)) ++n_inf;
+
+  if (unique_size == 0 && n_inf == 0) {
+    // All values are NaN: every observation belongs to the missing-value bin
+    // built below, and there is no regular bin. (A regular "(nan;nan]" bin
+    // holding all n observations used to be emitted as well, so the counts
+    // summed to 2n.)
+  } else if (unique_size <= 1) {
     // Only one unique value, single bin
     // (value extracted from unique_values_set.begin() above)
     
@@ -1024,7 +1014,7 @@ Rcpp::List handle_few_unique_values(
     b.count_neg = 0;
     
     for (size_t i = 0; i < feature_vec.size(); ++i) {
-      if (!std::isnan(feature_vec[i]) && !std::isinf(feature_vec[i])) {
+      if (!std::isnan(feature_vec[i])) {
         b.count++;
         if (target_vec[i] == 1) b.count_pos++;
         else b.count_neg++;
@@ -1059,7 +1049,7 @@ Rcpp::List handle_few_unique_values(
     
     for (size_t i = 0; i < feature_vec.size(); ++i) {
       double val = feature_vec[i];
-      if (!std::isnan(val) && !std::isinf(val)) {
+      if (!std::isnan(val)) {   // -Inf lands in bin1, +Inf in bin2
         if (val <= min_val) {
           bin1.count++;
           if (target_vec[i] == 1) bin1.count_pos++;
@@ -1089,7 +1079,7 @@ Rcpp::List handle_few_unique_values(
   missing_bin.count_neg = 0;
   
   for (size_t i = 0; i < feature_vec.size(); ++i) {
-    if (std::isnan(feature_vec[i]) || std::isinf(feature_vec[i])) {
+    if (std::isnan(feature_vec[i])) {
       missing_bin.count++;
       if (target_vec[i] == 1) missing_bin.count_pos++;
       else missing_bin.count_neg++;
@@ -1114,26 +1104,34 @@ Rcpp::List handle_few_unique_values(
   double total_pos_d = static_cast<double>(total_pos);
   double total_neg_d = static_cast<double>(total_neg);
   
+  const double n_all_bins = static_cast<double>(unique_bins.size() + (missing_bin.count > 0 ? 1 : 0));
   for (auto &bin : unique_bins) {
-    double dist_pos = (static_cast<double>(bin.count_pos) + laplace_smoothing) / 
-      (total_pos_d + laplace_smoothing * (unique_bins.size() + (missing_bin.count > 0 ? 1 : 0)));
-    double dist_neg = (static_cast<double>(bin.count_neg) + laplace_smoothing) / 
-      (total_neg_d + laplace_smoothing * (unique_bins.size() + (missing_bin.count > 0 ? 1 : 0)));
+    double dist_pos = (static_cast<double>(bin.count_pos) + laplace_smoothing) /
+      (total_pos_d + laplace_smoothing * n_all_bins);
+    double dist_neg = (static_cast<double>(bin.count_neg) + laplace_smoothing) /
+      (total_neg_d + laplace_smoothing * n_all_bins);
     
+    // Same EPSILON floor as OBN_UDT::calculate_woe_iv: with
+    // laplace_smoothing = 0 a single-class bin gave WoE = +-Inf, IV = Inf.
+    dist_pos = std::max(dist_pos, EPSILON);
+    dist_neg = std::max(dist_neg, EPSILON);
     bin.woe = std::log(dist_pos / dist_neg);
     bin.iv = (dist_pos - dist_neg) * bin.woe;
   }
-  
+
   if (missing_bin.count > 0) {
-    double dist_pos_missing = (static_cast<double>(missing_bin.count_pos) + laplace_smoothing) / 
-      (total_pos_d + laplace_smoothing * (unique_bins.size() + 1));
-    double dist_neg_missing = (static_cast<double>(missing_bin.count_neg) + laplace_smoothing) / 
-      (total_neg_d + laplace_smoothing * (unique_bins.size() + 1));
+    const double nb1 = static_cast<double>(unique_bins.size() + 1);
+    double dist_pos_missing = (static_cast<double>(missing_bin.count_pos) + laplace_smoothing) /
+      (total_pos_d + laplace_smoothing * nb1);
+    double dist_neg_missing = (static_cast<double>(missing_bin.count_neg) + laplace_smoothing) /
+      (total_neg_d + laplace_smoothing * nb1);
     
+    dist_pos_missing = std::max(dist_pos_missing, EPSILON);
+    dist_neg_missing = std::max(dist_neg_missing, EPSILON);
     missing_bin.woe = std::log(dist_pos_missing / dist_neg_missing);
     missing_bin.iv = (dist_pos_missing - dist_neg_missing) * missing_bin.woe;
   }
-  
+
   // Calculate Gini and KS statistic
   double gini = 0.0;
   double ks = 0.0;
@@ -1159,7 +1157,7 @@ Rcpp::List handle_few_unique_values(
         
         gini += pos_rate * (cum_neg - 0.5 * neg_rate);
       }
-      gini = 2.0 * gini;
+      gini = 2.0 * gini - 1.0;   // Gini = 2 * AUC - 1 (the "- 1" was missing)
       
       // Calculate KS
       cum_pos = 0.0;
@@ -1262,6 +1260,8 @@ Rcpp::List handle_few_unique_values(
   );
 }
 
+} // namespace
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_udt(
    Rcpp::IntegerVector target,
@@ -1312,22 +1312,30 @@ Rcpp::List optimal_binning_numerical_udt(
  std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
  
- // Count unique non-NA/non-Inf values
- std::unordered_set<double> unique_values;
+ // Are there at most two distinct finite values? Only that question matters
+ // here, so the scan stops at the third distinct value instead of hashing the
+ // whole feature into an unordered_set (one allocation per distinct value).
+ size_t n_distinct = 0;
+ double seen[2] = {0.0, 0.0};
  for (double val : feature_vec) {
-   if (!std::isnan(val) && !std::isinf(val)) {
-     unique_values.insert(val);
+   if (std::isnan(val) || std::isinf(val)) continue;
+   bool known = false;
+   for (size_t s = 0; s < n_distinct; ++s) {
+     if (seen[s] == val) { known = true; break; }
    }
+   if (known) continue;
+   if (n_distinct == 2) { n_distinct = 3; break; }
+   seen[n_distinct++] = val;
  }
- 
+
  // Handle features with <=2 unique values
- if (unique_values.size() <= 2) {
+ if (n_distinct <= 2) {
    return handle_few_unique_values(feature_vec, target_vec, laplace_smoothing);
  }
  
  // Perform optimal binning
  OBN_UDT obj(
-     feature_vec, target_vec, min_bins, max_bins, 
+     std::move(feature_vec), std::move(target_vec), min_bins, max_bins, 
      bin_cutoff, max_n_prebins, laplace_smoothing, mono_dir,
      convergence_threshold, max_iterations);
  

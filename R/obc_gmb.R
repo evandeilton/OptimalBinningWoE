@@ -24,6 +24,8 @@
 #'   \code{min_bins}. Defaults to 20.
 #' @param bin_separator Character string used to concatenate category names
 #'   when multiple categories are merged into a single bin. Defaults to "\%;\%".
+#'   A warning is issued when a category name contains it, since such labels
+#'   cannot be split back into categories.
 #' @param convergence_threshold Numeric. Convergence tolerance for IV change
 #'   between iterations. Algorithm stops when \eqn{|\Delta IV| <}
 #'   \code{convergence_threshold}. Must be > 0. Defaults to 1e-6.
@@ -54,14 +56,15 @@
 #' \enumerate{
 #'   \item Input validation and preprocessing
 #'   \item Initial bin creation (one category per bin)
-#'   \item Rare category merging (frequencies < \code{bin_cutoff})
+#'   \item Rare category merging (frequencies < \code{bin_cutoff}); if this would
+#'     leave fewer than \code{min_bins} bins, rare neighbours are pooled only
+#'     until each pool reaches \code{bin_cutoff}
 #'   \item Pre-bin limitation (if bins > \code{max_n_prebins})
 #'   \item Greedy merging phase:
 #'     \itemize{
 #'       \item Evaluate IV for all possible adjacent bin merges
 #'       \item Select merge that maximizes total IV
 #'       \item Apply tie-breaking rules for similar merges
-#'       \item Update IV cache incrementally
 #'       \item Check convergence criteria
 #'     }
 #'   \item Adaptive monotonicity enforcement
@@ -330,7 +333,7 @@ ob_categorical_gmb <- function(feature, target,
     feature <- as.character(feature)
   }
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Invoke C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_gmb",

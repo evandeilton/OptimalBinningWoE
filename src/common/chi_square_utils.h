@@ -93,10 +93,15 @@ inline double calculate_chi_square(
     return 0.0;
   }
   
-  double expected_pos1 = static_cast<double>(n1 * total_pos) / total;
-  double expected_neg1 = static_cast<double>(n1 * total_neg) / total;
-  double expected_pos2 = static_cast<double>(n2 * total_pos) / total;
-  double expected_neg2 = static_cast<double>(n2 * total_neg) / total;
+  // Products are formed in double: n1 * total_pos overflows int (undefined
+  // behaviour, garbage expected counts) once the two factors exceed ~46341,
+  // i.e. for any pair of bins totalling a few hundred thousand rows. For
+  // smaller counts the double product is exact, so the result is unchanged.
+  const double dtotal = static_cast<double>(total);
+  double expected_pos1 = static_cast<double>(n1) * total_pos / dtotal;
+  double expected_neg1 = static_cast<double>(n1) * total_neg / dtotal;
+  double expected_pos2 = static_cast<double>(n2) * total_pos / dtotal;
+  double expected_neg2 = static_cast<double>(n2) * total_neg / dtotal;
   
   double chi_square = 0.0;
   auto add_term = [&chi_square, continuity_correction](double observed, double expected) {

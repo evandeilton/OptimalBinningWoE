@@ -13,10 +13,12 @@
 #' overfitting in noisy datasets.
 #'
 #' @param feature Numeric vector of feature values to be binned. Missing values (NA)
-#'   are automatically removed during preprocessing. Infinite values trigger a warning
-#'   but are handled internally.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+#'   silently, so the bin counts sum to the number of non-missing rows. Infinite
+#'   values are legitimate extremes: they never become cutpoints and are counted
+#'   in the first (\code{-Inf}) or last (\code{+Inf}) bin.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
-#'   Must have the same length as \code{feature}.
+#'   Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).
 #' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
 #'   If the number of unique feature values is less than \code{min_bins}, the algorithm
 #'   adjusts automatically.
@@ -45,7 +47,7 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer vector of bin identifiers (1-based indexing).}
-#'   \item{bin}{Character vector of bin intervals in the format \code{"[lower;upper)"}.
+#'   \item{bin}{Character vector of bin intervals in the format \code{"(lower;upper]"}.
 #'     The first bin starts with \code{-Inf} and the last bin ends with \code{+Inf}.}
 #'   \item{woe}{Numeric vector of Weight of Evidence values for each bin, computed with
 #'     Laplace smoothing.}
@@ -74,7 +76,8 @@
 #' \itemize{
 #'   \item Binary target (only 0 and 1 values)
 #'   \item Parameter consistency (\code{min_bins <= max_bins}, valid ranges)
-#'   \item Missing value detection (NaN/Inf are filtered out with a warning)
+#'   \item Missing values: \code{NA}/\code{NaN} rows are excluded silently and
+#'     \code{Inf} values are kept in the extreme bins
 #' }
 #'
 #' Feature-target pairs are sorted by feature value in ascending order, enabling
@@ -115,7 +118,7 @@
 #'     Encodes the number of bins. Increases logarithmically with bin count,
 #'     penalizing complex models.
 #'
-#'   \item \strong{Data Cost}: \eqn{L_{\text{data}}(k) = N \cdot H(S_{\text{total}}) - \sum_{i=1}^{k} n_i \cdot H(S_i)}
+#'   \item \strong{Data Cost}: \eqn{L_{\text{data}}(k) = \sum_{i=1}^{k} n_i \cdot H(S_i)}
 #'
 #'     Measures unexplained uncertainty after binning. Lower values indicate better
 #'     class separation.
@@ -174,7 +177,7 @@
 #'
 #' Information Value is computed as:
 #'
-#' \deqn{\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i}
+#' \deqn{\text{IV}_i = \left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} - \frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right) \times \text{WoE}_i}
 #'
 #' \strong{Comparison with Other Methods}
 #'
@@ -339,9 +342,15 @@ ob_numerical_mdlp <- function(feature,
   }
 
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
-  unique_target <- unique(target[!is.na(target)])
+  # Missing targets are an error, as in obwoe(): silently dropping them (or,
+  # in C++, reading NA_integer_ as a class label) hid a data problem.
+  if (anyNA(target)) {
+    stop("Target contains missing values, which are not permitted.")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }

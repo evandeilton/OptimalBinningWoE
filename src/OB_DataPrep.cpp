@@ -1,4 +1,4 @@
-// OptimallBinningDataPreprocessor.cpp
+// OB_DataPrep.cpp: missing-value and outlier preprocessing (ob_preprocess()).
 
 #include <Rcpp.h>
 #include <algorithm>
@@ -7,21 +7,21 @@
 #include <string>
 #include <numeric>
 #include <unordered_set>
+#include <cstring>
 
 using namespace Rcpp;
 
-// Helper function to compute summary statistics
-List compute_summary(NumericVector data) {
-  // Remove NA values
+namespace {
+
+// Summary statistics of the non-missing values
+List compute_summary(const NumericVector& data) {
   std::vector<double> vec;
-  vec.reserve(data.size());
-  for(auto val : data) {
-    if(!NumericVector::is_na(val)) {
-      vec.push_back(val);
-    }
+  vec.reserve(static_cast<size_t>(data.size()));
+  for (double val : data) {
+    if (!NumericVector::is_na(val)) vec.push_back(val);
   }
-  int n = vec.size();
-  if(n == 0) {
+  const size_t n = vec.size();
+  if (n == 0) {
     return List::create(Named("min") = NA_REAL,
                         Named("Q1") = NA_REAL,
                         Named("median") = NA_REAL,
@@ -32,82 +32,163 @@ List compute_summary(NumericVector data) {
 
   std::sort(vec.begin(), vec.end());
 
-  double min = vec.front();
-  double Q1, median, Q3, max = vec.back();
-
+  const double dn = static_cast<double>(n);
   auto get_percentile = [&](double p) -> double {
-    if(n == 1) return vec[0];
-    double pos = p * (n + 1) / 100.0;
-    if(pos < 1.0) return vec[0];
-    if(pos >= n) return vec[n-1];
-    int idx = std::floor(pos) - 1;
-    double frac = pos - std::floor(pos);
+    if (n == 1) return vec[0];
+    const double pos = p * (dn + 1.0) / 100.0;
+    if (pos < 1.0) return vec[0];
+    if (pos >= dn) return vec[n - 1];
+    const size_t idx = static_cast<size_t>(std::floor(pos)) - 1;
+    const double frac = pos - std::floor(pos);
     return vec[idx] + frac * (vec[idx + 1] - vec[idx]);
   };
 
-  Q1 = get_percentile(25.0);
-  median = get_percentile(50.0);
-  Q3 = get_percentile(75.0);
+  const double mean = std::accumulate(vec.begin(), vec.end(), 0.0) / dn;
 
-  double mean = std::accumulate(vec.begin(), vec.end(), 0.0) / n;
-
-  return List::create(Named("min") = min,
-                      Named("Q1") = Q1,
-                      Named("median") = median,
+  return List::create(Named("min") = vec.front(),
+                      Named("Q1") = get_percentile(25.0),
+                      Named("median") = get_percentile(50.0),
                       Named("mean") = mean,
-                      Named("Q3") = Q3,
-                      Named("max") = max);
+                      Named("Q3") = get_percentile(75.0),
+                      Named("max") = vec.back());
 }
 
-// Helper function to compute Grubbs' critical value
-double grubbs_critical(int n, double alpha) {
-  // Using the formula for two-sided Grubbs' test
-  double t = R::qt(1 - alpha / (2 * n), n - 2, 1, 0);
-  double numerator = (n - 1) * std::sqrt(std::pow(t, 2));
-  double denominator = std::sqrt(n) * std::sqrt(n - 2 + std::pow(t, 2));
+// Two-sided Grubbs critical value for a sample of size n
+double grubbs_critical(size_t n, double alpha) {
+  const double dn = static_cast<double>(n);
+  const double t = R::qt(1 - alpha / (2 * dn), dn - 2, 1, 0);
+  const double numerator = (dn - 1) * std::sqrt(t * t);
+  const double denominator = std::sqrt(dn) * std::sqrt(dn - 2 + t * t);
   return numerator / denominator;
 }
 
-// Helper function to check if a CharacterVector contains a specific string
-bool vector_contains(const CharacterVector& vec, const String& str) {
-  for(int i = 0; i < vec.size(); i++) {
-    if(!CharacterVector::is_na(vec[i])) {
-      if(vec[i] == str) {
-        return true;
-      }
+// Iterative two-sided Grubbs test: while the most extreme observation is
+// significant, remove it. Returns the positions of the removed observations.
+//
+// The observation farthest from the mean is always the smallest or the
+// largest remaining value, so the remaining sample is a contiguous range of
+// the sorted data and each round costs O(1): the sums over that range come
+// from cumulative sums built outward from the median (removed extremes never
+// enter the sums of the retained values, so there is no cancellation), and
+// the variance uses the data shifted by the median. The former
+// implementation recomputed mean and SD over the whole sample and erased
+// from the middle of a vector every round, O(n) per removal -- quadratic on
+// heavy-tailed data. The decisions are the same; the mean and SD may differ
+// from the two-pass values in the last bits only. Among tied extremes the
+// earliest observation is removed first, as before. A sample containing
+// +-Inf has an undefined mean and SD: nothing is removed (as before).
+std::vector<R_xlen_t> grubbs_outliers(std::vector<std::pair<double, R_xlen_t>> data, double alpha) {
+  std::vector<R_xlen_t> removed;
+  const size_t m = data.size();
+  if (m <= 2) return removed;
+  for (const auto& d : data) {
+    if (!std::isfinite(d.first)) return removed;
+  }
+  std::sort(data.begin(), data.end());  // by value, then by position
+
+  const size_t mid = m / 2;
+  const double c = data[mid].first;
+  // F1(j), F2(j): signed cumulative sums of (v - c) and (v - c)^2 anchored at
+  // mid, so that sum over [lo, hi] = F(hi + 1) - F(lo).
+  std::vector<double> F1(m + 1, 0.0), F2(m + 1, 0.0);
+  for (size_t j = mid; j < m; ++j) {
+    const double d = data[j].first - c;
+    F1[j + 1] = F1[j] + d;
+    F2[j + 1] = F2[j] + d * d;
+  }
+  for (size_t j = mid; j-- > 0;) {
+    const double d = data[j].first - c;
+    F1[j] = F1[j + 1] - d;
+    F2[j] = F2[j + 1] - d * d;
+  }
+
+  size_t lo = 0, hi = m - 1;             // remaining values: data[lo..hi]
+  size_t run_start = 0, run_next = 0;    // top run of equal values being consumed
+  bool run_active = false;
+
+  while (hi - lo + 1 > 2) {
+    const size_t cnt = hi - lo + 1;
+    if (data[lo].first == data[hi].first) break;  // all equal: SD = 0
+
+    const double dn = static_cast<double>(cnt);
+    const double s1 = F1[hi + 1] - F1[lo];
+    const double s2 = F2[hi + 1] - F2[lo];
+    const double mean = c + s1 / dn;
+    double var = (s2 - s1 * s1 / dn) / (dn - 1.0);
+    if (!(var > 0.0)) break;
+    const double sd = std::sqrt(var);
+
+    // Positions of the removal candidates at each end: the bottom run is
+    // consumed left to right (ascending positions); the top run is located
+    // once and consumed in ascending position order as well.
+    if (!run_active || hi < run_start || data[hi].first != data[run_start].first) {
+      run_start = hi;
+      while (run_start > lo && data[run_start - 1].first == data[hi].first) --run_start;
+      run_next = run_start;
+      run_active = true;
     }
+    const double dev_lo = std::abs(data[lo].first - mean);
+    const double dev_hi = std::abs(data[hi].first - mean);
+    bool take_top;
+    if (dev_hi > dev_lo) take_top = true;
+    else if (dev_lo > dev_hi) take_top = false;
+    else take_top = data[run_next].second < data[lo].second;
+    const double max_dev = take_top ? dev_hi : dev_lo;
+
+    if (!(max_dev / sd > grubbs_critical(cnt, alpha))) break;
+    if (take_top) {
+      removed.push_back(data[run_next].second);
+      ++run_next;
+      --hi;
+    } else {
+      removed.push_back(data[lo].second);
+      ++lo;
+    }
+  }
+  return removed;
+}
+
+bool vector_contains(const CharacterVector& vec, const char* str) {
+  for (R_xlen_t i = 0; i < vec.size(); i++) {
+    SEXP s = STRING_ELT(vec, i);
+    if (s != NA_STRING && std::strcmp(CHAR(s), str) == 0) return true;
   }
   return false;
 }
 
-// Helper function to serialize a List to a string
+// "{ name: value, ... }" rendering of a flat list of scalars
 std::string list_to_string(const List& lst) {
   std::string result = "{ ";
-  CharacterVector names = lst.names();
-  for(int i = 0; i < lst.size(); i++) {
-    std::string name = as<std::string>(names[i]);
+  SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+  for (R_xlen_t i = 0; i < lst.size(); i++) {
+    const std::string name = (names == R_NilValue) ? std::string() : std::string(CHAR(STRING_ELT(names, i)));
     std::string value;
-    if(TYPEOF(lst[i]) == REALSXP) {
-      double num = as<double>(lst[i]);
-      value = std::to_string(num);
-    } else if(TYPEOF(lst[i]) == STRSXP) {
-      if(lst[i] == NA_STRING) {
-        value = "NA";
-      } else {
-        value = as<std::string>(lst[i]);
-      }
+    SEXP el = lst[i];
+    if (TYPEOF(el) == REALSXP) {
+      value = std::to_string(as<double>(el));
+    } else if (TYPEOF(el) == STRSXP) {
+      SEXP s = STRING_ELT(el, 0);
+      value = (s == NA_STRING) ? "NA" : std::string(CHAR(s));
     } else {
       value = "NA";
     }
     result += name + ": " + value + ", ";
   }
-  if(result.size() > 2) {
-    result = result.substr(0, result.size() - 2); // remove last ", "
+  if (result.size() > 2) {
+    result = result.substr(0, result.size() - 2);
   }
   result += " }";
   return result;
 }
 
+} // namespace
+
+// Missing values are replaced by the sentinel (num_miss_value /
+// char_miss_value). Outlier detection and treatment only ever look at the
+// values that were observed: missing entries keep the sentinel, do not enter
+// the quartiles / mean / standard deviation, and are never counted as
+// outliers. Neither input vector is modified: 'feature' holds the original
+// values and 'feature_preprocessed' the treated ones.
 // [[Rcpp::export]]
 List OBDataPreprocessor(
     NumericVector target,
@@ -121,254 +202,184 @@ List OBDataPreprocessor(
     double zscore_threshold = 3.0,
     double grubbs_alpha = 0.05)
 {
-  // Initialize report variables
   std::string variable_type = "unknown";
   int missing_count = 0;
   int outlier_count = 0;
   List original_stats;
   List preprocessed_stats;
 
-  // Check if target is binary
+  // Target must be binary
   std::unordered_set<double> target_unique;
-  for(auto val : target) {
-    if(!NumericVector::is_na(val)) {
-      target_unique.insert(val);
-    }
+  for (double val : target) {
+    if (!NumericVector::is_na(val)) target_unique.insert(val);
   }
-  if(target_unique.size() != 2) {
+  if (target_unique.size() != 2) {
     stop("Target variable must be binary.");
   }
 
-  // Determine feature type
   bool is_numeric = false;
-  bool is_character = false;
-  NumericVector feature_numeric;
+  NumericVector feature_original;   // original values (never modified)
+  NumericVector feature_numeric;    // treated copy
+  CharacterVector character_original;
   CharacterVector feature_character;
 
-  if(TYPEOF(feature) == REALSXP || Rf_isInteger(feature) || Rf_isReal(feature)) {
+  if (TYPEOF(feature) == REALSXP || Rf_isInteger(feature) || Rf_isReal(feature)) {
     is_numeric = true;
-    feature_numeric = as<NumericVector>(feature);
+    feature_original = as<NumericVector>(feature);
+    // clone(): as<NumericVector>() does not copy a double vector, so writing
+    // into it used to overwrite the caller's own R object.
+    feature_numeric = clone(feature_original);
     variable_type = "numeric";
-  } else if(TYPEOF(feature) == STRSXP || Rf_isFactor(feature) || Rf_isString(feature)) {
-    is_character = true;
-    feature_character = as<CharacterVector>(feature);
+  } else if (TYPEOF(feature) == STRSXP || Rf_isFactor(feature) || Rf_isString(feature)) {
+    character_original = as<CharacterVector>(feature);
+    feature_character = clone(character_original);
     variable_type = "categorical";
   } else {
     stop("Feature must be either numeric or categorical (string).");
   }
 
-  // Handle missing values
-  if(is_numeric) {
-    // Compute original stats
-    original_stats = compute_summary(feature_numeric);
+  // Positions holding an observed (non-missing) value
+  std::vector<R_xlen_t> observed;
 
-    // Replace NA with num_miss_value
-    for(int i = 0; i < feature_numeric.size(); ++i) {
-      if(NumericVector::is_na(feature_numeric[i])) {
+  if (is_numeric) {
+    original_stats = compute_summary(feature_numeric);
+    observed.reserve(static_cast<size_t>(feature_numeric.size()));
+    for (R_xlen_t i = 0; i < feature_numeric.size(); ++i) {
+      if (NumericVector::is_na(feature_numeric[i])) {
         feature_numeric[i] = num_miss_value;
         missing_count++;
+      } else {
+        observed.push_back(i);
       }
     }
-  } else if(is_character) {
-    // Compute original stats: for categorical, we can skip detailed stats
+  } else {
     original_stats = List::create(Named("min") = NA_STRING,
                                   Named("Q1") = NA_STRING,
                                   Named("median") = NA_STRING,
                                   Named("mean") = NA_STRING,
                                   Named("Q3") = NA_STRING,
                                   Named("max") = NA_STRING);
-
-    // Replace NA with char_miss_value
-    for(int i = 0; i < feature_character.size(); ++i) {
-      if(feature_character[i] == NA_STRING) {
+    for (R_xlen_t i = 0; i < feature_character.size(); ++i) {
+      if (feature_character[i] == NA_STRING) {
         feature_character[i] = char_miss_value;
         missing_count++;
       }
     }
   }
 
-  // Outlier detection and handling for numeric variables
-  if(is_numeric && outlier_process) {
-    if(outlier_method == "iqr") {
-      // Compute Q1 and Q3
-      NumericVector sorted = clone(feature_numeric);
-      std::sort(sorted.begin(), sorted.end());
-      int n = sorted.size();
-      double Q1 = sorted[std::floor(0.25 * (n + 1)) - 1];
-      double Q3 = sorted[std::floor(0.75 * (n + 1)) - 1];
-      double IQR = Q3 - Q1;
-      double lower_bound = Q1 - iqr_k * IQR;
-      double upper_bound = Q3 + iqr_k * IQR;
+  if (is_numeric && outlier_process) {
+    const size_t m = observed.size();
+    if (outlier_method == "iqr") {
+      if (m >= 1) {
+        std::vector<double> sorted;
+        sorted.reserve(m);
+        for (R_xlen_t i : observed) sorted.push_back(feature_numeric[i]);
+        std::sort(sorted.begin(), sorted.end());
+        // Same order-statistic rule as before, clamped so that a sample of
+        // one or two values no longer reads sorted[-1].
+        auto order_stat = [&](double p) -> double {
+          double k = std::floor(p * (static_cast<double>(m) + 1.0)) - 1.0;
+          if (k < 0.0) k = 0.0;
+          if (k > static_cast<double>(m - 1)) k = static_cast<double>(m - 1);
+          return sorted[static_cast<size_t>(k)];
+        };
+        const double Q1 = order_stat(0.25);
+        const double Q3 = order_stat(0.75);
+        const double IQR = Q3 - Q1;
+        const double lower_bound = Q1 - iqr_k * IQR;
+        const double upper_bound = Q3 + iqr_k * IQR;
 
-      // Handle outliers by capping
-      for(int i = 0; i < feature_numeric.size(); ++i) {
-        double val = feature_numeric[i];
-        if(val < lower_bound || val > upper_bound) {
-          outlier_count++;
-          if(val < lower_bound) {
+        for (R_xlen_t i : observed) {
+          const double val = feature_numeric[i];
+          if (val < lower_bound) {
             feature_numeric[i] = lower_bound;
-          } else {
+            outlier_count++;
+          } else if (val > upper_bound) {
             feature_numeric[i] = upper_bound;
+            outlier_count++;
           }
         }
       }
 
-    } else if(outlier_method == "zscore") {
-      // Compute mean and standard deviation
-      double sum = 0.0;
-      int count = 0;
-      for(auto val : feature_numeric) {
-        if(!NumericVector::is_na(val)) {
-          sum += val;
-          count++;
-        }
-      }
-      double mean = sum / count;
-      double sq_sum = 0.0;
-      for(auto val : feature_numeric) {
-        if(!NumericVector::is_na(val)) {
-          sq_sum += std::pow(val - mean, 2);
-        }
-      }
-      double sd = std::sqrt(sq_sum / (count - 1));
-
-      // Handle outliers by capping
-      double lower_bound = mean - zscore_threshold * sd;
-      double upper_bound = mean + zscore_threshold * sd;
-      for(int i = 0; i < feature_numeric.size(); ++i) {
-        double val = feature_numeric[i];
-        if(val < lower_bound || val > upper_bound) {
-          outlier_count++;
-          if(val < lower_bound) {
-            feature_numeric[i] = lower_bound;
-          } else {
-            feature_numeric[i] = upper_bound;
-          }
-        }
-      }
-
-    } else if(outlier_method == "grubbs") {
-      // Iteratively apply Grubbs' test
-      std::vector<double> data;
-      for(auto val : feature_numeric) {
-        if(!NumericVector::is_na(val)) {
-          data.push_back(val);
-        }
-      }
-      bool continue_test = true;
-      while(continue_test && data.size() > 2) {
-        // Compute mean and standard deviation
-        double sum = std::accumulate(data.begin(), data.end(), 0.0);
-        double mean = sum / data.size();
+    } else if (outlier_method == "zscore") {
+      if (m >= 2) {
+        double sum = 0.0;
+        for (R_xlen_t i : observed) sum += feature_numeric[i];
+        const double mean = sum / static_cast<double>(m);
         double sq_sum = 0.0;
-        for(auto val : data) {
-          sq_sum += std::pow(val - mean, 2);
+        for (R_xlen_t i : observed) {
+          const double d = feature_numeric[i] - mean;
+          sq_sum += d * d;
         }
-        double sd = std::sqrt(sq_sum / (data.size() - 1));
-        if(sd == 0) break;
+        const double sd = std::sqrt(sq_sum / static_cast<double>(m - 1));
 
-        // Find the maximum absolute deviation
-        double max_dev = 0.0;
-        int max_idx = -1;
-        for(size_t i = 0; i < data.size(); ++i) {
-          double dev = std::abs(data[i] - mean);
-          if(dev > max_dev) {
-            max_dev = dev;
-            max_idx = i;
+        const double lower_bound = mean - zscore_threshold * sd;
+        const double upper_bound = mean + zscore_threshold * sd;
+        for (R_xlen_t i : observed) {
+          const double val = feature_numeric[i];
+          if (val < lower_bound) {
+            feature_numeric[i] = lower_bound;
+            outlier_count++;
+          } else if (val > upper_bound) {
+            feature_numeric[i] = upper_bound;
+            outlier_count++;
           }
-        }
-
-        // Compute Grubbs' statistic
-        double G = max_dev / sd;
-
-        // Compute critical value
-        double t_dist = R::qt(1 - grubbs_alpha / (2 * data.size()), data.size() - 2, 1, 0);
-        double G_critical = ((data.size() - 1) * std::sqrt(std::pow(t_dist, 2))) /
-          (std::sqrt(data.size()) * std::sqrt(data.size() - 2 + std::pow(t_dist, 2)));
-
-        if(G > G_critical) {
-          // Remove the outlier
-          double outlier = data[max_idx];
-          // Find and replace in feature_numeric
-          for(int i = 0; i < feature_numeric.size(); ++i) {
-            if(feature_numeric[i] == outlier) {
-              feature_numeric[i] = NA_REAL; // Mark as missing
-              outlier_count++;
-              break;
-            }
-          }
-          data.erase(data.begin() + max_idx);
-        } else {
-          continue_test = false;
         }
       }
-      // After Grubbs' test, replace NA with num_miss_value
-      for(int i = 0; i < feature_numeric.size(); ++i) {
-        if(NumericVector::is_na(feature_numeric[i])) {
-          feature_numeric[i] = num_miss_value;
-        }
+
+    } else if (outlier_method == "grubbs") {
+      std::vector<std::pair<double, R_xlen_t>> data;
+      data.reserve(m);
+      for (R_xlen_t i : observed) data.emplace_back(feature_numeric[i], i);
+      for (R_xlen_t pos : grubbs_outliers(std::move(data), grubbs_alpha)) {
+        feature_numeric[pos] = num_miss_value;
+        outlier_count++;
       }
     } else {
       stop("Invalid outlier_method. Choose from 'iqr', 'zscore', or 'grubbs'.");
     }
   }
 
-  // Compute preprocessed stats
-  if(is_numeric) {
+  if (is_numeric) {
     preprocessed_stats = compute_summary(feature_numeric);
-  } else if(is_character) {
-    // For categorical, stats can be count of unique categories
+  } else {
     std::unordered_set<std::string> unique_cats;
-    for(auto val : feature_character) {
-      if(String(val) != NA_STRING) {
-        unique_cats.insert(std::string(val));
-      }
+    for (R_xlen_t i = 0; i < feature_character.size(); ++i) {
+      SEXP s = STRING_ELT(feature_character, i);
+      if (s != NA_STRING) unique_cats.insert(std::string(CHAR(s)));
     }
     preprocessed_stats = List::create(Named("unique_count") = unique_cats.size());
   }
 
-  // Serialize original_stats and preprocessed_stats to strings
-  std::string original_stats_str = list_to_string(original_stats);
-  std::string preprocessed_stats_str = list_to_string(preprocessed_stats);
+  const std::string original_stats_str = list_to_string(original_stats);
+  const std::string preprocessed_stats_str = list_to_string(preprocessed_stats);
 
-  // Prepare preprocess DataFrame
-  DataFrame preprocess_df;
-  if(vector_contains(preprocess, "feature") || vector_contains(preprocess, "both")) {
-    if(is_numeric) {
-      preprocess_df = DataFrame::create(
-        Named("feature") = feature_numeric,
+  const bool want_feature = vector_contains(preprocess, "feature") || vector_contains(preprocess, "both");
+  const bool want_report = vector_contains(preprocess, "report") || vector_contains(preprocess, "both");
+
+  List output;
+  if (want_feature) {
+    if (is_numeric) {
+      output["preprocess"] = DataFrame::create(
+        Named("feature") = feature_original,
         Named("feature_preprocessed") = feature_numeric
       );
-    } else if(is_character) {
-      preprocess_df = DataFrame::create(
-        Named("feature") = feature_character,
+    } else {
+      output["preprocess"] = DataFrame::create(
+        Named("feature") = character_original,
         Named("feature_preprocessed") = feature_character
       );
     }
   }
-  
-  // Prepare report DataFrame with serialized stats
-  DataFrame report_df = DataFrame::create(
-    Named("variable_type") = variable_type,
-    Named("missing_count") = missing_count,
-    Named("outlier_count") = (is_numeric ? outlier_count : NA_INTEGER),
-    Named("original_stats") = original_stats_str,
-    Named("preprocessed_stats") = preprocessed_stats_str
-  );
-  
-  // preprocess_df.attr("class") = CharacterVector::create("data.table", "data.frame");
-  // report_df.attr("class") = CharacterVector::create("data.table", "data.frame");
+  if (want_report) {
+    output["report"] = DataFrame::create(
+      Named("variable_type") = variable_type,
+      Named("missing_count") = missing_count,
+      Named("outlier_count") = (is_numeric ? outlier_count : NA_INTEGER),
+      Named("original_stats") = original_stats_str,
+      Named("preprocessed_stats") = preprocessed_stats_str
+    );
+  }
 
-  // Prepare output List
-  List output;
-  if(vector_contains(preprocess, "feature") || vector_contains(preprocess, "both")) {
-    output["preprocess"] = preprocess_df;
-  }
-  if(vector_contains(preprocess, "report") || vector_contains(preprocess, "both")) {
-    output["report"] = report_df;
-  }
-  
-  // output.attr("class") = CharacterVector::create("data.table", "data.frame");
-  
   return output;
 }

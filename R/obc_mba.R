@@ -88,7 +88,7 @@
 #' \deqn{\alpha_p = \alpha_{total} \times \frac{N_{pos}}{N_{pos} + N_{neg}}}
 #' \deqn{\alpha_n = \alpha_{total} - \alpha_p}
 #'
-#' with \eqn{\alpha_{total} = 1.0} as the prior strength parameter.
+#' with \eqn{\alpha_{total} = 0.5} as the prior strength parameter.
 #'
 #' \strong{Intelligent Bin Merging:}
 #'
@@ -103,8 +103,7 @@
 #' \strong{Computational Complexity:}
 #' \itemize{
 #'   \item Time: \eqn{O(k^2 \cdot m)} where \eqn{k} = bins, \eqn{m} = iterations
-#'   \item Space: \eqn{O(k^2)} for IV loss cache
-#'   \item Cache hit rate typically > 75\% for \eqn{k > 10}
+#'   \item Space: \eqn{O(k)}
 #' }
 #'
 #' \strong{Key Features:}
@@ -356,7 +355,7 @@ ob_categorical_mba <- function(feature, target,
     feature <- as.character(feature)
   }
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Invoke C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_mba",

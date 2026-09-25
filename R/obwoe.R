@@ -426,7 +426,8 @@ obwoe <- function(data,
   if (is.factor(raw_target)) {
     target_vec <- as.integer(raw_target) - 1L
   } else {
-    target_vec <- as.integer(raw_target)
+    # Not as.integer(): it truncated a target of 0.7 to class 0 silently.
+    target_vec <- .ob_integer_target(raw_target)
   }
 
   # [D2] The roxygen documentation states "Missing values in the target are
@@ -459,6 +460,11 @@ obwoe <- function(data,
 
   # Process each feature
   results <- list()
+  # One single-row data.frame per feature, stacked once at the end. Growing
+  # the summary with rbind() inside the loop copied every earlier row on each
+  # iteration, which is quadratic in the number of features and dominated the
+  # R-side cost of binning a wide base.
+  summary_rows <- vector("list", length(feature))
   summary_data <- data.frame(
     id = integer(),
     feature = character(),
@@ -472,7 +478,8 @@ obwoe <- function(data,
     stringsAsFactors = FALSE
   )
 
-  for (col in feature) {
+  for (feat_i in seq_along(feature)) {
+    col <- feature[feat_i]
     feat_vec <- data[[col]]
 
     # Detect feature type
@@ -538,7 +545,7 @@ obwoe <- function(data,
       }
     }
 
-    summary_data <- rbind(summary_data, data.frame(
+    summary_rows[[feat_i]] <- data.frame(
       feature = col,
       type = feat_type,
       algorithm = algorithm,
@@ -548,8 +555,11 @@ obwoe <- function(data,
       iterations = if (!has_error && !is.null(result$iterations)) result$iterations else NA_integer_,
       error = has_error,
       stringsAsFactors = FALSE
-    ))
+    )
   }
+  # The empty template goes first, exactly as the incremental rbind() used to
+  # start from it, so the stacked table keeps the same columns and types.
+  summary_data <- do.call(rbind, c(list(summary_data), summary_rows))
 
   # Build output
   #
@@ -631,6 +641,67 @@ obwoe <- function(data,
     return(default)
   }
   sep
+}
+
+
+#' Split merged categorical bin labels back into their categories
+#'
+#' @param x Character vector of bin labels.
+#' @param sep The separator the categories were joined with.
+#'
+#' @details
+#' The binning engines join the original category strings with the separator
+#' and add no padding, so the pieces are the categories byte for byte and are
+#' never trimmed. \code{strsplit()} alone is not an exact inverse of that join:
+#' it returns \code{character(0)} for the empty label and drops a trailing empty
+#' piece, so the empty-string category -- which several categorical algorithms
+#' keep as a category of its own -- silently vanished from the lookup and every
+#' observation carrying it fell back to \code{na_woe}. The trailing piece is
+#' restored here.
+#'
+#' @return A list of character vectors, one per label.
+#' @keywords internal
+#' @noRd
+.ob_split_categories <- function(x, sep) {
+  x <- as.character(x)
+  parts <- strsplit(x, sep, fixed = TRUE)
+  if (length(sep) != 1L || is.na(sep) || !nzchar(sep)) {
+    return(parts)
+  }
+  tail_empty <- which(!is.na(x) & (!nzchar(x) | endsWith(x, sep)))
+  for (i in tail_empty) {
+    parts[[i]] <- c(parts[[i]], "")
+  }
+  parts
+}
+
+
+#' Position of the missing-value bin a numerical binner appended
+#'
+#' @param bins Character vector of bin labels.
+#' @param cutpoints Numeric cut points of the same binning.
+#'
+#' @details
+#' Some numerical algorithms (e.g. \code{\link{ob_numerical_udt}}) give missing
+#' values a bin of their own, labelled \code{"NA"} and placed last, so the bins
+#' outnumber the cut-point intervals by one. Every interval-based consumer
+#' (\code{obwoe_apply()}, the SQL generators, the interval columns of
+#' \code{obwoe_select()}) must then map the intervals to the other bins and
+#' route missing values to this one; treating the extra bin as a mismatch made
+#' \code{obwoe_apply()} score every row at the mean WoE.
+#'
+#' @return The index of that bin, or \code{NA_integer_} when there is none.
+#' @keywords internal
+#' @noRd
+.ob_numeric_na_bin <- function(bins, cutpoints) {
+  k <- length(bins)
+  cp <- if (is.null(cutpoints)) numeric(0) else unique(as.numeric(cutpoints))
+  cp <- cp[!is.na(cp)]
+  if (k >= 2L && k == length(cp) + 2L &&
+    isTRUE(as.character(bins[k]) %in% c("NA", "NaN", "Missing"))) {
+    return(k)
+  }
+  NA_integer_
 }
 
 
@@ -1584,6 +1655,9 @@ plot.obwoe <- function(x, type = c("iv", "woe", "bins"),
 #' Observations are assigned to bins based on cutpoints stored in the
 #' \code{obwoe} object. The \code{cut()} function is used with intervals
 #' \eqn{(a_i, a_{i+1}]} where \eqn{a_0 = -\infty} and \eqn{a_k = +\infty}.
+#' When the binner reserved a trailing bin labelled \code{"NA"} for missing
+#' values (as \code{\link{ob_numerical_udt}} does), missing values are
+#' assigned to that bin; otherwise they get \code{na_woe}.
 #'
 #' \strong{Categorical Features}:
 #' Categories are matched directly to bin labels. Categories not seen
@@ -1762,20 +1836,32 @@ obwoe_apply <- function(data,
       # Numerical: use cutpoints
       cutpoints <- res$cutpoints
 
+      # A trailing missing-value bin (see .ob_numeric_na_bin()) is set aside:
+      # the intervals map to the remaining bins and missing values to it.
+      # Counted as a bin/interval mismatch before, it sent the whole feature
+      # through the fallback below, i.e. every row got the mean WoE.
+      na_num <- .ob_numeric_na_bin(bins, cutpoints)
+      if (!is.na(na_num)) {
+        na_num_label <- bins[na_num]
+        na_num_woe <- unname(woe[na_num])
+        bins <- bins[-na_num]
+        woe <- woe[-na_num]
+      }
+
       if (is.null(cutpoints) || length(cutpoints) == 0) {
-        # No cutpoints - single bin
-        result[[bin_col]] <- bins[1]
-        result[[woe_col]] <- woe[1]
+        # No cutpoints - single bin. Built at full length so that a data
+        # frame with no rows yields an empty column instead of an error.
+        result[[bin_col]] <- rep(bins[1], n)
+        result[[woe_col]] <- rep(unname(woe[1]), n)
       } else {
         # CRAN fix: Validate cutpoints to ensure uniqueness
         # This can occur due to floating-point precision issues or algorithm edge cases
-        original_cutpoints <- cutpoints
         cutpoints <- sort(unique(cutpoints))
 
         # Verify cutpoints remain after deduplication
         if (length(cutpoints) == 0) {
-          result[[bin_col]] <- bins[1]
-          result[[woe_col]] <- woe[1]
+          result[[bin_col]] <- rep(bins[1], n)
+          result[[woe_col]] <- rep(unname(woe[1]), n)
           warning(sprintf(
             "Feature '%s': All cutpoints were duplicates. Treating as single bin.",
             feat
@@ -1830,20 +1916,29 @@ obwoe_apply <- function(data,
           )
 
           result[[bin_col]] <- bins[bin_idx]
-          result[[woe_col]] <- woe[bin_idx]
+          # Index the unnamed WoE: subsetting the named copy built a names
+          # vector as long as the data, which assigning into the data.frame
+          # then discards -- that allocation was half the cost of the call.
+          woe_col_vals <- unname(woe)[bin_idx]
 
           # Handle NAs
-          result[[woe_col]][is.na(result[[woe_col]])] <- na_woe
+          woe_col_vals[is.na(woe_col_vals)] <- na_woe
+          result[[woe_col]] <- woe_col_vals
         }
+      }
+
+      if (!is.na(na_num)) {
+        is_missing <- is.na(feat_vec)
+        mapped_bin <- result[[bin_col]]
+        mapped_bin[is_missing] <- na_num_label
+        result[[bin_col]] <- mapped_bin
+        mapped_woe <- result[[woe_col]]
+        mapped_woe[is_missing] <- na_num_woe
+        result[[woe_col]] <- mapped_woe
       }
     } else {
       # Categorical: direct mapping
       feat_char <- as.character(feat_vec)
-
-      # Build category-to-bin mapping
-      # Parse bins which may contain merged categories (e.g., "A%;%B")
-      cat_to_bin <- list()
-      cat_to_woe <- list()
 
       # [C-03] Value used for a MISSING (NA) categorical input: the fitted
       # bin whose categories include one of the tokens the categorical
@@ -1856,50 +1951,48 @@ obwoe_apply <- function(data,
       # null_to_na_bin = TRUE routed IS NULL to that bin's WoE -- so R and
       # the generated SQL scored the same missing value differently.
       sql_na_categories <- c("NA", "Missing", "")
-      has_na_bin <- FALSE
-      na_bin_label <- NA_character_
-      na_bin_woe <- na_woe
 
-      for (i in seq_along(bins)) {
-        bin_label <- bins[i]
-        # Split by the separator the model was actually fitted with, which
-        # [B-01] now records; it was hard-coded to "%;%" before, so a model
-        # fitted through control.obwoe(bin_separator = ...) had its grouped
-        # categories silently left unmatched here and scored as na_woe. The
-        # binning engines join the original category strings with the
-        # separator and add no padding, so the split pieces are the
-        # categories byte for byte. They must NOT be trimmed: a category
-        # carrying leading or trailing whitespace would otherwise become
-        # unmatchable and fall back to 'na_woe' just as silently.
-        cats <- strsplit(bin_label, bin_separator, fixed = TRUE)[[1]]
-        for (cat in cats) {
-          cat_to_bin[[cat]] <- bin_label
-          cat_to_woe[[cat]] <- woe[i]
-        }
-        if (!has_na_bin && any(cats %in% sql_na_categories)) {
-          has_na_bin <- TRUE
-          na_bin_label <- bin_label
-          na_bin_woe <- woe[i]
-        }
+      # Split by the separator the model was actually fitted with, which
+      # [B-01] now records; it was hard-coded to "%;%" before, so a model
+      # fitted through control.obwoe(bin_separator = ...) had its grouped
+      # categories silently left unmatched here and scored as na_woe. The
+      # pieces must NOT be trimmed: a category carrying leading or trailing
+      # whitespace would otherwise become unmatchable and fall back to
+      # 'na_woe' just as silently.
+      bin_labels <- unname(as.character(bins))
+      woe_vals <- unname(woe)
+      parts <- .ob_split_categories(bin_labels, bin_separator)
+
+      # Category -> bin lookup table, resolved with one vectorised match()
+      # instead of an R closure called once per row. A category listed in
+      # more than one bin resolves to the FIRST such bin, as the CASE
+      # expression of obwoe_sql() and ob_apply_woe_cat() do, so R and SQL
+      # score it identically (the old name-keyed list took the last one).
+      keys <- unlist(parts, use.names = FALSE)
+      owner <- rep.int(seq_along(bin_labels), lengths(parts))
+      keep <- !duplicated(keys)
+      keys <- keys[keep]
+      owner <- owner[keep]
+
+      is_missing <- is.na(feat_char)
+      idx <- owner[match(feat_char, keys)]
+      idx[is_missing] <- NA_integer_
+
+      mapped_bin <- bin_labels[idx]
+      mapped_woe <- as.numeric(woe_vals[idx])
+      mapped_woe[is.na(idx)] <- as.numeric(na_woe)
+
+      # The first bin holding a missing-value token is the missing-value bin.
+      na_hit <- which(vapply(
+        parts, function(p) any(p %in% sql_na_categories), logical(1)
+      ))
+      if (length(na_hit) > 0L && any(is_missing)) {
+        mapped_bin[is_missing] <- bin_labels[na_hit[1L]]
+        mapped_woe[is_missing] <- as.numeric(woe_vals[na_hit[1L]])
       }
 
-      # Map each observation
-      mapped_bin <- sapply(feat_char, function(x) {
-        if (is.na(x)) {
-          return(if (has_na_bin) na_bin_label else NA_character_)
-        }
-        if (x %in% names(cat_to_bin)) cat_to_bin[[x]] else NA_character_
-      }, USE.NAMES = FALSE)
-
-      mapped_woe <- sapply(feat_char, function(x) {
-        if (is.na(x)) {
-          return(na_bin_woe)
-        }
-        if (x %in% names(cat_to_woe)) cat_to_woe[[x]] else na_woe
-      }, USE.NAMES = FALSE)
-
       result[[bin_col]] <- mapped_bin
-      result[[woe_col]] <- as.numeric(mapped_woe)
+      result[[woe_col]] <- mapped_woe
     }
   }
 
@@ -1943,7 +2036,10 @@ obwoe_apply <- function(data,
 #'   }
 #' @param sort_by Character string specifying sort order for bins:
 #'   \describe{
-#'     \item{\code{"id"}}{The algorithm's own internal bin order - default}
+#'     \item{\code{"id"}}{The algorithm's own internal bin order - default.
+#'       For a \code{data.frame}, the groups' natural order: factor levels,
+#'       ascending value for a numeric column (earlier versions sorted numeric
+#'       values as text), alphabetical order otherwise.}
 #'     \item{\code{"woe"}}{Descending WoE (highest risk first)}
 #'     \item{\code{"event_rate"}}{Descending event rate}
 #'     \item{\code{"bin"}}{The bins' natural (level) order if \code{obj} is a
@@ -2210,9 +2306,9 @@ obwoe_gains <- function(obj,
 
     # Resolve target vector
     if (is.character(target) && length(target) == 1 && target %in% names(obj)) {
-      target_vec <- as.integer(obj[[target]])
+      target_vec <- .ob_integer_target(obj[[target]])
     } else {
-      target_vec <- as.integer(target)
+      target_vec <- .ob_integer_target(target)
     }
 
     if (length(target_vec) != nrow(obj)) {
@@ -2322,6 +2418,13 @@ obwoe_gains <- function(obj,
       # to a lexicographic sort, where '[' (ASCII 91) sorts after '('
       # (ASCII 40) and pushes a bin like "[-Inf,x]" to the last row.
       bins <- factor(bins, levels = bins)
+    } else if (is.numeric(group_vec)) {
+      # Numeric groups (a WoE column, or a discrete score used directly) are
+      # ordered by value. Sorting their string forms put "10" before "2" and
+      # "-1.8" before "-3.1", so the cumulative columns, KS, AUC and Gini were
+      # accumulated in an order unrelated to the score.
+      bins <- unique(as.character(group_vec[!is.na(group_vec)]))
+      bins <- bins[order(as.numeric(bins))]
     } else {
       bins <- sort(unique(as.character(group_vec[!is.na(group_vec)])))
     }

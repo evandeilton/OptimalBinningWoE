@@ -7,9 +7,13 @@
 #' constraints like credit scoring.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) are excluded from the binning process.
+#'   Rows whose value is missing (\code{NA}/\code{NaN}) are excluded from the
+#'   fit silently, so the bin counts sum to the number of non-missing rows;
+#'   \code{-Inf} and \code{+Inf} are kept as extreme values of the first and
+#'   last bin and never become a cutpoint.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
+#'   A missing value in \code{target} is an error.
 #' @param min_bins Integer. The target minimum number of bins. Must be
 #'   \eqn{\ge} 2. Defaults to 3. Enforcing monotonicity can require pooling bins
 #'   together, so the result may hold fewer bins than requested; see Details.
@@ -131,17 +135,12 @@ ob_numerical_ir <- function(feature, target, min_bins = 3, max_bins = 5,
   }
 
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Dimension Check
   if (length(feature) != length(target)) {
     stop("Length of 'feature' and 'target' must match.")
-  }
-
-  # NA Handling
-  if (any(is.na(feature))) {
-    warning("Feature contains NA values. These will be excluded during binning.")
   }
 
   # .Call Interface

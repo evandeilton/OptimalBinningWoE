@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <numeric>
+#include <utility>
 
 
 // Include shared headers
@@ -23,7 +24,6 @@ using namespace OptimalBinning;
 
 // Constants for better readability and consistency
 // Constant removed (uses shared definition)
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 // Bayesian smoothing parameter (adjustable prior strength)
 // Constant removed (uses shared definition)
 
@@ -67,15 +67,15 @@ private:
   
 public:
   OBC_MILP(
-    const std::vector<int>& target,
-    const std::vector<std::string>& feature,
-    int min_bins,
-    int max_bins,
-    double bin_cutoff,
-    int max_n_prebins,
-    const std::string& bin_separator,
-    double convergence_threshold,
-    int max_iterations
+    std::vector<int> target_,
+    std::vector<std::string> feature_,
+    int min_bins_,
+    int max_bins_,
+    double bin_cutoff_,
+    int max_n_prebins_,
+    const std::string& bin_separator_,
+    double convergence_threshold_,
+    int max_iterations_
   );
   
   Rcpp::List fit();
@@ -85,13 +85,13 @@ private:
   void initialize_bins();
   void merge_bins();
   void calculate_woe_iv(CategoricalBin& bin);
-  bool is_monotonic() const;
   void handle_zero_counts();
   std::string join_categories(const std::vector<std::string>& categories) const;
   double calculate_total_iv() const;
   size_t find_best_merge_candidate(size_t bin_idx) const;
   void merge_rare_categories();
-  void enforce_monotonicity();
+  void sort_bins_by_woe();
+  void reduce_prebins_by_similarity(size_t target_bins);
   
   inline double safe_log(double value) const {
     // Safe log: avoids log(0) by adding a small epsilon
@@ -100,18 +100,19 @@ private:
 };
 
 OBC_MILP::OBC_MILP(
-  const std::vector<int>& target,
-  const std::vector<std::string>& feature,
-  int min_bins,
-  int max_bins,
-  double bin_cutoff,
-  int max_n_prebins,
-  const std::string& bin_separator,
-  double convergence_threshold,
-  int max_iterations
-) : target(target), feature(feature), min_bins(min_bins), max_bins(max_bins),
-bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins), bin_separator(bin_separator),
-convergence_threshold(convergence_threshold), max_iterations(max_iterations),
+  std::vector<int> target_,
+  std::vector<std::string> feature_,
+  int min_bins_,
+  int max_bins_,
+  double bin_cutoff_,
+  int max_n_prebins_,
+  const std::string& bin_separator_,
+  double convergence_threshold_,
+  int max_iterations_
+) : target(std::move(target_)), feature(std::move(feature_)),
+min_bins(min_bins_), max_bins(max_bins_), bin_cutoff(bin_cutoff_),
+max_n_prebins(max_n_prebins_), bin_separator(bin_separator_),
+convergence_threshold(convergence_threshold_), max_iterations(max_iterations_),
 total_pos(0), total_neg(0), converged(false), iterations_run(0) {}
 
 void OBC_MILP::validate_input() {
@@ -152,9 +153,8 @@ void OBC_MILP::validate_input() {
     if (val == 0) has_zero = true;
     else if (val == 1) has_one = true;
     else throw std::invalid_argument("Target must contain only 0 and 1.");
-    
-    // Early termination once we've found both values
-    if (has_zero && has_one) break;
+    // No early exit: a 2 after the first 0 and 1 used to be counted as
+    // count_pos += 2, count_neg += -1.
   }
   
   if (!has_zero || !has_one) {
@@ -184,11 +184,18 @@ void OBC_MILP::initialize_bins() {
     const std::string& cat = feature[i];
     int tar = target[i];
     
-    if (bin_map.find(cat) == bin_map.end()) {
-      bin_map[cat] = CategoricalBin();
+    // One lookup per row, and the category name is stored once per bin: it
+    // used to be appended for every observation (n strings in total, all
+    // copied again on every merge and only de-duplicated when printing).
+    auto it = bin_map.find(cat);
+    if (it == bin_map.end()) {
+      it = bin_map.emplace(cat, CategoricalBin()).first;
+      it->second.categories.push_back(cat);
     }
-    
-    { auto& b = bin_map[cat]; b.categories.push_back(cat); b.count++; b.count_pos += tar; b.count_neg += (1 - tar); }
+    CategoricalBin& b = it->second;
+    b.count++;
+    b.count_pos += tar;
+    b.count_neg += (1 - tar);
     
     if (tar == 1) {
       total_pos++;
@@ -240,38 +247,6 @@ void OBC_MILP::calculate_woe_iv(CategoricalBin& bin) {
   if (!std::isfinite(bin.iv)) bin.iv = 0.0;
 }
 
-bool OBC_MILP::is_monotonic() const {
-  if (bins.size() <= 2) {
-    return true;  // Monotonic if <= 2 bins
-  }
-  
-  // Calculate average WoE gap for adaptive threshold
-  double total_woe_gap = 0.0;
-  for (size_t i = 1; i < bins.size(); ++i) {
-    total_woe_gap += std::fabs(bins[i].woe - bins[i-1].woe);
-  }
-  
-  double avg_gap = total_woe_gap / (bins.size() - 1);
-  double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
-  
-  bool increasing = true;
-  bool decreasing = true;
-  
-  for (size_t i = 1; i < bins.size(); ++i) {
-    if (bins[i].woe < bins[i-1].woe - monotonicity_threshold) {
-      increasing = false;
-    }
-    if (bins[i].woe > bins[i-1].woe + monotonicity_threshold) {
-      decreasing = false;
-    }
-    if (!increasing && !decreasing) {
-      return false;
-    }
-  }
-  
-  return true;
-}
-
 double OBC_MILP::calculate_total_iv() const {
   double total_iv = 0.0;
   for (const auto& bin : bins) {
@@ -306,154 +281,69 @@ size_t OBC_MILP::find_best_merge_candidate(size_t bin_idx) const {
 void OBC_MILP::merge_rare_categories() {
   double total_count = static_cast<double>(total_pos + total_neg);
   double min_count = bin_cutoff * total_count;
-  
-  // Identify all low-frequency bins at once
-  std::vector<size_t> low_freq_bins;
-  
-  for (size_t i = 0; i < bins.size(); ++i) {
-    if (bins[i].total() < min_count) {
-      low_freq_bins.push_back(i);
+
+  // Passes are repeated until no bin is below the cutoff (or min_bins is
+  // reached). A single pass could leave one: two rare bins merged into a bin
+  // that was still rare, at a position whose entry had already been handled.
+  bool merged_any = true;
+  while (merged_any) {
+    merged_any = false;
+
+    // Identify all low-frequency bins at once
+    std::vector<size_t> low_freq_bins;
+    for (size_t i = 0; i < bins.size(); ++i) {
+      if (bins[i].total() < min_count) {
+        low_freq_bins.push_back(i);
+      }
     }
-  }
-  
-  // Sort bins by frequency (ascending) for better merging strategy
-  std::sort(low_freq_bins.begin(), low_freq_bins.end(),
-            [this](size_t a, size_t b) { 
-              return bins[a].total() < bins[b].total(); 
-            });
-  
-  // Process low-frequency bins efficiently
-  for (size_t idx : low_freq_bins) {
-    if (static_cast<int>(bins.size()) <= min_bins) {
-      break; // Never go below min_bins
-    }
-    
-    // Check if bin still exists and is still below cutoff
-    if (idx >= bins.size() || bins[idx].total() >= min_count) {
-      continue;
-    }
-    
-    // Find best merge candidate based on event rate similarity
-    size_t best_candidate = find_best_merge_candidate(idx);
-    
-    // Try to merge with best candidate
-    if (best_candidate != idx && best_candidate < bins.size()) {
-      // Create a new temporary bin
-      CategoricalBin merged_bin = bins[idx];
-      merged_bin.merge_with(bins[best_candidate]);
-      
-      // Calculate metrics for merged bin
-      calculate_woe_iv(merged_bin);
-      
-      // Replace the bin with lower IV with the merged bin
-      size_t replace_idx = (std::fabs(bins[idx].iv) <= std::fabs(bins[best_candidate].iv)) 
-        ? idx : best_candidate;
-      size_t remove_idx = (replace_idx == idx) ? best_candidate : idx;
-      
-      bins[replace_idx] = std::move(merged_bin);
-      bins.erase(bins.begin() + remove_idx);
-      
-      // Adjust indices for remaining bins
-      for (auto& remaining_idx : low_freq_bins) {
-        if (remaining_idx == remove_idx) {
-          remaining_idx = replace_idx;
-        } else if (remaining_idx > remove_idx) {
-          remaining_idx--;
+    if (low_freq_bins.empty()) break;
+
+    // Sort bins by frequency (ascending) for better merging strategy
+    std::sort(low_freq_bins.begin(), low_freq_bins.end(),
+              [this](size_t a, size_t b) {
+                return bins[a].total() < bins[b].total();
+              });
+
+    for (size_t idx : low_freq_bins) {
+      if (static_cast<int>(bins.size()) <= min_bins) {
+        return; // Never go below min_bins
+      }
+
+      // Check if bin still exists and is still below cutoff
+      if (idx >= bins.size() || bins[idx].total() >= min_count) {
+        continue;
+      }
+
+      // Find best merge candidate based on event rate similarity
+      size_t best_candidate = find_best_merge_candidate(idx);
+
+      if (best_candidate != idx && best_candidate < bins.size()) {
+        CategoricalBin merged_bin = bins[idx];
+        merged_bin.merge_with(bins[best_candidate]);
+        calculate_woe_iv(merged_bin);
+
+        // Replace the bin with lower IV with the merged bin
+        size_t replace_idx = (std::fabs(bins[idx].iv) <= std::fabs(bins[best_candidate].iv))
+          ? idx : best_candidate;
+        size_t remove_idx = (replace_idx == idx) ? best_candidate : idx;
+
+        bins[replace_idx] = std::move(merged_bin);
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(remove_idx));
+        merged_any = true;
+
+        // Adjust indices for remaining bins. The merged bin itself moves
+        // down by one when it sat after the erased position (the previous
+        // remapping pointed such entries one past it).
+        const size_t merged_pos = replace_idx > remove_idx ? replace_idx - 1 : replace_idx;
+        for (auto& remaining_idx : low_freq_bins) {
+          if (remaining_idx == remove_idx || remaining_idx == replace_idx) {
+            remaining_idx = merged_pos;
+          } else if (remaining_idx > remove_idx) {
+            remaining_idx--;
+          }
         }
       }
     }
-  }
-}
-
-void OBC_MILP::enforce_monotonicity() {
-  if (bins.size() <= 2) return;  // Already monotonic
-  
-  // Calculate average WoE gap for adaptive threshold
-  double total_woe_gap = 0.0;
-  for (size_t i = 1; i < bins.size(); ++i) {
-    total_woe_gap += std::fabs(bins[i].woe - bins[i-1].woe);
-  }
-  
-  double avg_gap = total_woe_gap / (bins.size() - 1);
-  double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
-  
-  // Determine monotonicity direction (increasing or decreasing)
-  bool increasing = true;
-  int increasing_violations = 0;
-  int decreasing_violations = 0;
-  
-  for (size_t i = 1; i < bins.size(); ++i) {
-    if (bins[i].woe < bins[i-1].woe - monotonicity_threshold) {
-      increasing_violations++;
-    }
-    if (bins[i].woe > bins[i-1].woe + monotonicity_threshold) {
-      decreasing_violations++;
-    }
-  }
-  
-  // Determine preferred direction (fewer violations)
-  increasing = (increasing_violations <= decreasing_violations);
-  
-  // Fix violations with a maximum number of attempts
-  int attempts = 0;
-  const int max_attempts = static_cast<int>(bins.size() * 3);
-  
-  while (!is_monotonic() && static_cast<int>(bins.size()) > min_bins && attempts < max_attempts) {
-    // Find all violations and their severity
-    std::vector<std::pair<size_t, double>> violations;
-    
-    for (size_t i = 1; i < bins.size(); ++i) {
-      bool violation = (increasing && bins[i].woe < bins[i-1].woe - monotonicity_threshold) ||
-        (!increasing && bins[i].woe > bins[i-1].woe + monotonicity_threshold);
-      
-      if (violation) {
-        double severity = std::fabs(bins[i].woe - bins[i-1].woe);
-        violations.push_back(std::make_pair(i, severity));
-      }
-    }
-    
-    // If no violations, we're done
-    if (violations.empty()) break;
-    
-    // Sort violations by severity (descending)
-    std::sort(violations.begin(), violations.end(),
-              [](const std::pair<size_t, double>& a, const std::pair<size_t, double>& b) { 
-                return a.second > b.second; 
-              });
-    
-    // Fix the most severe violation
-    if (!violations.empty()) {
-      size_t i = violations[0].first;
-      size_t j = i - 1;
-      
-      // Create a new temporary bin
-      CategoricalBin merged_bin = bins[j];
-      merged_bin.merge_with(bins[i]);
-      
-      // Calculate metrics for merged bin
-      calculate_woe_iv(merged_bin);
-      
-      // Replace the bin with lower IV with the merged bin
-      bins[j] = std::move(merged_bin);
-      bins.erase(bins.begin() + i);
-    }
-    
-    attempts++;
-  }
-  
-  if (attempts >= max_attempts) {
-    Rcpp::warning("Could not ensure monotonicity in %d attempts. Using best solution found.", max_attempts);
-  }
-  
-  // Final sort by WoE to ensure consistent ordering
-  if (increasing) {
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe < b.woe;
-    });
-  } else {
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe > b.woe;
-    });
   }
 }
 
@@ -469,103 +359,151 @@ void OBC_MILP::merge_bins() {
       return (a.count_pos + a.count_neg) < (b.count_pos + b.count_neg);
     });
     
-    while (bins.size() > max_n_prebins_size && bins.size() > min_bins_size) {
-      // Find best pair to merge based on event rate similarity
-      double best_similarity = -1.0;
-      size_t merge_idx1 = 0;
-      size_t merge_idx2 = 0;
-      
-      for (size_t i = 0; i < bins.size(); ++i) {
-        for (size_t j = i + 1; j < bins.size(); ++j) {
-          double rate_diff = std::fabs(bins[i].event_rate() - bins[j].event_rate());
-          double similarity = 1.0 / (rate_diff + EPSILON);
-          
-          if (similarity > best_similarity) {
-            best_similarity = similarity;
-            merge_idx1 = i;
-            merge_idx2 = j;
-          }
-        }
-      }
-      
-      // Merge the best pair
-      bins[merge_idx1].merge_with(bins[merge_idx2]);
-      calculate_woe_iv(bins[merge_idx1]);
-      bins.erase(bins.begin() + merge_idx2);
-    }
+    reduce_prebins_by_similarity(std::max(max_n_prebins_size, min_bins_size));
   }
   
   // Handle rare categories
   merge_rare_categories();
-  
-  // Enforce monotonicity first
-  enforce_monotonicity();
-  
-  // Now optimize the number of bins if still needed
-  bool merging = true;
-  double prev_total_iv = calculate_total_iv();
-  
-  // Track best solution seen so far
-  double best_total_iv = prev_total_iv;
-  std::vector<CategoricalBin> best_bins = bins;
-  
-  while (merging && iterations_run < max_iterations) {
-    merging = false;
-    iterations_run++;
-    
-    // If too many bins, merge least informative bins
-    if (bins.size() > max_bins_size && bins.size() > min_bins_size) {
-      // Sort by absolute IV (ascending)
-      std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-        return std::fabs(a.iv) < std::fabs(b.iv);
-      });
-      
-      // Create a new merged bin
-      CategoricalBin merged_bin = bins[0];
-      merged_bin.merge_with(bins[1]);
-      calculate_woe_iv(merged_bin);
-      
-      // Replace and remove
-      bins[0] = std::move(merged_bin);
-      bins.erase(bins.begin() + 1);
-      
-      merging = true;
+
+  // A categorical feature has no natural order, so the monotone arrangement
+  // of its bins is simply their WoE order. The previous code checked
+  // monotonicity -- and merged "violating" neighbours -- in whatever order
+  // the bins happened to be in: hash-map order after pre-binning, and
+  // |IV| order inside the main loop, where a strongly negative and a
+  // strongly positive WoE bin are neighbours. It therefore merged the two
+  // extremes of the feature into one bin, collapsed almost everything down
+  // to min_bins (IV 0.007 instead of 0.99 on eight well-separated
+  // categories), and its IV-convergence exit could stop with more than
+  // max_bins bins.
+  sort_bins_by_woe();
+
+  // Greedy reduction to max_bins: merge the WoE-adjacent pair that loses the
+  // least IV, then restore the WoE order (with Bayesian smoothing a merged
+  // bin's WoE is not guaranteed to lie between its parents').
+  iterations_run = 0;
+  while (bins.size() > max_bins_size && bins.size() > min_bins_size) {
+    double best_loss = std::numeric_limits<double>::infinity();
+    size_t best_idx = 0;
+    for (size_t i = 0; i + 1 < bins.size(); ++i) {
+      CategoricalBin merged;
+      merged.count = bins[i].count + bins[i + 1].count;
+      merged.count_pos = bins[i].count_pos + bins[i + 1].count_pos;
+      merged.count_neg = bins[i].count_neg + bins[i + 1].count_neg;
+      calculate_woe_iv(merged);
+      const double loss = std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv) -
+        std::fabs(merged.iv);
+      if (loss < best_loss) {
+        best_loss = loss;
+        best_idx = i;
+      }
     }
-    
-    // Check for monotonicity after merging
-    if (!is_monotonic() && bins.size() > min_bins_size) {
-      enforce_monotonicity();
-      merging = true;
-    }
-    
-    // Calculate current IV
-    double total_iv = calculate_total_iv();
-    
-    // Track best solution
-    if (is_monotonic() && bins.size() <= max_bins_size && bins.size() >= min_bins_size && 
-        total_iv > best_total_iv) {
-      best_total_iv = total_iv;
-      best_bins = bins;
-    }
-    
-    // Check for convergence
-    if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-      converged = true;
-      break;
-    }
-    
-    prev_total_iv = total_iv;
+    bins[best_idx].merge_with(bins[best_idx + 1]);
+    calculate_woe_iv(bins[best_idx]);
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best_idx) + 1);
+    sort_bins_by_woe();
+    ++iterations_run;
   }
-  
-  // Restore best solution if found
-  if (best_total_iv > 0.0 && best_bins.size() <= max_bins_size && best_bins.size() >= min_bins_size) {
-    bins = std::move(best_bins);
+
+  // Reaching max_bins is the stopping state; only a reduction that needed
+  // more merges than max_iterations reports converged = FALSE.
+  converged = (iterations_run <= max_iterations);
+}
+
+// Repeatedly merge the pair (i < j) with the most similar event rates -- the
+// first such pair in index order -- until `target` bins remain. Rescanning all
+// pairs after every merge was O(B^2) per merge, O(B^3) overall (7 s for 2000
+// categories). The similarity of a pair depends only on its two bins, so each
+// bin keeps its best partner among the bins after it and, after a merge, only
+// the merged bin's row and the rows that pointed at the merged or removed bin
+// are rescanned. Bins keep their relative order (a merge keeps the lower
+// slot), so the pair chosen is the one the full scan chose.
+void OBC_MILP::reduce_prebins_by_similarity(size_t target_bins) {
+  const size_t nb = bins.size();
+  if (nb <= target_bins || nb < 2) return;
+  const size_t NONE = std::numeric_limits<size_t>::max();
+
+  std::vector<double> rate(nb);
+  for (size_t i = 0; i < nb; ++i) rate[i] = bins[i].event_rate();
+  auto similarity = [&rate](size_t i, size_t j) {
+    double rate_diff = std::fabs(rate[i] - rate[j]);
+    return 1.0 / (rate_diff + EPSILON);
+  };
+
+  std::vector<size_t> nxt(nb);
+  for (size_t i = 0; i < nb; ++i) nxt[i] = (i + 1 < nb) ? i + 1 : NONE;
+  std::vector<size_t> prv(nb);
+  for (size_t i = 0; i < nb; ++i) prv[i] = (i > 0) ? i - 1 : NONE;
+  std::vector<char> alive(nb, 1);
+  std::vector<double> best_s(nb, -1.0);
+  std::vector<size_t> best_j(nb, NONE);
+
+  auto recompute_row = [&](size_t i) {
+    best_s[i] = -1.0;
+    best_j[i] = NONE;
+    for (size_t j = nxt[i]; j != NONE; j = nxt[j]) {
+      const double sim = similarity(i, j);
+      if (sim > best_s[i]) {
+        best_s[i] = sim;
+        best_j[i] = j;
+      }
+    }
+  };
+  for (size_t i = 0; i < nb; ++i) recompute_row(i);
+
+  size_t head = 0;
+  size_t count = nb;
+  while (count > target_bins && count >= 2) {
+    double bs = -1.0;
+    size_t a = NONE;
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (best_j[i] != NONE && best_s[i] > bs) {
+        bs = best_s[i];
+        a = i;
+      }
+    }
+    if (a == NONE) break;
+    const size_t b = best_j[a];
+
+    bins[a].merge_with(bins[b]);
+    calculate_woe_iv(bins[a]);
+    rate[a] = bins[a].event_rate();
+    alive[b] = 0;
+    const size_t p = prv[b];
+    const size_t q = nxt[b];
+    if (p != NONE) nxt[p] = q;
+    if (q != NONE) prv[q] = p;
+    if (b == head) head = q;
+    --count;
+
+    recompute_row(a);
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (i == a) continue;
+      if (best_j[i] == a || best_j[i] == b) {
+        recompute_row(i);
+      } else if (i < a) {
+        const double sim = similarity(i, a);
+        if (sim > best_s[i] || (sim == best_s[i] && a < best_j[i])) {
+          best_s[i] = sim;
+          best_j[i] = a;
+        }
+      }
+    }
+    Rcpp::checkUserInterrupt();
   }
-  
-  // Ensure final monotonicity
-  if (!is_monotonic() && bins.size() > min_bins_size) {
-    enforce_monotonicity();
+
+  std::vector<CategoricalBin> kept;
+  kept.reserve(count);
+  for (size_t i = 0; i < nb; ++i) {
+    if (alive[i]) kept.push_back(std::move(bins[i]));
   }
+  bins = std::move(kept);
+}
+
+void OBC_MILP::sort_bins_by_woe() {
+  std::stable_sort(bins.begin(), bins.end(),
+                   [](const CategoricalBin& a, const CategoricalBin& b) {
+                     return a.woe < b.woe;
+                   });
 }
 
 std::string OBC_MILP::join_categories(const std::vector<std::string>& categories) const {
@@ -602,6 +540,9 @@ Rcpp::List OBC_MILP::fit() {
     
     // If number of unique categories <= max_bins, no need for optimization
     if (bins.size() <= static_cast<size_t>(max_bins)) {
+      // Already within max_bins: report the bins in WoE order (they were
+      // returned in hash-map order, i.e. not monotone and platform-dependent).
+      sort_bins_by_woe();
       converged = true;
       iterations_run = 0;
     } else {
@@ -628,7 +569,7 @@ Rcpp::List OBC_MILP::fit() {
       bin_count[i] = bin.count_pos + bin.count_neg;
       bin_count_pos[i] = bin.count_pos;
       bin_count_neg[i] = bin.count_neg;
-      ids[i] = i + 1;
+      ids[i] = static_cast<double>(i + 1);
       
       total_iv += std::fabs(bin.iv);
     }
@@ -680,20 +621,19 @@ Rcpp::List optimal_binning_categorical_milp(
  feature_vec.reserve(feature.size());
  
  int na_feature_count = 0;
- int na_target_count = 0;
  
  for (R_xlen_t i = 0; i < feature.size(); ++i) {
    // Handle NA in feature
-   if (feature[i] == NA_STRING) {
-     feature_vec.push_back("NA");
+   SEXP s = STRING_ELT(feature, i);
+   if (s == NA_STRING) {
+     feature_vec.emplace_back("NA");
      na_feature_count++;
    } else {
-     feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+     feature_vec.emplace_back(CHAR(s));
    }
    
    // Check for NA in target
    if (IntegerVector::is_na(target[i])) {
-     na_target_count++;
      Rcpp::stop("Target cannot contain missing values at position %d.", i+1);
    } else {
      target_vec.push_back(target[i]);
@@ -707,8 +647,8 @@ Rcpp::List optimal_binning_categorical_milp(
  }
  
  OBC_MILP obcm(
-     target_vec,
-     feature_vec,
+     std::move(target_vec),
+     std::move(feature_vec),
      min_bins,
      max_bins,
      bin_cutoff,

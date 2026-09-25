@@ -66,11 +66,16 @@ a \code{"Special"}/\code{NA} bin for every observation.
 }
 \note{
 \itemize{
-  \item Target variable must contain only 0 and 1 values.
+  \item Target variable must contain only 0 and 1 values (no \code{NA}),
+        with both classes present, and have the same length as
+        \code{feature}; otherwise an error is raised.
   \item Every unique category in \code{feature} must be included in exactly
-        one bin definition in \code{cutpoints}.
-  \item Categories not mentioned in \code{cutpoints} will be assigned to bin 0
-        (which may lead to unexpected results).
+        one bin definition in \code{cutpoints}. A category of
+        \code{feature} that no bin lists, or a category listed in two bins,
+        is an error (unlisted categories used to be counted silently in the
+        first bin). \code{NA} values of \code{feature} are matched as the
+        category \code{"NA"}, the token the \code{ob_categorical_*()}
+        wrappers use for missing values.
 }
 }
 \examples{

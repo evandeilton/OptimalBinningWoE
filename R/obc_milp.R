@@ -11,11 +11,10 @@
 #'   \item Pre-binning: Each unique category becomes an initial bin
 #'   \item Rare category handling: Categories below \code{bin_cutoff} frequency
 #'         are merged with similar ones
-#'   \item Bin reduction: Greedily merge bins to satisfy \code{min_bins} and
-#'         \code{max_bins} constraints
-#'   \item Monotonicity enforcement: Ensures WoE is either consistently
-#'         increasing or decreasing across bins
-#'   \item Optimization: Iteratively improves Information Value
+#'   \item Monotonic ordering: bins are ordered by WoE (a categorical feature
+#'         has no natural order, so this ordering is monotone by construction)
+#'   \item Bin reduction: while there are more than \code{max_bins} bins, the
+#'         two WoE-adjacent bins whose merge loses the least IV are merged
 #' }
 #'
 #' Key features include:
@@ -132,7 +131,7 @@ ob_categorical_milp <- function(feature,
 
   # Convert NA values to "NA" string
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_milp",

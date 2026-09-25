@@ -9,7 +9,9 @@
 #' \enumerate{
 #'   \item \strong{Initialization}: Categories are initially grouped based on
 #'         frequency thresholds (\code{bin_cutoff}), separating frequent
-#'         categories from rare ones.
+#'         categories from rare ones (pooled into one bin). When that leaves
+#'         fewer than \code{min_bins} bins, the largest rare categories keep
+#'         their own bins.
 #'   \item \strong{Preprocessing}: Initial bins are sorted by their WoE values
 #'         to establish a baseline ordering.
 #'   \item \strong{Sliding Window Optimization}: An iterative process evaluates
@@ -158,7 +160,7 @@ ob_categorical_swb <- function(feature,
   feature[is.na(feature)] <- "NA"
 
   # Ensure target is integer
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_swb",

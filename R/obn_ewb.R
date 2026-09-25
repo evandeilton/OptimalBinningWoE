@@ -7,8 +7,8 @@
 #' and enforce monotonicity.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) are excluded during the pre-binning phase but should
-#'   ideally be handled prior to binning.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+#'   \code{-Inf}/\code{Inf} fall in the first/last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
@@ -125,17 +125,12 @@ ob_numerical_ewb <- function(feature, target, min_bins = 3, max_bins = 5,
   }
 
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Dimension Validation
   if (length(feature) != length(target)) {
     stop("Length of 'feature' and 'target' must match.")
-  }
-
-  # NA Warning (The C++ logic filters them out, but good to warn R user)
-  if (any(is.na(feature))) {
-    warning("Feature contains NA values. These will be excluded during the pre-binning phase.")
   }
 
   # .Call Interface

@@ -122,7 +122,10 @@ the algorithm and the per-variable Information Value? Default \code{TRUE}.}
 the WoE is a matrix; this selects which class column to export.}
 
 \item{bin_separator}{Character string separating merged categories inside a
-bin label. Default \code{"\%;\%"}, matching \code{\link{control.obwoe}}.}
+bin label. Default \code{"\%;\%"}, matching \code{\link{control.obwoe}}.
+When the argument is not supplied and \code{obj} records the separator it
+was fitted with (an \code{"obwoe"} object, or a step or recipe whose
+\code{step_obwoe()} control sets one), that separator is used instead.}
 
 \item{trim_categories}{Logical. When \code{FALSE} (default) category names
 are matched byte for byte, including any leading or trailing whitespace

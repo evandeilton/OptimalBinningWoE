@@ -51,7 +51,6 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
   int max_iterations;
   std::string monotonic_trend;
   bool force_monotonic;
@@ -97,24 +96,23 @@ public:
    * @param monotonic_trend Monotonicity direction ('auto', 'ascending', 'descending', 'none')
    */
   OBN_DP(
-    const std::vector<double>& feature,
-    const std::vector<unsigned int>& target,
-    int min_bins,
-    int max_bins,
-    double bin_cutoff,
-    int max_n_prebins,
-    double convergence_threshold,
-    int max_iterations,
-    std::string monotonic_trend = "auto")
-    : feature(feature),
-      target(target),
-      min_bins(min_bins),
-      max_bins(max_bins),
-      bin_cutoff(bin_cutoff),
-      max_n_prebins(max_n_prebins),
-      convergence_threshold(convergence_threshold),
-      max_iterations(max_iterations),
-      monotonic_trend(monotonic_trend),
+    const std::vector<double>& feature_,
+    const std::vector<unsigned int>& target_,
+    int min_bins_,
+    int max_bins_,
+    double bin_cutoff_,
+    int max_n_prebins_,
+    double /* convergence_threshold: unused */,
+    int max_iterations_,
+    std::string monotonic_trend_ = "auto")
+    : feature(feature_),
+      target(target_),
+      min_bins(min_bins_),
+      max_bins(max_bins_),
+      bin_cutoff(bin_cutoff_),
+      max_n_prebins(max_n_prebins_),
+      max_iterations(max_iterations_),
+      monotonic_trend(monotonic_trend_),
       converged(true),
       iterations_run(0),
       execution_time_ms(0),
@@ -129,10 +127,10 @@ public:
     
     // Validate monotonic trend
     force_monotonic = true;
-    if (monotonic_trend != "auto" && monotonic_trend != "ascending" && 
+    if (monotonic_trend != "auto" && monotonic_trend != "ascending" &&
         monotonic_trend != "descending" && monotonic_trend != "none") {
       Rcpp::warning("Invalid monotonic_trend value. Using 'auto' instead.");
-      this->monotonic_trend = "auto";
+      monotonic_trend = "auto";
     }
     if (monotonic_trend == "none") {
       force_monotonic = false;
@@ -169,8 +167,17 @@ public:
       min_bins = max_bins;
     }
     
+    // Sort the feature once; the distinct values and the pre-bin quantiles
+    // are both read from this copy (it used to be sorted twice, once through
+    // an index permutation).
+    std::vector<double> sorted_feature = feature;
+    std::sort(sorted_feature.begin(), sorted_feature.end());
+
     // Check the number of unique feature values
-    std::vector<double> unique_feature_values = get_unique_values();
+    std::vector<double> unique_feature_values = sorted_feature;
+    unique_feature_values.erase(
+      std::unique(unique_feature_values.begin(), unique_feature_values.end()),
+      unique_feature_values.end());
     int num_unique_values = static_cast<int>(unique_feature_values.size());
     
     // If <=2 unique values, just create trivial bins without further optimization
@@ -184,7 +191,7 @@ public:
     }
     
     // Initial pre-binning based on data distribution
-    prebinning();
+    prebinning(sorted_feature);
     
     // Calculate initial counts and WOE
     calculate_counts_woe_and_iv();
@@ -212,6 +219,16 @@ public:
     
     // Ensure bin constraints and handle rare bins
     ensure_bin_constraints();
+
+    // Merging for max_bins / bin_cutoff can re-introduce small WoE reversals
+    // (the Bayesian-smoothed WoE of a merged bin is not a weighted mean of its
+    // parts), and those merges ran after the only monotonicity pass, so the
+    // result could violate the requested trend (e.g. -2.72, -3.10, 0.16 for
+    // "ascending"). Re-apply the constraint when -- and only when -- that
+    // happened; merging never creates a rare bin or exceeds max_bins.
+    if (force_monotonic && has_monotonic_violation()) {
+      enforce_monotonicity();
+    }
     
     // Final IV calculation
     calculate_total_iv();
@@ -239,7 +256,7 @@ public:
     // Create IDs for bins
     Rcpp::NumericVector ids(bin_labels.size());
     for(size_t i = 0; i < bin_labels.size(); i++) {
-      ids[i] = i + 1;
+      ids[i] = static_cast<double>(i + 1);
     }
     
     return Rcpp::List::create(
@@ -303,20 +320,6 @@ private:
   }
   
   /**
-   * @brief Gets unique feature values
-   * 
-   * @return Vector of unique feature values, sorted
-   */
-  std::vector<double> get_unique_values() {
-    std::vector<double> unique_values = feature;
-    std::sort(unique_values.begin(), unique_values.end());
-    unique_values.erase(
-      std::unique(unique_values.begin(), unique_values.end()),
-      unique_values.end());
-    return unique_values;
-  }
-  
-  /**
    * @brief Creates trivial bins when there are very few unique values
    * 
    * @param unique_values Vector of unique feature values
@@ -327,9 +330,20 @@ private:
     bin_edges.push_back(-std::numeric_limits<double>::infinity());
     
     if (unique_values.size() == 2) {
-      // For two unique values, use the midpoint as the split
-      double midpoint = (unique_values[0] + unique_values[1]) / 2.0;
-      bin_edges.push_back(midpoint);
+      // For two unique values, split between them. The plain midpoint
+      // overflows for values near +/-DBL_MAX and is +/-Inf or NaN when a value
+      // is infinite, which produced a non-finite cutpoint (and, for NaN, an
+      // edge vector that is no longer sorted). Fall back to a finite split
+      // point that still separates the two values under the (a, b] rule.
+      const double a = unique_values[0], b = unique_values[1];
+      double split = (a + b) / 2.0;
+      if (!std::isfinite(split)) split = a * 0.5 + b * 0.5;
+      if (!std::isfinite(split) || !(split >= a && split < b)) {
+        if (std::isfinite(a)) split = a;
+        else if (std::isfinite(b)) split = std::nextafter(b, -std::numeric_limits<double>::infinity());
+        else split = 0.0;
+      }
+      bin_edges.push_back(split);
     }
     
     bin_edges.push_back(std::numeric_limits<double>::infinity());
@@ -344,40 +358,34 @@ private:
   
   /**
    * @brief Performs initial pre-binning based on the data distribution
-   * 
-   * Creates initial bins using equal-frequency binning on the sorted feature
+   *
+   * Creates initial bins using equal-frequency binning on the sorted feature.
+   * A candidate edge equal to the sample maximum (or infinite) is skipped: the
+   * bin above it would be empty, and an empty bin has no defined WoE.
+   *
+   * @param sorted_feature The feature values in ascending order
    */
-  void prebinning() {
-    // Sort indices by feature value
-    std::vector<size_t> sorted_indices(feature.size());
-    std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
-    std::sort(sorted_indices.begin(), sorted_indices.end(),
-              [this](size_t i1, size_t i2) { return feature[i1] < feature[i2]; });
-    
-    // Extract sorted feature values
-    std::vector<double> sorted_feature(feature.size());
-    for (size_t i = 0; i < feature.size(); ++i) {
-      sorted_feature[i] = feature[sorted_indices[i]];
-    }
-    
+  void prebinning(const std::vector<double>& sorted_feature) {
     // Find bin edges using equal-frequency method
-    int n = static_cast<int>(feature.size());
+    int n = static_cast<int>(sorted_feature.size());
     int bin_size = std::max(1, n / std::max(1, max_n_prebins));
-    
+    const double max_value = sorted_feature.back();
+
     std::vector<double> edges;
     edges.reserve(static_cast<size_t>(std::max(1, max_n_prebins - 1)));
-    
+
     for (int i = 1; i < max_n_prebins; ++i) {
-      int idx = i * bin_size;
-      if (idx < n) {
-        edges.push_back(sorted_feature[static_cast<size_t>(idx)]);
-      }
+      // i * bin_size overflows int for max_n_prebins * n > INT_MAX
+      const long long idx = static_cast<long long>(i) * bin_size;
+      if (idx >= n) break;
+      const double e = sorted_feature[static_cast<size_t>(idx)];
+      if (std::isfinite(e) && e < max_value) edges.push_back(e);
     }
-    
+
     // Remove duplicates and ensure edges are sorted
     std::sort(edges.begin(), edges.end());
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
-    
+
     // Set bin edges with -Inf and +Inf as boundaries
     bin_edges.clear();
     bin_edges.reserve(edges.size() + 2);
@@ -387,7 +395,7 @@ private:
     }
     bin_edges.push_back(std::numeric_limits<double>::infinity());
   }
-  
+
   /**
    * @brief Calculate counts, WoE, and IV for current bins
    * 
@@ -545,8 +553,21 @@ private:
     // P3.6 fix (2026-05-16): replaced naive Pearson formula (catastrophic
     // cancellation for large-magnitude features) with Welford's numerically
     // stable algorithm already available in monotonicity_utils.h.
-    std::vector<double> feat_double(feature.begin(), feature.end());
-    MonotonicTrend trend = detect_trend_from_correlation(feat_double, target);
+    // +/-Inf observations make the correlation NaN (which then read as
+    // "descending"); the direction is estimated from the finite ones.
+    bool all_finite = true;
+    for (double v : feature) if (!std::isfinite(v)) { all_finite = false; break; }
+    MonotonicTrend trend;
+    if (all_finite) {
+      trend = detect_trend_from_correlation(feature, target);
+    } else {
+      std::vector<double> f;
+      std::vector<unsigned int> t;
+      for (size_t i = 0; i < feature.size(); ++i) {
+        if (std::isfinite(feature[i])) { f.push_back(feature[i]); t.push_back(target[i]); }
+      }
+      trend = detect_trend_from_correlation(f, t);
+    }
     monotonic_trend = (trend == MonotonicTrend::DESCENDING) ? "descending" : "ascending";
   }
   
@@ -600,6 +621,20 @@ private:
     }
   }
   
+  /**
+   * @brief Whether the current WoE sequence violates the monotonic trend
+   */
+  bool has_monotonic_violation() const {
+    const bool ascending = (monotonic_trend == "ascending");
+    for (size_t i = 1; i < woe_values.size(); ++i) {
+      if (ascending ? (woe_values[i] < woe_values[i - 1])
+                    : (woe_values[i] > woe_values[i - 1])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * @brief Merge two adjacent bins
    * 
@@ -759,14 +794,17 @@ Rcpp::List optimal_binning_numerical_dp(
    max_bins = min_bins;
  }
  
- // Convert R vectors to C++
- std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
- std::vector<unsigned int> target_vec; 
- target_vec.reserve(target.size());
- 
+ // Convert R vectors to C++. Rows with a missing feature (NA/NaN) are
+ // excluded from the fit, as in every other numerical engine (they used to
+ // stop the fit with an error).
+ std::vector<double> feature_vec;
+ std::vector<unsigned int> target_vec;
+ feature_vec.reserve(static_cast<size_t>(feature.size()));
+ target_vec.reserve(static_cast<size_t>(target.size()));
+
  // Validate and convert target values — validate BEFORE push to avoid
  // inserting unsigned-wrapped garbage into target_vec (P1.2 fix 2026-05-16)
- for (int i = 0; i < target.size(); ++i) {
+ for (R_xlen_t i = 0; i < target.size(); ++i) {
    if (IntegerVector::is_na(target[i])) {
      Rcpp::stop("Target cannot contain NA values");
    }
@@ -774,7 +812,12 @@ Rcpp::List optimal_binning_numerical_dp(
    if (val != 0 && val != 1) {
      Rcpp::stop("Target must contain only values 0 and 1");
    }
+   if (std::isnan(feature[i])) continue;
+   feature_vec.push_back(feature[i]);
    target_vec.push_back(static_cast<unsigned int>(val));
+ }
+ if (feature_vec.empty()) {
+   Rcpp::stop("Feature has no non-missing values");
  }
  
  // Run the binning algorithm

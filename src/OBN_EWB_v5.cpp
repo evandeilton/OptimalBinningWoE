@@ -38,7 +38,6 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
   int max_iterations;
   bool is_monotonic;
   
@@ -82,8 +81,9 @@ private:
    */
   double calculate_woe(int pos, int neg) const {
     // Apply Laplace smoothing to avoid division by zero
-    double pos_rate = (pos + LAPLACE_SMOOTHING) / (total_pos + bins.size() * LAPLACE_SMOOTHING);
-    double neg_rate = (neg + LAPLACE_SMOOTHING) / (total_neg + bins.size() * LAPLACE_SMOOTHING);
+    const double nb = static_cast<double>(bins.size());
+    double pos_rate = (pos + LAPLACE_SMOOTHING) / (total_pos + nb * LAPLACE_SMOOTHING);
+    double neg_rate = (neg + LAPLACE_SMOOTHING) / (total_neg + nb * LAPLACE_SMOOTHING);
     
     // WoE = ln(% of positive / % of negative)
     return std::log(pos_rate / neg_rate);
@@ -98,8 +98,9 @@ private:
    */
   double calculate_iv(double woe, int pos, int neg) const {
     // Apply smoothing to distribution rates
-    double p_rate = (pos + LAPLACE_SMOOTHING) / (total_pos + bins.size() * LAPLACE_SMOOTHING);
-    double n_rate = (neg + LAPLACE_SMOOTHING) / (total_neg + bins.size() * LAPLACE_SMOOTHING);
+    const double nb = static_cast<double>(bins.size());
+    double p_rate = (pos + LAPLACE_SMOOTHING) / (total_pos + nb * LAPLACE_SMOOTHING);
+    double n_rate = (neg + LAPLACE_SMOOTHING) / (total_neg + nb * LAPLACE_SMOOTHING);
     
     // IV = (% of positive - % of negative) * WoE
     return (p_rate - n_rate) * woe;
@@ -124,21 +125,26 @@ private:
       }
     }
     
-    // Handle NaN values by filtering them out for unique count
-    std::vector<double> clean_feature;
+    // Count distinct non-NaN values. Only min(unique_count, max_n_prebins)
+    // and whether it is <= 2 are ever used, so the scan stops as soon as that
+    // many distinct values have been seen (a full hash set of 10^6 doubles
+    // used to be built for every call).
+    const size_t unique_cap = static_cast<size_t>(std::max(3, max_n_prebins));
+    std::unordered_set<double> unique_values;
+    bool any_value = false;
     for (const auto& val : feature) {
-      if (!std::isnan(val)) {
-        clean_feature.push_back(val);
-      }
+      if (std::isnan(val)) continue;
+      any_value = true;
+      unique_values.insert(val);
+      if (unique_values.size() >= unique_cap) break;
     }
-    
-    if (clean_feature.empty()) {
+
+    if (!any_value) {
       Rcpp::stop("Feature vector contains only NaN values.");
     }
-    
-    std::unordered_set<double> unique_values(clean_feature.begin(), clean_feature.end());
+
     unique_count = static_cast<int>(unique_values.size());
-    
+        
     if (unique_count <= 1) {
       Rcpp::stop("Feature vector must contain at least two unique non-NaN values.");
     }
@@ -166,180 +172,127 @@ private:
   
   /**
    * Create bins for the case of few unique values
-   * This is a special case where we create one bin per unique value
+   * This is a special case where we create one bin per unique value.
+   *
+   * The cuts are the distinct values except the largest, and -Inf is never a
+   * cut. The last bin is open-ended ("(a;+Inf]"); it used to be labelled with
+   * the sample maximum as its upper bound although, like every other path,
+   * it receives everything above the last cutpoint.
    */
   void create_unique_bins() {
     bins.clear();
-    
-    // Filter out NaN values
-    std::vector<double> clean_feature;
-    std::vector<int> clean_target;
-    
-    for (size_t i = 0; i < feature.size(); ++i) {
-      if (!std::isnan(feature[i])) {
-        clean_feature.push_back(feature[i]);
-        clean_target.push_back(target[i]);
-      }
-    }
-    
-    // Get unique values and sort them
-    std::vector<double> unique_values = clean_feature;
+
+    std::vector<double> unique_values;
+    unique_values.reserve(feature.size());
+    for (double v : feature) if (!std::isnan(v)) unique_values.push_back(v);
     std::sort(unique_values.begin(), unique_values.end());
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
-    
-    // Create initial bins structure
-    for (size_t i = 0; i < unique_values.size(); ++i) {
-      double lower = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i-1];
-      double upper = unique_values[i];
-      bins.emplace_back(lower, upper, 0, 0, 0);
+
+    std::vector<double> cuts;
+    for (size_t i = 0; i + 1 < unique_values.size(); ++i)
+      if (std::isfinite(unique_values[i])) cuts.push_back(unique_values[i]);
+
+    double lower = -std::numeric_limits<double>::infinity();
+    for (double c : cuts) {
+      bins.emplace_back(lower, c, 0, 0, 0);
+      lower = c;
     }
-    
-    // Assign observations to bins
-    for (size_t i = 0; i < clean_feature.size(); ++i) {
-      double value = clean_feature[i];
-      int target_value = clean_target[i];
-      
-      // Find appropriate bin using binary search
-      auto it = std::upper_bound(unique_values.begin(), unique_values.end(), value);
-      size_t bin_idx = std::distance(unique_values.begin(), it);
-      
-      if (bin_idx > 0) { // Adjust index since we want the bin where value falls
-        bin_idx -= 1;
-      }
-      
-      // Update bin counts
-      bins[bin_idx].count++;
-      if (target_value == 1) {
-        bins[bin_idx].count_pos++;
-      } else {
-        bins[bin_idx].count_neg++;
-      }
-    }
+    bins.emplace_back(lower, std::numeric_limits<double>::infinity(), 0, 0, 0);
+
+    assign_data_to_bins();
   }
-  
+
   /**
    * Create initial pre-bins using equal width strategy
-   * This divides the feature range into equal intervals
+   * This divides the feature range into equal intervals.
+   *
+   * The range is taken over the FINITE values; -Inf/+Inf observations fall in
+   * the first/last bin. Returns false when fewer than two distinct finite
+   * values exist, in which case the caller bins by distinct value instead.
+   *
+   * Former defects: an absolute 1e-10 test on max - min collapsed any feature
+   * measured on a small scale (e.g. values ~1e-11) into ONE bin whose counts
+   * were then added a second time by assign_data_to_bins() (counts summing to
+   * 2n); and with infinite or overflowing ranges (e.g. -1e308 and 1e308) the
+   * width was Inf/NaN, producing NaN cutpoints.
    */
-  void create_prebins() {
-    // Filter out NaN values
-    std::vector<double> clean_feature;
-    for (const auto& val : feature) {
-      if (!std::isnan(val)) {
-        clean_feature.push_back(val);
-      }
+  bool create_prebins() {
+    double min_value = std::numeric_limits<double>::infinity();
+    double max_value = -std::numeric_limits<double>::infinity();
+    for (double v : feature) {
+      if (!std::isfinite(v)) continue;
+      if (v < min_value) min_value = v;
+      if (v > max_value) max_value = v;
     }
-    
-    if (clean_feature.empty()) {
-      Rcpp::stop("No valid non-NaN values in feature.");
-    }
-    
-    double min_value = *std::min_element(clean_feature.begin(), clean_feature.end());
-    double max_value = *std::max_element(clean_feature.begin(), clean_feature.end());
-    
-    // Handle the special case where min and max are very close
-    if (std::fabs(min_value - max_value) < EPSILON) {
-      int total_c = static_cast<int>(clean_feature.size());
-      int pos_c = 0;
-      for (size_t i = 0; i < feature.size(); ++i) {
-        if (!std::isnan(feature[i]) && target[i] == 1) {
-          pos_c++;
-        }
-      }
-      int neg_c = total_c - pos_c;
-      
-      bins.clear();
-      bins.emplace_back(min_value - EPSILON, max_value + EPSILON, total_c, pos_c, neg_c);
-      return;
-    }
-    
+    if (!(max_value > min_value)) return false;
+
     // Determine optimal number of prebins based on unique count and max_n_prebins
-    int n_prebins = std::min({max_n_prebins, unique_count, static_cast<int>(clean_feature.size())});
+    int n_prebins = std::min({max_n_prebins, unique_count, static_cast<int>(feature.size())});
     n_prebins = std::max(n_prebins, min_bins); // Ensure we have at least min_bins
-    
-    // Calculate bin width
-    double range = max_value - min_value;
-    if (range < EPSILON) {
-      range = EPSILON;
+
+    // Interior boundaries min + k * width; formed from half-values when the
+    // range itself overflows.
+    std::vector<double> uppers(static_cast<size_t>(n_prebins));
+    const double range = max_value - min_value;
+    if (std::isfinite(range)) {
+      const double bin_width = range / n_prebins;
+      for (int i = 0; i < n_prebins - 1; ++i)
+        uppers[static_cast<size_t>(i)] = min_value + (i + 1) * bin_width;
+    } else {
+      const double half_width = (max_value * 0.5 - min_value * 0.5) / n_prebins;
+      for (int i = 0; i < n_prebins - 1; ++i)
+        uppers[static_cast<size_t>(i)] = 2.0 * (min_value * 0.5 + (i + 1) * half_width);
     }
-    double bin_width = range / n_prebins;
-    
+    uppers[static_cast<size_t>(n_prebins - 1)] = std::numeric_limits<double>::infinity();
+
     // Create bins with equal width
     bins.clear();
     bins.reserve(static_cast<size_t>(n_prebins));
-    
+    double lower = -std::numeric_limits<double>::infinity();
     for (int i = 0; i < n_prebins; ++i) {
-      double lower = (i == 0) ? 
-      -std::numeric_limits<double>::infinity() : 
-      min_value + i * bin_width;
-      double upper = (i == n_prebins - 1) ? 
-      std::numeric_limits<double>::infinity() : 
-        min_value + (i + 1) * bin_width;
-      
+      double upper = uppers[static_cast<size_t>(i)];
       // Ensure upper >= lower (could happen due to floating point precision)
-      if (upper < lower) {
-        upper = lower;
-      }
-      
+      if (upper < lower) upper = lower;
       bins.emplace_back(lower, upper, 0, 0, 0);
+      lower = upper;
     }
+    return true;
   }
-  
+
   /**
    * Assign data observations to appropriate bins
-   * Uses binary search for efficiency
+   *
+   * Bins are right-closed, (lower, upper], as labelled: a value belongs to the
+   * first bin whose upper bound is >= the value (lower_bound). The former
+   * upper_bound search sent a value lying exactly on a boundary to the bin
+   * ABOVE it, so counts disagreed with the returned cutpoints on integer or
+   * rounded features.
    */
   void assign_data_to_bins() {
-    // Prepare vector of upper bounds for binary search
     std::vector<double> upper_bounds;
     upper_bounds.reserve(bins.size());
     for (const auto& bin : bins) {
       upper_bounds.push_back(bin.upper_bound);
     }
-    
-    // Assign each observation to a bin
+
     for (size_t i = 0; i < feature.size(); ++i) {
-      // Skip NaN values
-      if (std::isnan(feature[i])) continue;
-      
-      double value = feature[i];
-      int target_value = target[i];
-      
-      // Binary search to find the appropriate bin
-      auto it = std::upper_bound(upper_bounds.begin(), upper_bounds.end(), value);
-      size_t bin_idx = (it == upper_bounds.end()) ? 
-      bins.size() - 1 : 
-        std::distance(upper_bounds.begin(), it);
-      
-      // Verify bin boundaries (should always be valid with proper bin creation)
-      if (bin_idx >= bins.size() || value < bins[bin_idx].lower_bound) {
-        // Handle edge cases
-        if (value < bins.front().lower_bound) {
-          bin_idx = 0;
-        } else if (value > bins.back().upper_bound) {
-          bin_idx = bins.size() - 1;
-        } else {
-          // Fallback to linear search if binary search has issues
-          bin_idx = 0;
-          for (size_t b = 0; b < bins.size(); ++b) {
-            if (value >= bins[b].lower_bound && value <= bins[b].upper_bound) {
-              bin_idx = b;
-              break;
-            }
-          }
-        }
-      }
-      
-      // Update bin statistics
+      if (std::isnan(feature[i])) continue;       // NaN values are excluded
+
+      const double value = feature[i];
+      size_t bin_idx = static_cast<size_t>(
+        std::lower_bound(upper_bounds.begin(), upper_bounds.end(), value) -
+        upper_bounds.begin());
+      if (bin_idx >= bins.size()) bin_idx = bins.size() - 1;
+
       bins[bin_idx].count++;
-      if (target_value == 1) {
+      if (target[i] == 1) {
         bins[bin_idx].count_pos++;
       } else {
         bins[bin_idx].count_neg++;
       }
     }
   }
-  
+
   /**
    * Merge bins with frequencies below the specified cutoff
    * Ensures statistical reliability of each bin
@@ -551,6 +504,26 @@ private:
   }
   
   /**
+   * Remove bins that received no observation.
+   *
+   * Equal-width intervals over a skewed or outlying range are often empty,
+   * and merge_rare_bins() stops at min_bins, so empty intervals reached the
+   * output, where their WoE/IV are pure smoothing artefacts. An empty bin is folded into its left neighbour (the first one
+   * into its right neighbour), which leaves every other bin untouched.
+   */
+  void drop_empty_bins() {
+    for (size_t i = 0; i < bins.size() && bins.size() > 1; ) {
+      if (bins[i].count > 0) { ++i; continue; }
+      if (i > 0) {
+        bins[i - 1].upper_bound = bins[i].upper_bound;
+      } else {
+        bins[1].lower_bound = bins[0].lower_bound;
+      }
+      bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i));
+    }
+  }
+
+  /**
    * Calculate Weight of Evidence and Information Value for all bins
    */
   void calculate_woe_iv() {
@@ -582,12 +555,11 @@ public:
     double bin_cutoff_ = 0.05, 
     int max_n_prebins_ = 20,
     bool is_monotonic_ = true,
-    double convergence_threshold_ = 1e-6, 
+    double /* convergence_threshold: unused */ = 1e-6, 
     int max_iterations_ = 1000)
     : feature(feature_), target(target_), 
       min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
-      convergence_threshold(convergence_threshold_), 
       max_iterations(max_iterations_),
       is_monotonic(is_monotonic_),
       converged(true), iterations_run(0), 
@@ -600,10 +572,16 @@ public:
     // Step 1: Validate inputs
     validate_inputs();
     
-    // Step 2: Compute class totals
-    total_pos = std::accumulate(target.begin(), target.end(), 0);
-    total_neg = static_cast<int>(target.size()) - total_pos;
-    
+    // Step 2: Compute class totals over the observations that are binned.
+    // Rows with a NaN feature are excluded from every bin, so counting their
+    // targets here made the WoE denominators disagree with the bin counts.
+    total_pos = 0;
+    total_neg = 0;
+    for (size_t i = 0; i < feature.size(); ++i) {
+      if (std::isnan(feature[i])) continue;
+      if (target[i] == 1) ++total_pos; else ++total_neg;
+    }
+        
     if (total_pos == 0 || total_neg == 0) {
       Rcpp::stop("Target must contain at least one positive and one negative case.");
     }
@@ -617,12 +595,15 @@ public:
       iterations_run = 0;
       return;
     }
-    
-    // Step 4: Create initial equal-width bins
-    create_prebins();
-    
-    // Step 5: Assign data points to bins
-    assign_data_to_bins();
+
+    // Steps 4-5: Create initial equal-width bins and assign the data. With
+    // fewer than two distinct finite values (the rest being -Inf/+Inf) there
+    // is no width to divide, so bin by distinct value instead.
+    if (create_prebins()) {
+      assign_data_to_bins();
+    } else {
+      create_unique_bins();
+    }
     
     // Step 6: Merge rare bins for statistical stability
     merge_rare_bins();
@@ -637,6 +618,9 @@ public:
     
     // Step 9: Ensure max_bins constraint
     ensure_max_bins();
+
+    // Step 9b: No empty bin may reach the output
+    drop_empty_bins();
     
     // Step 10: Final calculation of metrics
     calculate_woe_iv();

@@ -33,10 +33,13 @@ This must match the convention used during binning.}
 missing bin if it exists in \code{obresults}, or \code{NA} otherwise.}
 }
 \value{
-Numeric vector of WoE values with the same length as \code{feature}.
-  Values outside the range of \code{cutpoints} are assigned to the first or
-  last bin. \code{NA} values in \code{feature} are propagated to the output
-  unless explicitly listed in \code{missing_values}.
+A data frame with one row per element of \code{feature} and the
+  columns \code{feature}, \code{bin} (interval label, or \code{"Special"}),
+  \code{woe}, \code{idbin} and \code{ismissing}. Values outside the range of
+  \code{cutpoints} are assigned to the first or last bin. \code{NA}/\code{NaN}
+  values and values listed in \code{missing_values} get \code{ismissing = 1}
+  and the WoE of the missing-value bin when \code{obresults} has one (see
+  Details), or \code{bin = "Special"} and \code{woe = NA} otherwise.
 }
 \description{
 Transforms a numerical feature into its corresponding Weight of Evidence (WoE)
@@ -60,8 +63,16 @@ For \code{k} cutpoints \eqn{c_1 < c_2 < \cdots < c_k}, values are assigned as:
 
 \strong{Handling of Edge Cases}:
 \itemize{
-  \item Values in \code{missing_values} are matched against a bin labeled
-    \code{"NA"} or \code{"Missing"} in \code{obresults$bin} (if available).
+  \item \code{obresults$woe} and \code{obresults$id} may carry
+    \code{length(cutpoints) + 2} entries when the fit has a dedicated
+    missing-value bin (e.g. \code{\link{ob_numerical_udt}} on data with
+    \code{NA}): that bin is the one labelled \code{"NA"} or
+    \code{"Missing"} in \code{obresults$bin} (the last one when no label
+    says so), and missing values are scored with it.
+  \item With no cut points at all (a single bin) every non-missing value
+    gets the WoE of that bin.
+  \item Each value is placed with one binary search over the cut points,
+    \eqn{O(n \log k)} in total.
   \item \code{Inf} and \code{-Inf} are assigned to the last and first bins,
     respectively.
   \item Values exactly equal to cutpoints follow the \code{include_upper_bound}

@@ -19,10 +19,13 @@ ob_numerical_lpdb(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be handled prior to binning.}
+Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+silently, so the bin counts sum to the number of non-missing rows. Infinite
+values are legitimate extremes: they never become cutpoints and are counted
+in the first (\code{-Inf}) or last (\code{+Inf}) bin.}
 
 \item{target}{An integer vector of binary outcomes (0/1) corresponding to
-each observation in \code{feature}. Must have the same length as \code{feature}.}
+each observation in \code{feature}. Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).}
 
 \item{min_bins}{Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 Defaults to 3.}

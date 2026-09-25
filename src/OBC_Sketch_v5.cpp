@@ -22,7 +22,6 @@ using namespace Rcpp;
 using namespace OptimalBinning;
 
 // Global constants
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 static constexpr double LAPLACE_ALPHA = 0.5;
 // [D8] Standardized to "NA", matching every other categorical algorithm
 // (this file and OBC_JEDIMWoE_v5.cpp were the only two using "N/A"). The
@@ -198,7 +197,7 @@ public:
     }
     total_count /= static_cast<int64_t>(depth);
 
-    int threshold = static_cast<int>(total_count * threshold_ratio);
+    int threshold = static_cast<int>(static_cast<double>(total_count) * threshold_ratio);
 
     std::vector<std::string> result;
     result.reserve(candidates.size() / 4);
@@ -226,8 +225,13 @@ public:
 // NOTE: MergeCache removed to fix UBSAN memory corruption issues
 class OBC_Sketch {
 private:
-  std::vector<std::string> feature;
-  std::vector<int> target;
+  // Distinct categories in order of first appearance, with their exact class
+  // counts, and the number of observations.
+  std::vector<std::string> categories;
+  std::vector<int> cat_pos;
+  std::vector<int> cat_neg;
+  std::unordered_map<std::string, size_t> cat_index;
+  size_t n_obs;
   int min_bins;
   int max_bins;
   double bin_cutoff;
@@ -248,11 +252,7 @@ private:
   std::unique_ptr<CountMinSketch> sketch_neg;
 
   void validate_inputs() {
-    if (feature.size() != target.size()) {
-      throw std::invalid_argument(
-          "Feature and target must have the same size.");
-    }
-    if (feature.empty()) {
+    if (n_obs == 0 || categories.empty()) {
       throw std::invalid_argument("Feature and target cannot be empty.");
     }
     if (min_bins < 2) {
@@ -276,24 +276,26 @@ private:
           "sketch_depth must be >= 3 for reasonable accuracy.");
     }
 
-    bool has_zero = false;
-    bool has_one = false;
-
-    for (int val : target) {
-      if (val == 0)
-        has_zero = true;
-      else if (val == 1)
-        has_one = true;
-      else
-        throw std::invalid_argument("Target must contain only 0 and 1.");
-
-      if (has_zero && has_one)
-        break;
+    int all_pos = 0, all_neg = 0;
+    for (size_t c = 0; c < categories.size(); ++c) {
+      all_pos += cat_pos[c];
+      all_neg += cat_neg[c];
     }
-
-    if (!has_zero || !has_one) {
+    if (all_pos == 0 || all_neg == 0) {
       throw std::invalid_argument("Target must contain both 0 and 1.");
     }
+  }
+
+  // Exact class counts of a category. The bin statistics used to be read
+  // back from the Count-Min sketches, whose estimates are inflated by hash
+  // collisions: with a few hundred categories the reported counts no longer
+  // summed to n (and to the numbers of 0s and 1s), and the WoE/IV were
+  // computed from those inflated counts. The sketches are still what decides
+  // which categories are heavy hitters.
+  std::pair<int, int> exact_counts(const std::string &cat) const {
+    auto it = cat_index.find(cat);
+    if (it == cat_index.end()) return {0, 0};
+    return {cat_pos[it->second], cat_neg[it->second]};
   }
 
   void build_sketches() {
@@ -304,25 +306,18 @@ private:
     total_neg = 0;
     total_pos = 0;
 
-    std::unordered_set<std::string> unique_categories;
-
-    for (size_t i = 0; i < feature.size(); ++i) {
-      const auto &cat = feature[i];
-      int is_positive = target[i];
-
-      unique_categories.insert(cat);
-      sketch->update(cat, 1);
-
-      if (is_positive) {
-        sketch_pos->update(cat, 1);
-        total_pos++;
-      } else {
-        sketch_neg->update(cat, 1);
-        total_neg++;
-      }
+    // Count-Min updates are additive, so adding each category's count in one
+    // update leaves exactly the tables the per-observation updates built.
+    for (size_t c = 0; c < categories.size(); ++c) {
+      const std::string &cat = categories[c];
+      sketch->update(cat, cat_pos[c] + cat_neg[c]);
+      sketch_pos->update(cat, cat_pos[c]);
+      sketch_neg->update(cat, cat_neg[c]);
+      total_pos += cat_pos[c];
+      total_neg += cat_neg[c];
     }
 
-    int ncat = static_cast<int>(unique_categories.size());
+    int ncat = static_cast<int>(categories.size());
     if (max_bins > ncat) {
       max_bins = ncat;
     }
@@ -330,8 +325,10 @@ private:
   }
 
   void prebinning() {
+    // Same insertion order (first appearance) as the former per-observation
+    // loop, hence the same iteration order.
     std::unordered_set<std::string> unique_categories_set;
-    for (const auto &cat : feature) {
+    for (const auto &cat : categories) {
       unique_categories_set.insert(cat);
     }
 
@@ -345,10 +342,13 @@ private:
     bins.clear();
     bins.reserve(heavy_hitters.size());
 
+    std::unordered_set<std::string> heavy_set(heavy_hitters.begin(),
+                                              heavy_hitters.end());
     for (const auto &cat : heavy_hitters) {
       CategoricalBin bin;
-      int pos_count = sketch_pos->estimate(cat);
-      int neg_count = sketch_neg->estimate(cat);
+      const auto counts = exact_counts(cat);
+      int pos_count = counts.first;
+      int neg_count = counts.second;
       bin.categories.push_back(cat);
       bin.count_pos += pos_count;
       bin.count_neg += neg_count;
@@ -356,17 +356,50 @@ private:
       bins.push_back(bin);
     }
 
-    CategoricalBin rare_bin;
+    // Non-heavy categories are pooled into one "rare" bin. When the heavy
+    // hitters plus that pool cannot reach min_bins, the largest rare
+    // categories keep their own bins (only as many as needed); the result
+    // used to have fewer than min_bins bins although more were possible.
+    std::vector<std::string> rare_cats;
     for (const auto &cat : unique_categories) {
-      if (std::find(heavy_hitters.begin(), heavy_hitters.end(), cat) ==
-          heavy_hitters.end()) {
-        int pos_count = sketch_pos->estimate(cat);
-        int neg_count = sketch_neg->estimate(cat);
-        rare_bin.categories.push_back(cat);
-        rare_bin.count_pos += pos_count;
-        rare_bin.count_neg += neg_count;
-        rare_bin.update_count();
+      if (heavy_set.count(cat) == 0) rare_cats.push_back(cat);
+    }
+    const size_t n_heavy = bins.size();
+    const size_t n_rare = rare_cats.size();
+    const size_t target = static_cast<size_t>(std::max(min_bins, 0));
+    size_t keep = 0;
+    while (keep < n_rare &&
+           n_heavy + keep + (n_rare > keep ? 1 : 0) < target) {
+      ++keep;
+    }
+    std::unordered_set<std::string> promoted;
+    if (keep > 0) {
+      std::vector<size_t> order(n_rare);
+      for (size_t i = 0; i < n_rare; ++i) order[i] = i;
+      std::stable_sort(order.begin(), order.end(), [&](size_t x, size_t y) {
+        const auto cx = exact_counts(rare_cats[x]);
+        const auto cy = exact_counts(rare_cats[y]);
+        return cx.first + cx.second > cy.first + cy.second;
+      });
+      for (size_t i = 0; i < keep; ++i) promoted.insert(rare_cats[order[i]]);
+    }
+
+    CategoricalBin rare_bin;
+    for (const auto &cat : rare_cats) {
+      const auto counts = exact_counts(cat);
+      if (promoted.count(cat)) {
+        CategoricalBin bin;
+        bin.categories.push_back(cat);
+        bin.count_pos = counts.first;
+        bin.count_neg = counts.second;
+        bin.update_count();
+        bins.push_back(bin);
+        continue;
       }
+      rare_bin.categories.push_back(cat);
+      rare_bin.count_pos += counts.first;
+      rare_bin.count_neg += counts.second;
+      rare_bin.update_count();
     }
 
     if (rare_bin.count > 0) {
@@ -378,36 +411,99 @@ private:
                 return a.count > b.count;
               });
 
-    while (static_cast<int>(bins.size()) > max_n_prebins &&
-           static_cast<int>(bins.size()) > min_bins) {
-      size_t min_idx1 = 0;
-      size_t min_idx2 = 1;
-      double min_divergence = std::numeric_limits<double>::max();
+    if (static_cast<int>(bins.size()) > max_n_prebins &&
+        static_cast<int>(bins.size()) > min_bins) {
+      reduce_to_max_prebins();
+    }
+  }
 
-      for (size_t i = 0; i < bins.size(); ++i) {
-        for (size_t j = i + 1; j < bins.size(); ++j) {
-          int combined_count = bins[i].count + bins[j].count;
-          double size_penalty = 1.0 + std::log(1.0 + combined_count);
+  // Greedy reduction to max_n_prebins: repeatedly merge the pair (i < j)
+  // with the smallest size-penalised divergence, the lexicographically first
+  // pair on ties. The bins are not reordered while merging, so each bin keeps
+  // its best partner to the right (score, then smallest j); after a merge
+  // only the merged bin and the bins whose best partner was involved are
+  // rescanned. This picks exactly the pairs of the former full O(B^2) scan
+  // per merge (O(B^3) overall: minutes with a few thousand heavy hitters) in
+  // about O(B^2) total.
+  double prebin_score(size_t i, size_t j) const {
+    int combined_count = bins[i].count + bins[j].count;
+    double size_penalty = 1.0 + std::log(1.0 + combined_count);
+    return bins[i].divergence_from(bins[j], total_pos, total_neg) * size_penalty;
+  }
 
-          double div = bins[i].divergence_from(bins[j], total_pos, total_neg) *
-                       size_penalty;
+  void reduce_to_max_prebins() {
+    const size_t B = bins.size();
+    const size_t NONE = static_cast<size_t>(-1);
+    const double NO_SCORE = std::numeric_limits<double>::max();
+    std::vector<char> alive(B, 1);
+    std::vector<double> best_score(B, NO_SCORE);
+    std::vector<size_t> best_j(B, NONE);
 
-          if (div < min_divergence) {
-            min_divergence = div;
-            min_idx1 = i;
-            min_idx2 = j;
+    auto rescan = [&](size_t i) {
+      best_score[i] = NO_SCORE;
+      best_j[i] = NONE;
+      for (size_t j = i + 1; j < B; ++j) {
+        if (!alive[j]) continue;
+        const double sc = prebin_score(i, j);
+        if (sc < best_score[i]) {
+          best_score[i] = sc;
+          best_j[i] = j;
+        }
+      }
+    };
+    for (size_t i = 0; i < B; ++i) rescan(i);
+
+    size_t remaining = B;
+    while (static_cast<int>(remaining) > max_n_prebins &&
+           static_cast<int>(remaining) > min_bins) {
+      size_t a = NONE, b = NONE;
+      double best = NO_SCORE;
+      for (size_t i = 0; i < B; ++i) {
+        if (alive[i] && best_j[i] != NONE && best_score[i] < best) {
+          best = best_score[i];
+          a = i;
+          b = best_j[i];
+        }
+      }
+      if (a == NONE) {  // no finite score: the old scan merged the first two
+        size_t k = 0;
+        while (!alive[k]) ++k;
+        a = k++;
+        while (!alive[k]) ++k;
+        b = k;
+      }
+
+      bins[a].merge_with(bins[b]);
+      bins[a].calculate_metrics(total_pos, total_neg);
+      alive[b] = 0;
+      --remaining;
+
+      rescan(a);
+      for (size_t i = 0; i < b; ++i) {
+        if (!alive[i] || i == a) continue;
+        if (best_j[i] == a || best_j[i] == b) {
+          rescan(i);
+        } else if (i < a) {
+          const double sc = prebin_score(i, a);
+          if (sc < best_score[i] || (sc == best_score[i] && a < best_j[i])) {
+            best_score[i] = sc;
+            best_j[i] = a;
           }
         }
       }
-
-      if (!try_merge_bins(min_idx1, min_idx2))
-        break;
     }
+
+    std::vector<CategoricalBin> kept;
+    kept.reserve(remaining);
+    for (size_t i = 0; i < B; ++i) {
+      if (alive[i]) kept.push_back(std::move(bins[i]));
+    }
+    bins = std::move(kept);
   }
 
   void enforce_bin_cutoff() {
     int min_count = static_cast<int>(
-        std::ceil(bin_cutoff * static_cast<double>(feature.size())));
+        std::ceil(bin_cutoff * static_cast<double>(n_obs)));
     int min_count_pos = static_cast<int>(
         std::ceil(bin_cutoff * static_cast<double>(total_pos)));
 
@@ -592,14 +688,6 @@ private:
         use_divergence = !use_divergence;
       }
     }
-
-    if (static_cast<int>(bins.size()) > max_bins) {
-      Rcpp::warning("Could not reduce the number of bins to max_bins without "
-                    "violating min_bins or convergence criteria. "
-                    "Current bins: " +
-                    std::to_string(bins.size()) +
-                    ", max_bins: " + std::to_string(max_bins));
-    }
   }
 
   bool try_merge_bins(size_t index1, size_t index2) {
@@ -634,13 +722,13 @@ private:
     }
 
     double count_ratio =
-        static_cast<double>(total_count) / static_cast<double>(feature.size());
+        static_cast<double>(total_count) / static_cast<double>(n_obs);
     if (count_ratio < 0.95 || count_ratio > 1.05) {
       Rcpp::warning(
           "Possible inconsistency after binning due to sketch approximation. "
           "Total count: " +
           std::to_string(total_count) +
-          ", expected: " + std::to_string(feature.size()) +
+          ", expected: " + std::to_string(n_obs) +
           ". Ratio: " + std::to_string(count_ratio));
     }
 
@@ -663,20 +751,25 @@ private:
   }
 
 public:
-  OBC_Sketch(const std::vector<std::string> &feature_,
-             const Rcpp::IntegerVector &target_, int min_bins_ = 3,
+  OBC_Sketch(std::vector<std::string> categories_, std::vector<int> pos_,
+             std::vector<int> neg_, size_t n_obs_, int min_bins_ = 3,
              int max_bins_ = 5, double bin_cutoff_ = 0.05,
              int max_n_prebins_ = 20, std::string bin_separator_ = "%;%",
              double convergence_threshold_ = 1e-6, int max_iterations_ = 1000,
              size_t sketch_width_ = 2000, size_t sketch_depth_ = 5)
-      : feature(feature_), target(Rcpp::as<std::vector<int>>(target_)),
+      : categories(std::move(categories_)), cat_pos(std::move(pos_)),
+        cat_neg(std::move(neg_)), n_obs(n_obs_),
         min_bins(min_bins_), max_bins(max_bins_), bin_cutoff(bin_cutoff_),
         max_n_prebins(max_n_prebins_), bin_separator(std::move(bin_separator_)),
         convergence_threshold(convergence_threshold_),
         max_iterations(max_iterations_), sketch_width(sketch_width_),
         sketch_depth(sketch_depth_), use_divergence(true), total_neg(0),
         total_pos(0) {
-    bins.reserve(std::min(max_n_prebins_, 1000));
+    cat_index.reserve(categories.size());
+    for (size_t c = 0; c < categories.size(); ++c) {
+      cat_index.emplace(categories[c], c);
+    }
+    bins.reserve(static_cast<size_t>(std::max(0, std::min(max_n_prebins_, 1000))));
   }
 
   Rcpp::List fit() {
@@ -736,6 +829,45 @@ public:
         }
       }
 
+      // max_bins is a hard limit. When max_iterations ran out first (it caps
+      // the merges of optimize_bins()), the result used to be returned with
+      // more than max_bins bins and a warning -- repeated on every outer
+      // iteration. Finish the reduction with the most similar pairs (the
+      // divergence criterion of optimize_bins()); 'converged' stays FALSE.
+      while (static_cast<int>(bins.size()) > max_bins) {
+        size_t best_i = 0, best_j = 1;
+        double best = std::numeric_limits<double>::max();
+        for (size_t i = 0; i < bins.size(); ++i) {
+          for (size_t j = i + 1; j < bins.size(); ++j) {
+            const double div = bins[i].divergence_from(bins[j], total_pos, total_neg);
+            if (div < best) {
+              best = div;
+              best_i = i;
+              best_j = j;
+            }
+          }
+        }
+        if (!try_merge_bins(best_i, best_j)) break;
+      }
+
+      // optimize_bins() may merge two non-adjacent bins, which left the bins
+      // out of WoE order although monotonic WoE is documented. Categorical
+      // bins have no intrinsic order, so listing them by WoE restores it;
+      // only a non-monotonic sequence is reordered.
+      if (bins.size() > 2) {
+        bool inc = true, dec = true;
+        for (size_t i = 1; i < bins.size(); ++i) {
+          if (bins[i].woe < bins[i - 1].woe) inc = false;
+          if (bins[i].woe > bins[i - 1].woe) dec = false;
+        }
+        if (!inc && !dec) {
+          std::stable_sort(bins.begin(), bins.end(),
+                           [](const CategoricalBin &a, const CategoricalBin &b) {
+                             return a.woe < b.woe;
+                           });
+        }
+      }
+
       check_consistency();
 
       const size_t n_bins = bins.size();
@@ -757,7 +889,7 @@ public:
         bin_count_pos[i] = bins[i].count_pos;
         bin_count_neg[i] = bins[i].count_neg;
         event_rates[i] = bins[i].event_rate();
-        ids[i] = static_cast<double>(i + 1);
+        ids[static_cast<R_xlen_t>(i)] = static_cast<double>(i + 1);
       }
 
       double total_iv = 0.0;
@@ -793,26 +925,62 @@ Rcpp::List optimal_binning_categorical_sketch(
     Rcpp::stop("Feature and target must have the same size.");
   }
 
-  std::vector<std::string> feature_vec;
-  feature_vec.reserve(static_cast<size_t>(feature.size()));
-
-  for (R_xlen_t i = 0; i < feature.size(); ++i) {
-    if (feature[i] == NA_STRING) {
-      feature_vec.push_back(MISSING_VALUE);
-    } else {
-      feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
-    }
+  if (sketch_width < 100) {
+    Rcpp::stop("Error in optimal binning with sketch: sketch_width must be >= "
+               "100 for reasonable accuracy.");
+  }
+  if (sketch_depth < 3) {
+    Rcpp::stop("Error in optimal binning with sketch: sketch_depth must be >= "
+               "3 for reasonable accuracy.");
   }
 
-  for (R_xlen_t i = 0; i < target.size(); ++i) {
-    if (IntegerVector::is_na(target[i])) {
+  // Aggregate per distinct category in order of first appearance. Each
+  // distinct CHARSXP is resolved once; the string map merges equal byte
+  // strings stored under different encodings.
+  std::vector<std::string> categories;
+  std::vector<int> pos, neg;
+  std::unordered_map<std::string, size_t> str_index;
+  std::unordered_map<SEXP, size_t> ptr_index;
+  const int *tg = INTEGER(target);
+  const R_xlen_t n = feature.size();
+
+  for (R_xlen_t i = 0; i < n; ++i) {
+    const int t = tg[i];
+    if (t == NA_INTEGER) {
       Rcpp::stop("Target cannot contain missing values.");
     }
+    if (t != 0 && t != 1) {
+      Rcpp::stop("Error in optimal binning with sketch: Target must contain "
+                 "only 0 and 1.");
+    }
+    SEXP cs = STRING_ELT(feature, i);
+    size_t idx;
+    auto pit = ptr_index.find(cs);
+    if (pit != ptr_index.end()) {
+      idx = pit->second;
+    } else {
+      std::string cat = (cs == NA_STRING) ? std::string(MISSING_VALUE)
+                                          : std::string(CHAR(cs));
+      auto ins = str_index.emplace(cat, categories.size());
+      if (ins.second) {
+        categories.push_back(std::move(cat));
+        pos.push_back(0);
+        neg.push_back(0);
+      }
+      idx = ins.first->second;
+      ptr_index.emplace(cs, idx);
+    }
+    if (t == 1)
+      pos[idx]++;
+    else
+      neg[idx]++;
   }
 
-  OBC_Sketch sketch_binner(feature_vec, target, min_bins, max_bins, bin_cutoff,
-                           max_n_prebins, bin_separator, convergence_threshold,
-                           max_iterations, static_cast<size_t>(sketch_width),
+  OBC_Sketch sketch_binner(std::move(categories), std::move(pos),
+                           std::move(neg), static_cast<size_t>(n), min_bins,
+                           max_bins, bin_cutoff, max_n_prebins, bin_separator,
+                           convergence_threshold, max_iterations,
+                           static_cast<size_t>(sketch_width),
                            static_cast<size_t>(sketch_depth));
 
   return sketch_binner.fit();

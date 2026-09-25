@@ -20,7 +20,8 @@ ob_numerical_cm(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable.
-Missing values (NA) are not supported and should be handled before binning.}
+Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+\code{-Inf}/\code{Inf} fall in the first/last bin.}
 
 \item{target}{An integer vector of binary outcomes (0/1) corresponding to
 each observation in \code{feature}. Must have the same length as \code{feature}.}

@@ -59,6 +59,9 @@ observations to bins and maps them to their corresponding WoE values.
 Observations are assigned to bins based on cutpoints stored in the
 \code{obwoe} object. The \code{cut()} function is used with intervals
 \eqn{(a_i, a_{i+1}]} where \eqn{a_0 = -\infty} and \eqn{a_k = +\infty}.
+When the binner reserved a trailing bin labelled \code{"NA"} for missing
+values (as \code{\link{ob_numerical_udt}} does), missing values are
+assigned to that bin; otherwise they get \code{na_woe}.
 
 \strong{Categorical Features}:
 Categories are matched directly to bin labels. Categories not seen

@@ -30,6 +30,8 @@
 #'   Prevents excessive computation in edge cases. Must be > 0. Defaults to 1000.
 #' @param bin_separator Character string used to concatenate category names
 #'   when multiple categories are merged into a single bin. Defaults to "\%;\%".
+#'   A warning is issued when a category name contains it, since such labels
+#'   cannot be split back into categories.
 #' @param monotonic_trend Character string specifying monotonicity constraint
 #'   for Weight of Evidence. Must be one of:
 #'   \describe{
@@ -38,7 +40,8 @@
 #'     \item{\code{"descending"}}{Enforce decreasing WoE across bins}
 #'     \item{\code{"none"}}{No monotonicity constraint}
 #'   }
-#'   Monotonicity constraints are enforced during the DP optimization phase.
+#'   Categories are ordered by event rate (reversed for \code{"descending"})
+#'   before the DP, so every bin partition it considers is monotone.
 #'   Defaults to \code{"auto"}.
 #'
 #' @return A list containing the binning results with the following components:
@@ -81,13 +84,14 @@
 #' \deqn{DP[i][k] = \max_{j<i} \{DP[j][k-1] + IV(j+1, i)\}}
 #'
 #' where \eqn{IV(j+1, i)} is the Information Value of a bin containing categories
-#' from \eqn{j+1} to \eqn{i}. Monotonicity constraints are enforced by restricting
-#' transitions that violate WoE ordering.
+#' from \eqn{j+1} to \eqn{i}. Because the categories are sorted by event rate,
+#' the pooled event rate -- and hence the WoE -- of consecutive bins is
+#' monotone for every partition, so no transition needs to be excluded.
 #'
 #' \strong{Computational Complexity:}
 #' \itemize{
-#'   \item Time: \eqn{O(n^2 \cdot k \cdot m)} where \eqn{n} = categories,
-#'     \eqn{k} = max_bins, \eqn{m} = iterations
+#'   \item Time: \eqn{O(n^2 \cdot k)} where \eqn{n} = pre-bins and
+#'     \eqn{k} = max_bins (a single exact pass)
 #'   \item Space: \eqn{O(n \cdot k)} for DP tables
 #' }
 #'
@@ -239,7 +243,7 @@ ob_categorical_dp <- function(feature, target,
     feature <- as.character(feature)
   }
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Invoke C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_dp",

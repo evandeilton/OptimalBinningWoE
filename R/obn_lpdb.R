@@ -7,9 +7,12 @@
 #' density estimation, then refines the bins to maximize predictive power.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) should be handled prior to binning.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+#'   silently, so the bin counts sum to the number of non-missing rows. Infinite
+#'   values are legitimate extremes: they never become cutpoints and are counted
+#'   in the first (\code{-Inf}) or last (\code{+Inf}) bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
-#'   each observation in \code{feature}. Must have the same length as \code{feature}.
+#'   each observation in \code{feature}. Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 #'   Defaults to 3.
 #' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}
@@ -101,7 +104,7 @@ ob_numerical_lpdb <- function(feature, target, min_bins = 3, max_bins = 5,
   }
 
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Dimension Check
@@ -109,10 +112,14 @@ ob_numerical_lpdb <- function(feature, target, min_bins = 3, max_bins = 5,
     stop("Length of 'feature' and 'target' must match.")
   }
 
-  # NA Check
-  if (any(is.na(feature))) {
-    warning("Feature contains NA values. These will be excluded during density estimation.")
+  # Missing targets are an error, as in obwoe(): silently dropping them (or,
+  # in C++, reading NA_integer_ as a class label) hid a data problem.
+  if (anyNA(target)) {
+    stop("Target contains missing values, which are not permitted.")
   }
+
+  # NA/NaN in the feature are excluded silently by the C++ engine (the
+  # package-wide numerical NA contract); no warning for valid input.
 
   # .Call Interface
   .Call("_OptimalBinningWoE_optimal_binning_numerical_lpdb",

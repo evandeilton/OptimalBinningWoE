@@ -39,13 +39,9 @@ using namespace OptimalBinning;
  * @param precision Number of decimal places
  * @return Formatted string
  */
-std::string format_double(double value, int precision = 6) {
-  if (std::isnan(value)) {
-    return "NA";
-  } else if (std::isinf(value)) {
-    return value > 0 ? "+Inf" : "-Inf";
-  }
-  
+static std::string format_double(double value, int precision = 6) {
+  // Only interior edges are formatted (the outer ones are written as -Inf and
+  // +Inf by prepare_output()), and those are always finite.
   std::ostringstream oss;
   oss << std::fixed << std::setprecision(precision) << value;
   return oss.str();
@@ -86,22 +82,22 @@ public:
    * @param max_iterations Maximum number of iterations allowed
    */
   OBN_MBLP(
-    NumericVector feature, 
-    IntegerVector target,
-    int min_bins, 
-    int max_bins, 
-    double bin_cutoff,
-    int max_n_prebins,
-    int force_monotonic_direction,
-    double convergence_threshold, 
-    int max_iterations)
-    : feature(feature), target(target), 
-      min_bins(min_bins), max_bins(max_bins),
-      bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins),
-      force_monotonic_direction(force_monotonic_direction),
-      convergence_threshold(convergence_threshold), 
-      max_iterations(max_iterations),
-      N(feature.size()),
+    NumericVector feature_,
+    IntegerVector target_,
+    int min_bins_,
+    int max_bins_,
+    double bin_cutoff_,
+    int max_n_prebins_,
+    int force_monotonic_direction_,
+    double convergence_threshold_,
+    int max_iterations_)
+    : feature(feature_), target(target_),
+      min_bins(min_bins_), max_bins(max_bins_),
+      bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
+      force_monotonic_direction(force_monotonic_direction_),
+      convergence_threshold(convergence_threshold_),
+      max_iterations(max_iterations_),
+      N(static_cast<int>(feature_.size())),
       monotonic_direction(0),
       total_iv(0.0),
       converged(false), 
@@ -204,17 +200,9 @@ private:
   double calculate_total_iv();
   
   /**
-   * Check if a vector has monotonic values (increasing or decreasing)
-   * 
-   * @param vec Vector to check
-   * @return True if monotonic, False otherwise
-   */
-  bool check_monotonicity(const std::vector<double>& vec);
-  
-  /**
    * Find the optimal pair of bins to merge that minimizes IV loss
    * 
-   * @return Index of first bin to merge, or -1 if no valid merge found
+   * @return Index of the first bin of the pair to merge
    */
   int find_min_iv_loss_merge();
   
@@ -354,7 +342,10 @@ void OBN_MBLP::prebin() {
   target_clean.reserve(N);
   
   for (int i = 0; i < N; ++i) {
-    if (!NumericVector::is_na(feature[i]) && !NumericVector::is_na(target[i])) {
+    // target is an IntegerVector: its NA is NA_INTEGER, which the old
+    // NumericVector::is_na() test (after promotion to double) never matched,
+    // so rows with a missing target were kept and counted as negatives.
+    if (!NumericVector::is_na(feature[i]) && !IntegerVector::is_na(target[i])) {
       feature_clean.push_back(feature[i]);
       target_clean.push_back(target[i]);
     }
@@ -384,9 +375,8 @@ void OBN_MBLP::prebin() {
     target_sorted[i] = paired[i].second;
   }
   
-  // Step 3: Determine unique values
+  // Step 3: Determine unique values (feature_sorted is already ordered)
   std::vector<double> unique_feature = feature_sorted;
-  std::sort(unique_feature.begin(), unique_feature.end());
   unique_feature.erase(
     std::unique(unique_feature.begin(), unique_feature.end()), 
     unique_feature.end());
@@ -401,8 +391,13 @@ void OBN_MBLP::prebin() {
       bin_edges.push_back(-std::numeric_limits<double>::infinity());
       bin_edges.push_back(std::numeric_limits<double>::infinity());
     } else { // 2 values
-      // Two values - create two bins with split at the first value
+      // Two values - create two bins with split at the first value. A -Inf
+      // lower value would make the cutpoint -Inf; the most negative finite
+      // double separates the two values identically.
       double v1 = unique_feature[0];
+      if (v1 == -std::numeric_limits<double>::infinity()) {
+        v1 = std::numeric_limits<double>::lowest();
+      }
       bin_edges.push_back(-std::numeric_limits<double>::infinity());
       bin_edges.push_back(v1);
       bin_edges.push_back(std::numeric_limits<double>::infinity());
@@ -412,9 +407,27 @@ void OBN_MBLP::prebin() {
     // Determine number of prebins
     int n_prebins = std::min(max_n_prebins, unique_values);
     n_prebins = std::max(n_prebins, min_bins);
-    
-    // Calculate quantiles for bin edges
-    bin_edges = calculate_quantiles(unique_feature, n_prebins);
+
+    if (n_prebins >= unique_values) {
+      // Room for one pre-bin per distinct value: cut at every value but the
+      // largest. The quantile rule below cannot express this -- with
+      // n_prebins >= unique_values its last cut lands on the maximum, which
+      // pooled the two smallest values into one pre-bin and left an empty
+      // (max, +Inf] pre-bin that survived to the output whenever the rare-bin
+      // merge was blocked by min_bins.
+      bin_edges.clear();
+      bin_edges.reserve(unique_feature.size() + 1);
+      bin_edges.push_back(-std::numeric_limits<double>::infinity());
+      for (size_t i = 0; i + 1 < unique_feature.size(); ++i) {
+        if (unique_feature[i] != -std::numeric_limits<double>::infinity()) {
+          bin_edges.push_back(unique_feature[i]);
+        }
+      }
+      bin_edges.push_back(std::numeric_limits<double>::infinity());
+    } else {
+      // Calculate quantiles for bin edges
+      bin_edges = calculate_quantiles(unique_feature, n_prebins);
+    }
   }
   
   // Step 5: Assign observations to bins
@@ -467,24 +480,28 @@ std::vector<double> OBN_MBLP::calculate_quantiles(
   // Calculate quantiles
   for (int i = 1; i < n_quantiles; ++i) {
     double p = static_cast<double>(i) / n_quantiles;
-    size_t idx = static_cast<size_t>(std::ceil(p * (data.size() - 1)));
-    
-    if (idx >= data.size()) {
-      idx = data.size() - 1;
-    }
-    
+    // p < 1, so the index is already in range; min() is a safeguard
+    const size_t idx = std::min(
+      static_cast<size_t>(std::ceil(p * static_cast<double>(data.size() - 1))),
+      data.size() - 1);
+
     quantiles.push_back(data[idx]);
   }
   
   // Last edge is +Infinity
   quantiles.push_back(std::numeric_limits<double>::infinity());
   
-  // Handle possible duplicates
+  // Handle possible duplicates. The quantiles are drawn from sorted distinct
+  // values, so exact comparison is the right test. The former absolute
+  // tolerance (|a - b| > 1e-10) merged genuinely distinct cutpoints of any
+  // feature measured on a small scale -- values in [0, 1e-9] collapsed to a
+  // single bin -- and never matched +/-Inf duplicates by design, only by the
+  // accident that Inf - Inf is NaN.
   std::vector<double> unique_quantiles;
   unique_quantiles.push_back(quantiles[0]);
-  
+
   for (size_t i = 1; i < quantiles.size(); ++i) {
-    if (std::abs(quantiles[i] - unique_quantiles.back()) > EPSILON) {
+    if (quantiles[i] > unique_quantiles.back()) {
       unique_quantiles.push_back(quantiles[i]);
     }
   }
@@ -539,73 +556,69 @@ void OBN_MBLP::merge_rare_bins() {
  */
 void OBN_MBLP::optimize_binning() {
   iterations_run = 0;
-  
+
   // Determine desired monotonicity direction
   monotonic_direction = determine_monotonicity_direction();
-  
+
   // Calculate initial WoE and IV
   calculate_bin_woe();
-  double previous_iv = calculate_total_iv();
-  
-  // Main optimization loop
+
+  // Main optimization loop. Each pass first meets max_bins, then merges one
+  // pair that breaks the monotone trend. It ends when WoE is monotone, or
+  // when no merge is possible any more (min_bins reached), or on the cap.
+  //
+  // The loop used to stop as soon as the total IV moved by less than
+  // convergence_threshold between passes -- tested *before* monotonicity.
+  // A pass that made no merge (every feature whose pre-bins already met
+  // max_bins) changes IV by exactly 0, so the loop returned on its first
+  // pass with a non-monotone WoE and converged = TRUE, contradicting the
+  // guaranteed monotonicity this method documents. Merges only ever reduce
+  // the bin count, so the loop terminates without an IV test.
   while (iterations_run < max_iterations) {
     iterations_run++;
-    
-    // Enforce bin count constraints
+
+    // Enforce bin count constraints (WoE/IV refreshed after every merge)
     enforce_bin_constraints();
-    
+
     // Recalculate WoE and IV
     calculate_bin_woe();
-    
-    // Check for convergence
-    double current_iv = calculate_total_iv();
-    double iv_change = std::abs(current_iv - previous_iv);
-    
-    if (iv_change < convergence_threshold) {
-      converged = true;
-      break;
-    }
-    
-    previous_iv = current_iv;
-    
-    // Enforce monotonicity
+
+    // Enforce monotonicity: merges one violating pair when it can
+    const size_t bins_before = bin_count.size();
     bool is_monotonic = enforce_monotonicity();
-    
-    if (is_monotonic) {
+
+    if (is_monotonic || bin_count.size() == bins_before) {
+      // Monotone, or nothing left to merge without going below min_bins.
       converged = true;
       break;
     }
   }
-  
+
   // Final check
-  if (iterations_run >= max_iterations && !converged) {
+  if (!converged) {
     Rcpp::warning("Convergence not reached within the maximum number of iterations.");
   }
 }
 
 /**
- * Enforce constraints on minimum and maximum number of bins
+ * Enforce the maximum number of bins
+ *
+ * Splitting is not implemented, so a pre-binning with fewer bins than
+ * min_bins (fewer distinct values than min_bins) is returned as is. The
+ * warning this used to raise fired on perfectly valid input -- three distinct
+ * values with min_bins = 4 -- and is gone.
  */
 void OBN_MBLP::enforce_bin_constraints() {
-  // Ensure min_bins
-  while (static_cast<int>(bin_count.size()) < min_bins) {
-    // This case is rare since we start with at least min_bins
-    // Would need to implement bin splitting, which is complex
-    // Instead, we warning the user
-    Rcpp::warning("Number of bins (%d) is less than min_bins (%d). This should not happen.",
-                  bin_count.size(), min_bins);
-    break;
-  }
-  
-  // Ensure max_bins
+  // Ensure max_bins. find_min_iv_loss_merge() always returns a pair while at
+  // least two bins remain, so this is a hard post-condition.
   while (static_cast<int>(bin_count.size()) > max_bins) {
     int merge_idx = find_min_iv_loss_merge();
-    
-    if (merge_idx == -1) {
-      break;
-    }
-    
+
     merge_bins(merge_idx, merge_idx + 1);
+
+    // merge_bins() only pools the counts: without a refresh the next search
+    // scored the merged bin with the IV and WoE of its left half.
+    calculate_bin_woe();
   }
 }
 
@@ -644,11 +657,8 @@ void OBN_MBLP::calculate_event_rates() {
   bin_event_rates.assign(n_bins, 0.0);
   
   for (int i = 0; i < n_bins; ++i) {
-    if (bin_count[i] > 0) {
-      bin_event_rates[i] = static_cast<double>(bin_count_pos[i]) / bin_count[i];
-    } else {
-      bin_event_rates[i] = 0.0;
-    }
+    bin_event_rates[i] = (bin_count[i] > 0)
+      ? static_cast<double>(bin_count_pos[i]) / bin_count[i] : 0.0;
   }
 }
 
@@ -657,36 +667,6 @@ void OBN_MBLP::calculate_event_rates() {
  */
 double OBN_MBLP::calculate_total_iv() {
   return std::accumulate(bin_iv.begin(), bin_iv.end(), 0.0);
-}
-
-/**
- * Check if a vector has monotonic values
- */
-bool OBN_MBLP::check_monotonicity(const std::vector<double>& vec) {
-  if (vec.size() < 2) {
-    return true;
-  }
-  
-  bool increasing = true;
-  bool decreasing = true;
-  
-  for (size_t i = 1; i < vec.size(); ++i) {
-    if (vec[i] < vec[i-1] - EPSILON) {
-      increasing = false;
-    }
-    if (vec[i] > vec[i-1] + EPSILON) {
-      decreasing = false;
-    }
-  }
-  
-  // Check against forced direction
-  if (monotonic_direction == 1 && !increasing) {
-    return false;
-  } else if (monotonic_direction == -1 && !decreasing) {
-    return false;
-  }
-  
-  return increasing || decreasing;
 }
 
 /**
@@ -750,53 +730,41 @@ int OBN_MBLP::determine_monotonicity_direction() {
  * Enforce monotonicity in WoE values
  */
 bool OBN_MBLP::enforce_monotonicity() {
-  if (bin_woe.size() < 2) {
-    return true;
+  // First violation of the chosen direction (tolerance EPSILON). The former
+  // separate check_monotonicity() pass applied the same test, so a sequence
+  // it rejected always had a violation here.
+  size_t violation = 0;
+  for (size_t i = 1; i < bin_woe.size() && violation == 0; ++i) {
+    if ((monotonic_direction == 1 && bin_woe[i] < bin_woe[i-1] - EPSILON) ||
+        (monotonic_direction == -1 && bin_woe[i] > bin_woe[i-1] + EPSILON)) {
+      violation = i;
+    }
   }
-  
-  bool is_monotonic = check_monotonicity(bin_woe);
-  
+
   // Already monotonic
-  if (is_monotonic) {
+  if (violation == 0) {
     return true;
   }
-  
+
   // Cannot enforce monotonicity if we're at min_bins
   if (static_cast<int>(bin_count.size()) <= min_bins) {
     return false;
   }
-  
-  // Find violation and merge bins
-  for (size_t i = 1; i < bin_woe.size(); ++i) {
-    bool violation = false;
-    
-    if (monotonic_direction == 1 && bin_woe[i] < bin_woe[i-1] - EPSILON) {
-      violation = true;
-    } else if (monotonic_direction == -1 && bin_woe[i] > bin_woe[i-1] + EPSILON) {
-      violation = true;
-    }
-    
-    if (violation) {
-      merge_bins(i-1, i);
-      return false;  // Continue optimization process
-    }
-  }
-  
-  // Should not reach here, but return true if no violations found
-  return true;
+
+  merge_bins(static_cast<int>(violation) - 1, static_cast<int>(violation));
+  return false;  // Continue optimization process
 }
 
 /**
  * Find the optimal pair of bins to merge that minimizes IV loss
  */
 int OBN_MBLP::find_min_iv_loss_merge() {
-  if (bin_iv.size() < 2) {
-    return -1;
-  }
-  
+  // Only called with more than max_bins >= 2 bins, so a pair always exists.
   double min_iv_loss = std::numeric_limits<double>::max();
   int merge_idx = -1;
-  
+  double any_min_iv_loss = std::numeric_limits<double>::infinity();
+  int any_merge_idx = -1;
+
   double total_pos = std::accumulate(bin_count_pos.begin(), bin_count_pos.end(), 0.0);
   double total_neg = std::accumulate(bin_count_neg.begin(), bin_count_neg.end(), 0.0);
   
@@ -842,9 +810,18 @@ int OBN_MBLP::find_min_iv_loss_merge() {
       min_iv_loss = iv_loss;
       merge_idx = i;
     }
+
+    // Unconstrained fallback
+    if (iv_loss < any_min_iv_loss) {
+      any_min_iv_loss = iv_loss;
+      any_merge_idx = i;
+    }
   }
-  
-  return merge_idx;
+
+  // When no merge keeps the neighbours in order, fall back to the cheapest
+  // merge overall: returning -1 here left the result with more than max_bins
+  // bins. The monotonicity step that follows repairs any violation.
+  return (merge_idx != -1) ? merge_idx : any_merge_idx;
 }
 
 /**
@@ -855,10 +832,6 @@ void OBN_MBLP::merge_bins(int idx1, int idx2) {
       idx1 >= static_cast<int>(bin_count.size()) || 
       idx2 >= static_cast<int>(bin_count.size())) {
     stop("Invalid merge indices.");
-  }
-  
-  if (idx1 == idx2) {
-    return;
   }
   
   // Ensure idx1 < idx2 for consistency
@@ -878,15 +851,12 @@ void OBN_MBLP::merge_bins(int idx1, int idx2) {
   bin_count_pos.erase(bin_count_pos.begin() + higher_idx);
   bin_count_neg.erase(bin_count_neg.begin() + higher_idx);
   
-  // Remove from WoE and IV vectors if they exist
+  // Remove from WoE and IV vectors if they exist (they do not yet during
+  // the pre-binning rare-bin merge). Event rates are only computed after all
+  // merging, so there is nothing to erase there.
   if (!bin_woe.empty() && !bin_iv.empty()) {
     bin_woe.erase(bin_woe.begin() + higher_idx);
     bin_iv.erase(bin_iv.begin() + higher_idx);
-  }
-  
-  // Remove from event rates if they exist
-  if (!bin_event_rates.empty()) {
-    bin_event_rates.erase(bin_event_rates.begin() + higher_idx);
   }
 }
 
