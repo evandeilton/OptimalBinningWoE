@@ -76,40 +76,53 @@ private:
   }
   
   /**
+   * One bin per distinct value: (-Inf, u0], (u0, u1], ..., (u_{k-2}, +Inf].
+   * A non-finite value (-Inf) is never used as a boundary: it produced a bin
+   * "(-Inf;-Inf]" and a cutpoint vector one element shorter than the bins.
+   *
+   * @param unique_values Distinct values in ascending order
+   */
+  void bins_from_unique_values(const std::vector<double>& unique_values) {
+    bins.clear();
+    double lower = -std::numeric_limits<double>::infinity();
+    for (size_t i = 0; i + 1 < unique_values.size(); ++i) {
+      if (!std::isfinite(unique_values[i])) continue;
+      NumericalBin bin;
+      bin.lower_bound = lower;
+      bin.upper_bound = unique_values[i];
+      bins.push_back(bin);
+      lower = unique_values[i];
+    }
+    NumericalBin last;
+    last.lower_bound = lower;
+    last.upper_bound = std::numeric_limits<double>::infinity();
+    bins.push_back(last);
+  }
+
+  /**
    * Handle the special case where feature has <= 2 unique values
    * This creates bins directly without optimization
    * 
    * @param unique_values Vector of unique values in the feature
    */
   void handle_two_or_fewer_unique_values(const std::vector<double>& unique_values) {
-    bins.clear();
     // Construct bins based on unique values
-    for (size_t i = 0; i < unique_values.size(); ++i) {
-      NumericalBin bin;
-      bin.lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i - 1];
-      bin.upper_bound = (i == unique_values.size() - 1) ? std::numeric_limits<double>::infinity() : unique_values[i];
-      bin.count_pos = 0;
-      bin.count_neg = 0;
-      bin.count = 0;
-      bin.woe = 0.0;
-      bin.iv = 0.0;
-      bins.push_back(bin);
-    }
+    bins_from_unique_values(unique_values);
     
-    // Assign observations to bins
+    // Assign observations to bins: first bin whose upper bound is >= the
+    // value. The former scan widened every bin by an absolute 1e-10, so for a
+    // feature whose two values are closer than that (e.g. 1e-11 and 2e-11)
+    // every observation landed in the first bin and the second stayed empty.
     for (size_t i = 0; i < feature.size(); ++i) {
       double val = feature[i];
+      if (std::isnan(val)) continue;
       int tgt = target[i];
-      
-      // With only 1 or 2 bins, linear scan is efficient enough
-      for (auto &bin : bins) {
-        if (val > bin.lower_bound - EPSILON && val <= bin.upper_bound + EPSILON) {
-          if (tgt == 1) bin.count_pos++;
-          else bin.count_neg++;
-          bin.count++;
-          break;
-        }
-      }
+      size_t idx = 0;
+      while (idx + 1 < bins.size() && val > bins[idx].upper_bound) ++idx;
+      NumericalBin &bin = bins[idx];
+      if (tgt == 1) bin.count_pos++;
+      else bin.count_neg++;
+      bin.count++;
     }
     
     compute_woe_iv();
@@ -119,7 +132,6 @@ private:
   
   /**
    * Compute a quantile from an ALREADY SORTED vector (no copy/sort overhead).
-   * Call quantile_unsorted() if the vector is not yet sorted.
    *
    * @param sorted_data Sorted vector of values
    * @param q Quantile value between 0 and 1
@@ -130,24 +142,17 @@ private:
     if (q <= 0.0) return sorted_data.front();
     if (q >= 1.0) return sorted_data.back();
 
-    double idx_exact = q * (sorted_data.size() - 1);
+    double idx_exact = q * static_cast<double>(sorted_data.size() - 1);
     size_t idx_lower = static_cast<size_t>(std::floor(idx_exact));
     size_t idx_upper = static_cast<size_t>(std::ceil(idx_exact));
 
     if (idx_lower == idx_upper) return sorted_data[idx_lower];
 
-    double weight_upper = idx_exact - idx_lower;
+    double weight_upper = idx_exact - static_cast<double>(idx_lower);
     double weight_lower = 1.0 - weight_upper;
     return weight_lower * sorted_data[idx_lower] + weight_upper * sorted_data[idx_upper];
   }
 
-  /// Convenience wrapper that sorts a copy before computing the quantile.
-  static double quantile_unsorted(const std::vector<double>& data, double q) {
-    if (data.empty()) return 0.0;
-    std::vector<double> temp = data;
-    std::sort(temp.begin(), temp.end());
-    return quantile(temp, q);
-  }
   
   /**
    * Initial binning step using quantiles to create starting bins
@@ -169,9 +174,12 @@ private:
       throw std::invalid_argument("No valid non-NA values in feature.");
     }
     
+    // Sort once; distinct values and quantiles are both read from this copy
+    std::vector<double> sorted_feature = clean_feature;
+    std::sort(sorted_feature.begin(), sorted_feature.end());
+
     // Get unique values
-    std::vector<double> unique_values = clean_feature;
-    std::sort(unique_values.begin(), unique_values.end());
+    std::vector<double> unique_values = sorted_feature;
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
     
     // Special case for few unique values
@@ -182,24 +190,10 @@ private:
     
     // If limited unique values, create a bin for each value
     if (unique_values.size() <= static_cast<size_t>(min_bins)) {
-      bins.clear();
-      for (size_t i = 0; i < unique_values.size(); ++i) {
-        NumericalBin bin;
-        bin.lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity() : unique_values[i - 1];
-        bin.upper_bound = (i == unique_values.size() - 1) ? std::numeric_limits<double>::infinity() : unique_values[i];
-        bin.count_pos = 0;
-        bin.count_neg = 0;
-        bin.count = 0;
-        bin.woe = 0.0;
-        bin.iv = 0.0;
-        bins.push_back(bin);
-      }
+      bins_from_unique_values(unique_values);
     } else {
       // Use quantile-based initial binning for better distribution.
-      // Sort once here so quantile() doesn't re-sort on each of the n_prebins calls.
       int n_prebins = std::min(static_cast<int>(unique_values.size()), max_n_prebins);
-      std::vector<double> sorted_feature = clean_feature;
-      std::sort(sorted_feature.begin(), sorted_feature.end());
 
       std::vector<double> quantiles;
       for (int i = 1; i < n_prebins; ++i) {
@@ -208,16 +202,24 @@ private:
         quantiles.push_back(qval);
       }
       
-      // Remove duplicate quantiles (can happen with skewed distributions)
+      // Remove duplicate quantiles (can happen with skewed distributions).
+      // Non-finite quantiles (from -Inf/+Inf observations) are dropped: as a
+      // boundary they only produce bins such as (-Inf;-Inf] or (+Inf;+Inf].
+      quantiles.erase(std::remove_if(quantiles.begin(), quantiles.end(),
+                                     [](double v) { return !std::isfinite(v); }),
+                      quantiles.end());
       std::sort(quantiles.begin(), quantiles.end());
       quantiles.erase(std::unique(quantiles.begin(), quantiles.end()), quantiles.end());
       
       // Create bins based on quantiles
       bins.clear();
       bins.resize(quantiles.size() + 1);
-      
+
       for (size_t i = 0; i < bins.size(); ++i) {
-        if (i == 0) {
+        if (bins.size() == 1) {
+          bins[i].lower_bound = -std::numeric_limits<double>::infinity();
+          bins[i].upper_bound = std::numeric_limits<double>::infinity();
+        } else if (i == 0) {
           bins[i].lower_bound = -std::numeric_limits<double>::infinity();
           bins[i].upper_bound = quantiles[i];
         } else if (i == bins.size() - 1) {
@@ -334,8 +336,8 @@ private:
     }
     
     // Apply Laplace smoothing to avoid division by zero
-    double pos_denom = total_pos + bins.size() * 0.5;
-    double neg_denom = total_neg + bins.size() * 0.5;
+    double pos_denom = total_pos + static_cast<double>(bins.size()) * 0.5;
+    double neg_denom = total_neg + static_cast<double>(bins.size()) * 0.5;
     
     for (auto &bin : bins) {
       // Calculate proportions with smoothing
@@ -351,7 +353,7 @@ private:
   /**
    * Enforce monotonicity in Weight of Evidence across bins
    */
-  void enforce_monotonicity() {
+  void enforce_monotonicity(bool complete = false) {
     if (bins.size() <= 1) return;
     
     // Check if already monotonic (either increasing or decreasing)
@@ -409,7 +411,7 @@ private:
     
     // Apply monotonicity in chosen direction
     for (auto it = std::next(bins.begin()); it != bins.end() && bins.size() > static_cast<size_t>(min_bins); ) {
-      if ((prefer_increasing && it->woe < std::prev(it)->woe - EPSILON) || 
+      if ((prefer_increasing && it->woe < std::prev(it)->woe - EPSILON) ||
           (!prefer_increasing && it->woe > std::prev(it)->woe + EPSILON)) {
         // Merge current bin into previous
         std::prev(it)->merge_with(*it);
@@ -418,11 +420,55 @@ private:
         ++it;
       }
     }
-    
+
     // Recompute WoE/IV after merges
     compute_woe_iv();
+
+    // The pass above compares the WoE a merged bin had BEFORE it absorbed its
+    // neighbour, so a single pass can leave violations behind (e.g. WoE
+    // -0.76, -0.26, 0.91, 0.76 was returned for is_monotonic = TRUE). On the
+    // final call (complete = true) keep merging the first violating pair, with
+    // fresh WoE, until the sequence is monotone in the chosen direction or
+    // min_bins is reached. Intermediate calls keep the single pass, so a fit
+    // whose result was already monotone is unchanged.
+    while (complete && bins.size() > static_cast<size_t>(min_bins)) {
+      size_t v = 0;
+      for (size_t i = 1; i < bins.size(); ++i) {
+        if ((prefer_increasing && bins[i].woe < bins[i - 1].woe - EPSILON) ||
+            (!prefer_increasing && bins[i].woe > bins[i - 1].woe + EPSILON)) {
+          v = i;
+          break;
+        }
+      }
+      if (v == 0) break;
+      bins[v - 1].merge_with(bins[v]);
+      bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(v));
+      compute_woe_iv();
+    }
   }
   
+
+  /**
+   * Remove bins that received no observation.
+   *
+   * Interpolated quantiles on heavily tied data can put two boundaries between
+   * the same pair of consecutive values, and min_bins then kept the resulting
+   * empty bin alive to the output, where its WoE/IV are pure smoothing
+   * artefacts. An empty bin is folded into its left neighbour (the first one
+   * into its right neighbour), which leaves every other bin untouched.
+   */
+  void drop_empty_bins() {
+    for (size_t i = 0; i < bins.size() && bins.size() > 1; ) {
+      if (bins[i].count_pos + bins[i].count_neg > 0) { ++i; continue; }
+      if (i > 0) {
+        bins[i - 1].upper_bound = bins[i].upper_bound;
+      } else {
+        bins[1].lower_bound = bins[0].lower_bound;
+      }
+      bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i));
+    }
+  }
+
 public:
   /**
    * Constructor for the OBN_BB algorithm
@@ -460,7 +506,6 @@ public:
         enforce_monotonicity();
       }
       
-      double prev_total_iv = std::numeric_limits<double>::infinity();
       iterations_run = 0;
       
       // Step 4: Branch and Bound optimization
@@ -494,17 +539,9 @@ public:
           enforce_monotonicity();
         }
         
-        // Calculate total IV for convergence check
-        double total_iv = std::accumulate(bins.begin(), bins.end(), 0.0,
-                                          [](double sum, const NumericalBin &bin) { return sum + bin.iv; });
-        
-        // Check convergence based on IV change
-        if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-          converged = true;
-          break;
-        }
-        
-        prev_total_iv = total_iv;
+        // The loop only runs while there are more than max_bins bins, so the
+        // former exit on |delta IV| < convergence_threshold could only ever
+        // return too many bins; merging continues until max_bins is met.
         iterations_run++;
       }
 
@@ -514,6 +551,15 @@ public:
       // in prebinning(), which produces one bin per value and never enters the
       // loop at all.
       converged = converged || (bins.size() <= static_cast<size_t>(max_bins));
+
+      // Guarantee the documented monotonic WoE on the returned bins.
+      if (is_monotonic) {
+        enforce_monotonicity(true);
+      }
+
+      const size_t before = bins.size();
+      drop_empty_bins();
+      if (bins.size() != before) compute_woe_iv();
     }
 
     // Step 5: Prepare output
@@ -603,7 +649,6 @@ Rcpp::List optimal_binning_numerical_bb(
   // Execute algorithm and return results
   return obb.fit();
  } catch (const std::exception& e) {
-  Rcpp::Rcerr << "Error in optimal_binning_numerical_bb: " << e.what() << std::endl;
   Rcpp::stop("Error in optimal binning: " + std::string(e.what()));
  }
 }

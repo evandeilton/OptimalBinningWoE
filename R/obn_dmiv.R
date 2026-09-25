@@ -7,7 +7,8 @@
 #' the Information Value (IV) or other discriminatory statistics.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) are excluded during the pre-binning phase.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+#'   \code{-Inf}/\code{Inf} fall in the first/last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
@@ -22,9 +23,9 @@
 #' @param is_monotonic Logical. If \code{TRUE}, the algorithm enforces a strict
 #'   monotonic relationship (increasing or decreasing) between the bin indices
 #'   and their WoE values. Defaults to \code{TRUE}.
-#' @param convergence_threshold Numeric. The threshold for the change in total
-#'   divergence to determine convergence during the iterative merging process.
-#'   Defaults to 1e-6.
+#' @param convergence_threshold Numeric. Accepted for backward compatibility and not
+#'   used: merging always continues until the number of bins reaches
+#'   \code{max_bins} (or \code{max_iterations} is exhausted). Defaults to 1e-6.
 #' @param max_iterations Integer. Safety limit for the maximum number of merging
 #'   iterations. Defaults to 1000.
 #' @param bin_method Character string specifying the formula for Weight of Evidence calculation:
@@ -36,7 +37,6 @@
 #' @param divergence_method Character string specifying the divergence measure to maximize.
 #'   Available options:
 #'   \itemize{
-#'     \item \code{"iv"}: Information Value (conceptually similar to KL).
 #'     \item \code{"he"}: Hellinger Distance.
 #'     \item \code{"kl"}: Kullback-Leibler Divergence.
 #'     \item \code{"tr"}: Triangular Discrimination.
@@ -54,12 +54,16 @@
 #'     \item \code{id}: Integer vector of bin identifiers.
 #'     \item \code{bin}: Character vector of bin labels in interval notation.
 #'     \item \code{woe}: Numeric vector of Weight of Evidence for each bin.
+#'     \item \code{iv}: Numeric vector of standard Information Value per bin.
 #'     \item \code{divergence}: Numeric vector of the chosen divergence contribution per bin.
 #'     \item \code{count}: Integer vector of total observations per bin.
 #'     \item \code{count_pos}: Integer vector of positive cases.
 #'     \item \code{count_neg}: Integer vector of negative cases.
 #'     \item \code{cutpoints}: Numeric vector of upper boundaries (excluding Inf).
+#'     \item \code{converged}: Logical indicating if the algorithm converged.
+#'     \item \code{iterations}: Integer count of merging iterations performed.
 #'     \item \code{total_divergence}: The sum of the divergence measure across all bins.
+#'     \item \code{total_iv}: The total standard Information Value.
 #'     \item \code{bin_method}: The WoE calculation method used.
 #'     \item \code{divergence_method}: The divergence measure used.
 #'   }

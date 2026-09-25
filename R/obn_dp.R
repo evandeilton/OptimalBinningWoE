@@ -8,8 +8,8 @@
 #' interpretability of logistic regression models in credit scoring.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) should be handled prior to binning, as they are not
-#'   supported by this algorithm.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+#'   \code{-Inf}/\code{Inf} fall in the first/last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
@@ -112,11 +112,6 @@ ob_numerical_dp <- function(feature, target, min_bins = 3, max_bins = 5,
   # Dimension Check
   if (length(feature) != length(target)) {
     stop("Length of 'feature' and 'target' must match.")
-  }
-
-  # NA check (C++ explicitly throws error for feature NAs here)
-  if (any(is.na(feature))) {
-    stop("Feature contains NA values. Impute missing values before using this algorithm.")
   }
 
   # Argument Match

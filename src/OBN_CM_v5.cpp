@@ -5,12 +5,10 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
-#include <memory>
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 
@@ -77,119 +75,6 @@ inline double clamp(double value, double min_val, double max_val) {
 // Local NumericalBin definition removed
 
 // =============================================================================
-// CHI-SQUARE CACHE CLASS (ENHANCED)
-// =============================================================================
-
-/**
- * @brief Efficient cache for chi-square calculations with validation
- *
- * Caches chi-square calculations to avoid redundant computations
- */
-class ChiSquareCache {
-private:
-  std::vector<double> cache;
-  size_t num_bins;
-  static constexpr double INVALID_VALUE = -1.0;
-
-  // Compute the index in the triangular matrix
-  inline size_t compute_index(size_t i, size_t j) const {
-    // Ensure i <= j
-    if (i > j)
-      std::swap(i, j);
-    // Triangular number formula: i*(2n-i-1)/2 + (j-i)
-    return (i * (2 * num_bins - i - 1)) / 2 + (j - i);
-  }
-
-public:
-  /**
-   * @brief Construct a new Chi Square Cache object
-   *
-   * @param n Number of bins
-   */
-  explicit ChiSquareCache(size_t n) : num_bins(n) {
-    // Only store upper triangular part
-    size_t size = (n * (n - 1)) / 2;
-    cache.resize(size, INVALID_VALUE);
-  }
-
-  /**
-   * @brief Resize the cache when the number of bins changes
-   *
-   * @param new_size New number of bins
-   */
-  void resize(size_t new_size) {
-    num_bins = new_size;
-    size_t new_cache_size = (num_bins * (num_bins - 1)) / 2;
-    cache.resize(new_cache_size, INVALID_VALUE);
-  }
-
-  /**
-   * @brief Get cached chi-square value
-   *
-   * @param i First bin index
-   * @param j Second bin index
-   * @return double Chi-square value or INVALID_VALUE if not cached
-   */
-  double get(size_t i, size_t j) const {
-    if (i >= num_bins || j >= num_bins)
-      return INVALID_VALUE;
-    if (i == j)
-      return 0.0; // Same bin has chi-square of 0
-
-    size_t idx = compute_index(i, j);
-    return (idx < cache.size()) ? cache[idx] : INVALID_VALUE;
-  }
-
-  /**
-   * @brief Store chi-square value in cache
-   *
-   * @param i First bin index
-   * @param j Second bin index
-   * @param value Chi-square value (must be >= 0)
-   */
-  void set(size_t i, size_t j, double value) {
-    if (i >= num_bins || j >= num_bins)
-      return;
-    if (i == j)
-      return; // Don't store diagonal elements
-    if (value < 0)
-      return; // Only store valid values
-
-    size_t idx = compute_index(i, j);
-    if (idx < cache.size()) {
-      cache[idx] = value;
-    }
-  }
-
-  /**
-   * @brief Invalidate entries for a specific bin
-   *
-   * @param index NumericalBin index to invalidate
-   */
-  void invalidate_bin(size_t index) {
-    if (index >= num_bins)
-      return;
-
-    // For each potential pair with this index
-    for (size_t i = 0; i < num_bins; ++i) {
-      if (i == index)
-        continue;
-      set(i, index, INVALID_VALUE);
-    }
-  }
-
-  /**
-   * @brief Invalidate all cache entries
-   */
-  void clear() { std::fill(cache.begin(), cache.end(), INVALID_VALUE); }
-
-  /**
-   * @brief Check if value is valid
-   */
-  static bool is_valid(double value) { return value >= 0; }
-};
-
-// =============================================================================
 // OPTIMAL BINNING NUMERICAL CLASS (ENHANCED)
 // =============================================================================
 
@@ -226,32 +111,19 @@ private:
   bool is_increasing;
   std::vector<std::string> warnings;
 
-  // Cache for chi-square calculations
-  std::unique_ptr<ChiSquareCache> chi_cache;
-
-  // Constants
-  // Constant removed (uses shared definition)
-  // Local constant removed (uses shared definition)  // Cap for numerical
-  // stability Local constant removed (uses shared definition) // Cap for
-  // numerical stability
-
-  // Corrected chi-square critical values for DF=1
-  const std::unordered_map<double, double> CHI_SQUARE_CRITICAL_VALUES = {
-      {0.995, 7.879},  // 99.5% confidence
-      {0.99, 6.635},   // 99% confidence
-      {0.975, 5.024},  // 97.5% confidence
-      {0.95, 3.841},   // 95% confidence
-      {0.90, 2.706},   // 90% confidence
-      {0.80, 1.642},   // 80% confidence
-      {0.70, 1.074},   // 70% confidence
-      {0.50, 0.455},   // 50% confidence
-      {0.30, 0.148},   // 30% confidence
-      {0.20, 0.064},   // 20% confidence
-      {0.10, 0.016},   // 10% confidence
-      {0.05, 0.004},   // 5% confidence
-      {0.01, 0.0002},  // 1% confidence
-      {0.001, 0.00001} // 0.1% confidence
-  };
+  // Chi-square statistic of every adjacent pair: chi_adj[i] belongs to
+  // (bins[i], bins[i+1]). Merging bins i and i+1 only changes the two pairs
+  // that touch the merged bin, so merge_bins() drops one entry and recomputes
+  // at most two -- O(B) per merge instead of recomputing every pair.
+  //
+  // This replaces a triangular ChiSquareCache that returned STALE values:
+  // resize() changed the row stride of the triangular index without moving
+  // the stored entries, and invalidate_bin() wrote a negative sentinel through
+  // set(), which ignores negative values, so nothing was ever invalidated.
+  // After a merge, find_min_chi_square_pair() could therefore read the
+  // statistic of a different (or no longer existing) pair and merge the wrong
+  // bins.
+  std::vector<double> chi_adj;
 
   /**
    * @brief Calculate chi-square statistic between two bins with continuity
@@ -265,48 +137,38 @@ private:
    */
   double calculate_chi_square(const NumericalBin &bin1,
                               const NumericalBin &bin2) const {
-    const int total_pos = bin1.count_pos + bin2.count_pos;
-    const int total_neg = bin1.count_neg + bin2.count_neg;
-    const int total = total_pos + total_neg;
+    const int pair_pos = bin1.count_pos + bin2.count_pos;
+    const int pair_neg = bin1.count_neg + bin2.count_neg;
+    const int pair_total = pair_pos + pair_neg;
 
-    if (total == 0 || total_pos == 0 || total_neg == 0) {
+    if (pair_total == 0 || pair_pos == 0 || pair_neg == 0) {
       return 0.0; // No chi-square if any category has zero count
     }
 
-    const double expected_pos1 =
-        static_cast<double>(bin1.count * total_pos) / total;
-    const double expected_neg1 =
-        static_cast<double>(bin1.count * total_neg) / total;
-    const double expected_pos2 =
-        static_cast<double>(bin2.count * total_pos) / total;
-    const double expected_neg2 =
-        static_cast<double>(bin2.count * total_neg) / total;
+    // Expected counts are formed in double: the former int product
+    // count * pair_pos overflowed once it exceeded 2^31 (e.g. two bins of
+    // 50,000 observations each), which is undefined behaviour and produced
+    // garbage statistics for large samples.
+    const double tot = static_cast<double>(pair_total);
+    const double expected_pos1 = static_cast<double>(bin1.count) * pair_pos / tot;
+    const double expected_neg1 = static_cast<double>(bin1.count) * pair_neg / tot;
+    const double expected_pos2 = static_cast<double>(bin2.count) * pair_pos / tot;
+    const double expected_neg2 = static_cast<double>(bin2.count) * pair_neg / tot;
 
-    double chi_square = 0.0;
+    // Yates continuity correction as in R's chisq.test(correct = TRUE): the
+    // absolute deviation is reduced by at most 0.5 and never below zero. The
+    // unclamped form (|O - E| - 0.5)^2 grew again as |O - E| fell below 0.5,
+    // so two bins with IDENTICAL event rates (|O - E| = 0) scored as badly as a
+    // pair one full count apart and were not merged first.
+    auto cell = [](double observed, double expected) {
+      if (!(expected > EPSILON)) return 0.0;
+      double dev = std::fabs(observed - expected) - 0.5;
+      if (dev < 0.0) dev = 0.0;
+      return dev * dev / expected;
+    };
 
-    // Apply continuity correction and avoid division by zero
-    if (expected_pos1 > EPSILON) {
-      chi_square +=
-          std::pow(std::abs(bin1.count_pos - expected_pos1) - 0.5, 2.0) /
-          expected_pos1;
-    }
-    if (expected_neg1 > EPSILON) {
-      chi_square +=
-          std::pow(std::abs(bin1.count_neg - expected_neg1) - 0.5, 2.0) /
-          expected_neg1;
-    }
-    if (expected_pos2 > EPSILON) {
-      chi_square +=
-          std::pow(std::abs(bin2.count_pos - expected_pos2) - 0.5, 2.0) /
-          expected_pos2;
-    }
-    if (expected_neg2 > EPSILON) {
-      chi_square +=
-          std::pow(std::abs(bin2.count_neg - expected_neg2) - 0.5, 2.0) /
-          expected_neg2;
-    }
-
-    return chi_square;
+    return cell(bin1.count_pos, expected_pos1) + cell(bin1.count_neg, expected_neg1) +
+           cell(bin2.count_pos, expected_pos2) + cell(bin2.count_neg, expected_neg2);
   }
 
   /**
@@ -326,13 +188,27 @@ private:
     left.count_pos += right.count_pos;
     left.count_neg += right.count_neg;
 
-    bins.erase(bins.begin() + index + 1);
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(index) + 1);
 
-    // Update chi-square cache
-    if (chi_cache) {
-      chi_cache->resize(bins.size());
-      chi_cache->invalidate_bin(index);
+    // Keep the adjacent-pair statistics in sync (see chi_adj).
+    if (chi_adj.size() == bins.size()) {
+      chi_adj.erase(chi_adj.begin() + static_cast<std::ptrdiff_t>(index));
+      if (index > 0)
+        chi_adj[index - 1] = calculate_chi_square(bins[index - 1], bins[index]);
+      if (index + 1 < bins.size())
+        chi_adj[index] = calculate_chi_square(bins[index], bins[index + 1]);
+    } else {
+      rebuild_chi_adj();
     }
+  }
+
+  /**
+   * @brief Recompute the chi-square statistic of every adjacent pair
+   */
+  void rebuild_chi_adj() {
+    chi_adj.assign(bins.size() > 0 ? bins.size() - 1 : 0, 0.0);
+    for (size_t i = 0; i + 1 < bins.size(); ++i)
+      chi_adj[i] = calculate_chi_square(bins[i], bins[i + 1]);
   }
 
   /**
@@ -393,8 +269,6 @@ private:
       return;
     }
 
-    double total_iv = 0.0;
-
     for (auto &bin : bins) {
       // Calculate proportions with Laplace smoothing
       const double pos_rate =
@@ -407,10 +281,19 @@ private:
       bin.woe = clamp(bin.woe, MIN_WOE, MAX_WOE);
 
       bin.iv = (pos_rate - neg_rate) * bin.woe;
-      total_iv += bin.iv;
     }
+  }
 
-    // Add warnings for low/high IV
+  /**
+   * @brief Record a low/high total-IV note for the FINAL binning
+   *
+   * This used to run inside calculate_woe_iv(), which is called after every
+   * merge, so the returned `warnings` repeated the note once per iteration and
+   * quoted the IV of intermediate binnings rather than of the result.
+   */
+  void add_iv_warning() {
+    double total_iv = 0.0;
+    for (const auto &bin : bins) total_iv += bin.iv;
     if (total_iv < 0.02) {
       warnings.push_back("Low total IV (" + std::to_string(total_iv) +
                          ") - feature may have low predictive power");
@@ -478,6 +361,19 @@ private:
 
   /**
    * @brief Initial binning via equal frequency (quantiles)
+   *
+   * Chunks of records_per_bin sorted observations; a chunk that ends inside a
+   * run of tied values is extended to the end of the run, so no value is ever
+   * split across two bins. Each bin is labelled (previous upper; own upper].
+   *
+   * Two defects of the former loop are fixed here:
+   *  - ties were absorbed into the previous bin only when the next chunk was
+   *    not the last one, so a run of ties reaching into the final chunk was
+   *    split: part of it was counted in a new last bin although the cutpoint
+   *    (equal to the tied value) assigns all of it to the bin below;
+   *  - the lower label bound was the smallest value inside the bin instead of
+   *    the previous cutpoint, leaving gaps between consecutive labels
+   *    ("(-Inf;-0.61]", "(-0.607;-0.33]", ...).
    */
   void initial_binning_equal_frequency() {
     // Sort data points
@@ -498,73 +394,31 @@ private:
     // Calculate number of records per bin - adjusted to respect max_bins
     int initial_bins = std::min(
         max_n_prebins,
-        std::max(max_bins, static_cast<int>(std::sqrt(total_records))));
+        std::max(max_bins, static_cast<int>(std::sqrt(static_cast<double>(total_records)))));
     initial_bins = std::max(2, initial_bins); // Ensure at least 2 bins
 
     const size_t records_per_bin =
-        std::max<size_t>(1, total_records / initial_bins);
+        std::max<size_t>(1, total_records / static_cast<size_t>(initial_bins));
 
     size_t start = 0;
     while (start < total_records) {
-      const size_t end = std::min(start + records_per_bin, total_records);
-
-      // Handle edge case: ensure we don't create bins with identical boundaries
-      if (start > 0 && end < total_records &&
-          std::abs(sorted_data[start].first - sorted_data[start - 1].first) <
-              EPSILON) {
-
-        // Find next distinct value
-        size_t next_distinct = start;
-        while (next_distinct < total_records &&
-               std::abs(sorted_data[next_distinct].first -
-                        sorted_data[start - 1].first) < EPSILON) {
-          next_distinct++;
-        }
-
-        // The records in [start, next_distinct) all carry the same value as the
-        // last record of the previous bin, so they belong to that bin. They used
-        // to be skipped outright: `start` jumped forward and the loop continued
-        // without ever creating a bin for them, silently dropping them from the
-        // result. On tied/discrete features that lost a large share of the data
-        // (26% on integer features, 40% on coarse ones in testing), and the
-        // reported WoE/IV were computed on the surviving subset only.
-        if (!bins.empty() && next_distinct > start) {
-          for (size_t i = start; i < next_distinct; ++i) {
-            if (sorted_data[i].second == 1) {
-              bins.back().count_pos++;
-            } else {
-              bins.back().count_neg++;
-            }
-            bins.back().count++;
-          }
-        }
-
-        if (next_distinct >= total_records)
-          break;
-
-        start = next_distinct;
-        continue;
+      size_t end = std::min(start + records_per_bin, total_records);
+      // Never split a run of tied values across two bins, and never close a
+      // bin on -Inf: its upper bound becomes a cut point, and cut points must
+      // be finite (-Inf observations simply belong to the first bin).
+      while (end < total_records &&
+             (sorted_data[end].first == sorted_data[end - 1].first ||
+              !std::isfinite(sorted_data[end - 1].first))) {
+        ++end;
       }
 
       NumericalBin bin;
-
-      // Set bin boundaries
-      bin.lower_bound = (start == 0) ? -std::numeric_limits<double>::infinity()
-                                     : sorted_data[start].first;
+      bin.lower_bound = bins.empty() ? -std::numeric_limits<double>::infinity()
+                                     : bins.back().upper_bound;
       bin.upper_bound = (end == total_records)
                             ? std::numeric_limits<double>::infinity()
                             : sorted_data[end - 1].first;
-
-      // Ensure distinct bin boundaries
-      if (bins.size() > 0 &&
-          std::abs(bin.lower_bound - bins.back().upper_bound) < EPSILON) {
-        bin.lower_bound = std::nextafter(
-            bin.lower_bound, std::numeric_limits<double>::infinity());
-      }
-
       bin.count = static_cast<int>(end - start);
-
-      // Count positive and negative classes
       for (size_t i = start; i < end; ++i) {
         if (sorted_data[i].second == 1) {
           bin.count_pos++;
@@ -576,26 +430,39 @@ private:
       bins.push_back(std::move(bin));
       start = end;
     }
-
-    // The tie-absorbing branch above can leave the loop through `break`, in
-    // which case the final bin still carries a finite upper bound. The last bin
-    // must always be open-ended so that no value can fall outside every bin.
-    if (!bins.empty()) {
-      bins.back().upper_bound = std::numeric_limits<double>::infinity();
-    }
   }
 
   /**
    * @brief Initial binning via equal width
+   *
+   * Observations are assigned with the same right-closed rule that the emitted
+   * cutpoints imply: a value lies in the first bin whose upper bound is >= it.
+   * The former floor((x - min) / width) placed a value sitting exactly on a
+   * boundary in the bin ABOVE it ([a, b) semantics, contradicting the "(a;b]"
+   * labels and the cutpoints -- common with integer-valued features), and when
+   * max - min overflowed to Inf (e.g. -1e308 and 1e308) it evaluated
+   * Inf / Inf = NaN, cast that to int and indexed the bin vector with it,
+   * crashing R.
    */
   void initial_binning_equal_width() {
-    // Find min and max values
-    auto [min_it, max_it] = std::minmax_element(feature.begin(), feature.end());
-    double min_val = *min_it;
-    double max_val = *max_it;
+    // Range of the FINITE values: -Inf/+Inf observations fall in the
+    // first/last bin and must not make the width infinite.
+    double min_val = std::numeric_limits<double>::infinity();
+    double max_val = -std::numeric_limits<double>::infinity();
+    bool any_nonfinite = false;
+    for (double v : feature) {
+      if (!std::isfinite(v)) { any_nonfinite = true; continue; }
+      if (v < min_val) min_val = v;
+      if (v > max_val) max_val = v;
+    }
+    if (any_nonfinite && !(max_val > min_val)) {
+      // fewer than two distinct finite values: no width to divide
+      initial_binning_unique_values();
+      return;
+    }
 
     // Handle case where all values are the same
-    if (std::abs(max_val - min_val) < EPSILON) {
+    if (!(max_val > min_val)) {
       // Create a single bin
       NumericalBin bin;
       bin.lower_bound = -std::numeric_limits<double>::infinity();
@@ -618,48 +485,59 @@ private:
     // Calculate bin width - adjust to respect max_bins
     int n_prebins = std::min(
         max_n_prebins,
-        std::max(max_bins, static_cast<int>(std::sqrt(feature.size()))));
+        std::max(max_bins, static_cast<int>(std::sqrt(static_cast<double>(feature.size())))));
     n_prebins = std::max(2, n_prebins); // Ensure at least 2 bins
 
-    double bin_width = (max_val - min_val) / n_prebins;
+    // Interior boundaries min + k * width, k = 1 .. n_prebins - 1. When the
+    // range itself overflows, the same boundaries are formed from half-values.
+    std::vector<double> uppers(static_cast<size_t>(n_prebins));
+    const double range = max_val - min_val;
+    if (std::isfinite(range)) {
+      const double bin_width = range / n_prebins;
+      for (int i = 0; i < n_prebins - 1; ++i)
+        uppers[static_cast<size_t>(i)] = min_val + (i + 1) * bin_width;
+    } else {
+      const double half_width = (max_val * 0.5 - min_val * 0.5) / n_prebins;
+      for (int i = 0; i < n_prebins - 1; ++i)
+        uppers[static_cast<size_t>(i)] = 2.0 * (min_val * 0.5 + (i + 1) * half_width);
+    }
+    uppers[static_cast<size_t>(n_prebins - 1)] = std::numeric_limits<double>::infinity();
 
     // Create empty bins
     bins.clear();
-    bins.resize(n_prebins);
-
-    for (int i = 0; i < n_prebins; ++i) {
-      NumericalBin &bin = bins[i];
-      bin.lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity()
-                                 : min_val + i * bin_width;
-      bin.upper_bound = (i == n_prebins - 1)
-                            ? std::numeric_limits<double>::infinity()
-                            : min_val + (i + 1) * bin_width;
+    bins.resize(static_cast<size_t>(n_prebins));
+    for (size_t i = 0; i < bins.size(); ++i) {
+      bins[i].lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity()
+                                     : uppers[i - 1];
+      bins[i].upper_bound = uppers[i];
     }
 
-    // Fill bins with data
+    // Fill bins with data: first bin whose upper bound is >= the value
     for (size_t i = 0; i < feature.size(); ++i) {
-      double val = feature[i];
-      int bin_idx = 0;
-
-      // Skip first bin which covers -inf to min_val
-      if (val >= min_val) {
-        bin_idx = std::min(n_prebins - 1,
-                           static_cast<int>((val - min_val) / bin_width));
-      }
-
-      bins[bin_idx].count++;
+      const size_t bin_idx = static_cast<size_t>(
+          std::lower_bound(uppers.begin(), uppers.end(), feature[i]) - uppers.begin());
+      NumericalBin &b = bins[std::min(bin_idx, bins.size() - 1)];
+      b.count++;
       if (target[i] == 1) {
-        bins[bin_idx].count_pos++;
+        b.count_pos++;
       } else {
-        bins[bin_idx].count_neg++;
+        b.count_neg++;
       }
     }
 
-    // Remove empty bins
+    // Remove empty bins; the range of a removed bin joins the next bin, which
+    // is what the remaining cutpoints imply, so relabel lower bounds to keep
+    // the labels contiguous.
     bins.erase(
         std::remove_if(bins.begin(), bins.end(),
                        [](const NumericalBin &b) { return b.count == 0; }),
         bins.end());
+    for (size_t i = 0; i < bins.size(); ++i) {
+      bins[i].lower_bound = (i == 0) ? -std::numeric_limits<double>::infinity()
+                                     : bins[i - 1].upper_bound;
+    }
+    if (!bins.empty())
+      bins.back().upper_bound = std::numeric_limits<double>::infinity();
   }
 
   /**
@@ -668,49 +546,39 @@ private:
    * Used when the number of unique values is small
    */
   void initial_binning_unique_values() {
-    // Get unique sorted values
+    // Get unique sorted values (exact equality: an absolute tolerance merged
+    // every distinct value of a feature measured on a scale below 1e-10)
     std::vector<double> unique_values(feature);
     std::sort(unique_values.begin(), unique_values.end());
-    unique_values.erase(std::unique(unique_values.begin(), unique_values.end(),
-                                    [](double a, double b) {
-                                      return std::abs(a - b) < EPSILON;
-                                    }),
+    unique_values.erase(std::unique(unique_values.begin(), unique_values.end()),
                         unique_values.end());
 
-    // Create bins based on unique values
+    // Cut points: every distinct value except the largest, finite only (a
+    // -Inf cut would create the bin "(-Inf;-Inf]").
+    std::vector<double> cuts;
+    for (size_t i = 0; i + 1 < unique_values.size(); ++i)
+      if (std::isfinite(unique_values[i])) cuts.push_back(unique_values[i]);
+
     bins.clear();
-    bins.reserve(unique_values.size());
-
-    for (size_t i = 0; i < unique_values.size(); ++i) {
+    bins.reserve(cuts.size() + 1);
+    double lower = -std::numeric_limits<double>::infinity();
+    for (double c : cuts) {
       NumericalBin bin;
-
-      // Set bin boundaries
-      if (i == 0) {
-        bin.lower_bound = -std::numeric_limits<double>::infinity();
-        bin.upper_bound = unique_values[i];
-      } else {
-        bin.lower_bound = unique_values[i - 1];
-        bin.upper_bound = (i == unique_values.size() - 1)
-                              ? std::numeric_limits<double>::infinity()
-                              : unique_values[i];
-      }
-
+      bin.lower_bound = lower;
+      bin.upper_bound = c;
       bins.push_back(std::move(bin));
+      lower = c;
     }
+    NumericalBin last;
+    last.lower_bound = lower;
+    last.upper_bound = std::numeric_limits<double>::infinity();
+    bins.push_back(std::move(last));
 
-    // Fill bins with data
+    // Fill bins with data: first bin whose upper bound (cut) is >= the value
     for (size_t i = 0; i < feature.size(); ++i) {
-      double val = feature[i];
-
-      // Find bin for this value
-      auto it =
-          std::upper_bound(unique_values.begin(), unique_values.end(), val);
-      size_t bin_idx = std::distance(unique_values.begin(), it);
-
-      // Adjust for first bin
-      if (bin_idx == 0)
-        bin_idx = 1;
-      bin_idx--;
+      size_t bin_idx = static_cast<size_t>(
+          std::lower_bound(cuts.begin(), cuts.end(), feature[i]) - cuts.begin());
+      if (bin_idx >= bins.size()) bin_idx = bins.size() - 1;
 
       bins[bin_idx].count++;
       if (target[i] == 1) {
@@ -752,11 +620,8 @@ private:
    * Based on Kerber (1992)
    */
   void chi_merge() {
-    // Initialize chi-square cache
-    chi_cache = std::make_unique<ChiSquareCache>(bins.size());
-
     // Get chi-square critical value based on threshold
-    double critical_value = get_chi_square_critical_value();
+    double critical_value = chi_square_critical_value(chi_merge_threshold);
 
     double prev_total_iv = 0.0;
     converged = false;
@@ -791,9 +656,6 @@ private:
 
       // Merge bins with lowest chi-square
       merge_bins(merge_index);
-
-      // Update chi-square cache
-      update_chi_cache_after_merge(merge_index);
 
       // Handle bins with zero counts
       merge_zero_bins();
@@ -834,9 +696,6 @@ private:
     const std::vector<double> significance_levels = {0.5,  0.1,   0.05,
                                                      0.01, 0.005, 0.001};
 
-    // Initialize chi-square cache
-    chi_cache = std::make_unique<ChiSquareCache>(bins.size());
-
     converged = false;
     iterations_run = 0;
 
@@ -844,7 +703,7 @@ private:
     for (double significance : significance_levels) {
       // Set current significance level
       double current_critical_value =
-          get_chi_square_critical_value_for_significance(significance);
+          chi_square_critical_value(significance);
 
       // Continue merging until no more bins can be merged
       bool continue_merging = true;
@@ -876,9 +735,6 @@ private:
 
         // Merge bins with lowest chi-square
         merge_bins(merge_index);
-
-        // Update chi-square cache
-        update_chi_cache_after_merge(merge_index);
 
         // Handle bins with zero counts
         merge_zero_bins();
@@ -925,31 +781,17 @@ private:
       bin_majority_positive[i] = bins[i].count_pos > bins[i].count_neg;
     }
 
-    // Count inconsistencies over the dataset
-    for (size_t i = 0; i < feature.size(); ++i) {
-      // Find bin for this value using safe approach
-      size_t bin_idx = 0;
-      double val = feature[i];
+    // Count inconsistencies over the dataset. Bin j holds the values in
+    // (upper[j-1], upper[j]] and the last bin everything above, so the bin of
+    // a value is the first j < B-1 with val <= upper[j] (binary search over
+    // the ascending upper bounds), else B-1.
+    std::vector<double> uppers;
+    uppers.reserve(bins.size());
+    for (size_t j = 0; j + 1 < bins.size(); ++j) uppers.push_back(bins[j].upper_bound);
 
-      for (size_t j = 0; j < bins.size(); ++j) {
-        // First bin: check if value <= upper_bound
-        if (j == 0) {
-          if (val <= bins[j].upper_bound) {
-            bin_idx = j;
-            break;
-          }
-        }
-        // Last bin: all remaining values go here
-        else if (j == bins.size() - 1) {
-          bin_idx = j;
-          break;
-        }
-        // Middle bins: check if value is in (lower, upper]
-        else if (val > bins[j - 1].upper_bound && val <= bins[j].upper_bound) {
-          bin_idx = j;
-          break;
-        }
-      }
+    for (size_t i = 0; i < feature.size(); ++i) {
+      const size_t bin_idx = static_cast<size_t>(
+          std::lower_bound(uppers.begin(), uppers.end(), feature[i]) - uppers.begin());
 
       // Check if instance matches majority class
       bool is_positive = target[i] == 1;
@@ -1091,15 +933,11 @@ private:
     double min_chi_square = std::numeric_limits<double>::max();
     size_t min_index = 0;
 
-    for (size_t i = 0; i < bins.size() - 1; ++i) {
-      // Check cache first
-      double chi_square = chi_cache->get(i, i + 1);
+    if (chi_adj.size() + 1 != bins.size())
+      rebuild_chi_adj();
 
-      // Calculate if not cached
-      if (!ChiSquareCache::is_valid(chi_square)) {
-        chi_square = calculate_chi_square(bins[i], bins[i + 1]);
-        chi_cache->set(i, i + 1, chi_square);
-      }
+    for (size_t i = 0; i < chi_adj.size(); ++i) {
+      const double chi_square = chi_adj[i];
 
       if (chi_square < min_chi_square) {
         min_chi_square = chi_square;
@@ -1111,82 +949,21 @@ private:
   }
 
   /**
-   * @brief Update chi-square cache after merging bins
+   * @brief Chi-square critical value (df = 1) for a significance level
    *
-   * @param merge_index Index of the first bin in the merge
-   */
-  void update_chi_cache_after_merge(size_t merge_index) {
-    // Invalidate entries involving merged bins
-    chi_cache->invalidate_bin(merge_index);
-
-    // Recalculate chi-square for adjacent pairs
-    if (merge_index > 0) {
-      double chi =
-          calculate_chi_square(bins[merge_index - 1], bins[merge_index]);
-      chi_cache->set(merge_index - 1, merge_index, chi);
-    }
-
-    if (merge_index + 1 < bins.size()) {
-      double chi =
-          calculate_chi_square(bins[merge_index], bins[merge_index + 1]);
-      chi_cache->set(merge_index, merge_index + 1, chi);
-    }
-  }
-
-  /**
-   * @brief Get chi-square critical value based on threshold
+   * The documented meaning of chi_merge_threshold is a significance level
+   * alpha: a pair is significantly different when its p-value is below alpha,
+   * i.e. when chi2 > qchisq(1 - alpha, 1) (3.841 for alpha = 0.05). The former
+   * lookup table was keyed the other way round and returned qchisq(alpha, 1)
+   * (0.004 for alpha = 0.05; 0.455 -> 0.00001 over the Chi2 schedule, which
+   * therefore relaxed instead of tightening), and silently snapped any other
+   * alpha to the nearest of 14 hard-coded levels.
    *
+   * @param significance Significance level in (0, 1)
    * @return double Critical chi-square value
    */
-  double get_chi_square_critical_value() const {
-    // Find closest significance level in the table
-    auto it = CHI_SQUARE_CRITICAL_VALUES.find(chi_merge_threshold);
-    if (it != CHI_SQUARE_CRITICAL_VALUES.end()) {
-      return it->second;
-    }
-
-    // Find nearest significance level if exact match not found
-    double closest_threshold = 0.05; // Default
-    double min_diff = std::abs(chi_merge_threshold - closest_threshold);
-
-    for (const auto &entry : CHI_SQUARE_CRITICAL_VALUES) {
-      double diff = std::abs(chi_merge_threshold - entry.first);
-      if (diff < min_diff) {
-        min_diff = diff;
-        closest_threshold = entry.first;
-      }
-    }
-
-    return CHI_SQUARE_CRITICAL_VALUES.at(closest_threshold);
-  }
-
-  /**
-   * @brief Get chi-square critical value for a specific significance level
-   *
-   * @param significance Significance level
-   * @return double Critical chi-square value
-   */
-  double
-  get_chi_square_critical_value_for_significance(double significance) const {
-    // Find closest significance level in the table
-    auto it = CHI_SQUARE_CRITICAL_VALUES.find(significance);
-    if (it != CHI_SQUARE_CRITICAL_VALUES.end()) {
-      return it->second;
-    }
-
-    // Find nearest significance level if exact match not found
-    double closest_threshold = 0.05; // Default
-    double min_diff = std::abs(significance - closest_threshold);
-
-    for (const auto &entry : CHI_SQUARE_CRITICAL_VALUES) {
-      double diff = std::abs(significance - entry.first);
-      if (diff < min_diff) {
-        min_diff = diff;
-        closest_threshold = entry.first;
-      }
-    }
-
-    return CHI_SQUARE_CRITICAL_VALUES.at(closest_threshold);
+  static double chi_square_critical_value(double significance) {
+    return R::qchisq(1.0 - significance, 1.0, 1, 0);
   }
 
 public:
@@ -1275,20 +1052,17 @@ public:
           "Target is constant (all 0s or all 1s), making binning impossible.");
     }
 
-    // Validate feature values
+    // Validate feature values (missing values are removed by the caller)
     for (double val : feature) {
-      if (std::isnan(val) || std::isinf(val)) {
-        throw std::invalid_argument("Feature contains NaN or Inf values.");
+      if (std::isnan(val)) {
+        throw std::invalid_argument("Feature contains NaN values.");
       }
     }
 
     // Count unique values
     std::vector<double> unique_values(feature);
     std::sort(unique_values.begin(), unique_values.end());
-    unique_values.erase(std::unique(unique_values.begin(), unique_values.end(),
-                                    [](double a, double b) {
-                                      return std::abs(a - b) < EPSILON;
-                                    }),
+    unique_values.erase(std::unique(unique_values.begin(), unique_values.end()),
                         unique_values.end());
 
     // If we have very few unique values, adjust bin limits
@@ -1308,6 +1082,7 @@ public:
       initial_binning_unique_values();
       merge_zero_bins();
       calculate_woe_iv();
+      add_iv_warning();
       converged = true;
       iterations_run = 0;
       return;
@@ -1323,7 +1098,6 @@ public:
 
     // Immediately enforce max_bins constraint if we have too many initial bins
     if (bins.size() > static_cast<size_t>(max_bins)) {
-      chi_cache = std::make_unique<ChiSquareCache>(bins.size());
       enforce_bin_limits();
     }
 
@@ -1345,6 +1119,7 @@ public:
 
     // Final WoE/IV calculation
     calculate_woe_iv();
+    add_iv_warning();
 
     // Verify bin count constraints
     if (bins.size() > static_cast<size_t>(max_bins)) {
@@ -1504,17 +1279,21 @@ Rcpp::List optimal_binning_numerical_cm(
     }
   }
 
-  // Validate feature values
-  if (Rcpp::is_true(any(is_na(feature)))) {
-    Rcpp::stop("Feature contains NA values.");
+  // Rows with a missing feature (NA/NaN) are excluded from the fit, as in
+  // every other numerical engine; -Inf/+Inf are kept as extreme values and
+  // fall in the first/last bin. Both used to stop with an error.
+  std::vector<double> feature_vec;
+  std::vector<int> target_vec;
+  feature_vec.reserve(static_cast<size_t>(feature.size()));
+  target_vec.reserve(static_cast<size_t>(feature.size()));
+  for (R_xlen_t i = 0; i < feature.size(); ++i) {
+    if (std::isnan(feature[i])) continue;
+    feature_vec.push_back(feature[i]);
+    target_vec.push_back(target[i]);
   }
-  if (Rcpp::is_true(any(!is_finite(feature)))) {
-    Rcpp::stop("Feature contains NaN or Inf values.");
+  if (feature_vec.empty()) {
+    Rcpp::stop("Feature has no non-missing values.");
   }
-
-  // Convert R vectors to C++
-  std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
-  std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
 
   try {
     // Create binner object

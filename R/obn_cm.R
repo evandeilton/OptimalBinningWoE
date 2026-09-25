@@ -7,7 +7,8 @@
 #' and statistical robustness.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) are not supported and should be handled before binning.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+#'   \code{-Inf}/\code{Inf} fall in the first/last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
