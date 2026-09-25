@@ -18,13 +18,55 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
+namespace {
+
+// Category names that contain bin_separator. A bin label is its categories
+// joined with the separator, and obwoe_apply() recovers the categories by
+// splitting the label on it, so such a name is cut into pieces that are not
+// categories (and a piece equal to another category claims it too). The
+// binning itself is unaffected; the caller is warned that its labels are
+// ambiguous. Checked over the distinct categories only, so the cost is O(k).
+inline const std::string& separator_key(const std::string& s) { return s; }
+template <typename T>
+inline const std::string& separator_key(const std::pair<const std::string, T>& kv) {
+  return kv.first;
+}
+
+template <typename Container>
+std::size_t count_separator_hits(const Container& categories, const std::string& sep,
+                                 std::string& example) {
+  std::size_t hits = 0;
+  if (sep.empty()) return 0;
+  for (const auto& item : categories) {
+    const std::string& cat = separator_key(item);
+    if (cat.find(sep) != std::string::npos) {
+      if (hits == 0) example = cat;
+      ++hits;
+    }
+  }
+  return hits;
+}
+
+inline void warn_separator_hits(const std::string& sep, std::size_t hits,
+                                const std::string& example) {
+  if (hits == 0) return;
+  Rcpp::warning("bin_separator \"%s\" occurs inside %d categor%s of the feature "
+                "(e.g. \"%s\"): the bin labels are ambiguous and cannot be split "
+                "back into categories. Choose a bin_separator that does not occur "
+                "in the category names.",
+                sep, hits, (hits == 1 ? "y" : "ies"), example);
+}
+
+} // namespace
+
 
 /**
  * Core class implementing Optimal Binning for categorical variables using various Divergence Measures. (Version 2)
  * Based on the theoretical framework from Zeng (2013) "Metric Divergence Measures and Information Value in Credit Scoring".
  * V2 Corrections:
  *  - Fixed crash potential in similarity matrix update after merging.
- *  - Optimized similarity matrix update after splitting in ensure_min_bins.
+ *  - Nearest-neighbour search replaces the dense divergence matrix (merge
+ *    phase O(k^2) time and O(k) memory instead of O(k^3) and O(k^2)).
  *  - Corrected calculation and reporting of L2/L-infinity divergence.
  *  - Implemented max_n_prebins logic for handling very high cardinality features.
  *  - Added const correctness and improved comments.
@@ -65,8 +107,17 @@ private:
   bool converged = false;            // Initialize here
   int iterations_run = 0;            // Initialize here
   
-  // Similarity/distance matrix (lower is more similar for divergence)
-  std::vector<std::vector<double>> distance_matrix; // Renamed for clarity (stores divergence)
+  // Nearest-neighbour bookkeeping for the agglomerative merge (see
+  // initialize_neighbours()): for each bin i, the smallest divergence to a bin
+  // j > i and that j (-1 when there is none).
+  std::vector<double> nn_div;
+  std::vector<std::ptrdiff_t> nn_idx;
+
+  // divergence_method / bin_method parsed once, so the hot divergence
+  // function does not compare strings on every call.
+  enum class Divergence { HE, KL, KLJ, TR, SC, JS, L1, L2, LN };
+  Divergence div_kind = Divergence::L2;
+  bool use_woe1 = true;
   
   
   // --- Private Methods ---
@@ -111,13 +162,23 @@ private:
     if (valid_divergence_methods.find(divergence_method) == valid_divergence_methods.end()) {
       throw std::invalid_argument("Invalid divergence_method. Must be one of: 'he', 'kl', 'tr', 'klj', 'sc', 'js', 'l1', 'l2', 'ln'.");
     }
+    if (divergence_method == "he") div_kind = Divergence::HE;
+    else if (divergence_method == "kl") div_kind = Divergence::KL;
+    else if (divergence_method == "klj") div_kind = Divergence::KLJ;
+    else if (divergence_method == "tr") div_kind = Divergence::TR;
+    else if (divergence_method == "sc") div_kind = Divergence::SC;
+    else if (divergence_method == "js") div_kind = Divergence::JS;
+    else if (divergence_method == "l1") div_kind = Divergence::L1;
+    else if (divergence_method == "l2") div_kind = Divergence::L2;
+    else div_kind = Divergence::LN;
+    use_woe1 = (bin_method == "woe1");
     
     // Efficiently process data in a single pass to get counts
-    int total_count = target.size();
+    const size_t total_count = target.size();
     std::unordered_map<std::string, std::pair<int, int>> counts;
     counts.reserve(std::min(static_cast<size_t>(total_count), static_cast<size_t>(max_n_prebins) + 100)); // Heuristic reservation
     
-    for (int i = 0; i < total_count; ++i) {
+    for (size_t i = 0; i < total_count; ++i) {
       const int t = target[i];
       if (t != 0 && t != 1) {
         throw std::invalid_argument("Target must be binary (0 or 1).");
@@ -169,18 +230,18 @@ private:
     
     // Pre-binning logic if unique categories exceed max_n_prebins
     if (initial_unique_categories > max_n_prebins) {
-      Rcpp::Rcout << "Info: Number of unique categories (" << initial_unique_categories
-                  << ") exceeds max_n_prebins (" << max_n_prebins
-                  << "). Pre-binning rare categories." << std::endl;
-      
-      bins.reserve(max_n_prebins); // Approximate final size
+      bins.reserve(static_cast<size_t>(max_n_prebins)); // Approximate final size
+      // Pooled bin for the rare categories. It records the categories it
+      // holds, like every other bin. It used to be labelled with the
+      // placeholder "PREBIN_OTHER" instead, so the pooled categories appeared
+      // in no bin label and could not be mapped to a WoE when the binning was
+      // applied (obwoe_apply() matches categories against the labels).
       CategoricalBin other_bin;
-      other_bin.categories.push_back("PREBIN_OTHER"); // Special name
-      
+
       for (const auto& item : total_count_map) {
         const std::string& cat = item.first;
         int cat_total = item.second;
-        
+
         // Keep categories if count is >= min_prebin_count, otherwise add to 'other' bin
         if (cat_total >= min_prebin_count) {
           CategoricalBin bin;
@@ -189,26 +250,26 @@ private:
           bin.count_neg = count_neg_map[cat];
           bins.push_back(std::move(bin));
         } else {
+          other_bin.categories.push_back(cat);
           other_bin.count_pos += count_pos_map[cat];
           other_bin.count_neg += count_neg_map[cat];
-          // We don't store individual rare categories in 'other_bin.categories'
-          // to avoid excessive memory use if many are rare.
         }
       }
       // Add the 'other' bin if it collected any categories
       if (other_bin.total() > 0) {
         bins.push_back(std::move(other_bin));
       }
-      
-      // Check if pre-binning resulted in too few bins
-      if (bins.size() < 2) {
-        // Fallback: ignore pre-binning if it collapses everything
-        Rcpp::Rcout << "Warning: Pre-binning resulted in < 2 bins. Reverting to initial categories." << std::endl;
+
+      // Fallback: ignore pre-binning if it leaves fewer than min_bins bins,
+      // and proceed with the normal initialization below; the merge phase
+      // then groups the rare categories by divergence. The threshold used to
+      // be 2, so a feature with one frequent level and many rare ones was
+      // pre-binned into 2 bins, min_bins was clamped down to 2 to match, and
+      // the fit silently returned fewer bins than min_bins although more
+      // categories were available. (The console messages this block used to
+      // print unconditionally have been removed.)
+      if (bins.size() < static_cast<size_t>(std::max(2, min_bins))) {
         bins.clear();
-        // Proceed with normal initialization below
-      } else {
-        Rcpp::Rcout << "Info: Pre-binning reduced categories from " << initial_unique_categories
-                    << " to " << bins.size() << " initial bins." << std::endl;
       }
     }
     
@@ -225,7 +286,7 @@ private:
     }
     
     // Adjust bin constraints based on the actual number of initial bins
-    int current_bins = bins.size();
+    const int current_bins = static_cast<int>(bins.size());
     min_bins = std::max(2, std::min(min_bins, current_bins));
     max_bins = std::min(max_bins, current_bins);
     if (min_bins > max_bins) {
@@ -273,18 +334,18 @@ private:
     // Apply epsilon smoothing *only when needed* (for log or division)
     double divergence = 0.0;
     
-    if (divergence_method == "he") {
+    if (div_kind == Divergence::HE) {
       // Hellinger Distance (already a metric, >= 0)
       divergence = std::pow(std::sqrt(std::max(dist1_pos, 0.0)) - std::sqrt(std::max(dist2_pos, 0.0)), 2) +
         std::pow(std::sqrt(std::max(dist1_neg, 0.0)) - std::sqrt(std::max(dist2_neg, 0.0)), 2);
-    } else if (divergence_method == "kl") {
+    } else if (div_kind == Divergence::KL) {
       // Symmetrized KL divergence (>= 0)
       double kl12 = (dist1_pos > EPSILON ? dist1_pos * std::log(dist1_pos / std::max(dist2_pos, EPSILON)) : 0.0) +
         (dist1_neg > EPSILON ? dist1_neg * std::log(dist1_neg / std::max(dist2_neg, EPSILON)) : 0.0);
       double kl21 = (dist2_pos > EPSILON ? dist2_pos * std::log(dist2_pos / std::max(dist1_pos, EPSILON)) : 0.0) +
         (dist2_neg > EPSILON ? dist2_neg * std::log(dist2_neg / std::max(dist1_neg, EPSILON)) : 0.0);
       divergence = kl12 + kl21;
-    } else if (divergence_method == "klj") {
+    } else if (div_kind == Divergence::KLJ) {
       // J-Divergence (same as symmetrized KL)
       double kl12 = (dist1_pos > EPSILON ? dist1_pos * std::log(dist1_pos / std::max(dist2_pos, EPSILON)) : 0.0) +
         (dist1_neg > EPSILON ? dist1_neg * std::log(dist1_neg / std::max(dist2_neg, EPSILON)) : 0.0);
@@ -295,13 +356,13 @@ private:
       // If using Zeng's literal formula:
       // divergence = (dist1_pos - dist2_pos) * (dist1_pos > EPSILON && dist2_pos > EPSILON ? std::log(dist1_pos / dist2_pos) : 0.0) +
       //             (dist1_neg - dist2_neg) * (dist1_neg > EPSILON && dist2_neg > EPSILON ? std::log(dist1_neg / dist2_neg) : 0.0);
-    } else if (divergence_method == "tr") {
+    } else if (div_kind == Divergence::TR) {
       // Triangular Discrimination (>= 0)
       divergence = (total1 > EPSILON && total2 > EPSILON) ?
       (std::pow(dist1_pos - dist2_pos, 2) / std::max(dist1_pos + dist2_pos, EPSILON)) +
       (std::pow(dist1_neg - dist2_neg, 2) / std::max(dist1_neg + dist2_neg, EPSILON))
         : std::numeric_limits<double>::max(); // Avoid division by zero if sums are zero
-    } else if (divergence_method == "sc") {
+    } else if (div_kind == Divergence::SC) {
       // Chi-Square Symmetric (>= 0)
       divergence = (dist1_pos > EPSILON && dist2_pos > EPSILON ?
                       std::pow(dist1_pos - dist2_pos, 2) * (dist1_pos + dist2_pos) / (dist1_pos * dist2_pos) : 0.0) +
@@ -313,7 +374,7 @@ private:
         divergence = std::numeric_limits<double>::max();
       }
       
-    } else if (divergence_method == "js") {
+    } else if (div_kind == Divergence::JS) {
       // Jensen-Shannon Divergence (>= 0)
       double m_pos = (dist1_pos + dist2_pos) / 2.0;
       double m_neg = (dist1_neg + dist2_neg) / 2.0;
@@ -322,21 +383,21 @@ private:
       double js2 = (dist2_pos > EPSILON ? dist2_pos * std::log(dist2_pos / std::max(m_pos, EPSILON)) : 0.0) +
         (dist2_neg > EPSILON ? dist2_neg * std::log(dist2_neg / std::max(m_neg, EPSILON)) : 0.0);
       divergence = 0.5 * (js1 + js2);
-    } else if (divergence_method == "l1") {
+    } else if (div_kind == Divergence::L1) {
       // L1 metric (Manhattan) (>= 0) - uses local proportions
       double local_dist1_pos = (total1 > EPSILON) ? static_cast<double>(bin1.count_pos) / total1 : 0.0;
       double local_dist1_neg = (total1 > EPSILON) ? static_cast<double>(bin1.count_neg) / total1 : 0.0;
       double local_dist2_pos = (total2 > EPSILON) ? static_cast<double>(bin2.count_pos) / total2 : 0.0;
       double local_dist2_neg = (total2 > EPSILON) ? static_cast<double>(bin2.count_neg) / total2 : 0.0;
       divergence = std::abs(local_dist1_pos - local_dist2_pos) + std::abs(local_dist1_neg - local_dist2_neg);
-    } else if (divergence_method == "l2") {
+    } else if (div_kind == Divergence::L2) {
       // L2 metric (Euclidean) (>= 0) - uses local proportions
       double local_dist1_pos = (total1 > EPSILON) ? static_cast<double>(bin1.count_pos) / total1 : 0.0;
       double local_dist1_neg = (total1 > EPSILON) ? static_cast<double>(bin1.count_neg) / total1 : 0.0;
       double local_dist2_pos = (total2 > EPSILON) ? static_cast<double>(bin2.count_pos) / total2 : 0.0;
       double local_dist2_neg = (total2 > EPSILON) ? static_cast<double>(bin2.count_neg) / total2 : 0.0;
       divergence = std::sqrt(std::pow(local_dist1_pos - local_dist2_pos, 2) + std::pow(local_dist1_neg - local_dist2_neg, 2));
-    } else if (divergence_method == "ln") {
+    } else if (div_kind == Divergence::LN) {
       // L∞ metric (Maximum) (>= 0) - uses local proportions
       double local_dist1_pos = (total1 > EPSILON) ? static_cast<double>(bin1.count_pos) / total1 : 0.0;
       double local_dist1_neg = (total1 > EPSILON) ? static_cast<double>(bin1.count_neg) / total1 : 0.0;
@@ -351,474 +412,190 @@ private:
   
   
   /**
-   * Initialize distance matrix (storing divergence) for all bin pairs.
+   * Recompute the nearest-neighbour entry of row i: the smallest divergence
+   * between bins[i] and any bins[j] with j > i, and the smallest such j.
+   *
+   * The scan uses a strict "<" from an initial value of double::max, exactly
+   * like the full-matrix search it replaces, so a pair whose divergence is
+   * double::max (the "sc" penalty) or NaN is never selected, and among equal
+   * minima the smallest j wins.
    */
-  void initialize_distance_matrix() {
+  void recompute_neighbour(size_t i) {
     const size_t n = bins.size();
-    if (n == 0) return; // Handle empty bins case
-    
-    distance_matrix.assign(n, std::vector<double>(n, std::numeric_limits<double>::max())); // Initialize with max divergence
-    
-    for (size_t i = 0; i < n; ++i) {
-      distance_matrix[i][i] = std::numeric_limits<double>::max(); // Ignore self-distance for finding minimum merge pair
-      // Compute upper triangular part
-      for (size_t j = i + 1; j < n; ++j) {
-        distance_matrix[i][j] = compute_bin_divergence(bins[i], bins[j]);
-        distance_matrix[j][i] = distance_matrix[i][j]; // Symmetric
+    double best = std::numeric_limits<double>::max();
+    std::ptrdiff_t arg = -1;
+    for (size_t j = i + 1; j < n; ++j) {
+      const double d = compute_bin_divergence(bins[i], bins[j]);
+      if (d < best) {
+        best = d;
+        arg = static_cast<std::ptrdiff_t>(j);
       }
     }
+    nn_div[i] = best;
+    nn_idx[i] = arg;
   }
-  
+
   /**
-   * Update distance matrix after merging bin `removed_index` into `merged_index`.
-   * Handles index shifts correctly.
-   * @param merged_index_orig Original index of the merged bin BEFORE removal.
-   * @param removed_index Original index of the removed bin BEFORE removal.
+   * Build the nearest-neighbour arrays for the current bins.
+   *
+   * This replaces the dense k x k divergence matrix. The matrix cost O(k^2)
+   * memory (a 3,000-level feature allocated 72 MB) and every merge erased a
+   * row and a column from it and rescanned all k^2/2 entries, so the merge
+   * phase was O(k^3): 66 s for 3,000 levels. Per-row minima give the same
+   * global minimum -- the first row holding the smallest row minimum, and in
+   * it the first column, i.e. the same lexicographic tie-break as the
+   * row-major scan of the matrix -- in O(k) per merge plus the rows whose
+   * neighbour was one of the two merged bins.
+   *
+   * Divergences are recomputed from the bin counts rather than cached. They
+   * are a pure function of the two bins' counts and are exactly symmetric in
+   * their arguments (every measure is built from commutative sums, products
+   * and squared differences), so the values, and hence the merge sequence,
+   * are bit-identical to the matrix version.
    */
-  void update_distance_matrix_after_merge(size_t merged_index_orig, size_t removed_index) {
-    const size_t n_old = distance_matrix.size();
-    if (n_old <= 1 || removed_index >= n_old || merged_index_orig >= n_old) {
-      // Should not happen if called correctly
-      return;
+  void initialize_neighbours() {
+    const size_t n = bins.size();
+    nn_div.assign(n, std::numeric_limits<double>::max());
+    nn_idx.assign(n, -1);
+    for (size_t i = 0; i < n; ++i) {
+      recompute_neighbour(i);
     }
-    
-    // --- Step 1: Remove row and column for removed_index ---
-    distance_matrix.erase(distance_matrix.begin() + removed_index);
-    for (auto& row : distance_matrix) {
-      row.erase(row.begin() + removed_index);
-    }
-    
-    // --- Step 2: Determine the *new* index of the merged bin ---
-    // If the merged bin was after the removed one, its index shifted down by 1.
-    size_t merged_index_new = (merged_index_orig > removed_index) ? merged_index_orig - 1 : merged_index_orig;
-    
-    // --- Step 3: Update distances involving the merged bin ---
-    const size_t n_new = bins.size(); // Should equal distance_matrix.size()
-    if (merged_index_new >= n_new) return; // Safety check
-    
-    for (size_t i = 0; i < n_new; ++i) {
-      if (i == merged_index_new) continue;
-      
-      // Recompute distance between the newly merged bin and all others
-      double divergence = compute_bin_divergence(bins[merged_index_new], bins[i]);
-      distance_matrix[merged_index_new][i] = divergence;
-      distance_matrix[i][merged_index_new] = divergence;
-    }
-    // Ensure self-distance remains max
-    distance_matrix[merged_index_new][merged_index_new] = std::numeric_limits<double>::max();
   }
-  
+
   /**
-   * Update distance matrix after splitting bin at `split_index_orig` into two new bins
-   * (assumed to be added at the end of the `bins` vector).
-   * This is the optimized approach for ensure_min_bins.
-   * @param split_index_orig Original index of the bin that was split BEFORE removal.
+   * Pair of bins with the minimum divergence (best merge candidate).
+   * Falls back to {0, 1} when no pair has a divergence below double::max,
+   * which is what the matrix scan returned in that case.
    */
-  void update_distance_matrix_after_split(size_t split_index_orig) {
-    const size_t n_old = distance_matrix.size();
-    if (n_old == 0 || split_index_orig >= n_old) {
-      return; // Should not happen
+  std::pair<double, std::pair<size_t, size_t>> find_most_similar_bins() const {
+    double min_divergence = std::numeric_limits<double>::max();
+    std::pair<size_t, size_t> best_pair = {0, 1};
+    for (size_t i = 0; i < nn_div.size(); ++i) {
+      if (nn_idx[i] >= 0 && nn_div[i] < min_divergence) {
+        min_divergence = nn_div[i];
+        best_pair = {i, static_cast<size_t>(nn_idx[i])};
+      }
     }
-    
-    // --- Step 1: Remove row and column for the split bin ---
-    distance_matrix.erase(distance_matrix.begin() + split_index_orig);
-    for (auto& row : distance_matrix) {
-      row.erase(row.begin() + split_index_orig);
-    }
-    
-    // --- Step 2: Add two new rows and columns for the new bins ---
-    // New bins are assumed to be at indices n_new-2 and n_new-1
-    const size_t n_new = bins.size(); // Size after split (n_old - 1 + 2)
-    if (n_new != n_old + 1) {
-      // Logic error if sizes don't match expected change
-      throw std::logic_error("CategoricalBin size mismatch after split in distance matrix update.");
-    }
-    
-    // Resize existing rows to accommodate new columns, init with max divergence
-    for (auto& row : distance_matrix) {
-      row.resize(n_new, std::numeric_limits<double>::max());
-    }
-    // Add two new rows, init with max divergence
-    distance_matrix.resize(n_new, std::vector<double>(n_new, std::numeric_limits<double>::max()));
-    
-    // --- Step 3: Calculate distances for the two new bins ---
-    size_t new_bin1_idx = n_new - 2;
-    size_t new_bin2_idx = n_new - 1;
-    
-    for(size_t i = 0; i < n_new - 2; ++i) { // Compare against original bins (excluding the split one)
-      // Distance between bin i and new_bin1
-      double div1 = compute_bin_divergence(bins[i], bins[new_bin1_idx]);
-      distance_matrix[i][new_bin1_idx] = div1;
-      distance_matrix[new_bin1_idx][i] = div1;
-      
-      // Distance between bin i and new_bin2
-      double div2 = compute_bin_divergence(bins[i], bins[new_bin2_idx]);
-      distance_matrix[i][new_bin2_idx] = div2;
-      distance_matrix[new_bin2_idx][i] = div2;
-    }
-    
-    // Distance between the two new bins themselves
-    double div_new1_new2 = compute_bin_divergence(bins[new_bin1_idx], bins[new_bin2_idx]);
-    distance_matrix[new_bin1_idx][new_bin2_idx] = div_new1_new2;
-    distance_matrix[new_bin2_idx][new_bin1_idx] = div_new1_new2;
-    
-    // Ensure self-distances remain max
-    distance_matrix[new_bin1_idx][new_bin1_idx] = std::numeric_limits<double>::max();
-    distance_matrix[new_bin2_idx][new_bin2_idx] = std::numeric_limits<double>::max();
+    return {min_divergence, best_pair};
   }
-  
-  
+
+  /**
+   * Update the nearest-neighbour arrays after bins[b] was merged into
+   * bins[a] (a < b) and erased. Called after the erase, with the original
+   * indices.
+   */
+  void update_neighbours_after_merge(size_t a, size_t b) {
+    nn_div.erase(nn_div.begin() + static_cast<std::ptrdiff_t>(b));
+    nn_idx.erase(nn_idx.begin() + static_cast<std::ptrdiff_t>(b));
+    const std::ptrdiff_t pa = static_cast<std::ptrdiff_t>(a);
+    const std::ptrdiff_t pb = static_cast<std::ptrdiff_t>(b);
+    const size_t n = bins.size();
+
+    std::vector<size_t> stale;
+    for (size_t i = 0; i < n; ++i) {
+      if (i == a) continue;
+      std::ptrdiff_t& j = nn_idx[i];
+      if (j == pb || (i < a && j == pa)) {
+        // Its nearest neighbour disappeared or changed: rescan the row.
+        stale.push_back(i);
+      } else if (j > pb) {
+        --j; // index shift caused by the erase
+      }
+    }
+
+    // Rows before `a` whose neighbour is untouched: the merged bin is a new
+    // candidate for them. Same strict-less / smallest-index rule as the scan.
+    std::vector<char> is_stale(n, 0);
+    for (size_t i : stale) is_stale[i] = 1;
+    for (size_t i = 0; i < a; ++i) {
+      if (is_stale[i]) continue;
+      const double d = compute_bin_divergence(bins[i], bins[a]);
+      if (d < nn_div[i] || (nn_idx[i] >= 0 && d == nn_div[i] && pa < nn_idx[i])) {
+        nn_div[i] = d;
+        nn_idx[i] = pa;
+      }
+    }
+
+    recompute_neighbour(a);
+    for (size_t i : stale) recompute_neighbour(i);
+  }
+
+
   /**
    * Perform optimal binning using divergence measures via hierarchical merging.
    */
   void perform_binning() {
     iterations_run = 0;
     converged = false;
-    
+
     if (bins.size() <= static_cast<size_t>(max_bins)) {
-      Rcpp::Rcout << "Info: Initial number of bins (" << bins.size()
-                  << ") is already <= max_bins (" << max_bins
-                  << "). Skipping merging phase." << std::endl;
       // Already at a valid stopping state: the bin-count target is met without
-      // any merging. This early return bypasses the fix-up at the end of the
-      // function, so record convergence here too.
+      // any merging. (This used to print an unconditional "Info: ... Skipping
+      // merging phase." line to the console for every such feature.)
       converged = true;
-      // Still need to check min_bins later
       return;
     }
-    
-    // Initialize distance matrix (stores divergence, lower is better for merging)
-    initialize_distance_matrix();
-    
-    double previous_min_divergence = -1.0; // Initialize
-    
-    // Main optimization loop: Merge until max_bins is reached or convergence
-    while (bins.size() > static_cast<size_t>(max_bins) &&
-           iterations_run < max_iterations &&
-           bins.size() > 1) // Need at least 2 bins to merge
-    {
-      
-      // Find pair of bins with minimum divergence (maximum similarity)
+
+    initialize_neighbours();
+
+    double previous_min_divergence = -1.0;
+    // Set when max_iterations merges have been made while the bin count was
+    // still above max_bins and the divergence tolerance had not been met.
+    bool exhausted = false;
+
+    // Merge until max_bins is reached.
+    //
+    // max_bins is a hard constraint. Merging used to stop at max_iterations,
+    // which returned 2,000 bins for max_bins = 5 on a 3,000-level feature
+    // (every level with >= 5 rows survives pre-binning, so k - max_bins
+    // merges are needed). Each merge removes one bin, so the loop terminates
+    // after at most k - max_bins merges regardless; max_iterations now only
+    // decides the `converged` flag: it is FALSE when the cap was reached
+    // before the tolerance was met, exactly as before.
+    while (bins.size() > static_cast<size_t>(max_bins) && bins.size() > 1) {
+      if (iterations_run == max_iterations && !converged) {
+        exhausted = true;
+      }
+
       std::pair<double, std::pair<size_t, size_t>> best_merge = find_most_similar_bins();
       double current_min_divergence = best_merge.first;
-      size_t bin1_idx = best_merge.second.first; // Index of bin to keep/merge into
-      size_t bin2_idx = best_merge.second.second; // Index of bin to remove
-      
-      // Ensure bin1_idx < bin2_idx for consistent merging/removal if needed, although logic handles it
+      size_t bin1_idx = best_merge.second.first;  // bin to keep / merge into
+      size_t bin2_idx = best_merge.second.second; // bin to remove
       if (bin1_idx > bin2_idx) std::swap(bin1_idx, bin2_idx);
-      
-      // Check convergence based on small absolute change in min divergence
-      if (previous_min_divergence >= 0 && // Check after first iteration
+
+      // Record convergence on a small absolute change in the min divergence.
+      // This used to break out of the loop, which abandoned the descent to
+      // max_bins (299 bins for max_bins = 5 on 300 levels); the merge order
+      // is unchanged, the tolerance only sets the flag.
+      if (previous_min_divergence >= 0 &&
           std::fabs(current_min_divergence - previous_min_divergence) < convergence_threshold) {
-        // The cost of the best available merge has settled. Previously this
-        // also broke out of the loop, which abandoned the descent to max_bins
-        // and returned L - 1 bins for an L-category feature (299 bins for
-        // max_bins = 5 on 300 levels) -- silently, since converged was still
-        // reported as TRUE and nothing downstream re-imposed the cap. With
-        // many similarly sized categories the second-cheapest merge costs
-        // almost exactly what the cheapest one did, so the test fired on the
-        // second iteration, after a single merge.
-        //
-        // max_bins is a documented user constraint, not a target to give up on
-        // once the divergence stops moving, so we record the convergence and
-        // keep merging by the same criterion (the pair with the lowest
-        // divergence, i.e. the most similar pair). The loop still exits on
-        // max_iterations.
-        //
-        // This does not weaken the divergence rule: the merge order is
-        // unchanged and the loop's own goal was always to reach max_bins. The
-        // divergence tolerance was an early exit, not a statistical stopping
-        // rule. min_bins is not violated either: initialize_bins() clamps
-        // min_bins <= max_bins, so merging down to max_bins stays above it.
-        //
-        // Only the first crossing is reported, since the loop now continues
-        // past it.
-        if (!converged) {
-          Rcpp::Rcout << "Info: Converged after " << iterations_run << " iterations (divergence change < threshold)." << std::endl;
-        }
         converged = true;
       }
-      // Check convergence if min divergence becomes excessively large (no good merges left)
-      // Using a threshold relative to initial divergences might be better, but absolute check is simpler
-      // double avg_initial_divergence = ... // compute average non-infinite divergence
-      // if (current_min_divergence > some_factor * avg_initial_divergence) break;
-      // For now, rely on iteration limit or change threshold.
-      
-      
-      // Merge bins with lowest divergence
+
       merge_two_bins(bins[bin1_idx], bins[bin2_idx]);
-      
-      // Remove the second bin (at original index bin2_idx)
-      bins.erase(bins.begin() + bin2_idx);
-      
-      // Update metrics for the merged bin (others unchanged)
-      compute_single_bin_metrics(bins[bin1_idx]); // More efficient than recomputing all
-      
-      // Update distance matrix (handles index shifts)
-      update_distance_matrix_after_merge(bin1_idx, bin2_idx); // Pass original indices
-      
+      bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(bin2_idx));
+      compute_single_bin_metrics(bins[bin1_idx]);
+      update_neighbours_after_merge(bin1_idx, bin2_idx);
+
       previous_min_divergence = current_min_divergence;
       iterations_run++;
     }
-    
-    // Final convergence status
-    if (!converged && iterations_run == max_iterations) {
-      Rcpp::Rcout << "Warning: Reached max_iterations (" << max_iterations << ") without converging." << std::endl;
-    } else if (!converged) {
-      // Stopped because bins.size() <= max_bins
-      converged = true; // Consider reaching max_bins as a form of convergence
-    }
-  }
-  
-  
-  /**
-   * Find the pair of adjacent bins with the minimum divergence (best merge candidate).
-   * @return pair<divergence, pair<index1, index2>>. Returns max divergence if no pair found.
-   */
-  std::pair<double, std::pair<size_t, size_t>> find_most_similar_bins() const {
-    double min_divergence = std::numeric_limits<double>::max();
-    // Seeded with the first mergeable pair rather than {0, 0}. The search below
-    // only replaces this on a strictly smaller divergence, so a matrix whose
-    // every entry is already double::max -- or holds a NaN, against which every
-    // comparison is false -- would otherwise leave the default in place and
-    // hand the caller a pair naming the same bin twice. Merging a bin with
-    // itself and then erasing the duplicate would drop its observations from
-    // the binning. No input reaching that state was found, so this closes a
-    // defensive gap rather than a demonstrated defect; {0, 1} is a valid merge
-    // in every case where this function is called at all.
-    std::pair<size_t, size_t> best_pair = {0, 1};
 
-    const size_t n = bins.size();
-    if (n < 2) {
-      return {min_divergence, {0, 0}}; // Cannot merge if less than 2 bins
-    }
+    // Reaching max_bins is a valid stopping state; only running out of
+    // max_iterations first leaves converged == FALSE.
+    converged = !exhausted;
+  }
 
-    for (size_t i = 0; i < n; ++i) {
-      // Only check upper triangle (j > i)
-      for (size_t j = i + 1; j < n; ++j) {
-        if (distance_matrix[i][j] < min_divergence) {
-          min_divergence = distance_matrix[i][j];
-          best_pair = {i, j};
-        }
-      }
-    }
+  /*
+   * min_bins needs no splitting phase. initialize_bins() clamps
+   * min_bins <= max_bins <= number of initial bins, and perform_binning()
+   * never merges below max_bins, so the final bin count is always within
+   * [min_bins, max_bins]. The former ensure_min_bins() / split_bin_into_two()
+   * / calculate_bin_heterogeneity() / distance-matrix split update were
+   * unreachable for that reason and have been removed.
+   */
 
-    return {min_divergence, best_pair};
-  }
-  
-  
-  /**
-   * Ensure minimum number of bins by splitting the most heterogeneous bins if necessary.
-   */
-  void ensure_min_bins() {
-    if (bins.size() >= static_cast<size_t>(min_bins)) {
-      return;
-    }
-    Rcpp::Rcout << "Info: Current bins (" << bins.size() << ") < min_bins (" << min_bins
-                << "). Attempting to split bins." << std::endl;
-    
-    
-    // Re-initialize distance matrix as splitting changes relationships significantly
-    // While inefficient, it's simpler than complex updates after splits
-    // V2 Optimization: Use incremental update instead.
-    // initialize_distance_matrix(); // Inefficient - Replaced by incremental update below
-    
-    
-    // Continue splitting bins until we reach min_bins or cannot split further
-    while (bins.size() < static_cast<size_t>(min_bins)) {
-      // Find bin with the most categories that can be split
-      int best_split_idx = -1;
-      size_t max_cats = 0;
-      double max_heterogeneity = -1.0; // Use heterogeneity as tie-breaker
-      
-      for(size_t i = 0; i < bins.size(); ++i) {
-        if (bins[i].categories.size() > 1) { // Can only split if > 1 category
-          if (bins[i].categories.size() > max_cats) {
-            max_cats = bins[i].categories.size();
-            max_heterogeneity = calculate_bin_heterogeneity(bins[i]);
-            best_split_idx = static_cast<int>(i);
-          } else if (bins[i].categories.size() == max_cats) {
-            // Tie-breaker: choose bin with higher internal WoE variance
-            double current_heterogeneity = calculate_bin_heterogeneity(bins[i]);
-            if (current_heterogeneity > max_heterogeneity) {
-              max_heterogeneity = current_heterogeneity;
-              best_split_idx = static_cast<int>(i);
-            }
-          }
-        }
-      }
-      
-      
-      // If no bin can be split, we stop
-      if (best_split_idx == -1) {
-        Rcpp::Rcout << "Warning: Cannot split further to reach min_bins. Final number of bins: " << bins.size() << std::endl;
-        break;
-      }
-      
-      // Store the bin to be split and its original index
-      CategoricalBin bin_to_split = std::move(bins[best_split_idx]);
-      size_t original_split_index = static_cast<size_t>(best_split_idx);
-      
-      
-      // --- Perform the split ---
-      // 1. Remove original bin from the vector
-      bins.erase(bins.begin() + original_split_index);
-      
-      // 2. Create and add the two new bins resulting from the split
-      split_bin_into_two(bin_to_split); // Adds new bins to the end of `bins` vector
-      
-      // 3. Update metrics for the two new bins
-      compute_single_bin_metrics(bins[bins.size() - 2]); // New bin 1
-      compute_single_bin_metrics(bins[bins.size() - 1]); // New bin 2
-      
-      // 4. Update distance matrix incrementally (Optimized V2 approach)
-      update_distance_matrix_after_split(original_split_index);
-      
-    }
-  }
-  
-  
-  /**
-   * Calculate heterogeneity (variance of individual category WoEs) within a bin.
-   * @param bin The bin to evaluate.
-   * @return Heterogeneity score (>= 0). Returns 0 if <= 1 category.
-   */
-  double calculate_bin_heterogeneity(const CategoricalBin& bin) const {
-    const size_t n_cats = bin.categories.size();
-    if (n_cats <= 1) return 0.0;
-    
-    std::vector<double> woe_values;
-    woe_values.reserve(n_cats);
-    
-    for (const auto& category : bin.categories) {
-      // Handle potential pre-binned 'other' category - can't calculate WoE for it directly
-      if (category == "PREBIN_OTHER") {
-        // Assign average WoE or skip? Skipping seems safer as its internal composition is unknown.
-        // Alternative: Use the WoE of the 'other' bin itself?
-        // For simplicity, let's use the overall WoE of the bin this category belongs to.
-        woe_values.push_back(bin.woe);
-        continue;
-      }
-      
-      // Calculate WoE for individual categories
-      int pos = count_pos_map.at(category); // Use .at() for safety, though key should exist
-      int neg = count_neg_map.at(category);
-      
-      double cat_woe;
-      if (bin_method == "woe") {
-        double dist_pos = static_cast<double>(pos) / static_cast<double>(total_pos);
-        double dist_neg = static_cast<double>(neg) / static_cast<double>(total_neg);
-        dist_pos = std::max(dist_pos, EPSILON);
-        dist_neg = std::max(dist_neg, EPSILON);
-        cat_woe = std::log(dist_pos / dist_neg);
-      } else { // bin_method == "woe1"
-        double smoothed_pos = std::max(static_cast<double>(pos) + 0.5, EPSILON);
-        double smoothed_neg = std::max(static_cast<double>(neg) + 0.5, EPSILON);
-        cat_woe = std::log(smoothed_pos / smoothed_neg);
-      }
-      woe_values.push_back(cat_woe);
-    }
-    
-    if (woe_values.empty()) return 0.0; // Should only happen if bin only contained "PREBIN_OTHER"
-    
-    // Calculate variance of WoE values
-    double sum_woe = std::accumulate(woe_values.begin(), woe_values.end(), 0.0);
-    double mean_woe = sum_woe / woe_values.size();
-    
-    double variance = 0.0;
-    for (double woe : woe_values) {
-      variance += std::pow(woe - mean_woe, 2);
-    }
-    variance /= woe_values.size(); // Use N, not N-1 for population variance within bin
-    
-    return variance;
-  }
-  
-  
-  /**
-   * Split a given bin into two new bins based on individual category WoE values.
-   * Adds the two new bins to the *end* of the main `bins` vector.
-   * @param bin_to_split The bin object containing categories to be split.
-   */
-  void split_bin_into_two(const CategoricalBin& bin_to_split) {
-    const size_t n_cats = bin_to_split.categories.size();
-    if (n_cats <= 1) return; // Cannot split
-    
-    std::vector<std::pair<std::string, double>> category_woes;
-    category_woes.reserve(n_cats);
-    
-    // Calculate WoE for each category
-    for (const auto& category : bin_to_split.categories) {
-      // Skip the special 'other' category if present, it cannot be split further reliably
-      if (category == "PREBIN_OTHER") continue;
-      
-      int pos = count_pos_map.at(category);
-      int neg = count_neg_map.at(category);
-      double cat_woe;
-      if (bin_method == "woe") {
-        double dist_pos = static_cast<double>(pos) / static_cast<double>(total_pos);
-        double dist_neg = static_cast<double>(neg) / static_cast<double>(total_neg);
-        dist_pos = std::max(dist_pos, EPSILON);
-        dist_neg = std::max(dist_neg, EPSILON);
-        cat_woe = std::log(dist_pos / dist_neg);
-      } else { // "woe1"
-        double smoothed_pos = std::max(static_cast<double>(pos) + 0.5, EPSILON);
-        double smoothed_neg = std::max(static_cast<double>(neg) + 0.5, EPSILON);
-        cat_woe = std::log(smoothed_pos / smoothed_neg);
-      }
-      category_woes.emplace_back(category, cat_woe);
-    }
-    
-    // If after skipping 'other', we have <= 1 category, cannot split
-    if (category_woes.size() <= 1) {
-      // Re-add the original bin (since we removed it before calling split)
-      // Find where it should go based on WoE? Or just add back?
-      // Safest is probably to prevent the split in ensure_min_bins if only 'other' is left.
-      // Let's assume ensure_min_bins logic prevents calling split in this case.
-      Rcpp::warning("Cannot split bin further as it only contains 'PREBIN_OTHER' or one regular category.");
-      // We need to add the original bin back to the list as it was removed!
-      bins.push_back(bin_to_split); // Add it back
-      return;
-    }
-    
-    
-    // Sort categories by WoE
-    std::sort(category_woes.begin(), category_woes.end(),
-              [](const auto& a, const auto& b) { return a.second < b.second; });
-    
-    // Split categories roughly in the middle
-    size_t split_point = category_woes.size() / 2;
-    if (split_point == 0 && category_woes.size() == 1) { // Handle edge case of 1 category after filtering
-      split_point = 1; // Put the single category in the second bin
-    }
-    
-    
-    CategoricalBin bin1, bin2;
-    bin1.categories.reserve(split_point);
-    bin2.categories.reserve(category_woes.size() - split_point);
-    
-    
-    for (size_t i = 0; i < category_woes.size(); ++i) {
-      const std::string& category = category_woes[i].first;
-      int pos = count_pos_map.at(category);
-      int neg = count_neg_map.at(category);
-      
-      if (i < split_point) {
-        bin1.categories.push_back(category);
-        bin1.count_pos += pos;
-        bin1.count_neg += neg;
-      } else {
-        bin2.categories.push_back(category);
-        bin2.count_pos += pos;
-        bin2.count_neg += neg;
-      }
-    }
-    
-    // Add the new bins to the end of the main bins vector
-    bins.push_back(std::move(bin1));
-    bins.push_back(std::move(bin2));
-  }
-  
+
   /**
    * Merge source bin (`src_bin`) into destination bin (`dest_bin`).
    * Modifies `dest_bin` in place.
@@ -850,18 +627,18 @@ private:
    */
   void compute_single_bin_metrics(CategoricalBin& bin) {
     double total_bin = static_cast<double>(bin.total());
-    if (total_bin < EPSILON) {
+    if (total_bin < EPSILON) { // # nocov start (every bin holds at least one observation)
       bin.woe = 0.0;
       bin.divergence = 0.0;
       return;
-    }
+    } // # nocov end
     
     // Distributions relative to overall totals
     double dist_pos = static_cast<double>(bin.count_pos) / static_cast<double>(total_pos);
     double dist_neg = static_cast<double>(bin.count_neg) / static_cast<double>(total_neg);
     
     // --- Calculate WoE ---
-    if (bin_method == "woe") {
+    if (!use_woe1) {
       // Traditional WoE: ln((p_i/P)/(n_i/N))
       bin.woe = std::log(std::max(dist_pos, EPSILON) / std::max(dist_neg, EPSILON));
     } else { // bin_method == "woe1"
@@ -876,37 +653,37 @@ private:
     dist_pos = std::max(dist_pos, 0.0); // Use 0 for divergences not involving log/div
     dist_neg = std::max(dist_neg, 0.0);
     
-    if (divergence_method == "he") {
+    if (div_kind == Divergence::HE) {
       // Hellinger Discrimination Term: 0.5 * (sqrt(p) - sqrt(n))^2
       bin.divergence = 0.5 * std::pow(std::sqrt(dist_pos) - std::sqrt(dist_neg), 2);
-    } else if (divergence_method == "kl") {
+    } else if (div_kind == Divergence::KL) {
       // Kullback-Leibler Term: p * log(p/n)
       bin.divergence = (dist_pos > EPSILON) ? dist_pos * std::log(dist_pos / std::max(dist_neg, EPSILON)) : 0.0;
-    } else if (divergence_method == "tr") {
+    } else if (div_kind == Divergence::TR) {
       // Triangular Discrimination Term: (p-n)^2 / (p+n)
       bin.divergence = (dist_pos + dist_neg > EPSILON) ? std::pow(dist_pos - dist_neg, 2) / (dist_pos + dist_neg) : 0.0;
-    } else if (divergence_method == "klj") {
+    } else if (div_kind == Divergence::KLJ) {
       // J-Divergence Term: (p-n) * log(p/n)
       bin.divergence = (dist_pos - dist_neg) * ((dist_pos > EPSILON && dist_neg > EPSILON) ? std::log(dist_pos / dist_neg) : 0.0);
-    } else if (divergence_method == "sc") {
+    } else if (div_kind == Divergence::SC) {
       // Symmetric Chi-Square Term: (p-n)^2 * (p+n) / (p*n)
       bin.divergence = (dist_pos > EPSILON && dist_neg > EPSILON) ?
       std::pow(dist_pos - dist_neg, 2) * (dist_pos + dist_neg) / (dist_pos * dist_neg) :
       ((dist_pos + dist_neg > EPSILON) ? std::numeric_limits<double>::infinity() : 0.0); // Handle div by zero
       
-    } else if (divergence_method == "js") {
+    } else if (div_kind == Divergence::JS) {
       // Jensen-Shannon Term: 0.5 * [ p*log(2p/(p+n)) + n*log(2n/(p+n)) ]
       double m = (dist_pos + dist_neg) / 2.0;
       double js_p = (dist_pos > EPSILON && m > EPSILON) ? dist_pos * std::log(dist_pos / m) : 0.0;
       double js_n = (dist_neg > EPSILON && m > EPSILON) ? dist_neg * std::log(dist_neg / m) : 0.0;
       bin.divergence = 0.5 * (js_p + js_n);
-    } else if (divergence_method == "l1") {
+    } else if (div_kind == Divergence::L1) {
       // L1 Term: |p-n|
       bin.divergence = std::abs(dist_pos - dist_neg);
-    } else if (divergence_method == "l2") {
+    } else if (div_kind == Divergence::L2) {
       // L2 Intermediate Term: (p-n)^2
       bin.divergence = std::pow(dist_pos - dist_neg, 2);
-    } else if (divergence_method == "ln") {
+    } else if (div_kind == Divergence::LN) {
       // L-infinity Intermediate Term: |p-n|
       bin.divergence = std::abs(dist_pos - dist_neg);
     }
@@ -933,10 +710,6 @@ private:
    */
   std::string join_categories(const std::vector<std::string>& categories) const {
     if (categories.empty()) return "EMPTY_BIN"; // Should not happen
-    // Handle the special pre-binned case
-    if (categories.size() == 1 && categories[0] == "PREBIN_OTHER") {
-      return "PREBIN_OTHER";
-    }
     
     // Sort categories for consistent bin naming (optional, adds overhead)
     // std::vector<std::string> sorted_cats = categories;
@@ -984,11 +757,11 @@ private:
     // from bins[i].woe, because the default bin_method "woe1" is Zeng's log-odds
     // ln((pos+0.5)/(neg+0.5)), which differs from standard WoE by the constant
     // ln(TP/TN); deriving IV from it would give a wrong value.
-    const double iv_pos_denom = static_cast<double>(total_pos) + n_bins * 0.5;
-    const double iv_neg_denom = static_cast<double>(total_neg) + n_bins * 0.5;
+    const double iv_pos_denom = static_cast<double>(total_pos) + static_cast<double>(n_bins) * 0.5;
+    const double iv_neg_denom = static_cast<double>(total_neg) + static_cast<double>(n_bins) * 0.5;
 
     for (size_t i = 0; i < n_bins; ++i) {
-      ids[i] = i + 1; // 1-based index for R
+      ids[i] = static_cast<int>(i) + 1; // 1-based index for R
       bin_names[i] = join_categories(bins[i].categories);
       woe_values[i] = bins[i].woe;
       divergence_values[i] = bins[i].divergence; // Store per-bin value (or intermediate for L2/Ln)
@@ -1009,13 +782,13 @@ private:
 
     // Calculate total divergence correctly based on the method
     double total_divergence = 0.0;
-    if (divergence_method == "l2") {
+    if (div_kind == Divergence::L2) {
       double sum_sq_diff = 0.0;
       for (const auto& bin : bins) {
         sum_sq_diff += bin.divergence; // bin.divergence stores (p-n)^2
       }
       total_divergence = std::sqrt(sum_sq_diff);
-    } else if (divergence_method == "ln") {
+    } else if (div_kind == Divergence::LN) {
       double max_abs_diff = 0.0;
       for (const auto& bin : bins) {
         max_abs_diff = std::max(max_abs_diff, bin.divergence); // bin.divergence stores |p-n|
@@ -1087,6 +860,11 @@ public:
   }
   
   
+  /// Number of categories whose name contains bin_separator (and one of them)
+  std::size_t separator_hits(std::string& example) const {
+    return count_separator_hits(total_count_map, bin_separator, example);
+  }
+
   /**
    * Execute the optimal binning algorithm (v2)
    * @return List with binning results
@@ -1102,16 +880,15 @@ public:
       // Step 3: Perform optimal merging based on divergence measure
       perform_binning(); // Merges down to max_bins or convergence
       
-      // Step 4: Ensure minimum number of bins by splitting if necessary
-      ensure_min_bins(); // Splits up to min_bins if possible/needed
+      // (min_bins is guaranteed by construction; see perform_binning().)
       
-      // Step 5: Compute final metrics for all bins
+      // Step 4: Compute final metrics for all bins
       compute_bin_metrics();
       
-      // Step 6: Sort final bins by WoE for better interpretability
+      // Step 5: Sort final bins by WoE for better interpretability
       sort_bins_by_woe();
       
-      // Step 7: Finalize and return results
+      // Step 6: Finalize and return results
       return prepare_output();
       
     } catch (const std::exception& e) {
@@ -1171,7 +948,10 @@ Rcpp::List optimal_binning_categorical_dmiv(
    );
    
    // Execute algorithm and return results
-   return obcat_v2.fit();
+   Rcpp::List res = obcat_v2.fit();
+   std::string example;
+   warn_separator_hits(bin_separator, obcat_v2.separator_hits(example), example);
+   return res;
    
  } catch (const std::exception& e) {
    Rcpp::stop("Error in optimal binning v2: " + std::string(e.what()));

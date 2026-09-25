@@ -6,7 +6,8 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <set>
+#include <stdexcept>
+#include <unordered_set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -19,18 +20,50 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
-// Constants for better readability and precision
-// Local constant removed (uses shared definition)
-constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
-// Bayesian smoothing parameter (prior strength)
-// Local constant removed (uses shared definition)
+namespace {
 
-// Optimized structure for category statistics
-// Local CategoryStats definition removed
+// Category names that contain bin_separator. A bin label is its categories
+// joined with the separator, and obwoe_apply() recovers the categories by
+// splitting the label on it, so such a name is cut into pieces that are not
+// categories (and a piece equal to another category claims it too). The
+// binning itself is unaffected; the caller is warned that its labels are
+// ambiguous. Checked over the distinct categories only, so the cost is O(k).
+inline const std::string& separator_key(const std::string& s) { return s; }
+template <typename T>
+inline const std::string& separator_key(const std::pair<const std::string, T>& kv) {
+  return kv.first;
+}
 
-// Static separator removed%";
+template <typename Container>
+std::size_t count_separator_hits(const Container& categories, const std::string& sep,
+                                 std::string& example) {
+  std::size_t hits = 0;
+  if (sep.empty()) return 0;
+  for (const auto& item : categories) {
+    const std::string& cat = separator_key(item);
+    if (cat.find(sep) != std::string::npos) {
+      if (hits == 0) example = cat;
+      ++hits;
+    }
+  }
+  return hits;
+}
+
+inline void warn_separator_hits(const std::string& sep, std::size_t hits,
+                                const std::string& example) {
+  if (hits == 0) return;
+  Rcpp::warning("bin_separator \"%s\" occurs inside %d categor%s of the feature "
+                "(e.g. \"%s\"): the bin labels are ambiguous and cannot be split "
+                "back into categories. Choose a bin_separator that does not occur "
+                "in the category names.",
+                sep, hits, (hits == 1 ? "y" : "ies"), example);
+}
+
+} // namespace
 
 namespace {
+constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
+
 // Cache for cumulative statistics - optimized for dynamic programming
 class CumulativeStatsCache {
 private:
@@ -90,9 +123,9 @@ private:
   bool enabled;
 
 public:
-  IVCache(size_t size, std::shared_ptr<CumulativeStatsCache> stats_cache,
+  IVCache(size_t size, std::shared_ptr<CumulativeStatsCache> stats,
           bool use_cache = true)
-      : stats_cache(stats_cache), enabled(use_cache) {
+      : stats_cache(std::move(stats)), enabled(use_cache) {
     if (enabled) {
       cache.resize(size + 1);
       for (auto &row : cache) {
@@ -146,10 +179,11 @@ public:
       woe = std::log(pos_rate / neg_rate);
       iv = (pos_rate - neg_rate) * woe;
 
-      // Ensure finite values
-      if (!std::isfinite(iv)) {
+      // Ensure finite values (both rates are > EPSILON here, so this is a
+      // safeguard only)
+      if (!std::isfinite(iv)) { // # nocov start
         iv = 0.0;
-      }
+      } // # nocov end
     }
 
     set(start, end, iv);
@@ -216,9 +250,8 @@ private:
         has_one = true;
       else
         throw std::invalid_argument("Target must be binary (0 or 1)");
-
-      if (has_zero && has_one)
-        break;
+      // Every value is checked: stopping at the first 0 and 1 let a later 2
+      // through, to be counted as a positive.
     }
 
     if (!has_zero || !has_one) {
@@ -290,14 +323,54 @@ private:
       }
     }
 
-    // Merge rare categories into a single bin
-    if (!rare_stats.empty()) {
+    if (rare_stats.empty()) {
+      category_stats = std::move(merged_stats);
+      return;
+    }
+
+    // The label of a pooled bin is built with the caller's bin_separator.
+    // It used to be built with CategoryStats::merge_with()'s default "%;%"
+    // whatever bin_separator was, so with a custom separator the pooled
+    // categories could not be recovered from the label (obwoe_apply() splits
+    // labels on the model's separator) and were never mapped to a WoE.
+    if (static_cast<int>(merged_stats.size()) + 1 >= min_bins) {
+      // Merge rare categories into a single bin
       CategoryStats merged_rare;
       for (auto &rare : rare_stats) {
-        merged_rare.merge_with(rare);
+        merged_rare.merge_with(rare, bin_separator);
       }
-      // merged_rare.compute_event_rate(); (auto-handled)
       merged_stats.push_back(std::move(merged_rare));
+    } else {
+      // Pooling every rare category into one bin would leave fewer than
+      // min_bins bins: on a high-cardinality feature whose levels are all
+      // below bin_cutoff (500 levels at 0.2% each) the whole sample came back
+      // as one bin with IV = 0. Pool rare categories in event-rate order
+      // instead, closing each pool once it reaches bin_cutoff, so similar
+      // categories stay together and every pool but the last meets the cutoff.
+      std::vector<CategoryStats> by_rate = rare_stats;
+      std::stable_sort(by_rate.begin(), by_rate.end(),
+                       [](const CategoryStats &a, const CategoryStats &b) {
+                         return a.event_rate < b.event_rate;
+                       });
+      std::vector<CategoryStats> pools;
+      CategoryStats cur;
+      for (auto &rare : by_rate) {
+        cur.merge_with(rare, bin_separator);
+        if (static_cast<double>(cur.count) / static_cast<double>(total_count) >= bin_cutoff) {
+          pools.push_back(std::move(cur));
+          cur = CategoryStats();
+        }
+      }
+      if (cur.count > 0) {
+        pools.push_back(std::move(cur));
+      }
+      if (static_cast<int>(merged_stats.size() + pools.size()) >= min_bins) {
+        for (auto &pool : pools) merged_stats.push_back(std::move(pool));
+      } else {
+        // Even the pools are too few (a very large bin_cutoff): keep every
+        // category and let max_n_prebins and the DP do the grouping.
+        for (auto &rare : rare_stats) merged_stats.push_back(std::move(rare));
+      }
     }
     category_stats = std::move(merged_stats);
   }
@@ -390,23 +463,22 @@ private:
   void perform_dynamic_programming() {
     int n = static_cast<int>(category_stats.size());
 
-    // Optimized DP algorithm to find optimal binning
+    // DP[i][k] = max_{k-1 <= j < i} DP[j][k-1] + IV(j, i), as documented.
+    //
+    // The j range used to be "banded" to
+    //   j >= (i - 1) - (max_bins - k + 1) * floor(n / max_bins),
+    // which is not a feasibility bound: it capped the size of the last bin
+    // (at floor(n / max_bins) + 1 pre-bins for k = max_bins), so partitions
+    // with one large bin -- often the IV-optimal ones when several pre-bins
+    // share an event rate -- were never evaluated and the result was not the
+    // optimum the algorithm promises. The full range is O(n^2 k) with
+    // n <= max_n_prebins, which is negligible.
     for (int k = 2; k <= max_bins; ++k) {
-      // Use banded optimization: we only need to consider splits that would
-      // result in at least min_bins bins at the end
-      int min_required_per_bin = n / max_bins;
-
       for (int i = k; i <= n; ++i) {
-        // Start from k-1 as we need at least k-1 previous bins
-        // Use bounds to skip unnecessary calculations
-        int j_start = std::max(k - 1, (i - 1) - (max_bins - k + 1) *
-                                                    min_required_per_bin);
-        for (int j = j_start; j < i; ++j) {
+        for (int j = k - 1; j < i; ++j) {
+          // dp[j][k-1] is finite for every j >= k-1 (base case: all
+          // dp[i][1] are finite IVs), so no transition needs skipping.
           double iv_left = dp[j][k - 1];
-
-          // Skip if left side is invalid
-          if (iv_left <= NEG_INFINITY + EPSILON)
-            continue;
 
           double iv_right = iv_cache->calculate_and_cache(j, i);
           double iv_val = iv_left + iv_right;
@@ -435,19 +507,14 @@ private:
       }
     }
 
-    // Handle edge case where no valid solution was found
-    if (best_iv <= NEG_INFINITY + EPSILON) {
-      Rcpp::warning(
-          "No valid binning solution found. Using equal-width binning.");
-      // Fall back to equal-width binning
-      std::vector<int> equal_bins;
-      equal_bins.reserve(min_bins);
-      int bin_size = n / min_bins;
-      for (int i = 1; i <= min_bins; ++i) {
-        equal_bins.push_back(std::min(i * bin_size, n));
-      }
-      return equal_bins;
-    }
+    // Every dp[n][k] with k <= n is finite now that the full recurrence is
+    // evaluated, so a solution always exists. The "equal-width" fallback that
+    // stood here was only reachable through the old banded j range, and it
+    // lost categories itself (its last boundary was min_bins * (n / min_bins),
+    // not n).
+    if (best_iv <= NEG_INFINITY + EPSILON) { // # nocov start
+      throw std::runtime_error("No valid binning solution found.");
+    } // # nocov end
 
     // Optimized backtracking
     std::vector<int> bins;
@@ -508,7 +575,9 @@ private:
     }
 
     double avg_gap =
-        woe_values.size() > 1 ? total_gap / (woe_values.size() - 1) : 0.0;
+        woe_values.size() > 1
+            ? total_gap / static_cast<double>(woe_values.size() - 1)
+            : 0.0;
 
     // Adaptive threshold based on average gap
     double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
@@ -530,12 +599,15 @@ private:
       return;
     }
 
-    const int max_attempts = static_cast<int>(bins.size() * 3);
-    int attempts = 0;
-
+    // Every pass removes one boundary, so the loop ends after at most
+    // bins.size() - min_bins passes.
+    //
+    // The DP optimum has not been seen to need this repair (no violation in
+    // thousands of randomized inputs, including ones built to invert the
+    // smoothed WoE order), so the loop is kept as a safeguard.
+    // # nocov start
     while (!check_monotonicity(bins) &&
-           static_cast<int>(bins.size()) > min_bins &&
-           attempts < max_attempts) {
+           static_cast<int>(bins.size()) > min_bins) {
       // Calculate WoE values for all bins
       std::vector<double> woe_values;
       woe_values.reserve(bins.size());
@@ -581,65 +653,49 @@ private:
         }
       }
 
-      // Choose which way to merge the violating bins
-      // Consider both forward and backward merges and choose the one with
-      // higher IV
-      double forward_iv = 0.0;
-      double backward_iv = 0.0;
-
-      if (worst_idx < bins.size() - 1) {
-        // Evaluate forward merge
-        std::vector<int> forward_bins = bins;
-        forward_bins.erase(forward_bins.begin() + worst_idx + 1);
-
-        int start = 0;
+      // The violation is between bins worst_idx - 1 and worst_idx
+      // (worst_idx >= 1: check_monotonicity() failed, so some violation is
+      // positive). bins[] holds each bin's END boundary, so merging bin j
+      // with bin j + 1 means erasing bins[j]. Two repairs are possible:
+      //   left : merge worst_idx - 1 with worst_idx  -> erase bins[worst_idx - 1]
+      //   right: merge worst_idx with worst_idx + 1  -> erase bins[worst_idx]
+      //          (only when bin worst_idx + 1 exists)
+      // and the one leaving the higher total IV is applied.
+      //
+      // The indices used to be off by one: the "forward" repair erased
+      // bins[worst_idx + 1] and the "backward" one bins[worst_idx]. The
+      // former merged two bins that were not in violation at all, and
+      // whenever the erased boundary was the last one -- the end of the data,
+      // n -- the categories of the final bin silently disappeared from the
+      // output (counts no longer summed to the number of observations).
+      auto total_iv_without = [&](size_t erase_idx) {
+        int seg_start = 0;
         double total_iv = 0.0;
-        for (size_t i = 0; i < forward_bins.size(); ++i) {
-          total_iv += iv_cache->calculate_and_cache(start, forward_bins[i]);
-          start = forward_bins[i];
+        for (size_t i = 0; i < bins.size(); ++i) {
+          if (i == erase_idx) continue;
+          total_iv += iv_cache->calculate_and_cache(seg_start, bins[i]);
+          seg_start = bins[i];
         }
-        forward_iv = total_iv;
-      }
+        return total_iv;
+      };
 
-      if (worst_idx > 0) {
-        // Evaluate backward merge
-        std::vector<int> backward_bins = bins;
-        backward_bins.erase(backward_bins.begin() + worst_idx);
-
-        int start = 0;
-        double total_iv = 0.0;
-        for (size_t i = 0; i < backward_bins.size(); ++i) {
-          total_iv += iv_cache->calculate_and_cache(start, backward_bins[i]);
-          start = backward_bins[i];
-        }
-        backward_iv = total_iv;
-      }
-
-      // Choose the merge with higher IV
-      if (backward_iv > forward_iv && worst_idx > 0) {
-        bins.erase(bins.begin() + worst_idx);
-      } else if (worst_idx < bins.size() - 1) {
-        bins.erase(bins.begin() + worst_idx + 1);
+      const size_t left_idx = worst_idx - 1;
+      const bool right_ok = (worst_idx + 1 < bins.size());
+      const double left_iv = total_iv_without(left_idx);
+      if (right_ok && total_iv_without(worst_idx) > left_iv) {
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(worst_idx));
       } else {
-        // Fallback if we can't merge either way
-        bins.erase(bins.begin() + worst_idx);
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(left_idx));
       }
-
-      attempts++;
     }
-
-    if (attempts >= max_attempts) {
-      Rcpp::warning("Could not ensure monotonicity in %d attempts. Using best "
-                    "solution found.",
-                    max_attempts);
-    }
+    // # nocov end
   }
 
   // Efficient bin name generation
   std::string join_bin_names(int start, int end) const {
     std::string bin_name;
     // Estimate size to avoid reallocations
-    bin_name.reserve((end - start) * 16);
+    bin_name.reserve(static_cast<size_t>(end - start) * 16);
 
     for (int i = start; i < end; ++i) {
       if (i > start)
@@ -651,15 +707,15 @@ private:
   }
 
 public:
-  OBC_IVB(std::vector<std::string> feature, std::vector<int> target,
-          double bin_cutoff, int min_bins, int max_bins, int max_n_prebins,
-          std::string bin_separator, double convergence_threshold,
-          int max_iterations)
-      : feature(std::move(feature)), target(std::move(target)),
-        bin_cutoff(bin_cutoff), min_bins(min_bins), max_bins(max_bins),
-        max_n_prebins(max_n_prebins), bin_separator(std::move(bin_separator)),
-        convergence_threshold(convergence_threshold),
-        max_iterations(max_iterations), converged(false), iterations_run(0) {}
+  OBC_IVB(std::vector<std::string> feature_, std::vector<int> target_,
+          double bin_cutoff_, int min_bins_, int max_bins_, int max_n_prebins_,
+          std::string bin_separator_, double convergence_threshold_,
+          int max_iterations_)
+      : feature(std::move(feature_)), target(std::move(target_)),
+        bin_cutoff(bin_cutoff_), min_bins(min_bins_), max_bins(max_bins_),
+        max_n_prebins(max_n_prebins_), bin_separator(std::move(bin_separator_)),
+        convergence_threshold(convergence_threshold_),
+        max_iterations(max_iterations_), converged(false), iterations_run(0) {}
 
   List perform_binning() {
     try {
@@ -728,7 +784,7 @@ public:
       for (size_t i = 0; i < n_bins; ++i) {
         int end = optimal_bins[i];
 
-        ids[i] = i + 1;
+        ids[i] = static_cast<double>(i + 1);
         bin_names[i] = join_bin_names(start, end);
 
         // Use cache for statistics
@@ -800,6 +856,11 @@ List optimal_binning_categorical_ivb(IntegerVector target, SEXP feature,
   if (target.size() == 0) {
     stop("Target vector cannot be empty");
   }
+  // The NA-target filter below indexes the converted feature by the target's
+  // positions, so a shorter feature was read out of bounds.
+  if (Rf_xlength(feature) != target.size()) {
+    stop("Feature and target vectors must have the same length");
+  }
 
   // Optimized target conversion to std::vector
   std::vector<int> target_vec;
@@ -826,9 +887,9 @@ List optimal_binning_categorical_ivb(IntegerVector target, SEXP feature,
 
   if (Rf_isFactor(feature)) {
     IntegerVector levels = as<IntegerVector>(feature);
-    CharacterVector level_names = levels.attr("levels");
+    CharacterVector level_names = as<CharacterVector>(levels.attr("levels"));
 
-    for (int i = 0; i < levels.size(); ++i) {
+    for (R_xlen_t i = 0; i < levels.size(); ++i) {
       if (IntegerVector::is_na(levels[i])) {
         feature_vec.push_back("NA");
         feature_na_count++;
@@ -861,16 +922,14 @@ List optimal_binning_categorical_ivb(IntegerVector target, SEXP feature,
     std::vector<std::string> filtered_feature;
     std::vector<int> filtered_target;
 
-    filtered_feature.reserve(feature_vec.size() - na_count);
+    filtered_feature.reserve(target_vec.size());
     filtered_target.reserve(target_vec.size());
 
-    int j = 0;
-    for (int i = 0; i < target.size(); ++i) {
+    for (R_xlen_t i = 0; i < target.size(); ++i) {
       if (!IntegerVector::is_na(target[i])) {
-        filtered_feature.push_back(feature_vec[j]);
+        filtered_feature.push_back(feature_vec[static_cast<size_t>(i)]);
         filtered_target.push_back(target[i]);
       }
-      j++;
     }
 
     feature_vec = std::move(filtered_feature);
@@ -889,9 +948,16 @@ List optimal_binning_categorical_ivb(IntegerVector target, SEXP feature,
   }
 
   // Adjust parameters based on dataset
-  std::set<std::string> unique_categories(feature_vec.begin(),
-                                          feature_vec.end());
+  // Only the count is needed; a hash set avoids the O(n log k) string
+  // comparisons of the ordered std::set that was used here.
+  std::unordered_set<std::string> unique_categories(feature_vec.begin(),
+                                                    feature_vec.end());
   int ncat = static_cast<int>(unique_categories.size());
+  // A single category used to surface as "min_bins must be at least 2",
+  // after min_bins had been clamped to the category count below.
+  if (ncat < 2) {
+    stop("Feature must have at least 2 distinct categories");
+  }
 
   min_bins = std::min(min_bins, ncat);
   max_bins = std::min(max_bins, ncat);
@@ -904,5 +970,10 @@ List optimal_binning_categorical_ivb(IntegerVector target, SEXP feature,
                  min_bins, max_bins, max_n_prebins, bin_separator,
                  convergence_threshold, max_iterations);
 
-  return binner.perform_binning();
+  std::string sep_example;
+  const std::size_t sep_hits =
+      count_separator_hits(unique_categories, bin_separator, sep_example);
+  List res = binner.perform_binning();
+  warn_separator_hits(bin_separator, sep_hits, sep_example);
+  return res;
 }

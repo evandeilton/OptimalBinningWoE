@@ -39,7 +39,9 @@ most similar neighbors. Value must be in (0, 1). Defaults to 0.05.}
 merging. Controls computational complexity. Must be >= 2. Defaults to 20.}
 
 \item{bin_separator}{String. Separator used when combining multiple
-categories into a single bin label. Defaults to "\%;\%".}
+categories into a single bin label. Defaults to "\%;\%". A warning is
+issued when a category name contains it, since such labels cannot be split
+back into categories.}
 
 \item{convergence_threshold}{Numeric. Convergence tolerance for iterative
 merging process. Smaller values require stricter convergence. Must be > 0.
@@ -48,9 +50,13 @@ Defaults to 1e-6.}
 \item{max_iterations}{Integer. Maximum iterations for the merging algorithm.
 Prevents infinite loops. Must be > 0. Defaults to 1000.}
 
-\item{chi_merge_threshold}{Numeric. Statistical significance level (p-value)
-for chi-square tests during merging. Higher values create fewer bins.
-Value must be in (0, 1). Defaults to 0.05.}
+\item{chi_merge_threshold}{Numeric. Significance level \eqn{\alpha} of the
+chi-square test used as the ChiMerge stopping rule: adjacent bins keep
+being merged while their chi-square statistic (1 degree of freedom, Yates'
+continuity correction) is below the critical value
+\eqn{\chi^2_{1,1-\alpha}} (3.841 for \eqn{\alpha = 0.05}), i.e. while
+they do not differ significantly. Lower values merge more and create fewer
+bins. Value must be in (0, 1). Defaults to 0.05.}
 
 \item{use_chi2_algorithm}{Logical. If TRUE, uses the Chi2 variant which
 performs multi-pass merging with decreasing significance thresholds.

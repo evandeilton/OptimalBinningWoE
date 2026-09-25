@@ -43,7 +43,9 @@ main merging phase. When unique categories exceed this limit, rare
 categories are pre-merged into an "other" bin. Must be >= 2. Defaults to 20.}
 
 \item{bin_separator}{Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "\%;\%".}
+when multiple categories are merged into a single bin. Defaults to "\%;\%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.}
 
 \item{convergence_threshold}{Numeric. Convergence tolerance for the
 iterative merging process. When the change in minimum divergence between
@@ -52,8 +54,10 @@ It does not stop the merging: \code{max_bins} is a hard constraint, so
 merging continues by the same criterion until the bin count meets it.
 Must be > 0. Defaults to 1e-6.}
 
-\item{max_iterations}{Integer. Maximum number of merge operations allowed.
-Prevents infinite loops in edge cases. Must be > 0. Defaults to 1000.}
+\item{max_iterations}{Integer. Iteration budget for the merge phase. Must be > 0.
+Defaults to 1000. When it is used up before the convergence tolerance is
+met, \code{converged} is \code{FALSE}; merging still continues until
+\code{max_bins} is satisfied, since \code{max_bins} is a hard constraint.}
 
 \item{bin_method}{Character string specifying the Weight of Evidence
 calculation method. Must be one of:
@@ -133,8 +137,11 @@ The choice of divergence measure affects the binning structure:
 
 \strong{Pre-binning Strategy:}
 When the number of unique categories exceeds \code{max_n_prebins}, categories
-with fewer than 5 observations are aggregated into a special "PREBIN_OTHER"
-bin to control computational complexity.
+with fewer than 5 observations are pooled into one bin to control
+computational complexity. The pooled bin is labelled with the categories it
+contains, like any other bin, so it can be mapped when the binning is
+applied. Pre-binning is skipped when it would leave fewer than
+\code{min_bins} bins.
 }
 \examples{
 \donttest{

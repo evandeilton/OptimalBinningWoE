@@ -40,7 +40,9 @@ programming optimization. Controls computational complexity for high-cardinality
 features. Must be >= 2. Defaults to 20.}
 
 \item{bin_separator}{Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "\%;\%".}
+when multiple categories are merged into a single bin. Defaults to "\%;\%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.}
 
 \item{convergence_threshold}{Numeric. Convergence tolerance for the iterative
 optimization process based on IV change. Algorithm stops when
@@ -81,7 +83,9 @@ to constraints on bin count and monotonicity.
 \enumerate{
   \item Input validation and preprocessing
   \item Single-pass category counting and statistics computation
-  \item Rare category pre-merging (frequencies < \code{bin_cutoff})
+  \item Rare category pre-merging (frequencies < \code{bin_cutoff}); if pooling
+    all rare categories would leave fewer than \code{min_bins} bins, they are
+    pooled in event-rate order into groups of at least \code{bin_cutoff}
   \item Pre-bin limitation (if categories > \code{max_n_prebins})
   \item Category sorting by event rate
   \item Cumulative statistics cache initialization
@@ -89,7 +93,6 @@ to constraints on bin count and monotonicity.
     \itemize{
       \item State: \eqn{DP[i][k]} = max IV using first \eqn{i} categories in \eqn{k} bins
       \item Transition: \eqn{DP[i][k] = \max_j \{DP[j][k-1] + IV(j+1, i)\}}
-      \item Banded optimization to skip infeasible splits
     }
   \item Backtracking to reconstruct optimal bins
   \item Adaptive monotonicity enforcement
@@ -147,7 +150,6 @@ After finding the optimal bins, the algorithm enforces WoE monotonicity by:
   \item \strong{Global optimality}: Guaranteed maximum IV (within constraint space)
   \item \strong{Bayesian regularization}: Robust to sparse bins and class imbalance
   \item \strong{Efficient caching}: Cumulative stats and IV memoization
-  \item \strong{Banded optimization}: Reduced search space via feasibility pruning
   \item \strong{Adaptive monotonicity}: Context-aware threshold for enforcement
 }
 
