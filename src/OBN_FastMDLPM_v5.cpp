@@ -370,6 +370,10 @@ void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
 
   // Still short: bisect the widest gap (in observations) between existing
   // splits, moving the cut to the nearest boundary between distinct values.
+  // When the widest gap holds no such boundary, the next widest is tried; the
+  // loop only gives up when no gap can be split, i.e. every distinct-value
+  // boundary is already a split.
+  struct Gap { int size; int start; bool first; };
   while (splits.size() + 1 < static_cast<size_t>(min_bins)) {
     // Implicit boundaries at raw indices 0 and N-1.
     std::vector<int> all_boundaries;
@@ -378,30 +382,36 @@ void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
     for (int s : splits) all_boundaries.push_back(b.last_raw(s));
     all_boundaries.push_back(N - 1);
 
-    int largest_gap = 0;
-    int gap_start = 0;
+    std::vector<Gap> gaps;
+    gaps.reserve(all_boundaries.size());
     for (size_t i = 0; i + 1 < all_boundaries.size(); i++) {
-      const int gap = all_boundaries[i + 1] - all_boundaries[i];
-      if (gap > largest_gap) {
-        largest_gap = gap;
-        gap_start = all_boundaries[i];
-      }
+      gaps.push_back(Gap{all_boundaries[i + 1] - all_boundaries[i], all_boundaries[i], i == 0});
     }
-    if (largest_gap <= 1) break;
+    // Widest first; among equal widths, leftmost first.
+    std::stable_sort(gaps.begin(), gaps.end(),
+                     [](const Gap& x, const Gap& y) { return x.size > y.size; });
 
-    const int new_split = gap_start + largest_gap / 2;
-    const int gap_end = gap_start + largest_gap;
-    // A valid cut ends a block. Prefer the end of the block holding the
-    // midpoint; if that block reaches the end of the gap, fall back to the end
-    // of the block before it.
-    const int blk = b.block_of_raw(new_split);
-    int adj = b.last_raw(blk);
     int chosen = -1;
-    if (adj < gap_end && adj < N - 1) {
-      chosen = blk;
-    } else if (blk > 0) {
-      adj = b.last_raw(blk - 1);
-      if (adj > gap_start && adj > 0 && adj < N - 1) chosen = blk - 1;
+    for (const Gap& g : gaps) {
+      if (g.size < 1) continue;
+      const int gap_start = g.start;
+      const int gap_end = g.start + g.size;
+      // The implicit boundary 0 is not a cut: a cut right after the first
+      // observation is admissible in the first gap.
+      const int lo = g.first ? -1 : gap_start;
+      const int new_split = gap_start + g.size / 2;
+      // A valid cut ends a block. Prefer the end of the block holding the
+      // midpoint; if that block reaches the end of the gap, fall back to the
+      // end of the block before it.
+      const int blk = b.block_of_raw(new_split);
+      int adj = b.last_raw(blk);
+      if (adj > lo && adj < gap_end && adj < N - 1) {
+        chosen = blk;
+      } else if (blk > 0) {
+        adj = b.last_raw(blk - 1);
+        if (adj > lo && adj < N - 1) chosen = blk - 1;
+      }
+      if (chosen >= 0) break;
     }
     if (chosen < 0) break;
     splits.push_back(chosen);
