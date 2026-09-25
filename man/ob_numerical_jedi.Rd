@@ -17,7 +17,8 @@ ob_numerical_jedi(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be handled prior to binning.}
+Missing values (\code{NA}/\code{NaN}) are excluded before binning (with a
+warning); infinite values are rejected with an error.}
 
 \item{target}{An integer vector of binary outcomes (0/1) corresponding to
 each observation in \code{feature}. Must have the same length as \code{feature}.}
@@ -69,13 +70,16 @@ and risk modeling. Its methodology proceeds in four distinct stages:
 
 \enumerate{
   \item \strong{Initialization (Quantile Pre-binning):} The feature space is
-  divided into \code{max_n_prebins} segments containing approximately equal
-  numbers of observations. This ensures the algorithm starts with a statistically
-  balanced view of the data.
+  divided into up to \code{max_n_prebins} segments whose edges are equally
+  spaced over the sorted \emph{distinct} feature values (for a continuous
+  feature without ties these are equal-frequency segments). A feature with
+  fewer distinct values than \code{min_bins} gets one bin per distinct value,
+  so the result can then hold fewer than \code{min_bins} bins; no empty bin
+  is ever created.
 
   \item \strong{Stabilization (Rare Bin Merging):} Adjacent bins with frequencies
-  below \code{bin_cutoff} are merged. The merge direction is chosen to minimize
-  the distortion of the event rate (similar to ChiMerge).
+  below \code{bin_cutoff} are merged into the smaller of their two
+  neighbours (the outermost bins into their only neighbour).
 
   \item \strong{Monotonicity Enforcement:} The algorithm heuristically determines
   the dominant trend (increasing or decreasing) of the Weight of Evidence (WoE)
@@ -83,10 +87,9 @@ and risk modeling. Its methodology proceeds in four distinct stages:
   reduces the conditional entropy of the binning sequence with respect to the target.
 
   \item \strong{IV Optimization:} If the number of bins exceeds \code{max_bins},
-  the algorithm merges the pair of adjacent bins that results in the smallest
-  decrease in total Information Value. This greedy approach ensures that the
-  final discretization retains the maximum possible predictive power given the
-  constraints.
+  the algorithm repeatedly merges the pair of adjacent bins with the smallest
+  combined Information Value, a greedy proxy for the merge that loses the
+  least total IV.
 }
 
 This joint approach (Entropy/IV + Stability constraints) makes JEDI particularly

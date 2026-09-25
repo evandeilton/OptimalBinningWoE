@@ -9,6 +9,10 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <iomanip>
+#include <cstdint>
+#include <cstring>
+#include <cstddef>
 
 
 // Include shared headers
@@ -21,42 +25,92 @@ using namespace OptimalBinning;
 
 static constexpr double EPS = 1e-10;
 
-// struct NumericalBin {
-//   double lower;
-//   double upper;
-//   int count;
-//   int count_pos;
-//   int count_neg;
-//   double woe;
-//   double iv;
-//   
-//   NumericalBin(double l, double u): lower(l), upper(u),
-//   count(0), count_pos(0), count_neg(0),
-//   woe(0.0), iv(0.0) {}
-// };
+// Data layout
+// -----------
+// The engine never needs the observations in their original order: every step
+// works on the sorted distinct values and on class counts per interval. The
+// feature values are therefore split by class once, each class is sorted, and
+// every count is a binary search in those two sorted arrays:
+//   #positives in (lo, hi] = upper_bound(pos, hi) - upper_bound(pos, lo).
+// That replaces a per-observation bin search with O(bins * log n) work and lets
+// the distinct values be produced by merging the two sorted arrays in O(n).
+
+// Sort finite doubles ascending.
+//
+// This is the dominant cost of the whole algorithm (everything after it is
+// O(n) or O(bins * log n)), so large inputs use an LSD radix sort on the
+// order-preserving integer image of each double: 6 passes of 11 bits, with
+// the histograms of all passes gathered in one read and passes whose digit is
+// constant skipped. It orders exactly like operator< on finite values except
+// that -0.0 precedes +0.0, which compare equal and are merged downstream.
+static void sort_doubles(std::vector<double>& v) {
+  const size_t n = v.size();
+  if (n < 4096) {
+    std::sort(v.begin(), v.end());
+    return;
+  }
+  const int BITS = 11;
+  const int PASSES = 6;
+  const size_t RADIX = static_cast<size_t>(1) << BITS;
+  const std::uint64_t MASK = RADIX - 1;
+
+  std::vector<std::uint64_t> key(n), tmp(n);
+  std::vector<size_t> hist(RADIX * PASSES, 0);
+  for (size_t i = 0; i < n; ++i) {
+    std::uint64_t u;
+    std::memcpy(&u, &v[i], sizeof u);
+    u = (u >> 63) ? ~u : (u | (static_cast<std::uint64_t>(1) << 63));
+    key[i] = u;
+    for (int p = 0; p < PASSES; ++p) {
+      ++hist[static_cast<size_t>(p) * RADIX + static_cast<size_t>((u >> (p * BITS)) & MASK)];
+    }
+  }
+  for (int p = 0; p < PASSES; ++p) {
+    size_t* h = &hist[static_cast<size_t>(p) * RADIX];
+    const size_t first = static_cast<size_t>((key[0] >> (p * BITS)) & MASK);
+    if (h[first] == n) continue;  // every key has the same digit: nothing to do
+    size_t sum = 0;
+    for (size_t d = 0; d < RADIX; ++d) {
+      const size_t c = h[d];
+      h[d] = sum;
+      sum += c;
+    }
+    for (size_t i = 0; i < n; ++i) {
+      tmp[h[static_cast<size_t>((key[i] >> (p * BITS)) & MASK)]++] = key[i];
+    }
+    key.swap(tmp);
+  }
+  for (size_t i = 0; i < n; ++i) {
+    std::uint64_t u = key[i];
+    u = (u >> 63) ? (u & ~(static_cast<std::uint64_t>(1) << 63)) : ~u;
+    std::memcpy(&v[i], &u, sizeof u);
+  }
+}
 
 class OBN_Jedi {
 private:
-  std::vector<double> feature;
-  std::vector<double> target;
+  std::vector<double> pos_vals;   // feature values with target == 1, ascending
+  std::vector<double> neg_vals;   // feature values with target == 0, ascending
+  size_t n_obs;
   int min_bins;
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
   double convergence_threshold;
   int max_iterations;
-  
+
   std::vector<NumericalBin> bins;
   bool converged;
   int iterations_run;
-  
+
 public:
-  OBN_Jedi(const std::vector<double>& feat,
-                              const std::vector<double>& targ,
-                              int min_b, int max_b, double cutoff,
-                              int max_pre, double conv_thr, int max_iter)
-    : feature(feat), target(targ),
-      min_bins(std::max(min_b,2)), 
+  // pos / neg: the feature values of each class (unsorted; moved in).
+  OBN_Jedi(std::vector<double>&& pos, std::vector<double>&& neg,
+           int min_b, int max_b, double cutoff,
+           int max_pre, double conv_thr, int max_iter)
+    : pos_vals(std::move(pos)), neg_vals(std::move(neg)),
+      n_obs(0),
+      min_bins(std::max(min_b,2)),
       max_bins(std::max(max_b,min_b)),
       bin_cutoff(cutoff),
       max_n_prebins(std::max(max_pre,min_b)),
@@ -64,52 +118,38 @@ public:
       max_iterations(max_iter),
       converged(false),
       iterations_run(0) {
-    
-    if(feature.size()!=target.size()) 
-      throw std::invalid_argument("Feature and target must have same length.");
+
     if(bin_cutoff<=0||bin_cutoff>=1)
       throw std::invalid_argument("bin_cutoff must be in (0,1).");
     if(convergence_threshold<=0)
       throw std::invalid_argument("convergence_threshold must be positive.");
     if(max_iterations<=0)
       throw std::invalid_argument("max_iterations must be positive.");
-    
-    // Check target binary
-    bool has_zero=false,has_one=false;
-    for(double t:target) {
-      if(t==0) has_zero=true; else if(t==1) has_one=true; 
-      else throw std::invalid_argument("Target must contain only 0 and 1.");
-      if(has_zero&&has_one) break;
-    }
-    if(!has_zero || !has_one)
+    if(pos_vals.empty() || neg_vals.empty())
       throw std::invalid_argument("Target must contain both classes (0 and 1).");
-    
-    for (double f:feature) {
-      if(std::isnan(f)||std::isinf(f))
-        throw std::invalid_argument("Feature contains NaN/Inf.");
-    }
+
+    n_obs = pos_vals.size() + neg_vals.size();
+    sort_doubles(pos_vals);
+    sort_doubles(neg_vals);
   }
-  
+
   void fit() {
-    // Check unique values
-    std::vector<double> unique_vals = feature;
-    std::sort(unique_vals.begin(),unique_vals.end());
-    unique_vals.erase(std::unique(unique_vals.begin(),unique_vals.end()), unique_vals.end());
+    const std::vector<double> unique_vals = distinct_values();
     size_t n_unique = unique_vals.size();
-    
+
     if(n_unique<=2) {
       handle_low_unique(unique_vals);
       converged=true;
       iterations_run=0;
       return;
     }
-    
+
     // Pre-binning: use quantiles
     initial_prebin(unique_vals);
     assign_bins();
     merge_small_bins();
     calculate_woe_iv();
-    
+
     double prev_iv = total_iv();
     for(int iter=0;iter<max_iterations;iter++) {
       enforce_monotonicity();
@@ -124,39 +164,41 @@ public:
       prev_iv=current_iv;
       iterations_run=iter+1;
     }
-    
+
     if(!converged) iterations_run=max_iterations;
   }
-  
+
   List create_output() const {
-    CharacterVector bin_names(bins.size());
-    NumericVector woe_vals(bins.size());
-    NumericVector iv_vals(bins.size());
-    IntegerVector count_vals(bins.size());
-    IntegerVector cpos_vals(bins.size());
-    IntegerVector cneg_vals(bins.size());
+    const R_xlen_t nb = static_cast<R_xlen_t>(bins.size());
+    CharacterVector bin_names(nb);
+    NumericVector woe_vals(nb);
+    NumericVector iv_vals(nb);
+    IntegerVector count_vals(nb);
+    IntegerVector cpos_vals(nb);
+    IntegerVector cneg_vals(nb);
     NumericVector cutpoints;
-    if(bins.size()>1) cutpoints = NumericVector((int)bins.size()-1);
-    
-    for (size_t i=0;i<bins.size();i++){
+    if(nb>1) cutpoints = NumericVector(nb-1);
+
+    for (R_xlen_t i=0;i<nb;i++){
+      const NumericalBin& b = bins[static_cast<size_t>(i)];
       std::ostringstream oss;
-      oss<<"("<<edge_to_str(bins[i].lower_bound)<<";"<<edge_to_str(bins[i].upper_bound)<<"]";
+      oss<<"("<<edge_to_str(b.lower_bound)<<";"<<edge_to_str(b.upper_bound)<<"]";
       bin_names[i]=oss.str();
-      woe_vals[i]=bins[i].woe;
-      iv_vals[i]=bins[i].iv;
-      count_vals[i]=bins[i].count;
-      cpos_vals[i]=bins[i].count_pos;
-      cneg_vals[i]=bins[i].count_neg;
-      if(i<bins.size()-1) {
-        cutpoints[i]=bins[i].upper_bound;
+      woe_vals[i]=b.woe;
+      iv_vals[i]=b.iv;
+      count_vals[i]=b.count;
+      cpos_vals[i]=b.count_pos;
+      cneg_vals[i]=b.count_neg;
+      if(i<nb-1) {
+        cutpoints[i]=b.upper_bound;
       }
     }
-    
-    Rcpp::NumericVector ids(bin_names.size());
-    for(int i = 0; i < bin_names.size(); i++) {
-      ids[i] = i + 1;
+
+    Rcpp::NumericVector ids(nb);
+    for(R_xlen_t i = 0; i < nb; i++) {
+      ids[i] = static_cast<double>(i + 1);
     }
-    
+
     return Rcpp::List::create(
       Named("id") = ids,
       Named("bin")=bin_names,
@@ -170,9 +212,9 @@ public:
       Named("iterations")=iterations_run
     );
   }
-  
+
 private:
-  
+
   //-------------------------------------------------------------------------
   // Detailed Steps and Mathematical Formulation
   //-------------------------------------------------------------------------
@@ -181,7 +223,7 @@ private:
   //        = ln( (Pos_i / Neg_i) * (Total_Neg / Total_Pos) )
   // IV_i = (Pos_i/Total_Pos - Neg_i/Total_Neg)*WOE_i
   //
-  // Let total_pos = Σ Pos_i and total_neg = Σ Neg_i over all bins.
+  // Let total_pos = sum Pos_i and total_neg = sum Neg_i over all bins.
   // If total_pos=0 or total_neg=0, WOE and IV can't be computed meaningfully, fallback to zero.
   //
   // Monotonicity:
@@ -190,127 +232,105 @@ private:
   // If not monotonic, merge adjacent bins that cause violations until monotonic order is restored or min_bins reached.
   //
   // Minimizing IV loss merges:
-  // When adjusting bin counts, choose pairs of bins to merge that yield minimal increase in IV loss (or minimal IV sum),
-  // ensuring stable and minimal-information-loss merges.
+  // When the number of bins exceeds max_bins, merge the adjacent pair with the
+  // smallest combined IV.
   //
   // Convergence:
   // Convergence is reached when |IV_current - IV_previous| < convergence_threshold or max_iterations is hit.
-  // This ensures the algorithm stops when no significant improvements in the binning structure can be made.
-  //
-  // Heuristic blending:
-  // - From IR/KMB: Use changes in IV for convergence and WOE ordering to guess monotonic direction.
-  // - From EWB/FETB: Merge small bins first, ensuring stable counts per bin.
-  // - From MBLP/MDLP: Minimal IV-loss merges to handle max_bins constraints.
-  // - From DPLC/MOB: EPSILON in WOE calculation, careful infinite checks, stable computations.
-  // - From all: a unified approach that first pre-bins (for complexity control), then iteratively refines.
-  
+
+  // Sorted distinct feature values: a merge of the two sorted class arrays.
+  std::vector<double> distinct_values() const {
+    std::vector<double> u;
+    u.reserve(std::min<size_t>(n_obs, 1024));
+    size_t i = 0, k = 0;
+    const size_t np = pos_vals.size(), nn = neg_vals.size();
+    while (i < np || k < nn) {
+      double v;
+      if (k >= nn || (i < np && pos_vals[i] < neg_vals[k])) v = pos_vals[i];
+      else v = neg_vals[k];
+      while (i < np && pos_vals[i] == v) ++i;
+      while (k < nn && neg_vals[k] == v) ++k;
+      u.push_back(v + 0.0);  // -0.0 and +0.0 are one value; report it unsigned
+    }
+    return u;
+  }
+
+  // Number of elements of the sorted array v that are <= x.
+  static int count_le(const std::vector<double>& v, double x) {
+    return static_cast<int>(std::upper_bound(v.begin(), v.end(), x) - v.begin());
+  }
+
+  // Fill a bin's counts from its interval (lower, upper] (the first bin also
+  // holds -Inf..upper; every value is finite).
+  void count_interval(NumericalBin& b) const {
+    const int p_hi = std::isinf(b.upper_bound) && b.upper_bound > 0
+      ? static_cast<int>(pos_vals.size()) : count_le(pos_vals, b.upper_bound);
+    const int n_hi = std::isinf(b.upper_bound) && b.upper_bound > 0
+      ? static_cast<int>(neg_vals.size()) : count_le(neg_vals, b.upper_bound);
+    const int p_lo = std::isinf(b.lower_bound) && b.lower_bound < 0
+      ? 0 : count_le(pos_vals, b.lower_bound);
+    const int n_lo = std::isinf(b.lower_bound) && b.lower_bound < 0
+      ? 0 : count_le(neg_vals, b.lower_bound);
+    b.count_pos = p_hi - p_lo;
+    b.count_neg = n_hi - n_lo;
+    b.count = b.count_pos + b.count_neg;
+  }
+
   void handle_low_unique(const std::vector<double>& unique_vals) {
     bins.clear();
     if(unique_vals.size()==1) {
       // All identical
       bins.emplace_back(-std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity());
-      for (size_t i=0;i<feature.size();i++){
-        bins[0].count++;
-        if(target[i]==1) bins[0].count_pos++; else bins[0].count_neg++;
-      }
-      calculate_woe_iv();
     } else {
       // Two unique values
       double cut = unique_vals[0];
       bins.emplace_back(-std::numeric_limits<double>::infinity(), cut);
       bins.emplace_back(cut, std::numeric_limits<double>::infinity());
-      for (size_t i=0;i<feature.size();i++) {
-        if(feature[i]<=cut) {
-          bins[0].count++;
-          if(target[i]==1) bins[0].count_pos++; else bins[0].count_neg++;
-        } else {
-          bins[1].count++;
-          if(target[i]==1) bins[1].count_pos++; else bins[1].count_neg++;
-        }
-      }
-      calculate_woe_iv();
     }
+    for (auto& b : bins) count_interval(b);
+    calculate_woe_iv();
   }
-  
+
   void initial_prebin(const std::vector<double>& unique_vals) {
     int n_unique=(int)unique_vals.size();
     int n_pre = std::min(max_n_prebins,n_unique);
     n_pre=std::max(n_pre,min_bins);
-    
-    // quantile approach:
-    // Let's create n_pre equally spaced quantiles
+
+    // Edges at equally spaced positions among the distinct values.
+    //
+    // When the feature has at least min_bins distinct values the positions are
+    // all different and this yields exactly n_pre bins. When it has fewer, the
+    // positions collide and the edges reduce to every distinct value but the
+    // largest: one bin per distinct value, the finest binning the data allow.
+    // (Splitting further, as this routine used to do by halving intervals,
+    // could only create bins containing no observation at all.)
     bins.clear();
-    bins.reserve(n_pre);
-    
+    bins.reserve(static_cast<size_t>(n_pre));
+
     std::vector<double> edges;
     edges.push_back(-std::numeric_limits<double>::infinity());
     for(int i=1;i<n_pre;i++){
       double p=(double)i/n_pre;
       int idx=(int)std::floor(p*(n_unique-1));
-      double edge=unique_vals[idx];
+      double edge=unique_vals[static_cast<size_t>(idx)];
       if(edge>edges.back()) {
         edges.push_back(edge);
       }
     }
     edges.push_back(std::numeric_limits<double>::infinity());
-    
-    // Create bins from edges
-    bins.clear();
-    for (size_t i=0;i<edges.size()-1;i++){
+
+    for (size_t i=0;i+1<edges.size();i++){
       bins.emplace_back(edges[i],edges[i+1]);
     }
-    // Ensure at least min_bins.
-    // split_bin() silently declines to split an interval whose midpoint is not
-    // finite, and this runs before assign_bins() so every count is still 0 --
-    // find_largest_bin() therefore always returned index 0, the (-Inf, e1]
-    // interval, which can never be split. That made this loop spin forever with
-    // no interrupt check whenever min_bins exceeded the number of distinct
-    // feature values. Only consider bins that can actually be split, and stop
-    // as soon as no progress is possible: such a feature simply cannot support
-    // min_bins bins.
-    while((int)bins.size()<min_bins) {
-      size_t large_idx=find_largest_splittable_bin();
-      if(large_idx>=bins.size()) break;
-      size_t before=bins.size();
-      split_bin(large_idx);
-      if(bins.size()==before) break;
-    }
   }
-  
+
   void assign_bins() {
-    // reset counts
-    for (auto &b:bins) {
-      b.count=0;b.count_pos=0;b.count_neg=0;
-    }
-    
-    for (size_t i=0;i<feature.size();i++){
-      double val=feature[i];
-      int idx=find_bin(val);
-      if(idx<0 || idx>=(int)bins.size()) idx=(int)bins.size()-1;
-      bins[idx].count++;
-      if(target[i]==1) bins[idx].count_pos++; else bins[idx].count_neg++;
-    }
+    for (auto& b : bins) count_interval(b);
   }
-  
-  int find_bin(double val) const {
-    // binary search or linear since bins are sorted by edges
-    int left=0;
-    int right=(int)bins.size()-1;
-    while(left<=right) {
-      int mid=left+(right-left)/2;
-      if(val>bins[mid].lower_bound && val<=bins[mid].upper_bound)
-        return mid;
-      else if(val<=bins[mid].lower_bound)
-        right=mid-1;
-      else
-        left=mid+1;
-    }
-    return (int)bins.size()-1;
-  }
-  
+
   void merge_small_bins() {
     bool merged=true;
-    double total=(double)feature.size();
+    double total=(double)n_obs;
     while(merged && (int)bins.size()>min_bins && iterations_run<max_iterations) {
       merged=false;
       for (size_t i=0;i<bins.size();i++){
@@ -336,7 +356,7 @@ private:
       iterations_run++;
     }
   }
-  
+
   void calculate_woe_iv() {
     int total_pos=0;
     int total_neg=0;
@@ -357,13 +377,13 @@ private:
       b.iv=iv;
     }
   }
-  
+
   double total_iv() const {
     double sum=0.0;
     for (auto &b:bins) sum+=b.iv;
     return sum;
   }
-  
+
   bool guess_trend() {
     if(bins.size()<2)return true;
     int inc=0;int dec=0;
@@ -373,15 +393,7 @@ private:
     }
     return inc>=dec;
   }
-  
-  bool is_monotonic(bool increasing) {
-    for (size_t i=1;i<bins.size();i++) {
-      if(increasing && bins[i].woe<bins[i-1].woe)return false;
-      if(!increasing && bins[i].woe>bins[i-1].woe)return false;
-    }
-    return true;
-  }
-  
+
   void enforce_monotonicity() {
     bool increasing=guess_trend();
     bool merged=true;
@@ -399,7 +411,7 @@ private:
       iterations_run++;
     }
   }
-  
+
   size_t find_min_iv_merge() const {
     if(bins.size()<2)return bins.size();
     double min_iv_sum=std::numeric_limits<double>::max();
@@ -413,7 +425,7 @@ private:
     }
     return idx;
   }
-  
+
   void merge_to_max_bins() {
     while((int)bins.size()>max_bins && iterations_run<max_iterations){
       size_t idx=find_min_iv_merge();
@@ -423,7 +435,7 @@ private:
       iterations_run++;
     }
   }
-  
+
   void merge_bins(size_t i, size_t j) {
     if(i>j)std::swap(i,j);
     if(j>=bins.size())return;
@@ -431,58 +443,9 @@ private:
     bins[i].count+=bins[j].count;
     bins[i].count_pos+=bins[j].count_pos;
     bins[i].count_neg+=bins[j].count_neg;
-    bins.erase(bins.begin()+j);
-  }
-  
-  size_t find_largest_bin() const {
-    size_t idx=0;
-    int max_count=bins[0].count;
-    for(size_t i=1;i<bins.size();i++){
-      if(bins[i].count>max_count) {
-        max_count=bins[i].count;
-        idx=i;
-      }
-    }
-    return idx;
+    bins.erase(bins.begin()+static_cast<std::ptrdiff_t>(j));
   }
 
-  // Largest bin that split_bin() can actually divide, i.e. one whose midpoint
-  // is finite. The two outer intervals are unbounded, so they are never
-  // splittable; returns bins.size() when no bin qualifies.
-  size_t find_largest_splittable_bin() const {
-    size_t idx=bins.size();
-    int max_count=-1;
-    for(size_t i=0;i<bins.size();i++){
-      double mid=(bins[i].lower_bound+bins[i].upper_bound)/2.0;
-      if(!std::isfinite(mid)) continue;
-      if(mid<=bins[i].lower_bound||mid>=bins[i].upper_bound) continue;
-      if(bins[i].count>max_count) {
-        max_count=bins[i].count;
-        idx=i;
-      }
-    }
-    return idx;
-  }
-  
-  void split_bin(size_t idx) {
-    if(idx>=bins.size())return;
-    NumericalBin &b=bins[idx];
-    double mid=(b.lower_bound+b.upper_bound)/2.0;
-    if(!std::isfinite(mid)) return; // can't split infinite intervals meaningfully
-    // approximate half counts
-    NumericalBin new_bin(mid,b.upper_bound);
-    new_bin.count=b.count/2;
-    new_bin.count_pos=b.count_pos/2;
-    new_bin.count_neg=b.count_neg/2;
-    
-    b.upper_bound=mid;
-    b.count-=new_bin.count;
-    b.count_pos-=new_bin.count_pos;
-    b.count_neg-=new_bin.count_neg;
-    
-    bins.insert(bins.begin()+idx+1,new_bin);
-  }
-  
   std::string edge_to_str(double val) const {
     if(std::isinf(val)) {
       return val<0?"-Inf":"+Inf";
@@ -492,8 +455,6 @@ private:
       return oss.str();
     }
   }
-  
-  // no separate update_cutpoints needed, done in create_output
 };
 
 
@@ -509,14 +470,32 @@ List optimal_binning_numerical_jedi(NumericVector target,
  if(feature.size()!=target.size()) {
    stop("Feature and target must have the same length.");
  }
- 
- std::vector<double> f(feature.begin(), feature.end());
- std::vector<double> t(target.begin(), target.end());
- 
+
+ // Missing feature values (NA / NaN) are excluded, as the R wrapper documents;
+ // the remaining values are split by class.
+ const R_xlen_t n = feature.size();
+ std::vector<double> pos, neg;
+ bool has_inf = false, bad_target = false;
+ for (R_xlen_t i = 0; i < n; ++i) {
+   const double f = feature[i];
+   if (std::isnan(f)) continue;
+   const double t = target[i];
+   if (t == 1.0) pos.push_back(f);
+   else if (t == 0.0) neg.push_back(f);
+   else { bad_target = true; break; }
+   if (std::isinf(f)) has_inf = true;
+ }
+
  try {
-   OBN_Jedi model(f,t,min_bins,max_bins,
-                                     bin_cutoff,max_n_prebins,
-                                     convergence_threshold,max_iterations);
+   if (bad_target)
+     throw std::invalid_argument("Target must contain only 0 and 1.");
+   if (pos.empty() && neg.empty())
+     throw std::invalid_argument("Feature has no non-missing values.");
+   if (has_inf)
+     throw std::invalid_argument("Feature contains Inf.");
+   OBN_Jedi model(std::move(pos), std::move(neg), min_bins, max_bins,
+                  bin_cutoff, max_n_prebins,
+                  convergence_threshold, max_iterations);
    model.fit();
    return model.create_output();
  } catch(const std::exception &e) {
