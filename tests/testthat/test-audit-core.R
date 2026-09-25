@@ -124,7 +124,28 @@ test_that("rank and robust correlations are invariant to the unit of measurement
   }
 })
 
-test_that("obcorr agrees with stats::cor (pairwise complete) and Hmisc::hoeffd", {
+# Hoeffding's D on the scale of Hmisc::hoeffd() (x 30), mid-ranks for ties.
+# A direct O(n^2) transcription of Hoeffding (1948), kept in the test so the
+# check needs no extra package; it agrees with Hmisc::hoeffd() to 1e-16 on
+# tied and untied samples.
+ref_hoeffd <- function(x, y) {
+  n <- length(x)
+  R <- rank(x)
+  S <- rank(y)
+  Q <- vapply(seq_len(n), function(i) {
+    1 + sum(x < x[i] & y < y[i]) +
+      0.25 * (sum(x == x[i] & y == y[i]) - 1) +
+      0.5 * sum(x == x[i] & y < y[i]) +
+      0.5 * sum(x < x[i] & y == y[i])
+  }, numeric(1))
+  D1 <- sum((Q - 1) * (Q - 2))
+  D2 <- sum((R - 1) * (R - 2) * (S - 1) * (S - 2))
+  D3 <- sum((R - 2) * (S - 2) * (Q - 1))
+  30 * ((n - 2) * (n - 3) * D1 + D2 - 2 * (n - 2) * D3) /
+    (n * (n - 1) * (n - 2) * (n - 3) * (n - 4))
+}
+
+test_that("obcorr agrees with stats::cor (pairwise complete) and Hoeffding's D", {
   set.seed(3)
   n <- 80
   x <- rnorm(n); y <- round(x + rnorm(n), 1); z <- rexp(n)
@@ -140,9 +161,7 @@ test_that("obcorr agrees with stats::cor (pairwise complete) and Hmisc::hoeffd",
     # non-missing value of each column)
     expect_equal(r$spearman[k], cor(a[cc], b[cc], method = "spearman"), tolerance = 1e-12)
     expect_equal(r$kendall[k], cor(a[cc], b[cc], method = "kendall"), tolerance = 1e-12)
-    if (requireNamespace("Hmisc", quietly = TRUE)) {
-      expect_equal(r$hoeffding[k], Hmisc::hoeffd(a[cc], b[cc])$D[1, 2], tolerance = 1e-10)
-    }
+    expect_equal(r$hoeffding[k], ref_hoeffd(a[cc], b[cc]), tolerance = 1e-10)
   }
 })
 
