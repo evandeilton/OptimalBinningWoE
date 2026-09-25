@@ -6,18 +6,19 @@
 #' Weight of Evidence (WoE) trend.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) should be handled prior to binning.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+#'   \code{-Inf}/\code{Inf} fall in the first/last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 #'   Defaults to 3.
 #' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}
 #'   \code{min_bins}. Defaults to 5.
-#' @param max_n_prebins Integer. The number of initial quantiles to generate
-#'   during the pre-binning phase. Defaults to 20.
-#' @param convergence_threshold Numeric. The threshold for the change in Information
-#'   Value (IV) to determine convergence during the iterative merging process.
-#'   Defaults to 1e-6.
+#' @param max_n_prebins Integer. The maximum number of equal-frequency bins
+#'   created during the pre-binning phase (at least 2). Defaults to 20.
+#' @param convergence_threshold Numeric. Accepted for backward compatibility and not
+#'   used: merging always continues until the number of bins reaches
+#'   \code{max_bins} (or \code{max_iterations} is exhausted). Defaults to 1e-6.
 #' @param max_iterations Integer. Safety limit for the maximum number of merging
 #'   iterations. Defaults to 1000.
 #'
@@ -46,7 +47,8 @@
 #'         the exact hypergeometric probability of independence between the bin index
 #'         and the target.
 #'   \item \strong{Merge Criterion:} In each step, the algorithm identifies the pair of
-#'         adjacent bins with the \emph{highest} p-value (indicating they are the most
+#'         adjacent bins with the \emph{highest} two-sided Fisher p-value (defined as
+#'         in \code{\link[stats]{fisher.test}}; indicating they are the most
 #'         statistically indistinguishable) and merges them.
 #'   \item \strong{Monotonicity:} The algorithm incorporates a check after every merge
 #'         to ensure the WoE trend remains monotonic, merging strictly violating bins

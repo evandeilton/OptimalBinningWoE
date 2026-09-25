@@ -18,7 +18,8 @@ ob_numerical_bb(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable
-to be binned. NA values are handled by exclusion during the pre-binning phase.}
+to be binned. Missing values (\code{NA}/\code{NaN}) are excluded from the fit;
+\code{-Inf}/\code{Inf} fall in the first/last bin.}
 
 \item{target}{An integer vector of binary outcomes (0/1) corresponding to
 each observation in \code{feature}. Must have the same length as \code{feature}.}
@@ -43,9 +44,9 @@ monotonic relationship (increasing or decreasing) between the bin indices
 and their WoE values. This makes the variable more interpretable for linear
 models. Defaults to \code{TRUE}.}
 
-\item{convergence_threshold}{Numeric. The threshold for the change in total
-IV to determine convergence during the iterative merging process.
-Defaults to 1e-6.}
+\item{convergence_threshold}{Numeric. Accepted for backward compatibility and not
+used: merging always continues until the number of bins reaches
+\code{max_bins} (or \code{max_iterations} is exhausted). Defaults to 1e-6.}
 
 \item{max_iterations}{Integer. Safety limit for the maximum number of merging
 iterations. Defaults to 1000.}
@@ -95,8 +96,9 @@ optimality:
 
   \item \strong{Optimization Phase:} The algorithm iteratively merges adjacent
   bins that have the lowest contribution to the total Information Value (IV).
-  This process continues until the number of bins is reduced to \code{max_bins}
-  or the change in IV falls below \code{convergence_threshold}.
+  This process continues until the number of bins is reduced to \code{max_bins}.
+  With \code{is_monotonic = TRUE} the returned WoE is monotonic unless that
+  would require fewer than \code{min_bins} bins.
 }
 
 \strong{Information Value (IV) Interpretation:}
