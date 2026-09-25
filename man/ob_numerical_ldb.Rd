@@ -18,11 +18,13 @@ ob_numerical_ldb(
 }
 \arguments{
 \item{feature}{Numeric vector of feature values to be binned. Missing values (NA)
-are removed. Infinite values do not influence the bin boundaries; they
-are counted in the first (\code{-Inf}) or last (\code{+Inf}) bin.}
+Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+silently, so the bin counts sum to the number of non-missing rows. Infinite
+values are legitimate extremes: they never become cutpoints and are counted
+in the first (\code{-Inf}) or last (\code{+Inf}) bin.}
 
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
-Must have the same length as \code{feature}.}
+Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).}
 
 \item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 2.}
 

@@ -459,22 +459,9 @@ public:
       }
     }
 
-    // Count NaN/Inf in feature
-    int nan_count = 0;
-    int inf_count = 0;
-
-    for (double f : feature) {
-      if (std::isnan(f)) {
-        nan_count++;
-      } else if (std::isinf(f)) {
-        inf_count++;
-      }
-    }
-
-    if (nan_count > 0 || inf_count > 0) {
-      Rcpp::warning("%d NaN and %d Inf values found in feature. These will be handled separately.",
-                    nan_count, inf_count);
-    }
+    // NaN/NA feature values are excluded silently and +/-Inf are ordinary
+    // extreme values (package-wide numerical NA contract). The former
+    // "N NaN and M Inf values found" warning fired on valid input.
   }
 
   /**
