@@ -12,9 +12,12 @@
 #'   required for interface consistency and may be used for future extensions
 #'   (e.g., counting distinct values per class).
 #'
-#' @return Integer scalar representing the number of unique values in \code{x},
-#'   excluding \code{NA} values. Returns 0 if \code{x} is empty or contains only
-#'   \code{NA} values.
+#' @return Integer vector of length 2: the number of distinct values of
+#'   \code{x} (excluding \code{NA}, \code{NaN} and \code{Inf}; numeric values
+#'   are compared exactly, and \code{0} and \code{-0} are the same value) and
+#'   the largest number of distinct target classes observed for a single value.
+#'   Rows whose target is \code{NA} are ignored. Both are 0 when \code{x}
+#'   contains only missing values.
 #'
 #' @details
 #' This function is typically used internally by optimal binning algorithms to:

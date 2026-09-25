@@ -16,9 +16,12 @@ required for interface consistency and may be used for future extensions
 (e.g., counting distinct values per class).}
 }
 \value{
-Integer scalar representing the number of unique values in \code{x},
-  excluding \code{NA} values. Returns 0 if \code{x} is empty or contains only
-  \code{NA} values.
+Integer vector of length 2: the number of distinct values of
+  \code{x} (excluding \code{NA}, \code{NaN} and \code{Inf}; numeric values
+  are compared exactly, and \code{0} and \code{-0} are the same value) and
+  the largest number of distinct target classes observed for a single value.
+  Rows whose target is \code{NA} are ignored. Both are 0 when \code{x}
+  contains only missing values.
 }
 \description{
 Internal utility function that counts the number of distinct (unique) values

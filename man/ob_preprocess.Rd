@@ -119,6 +119,12 @@ with configurable preprocessing strategies.
   \item Grubbs: \strong{Removal} (replaced with \code{num_miss_value}).
 }
 
+Outliers are detected among the observed values only: the missing-value
+sentinel \code{num_miss_value} does not enter the quartiles, mean or standard
+deviation, is never capped and is not counted in \code{outlier_count}, so the
+"this field was blank" information survives outlier treatment. The input
+vector is never modified.
+
 \strong{Use Cases}:
 \itemize{
   \item \strong{Before binning}: Stabilize binning algorithms by removing
@@ -146,7 +152,7 @@ result_iqr <- ob_preprocess(
 )
 
 print(result_iqr$report)
-# Shows: missing_count = 2, outlier_count = 3
+# Shows: missing_count = 2, outlier_count = 4 (the two NAs are not outliers)
 
 # Categorical feature
 feature_cat <- c(rep("A", 30), rep("B", 40), rep("C", 28), NA, NA)
