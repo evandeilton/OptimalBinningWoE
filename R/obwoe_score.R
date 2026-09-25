@@ -191,17 +191,22 @@ obwoe_score <- function(link, scaling, round = FALSE) {
     woe <- as.numeric(res$woe)
     b <- unname(beta[[feat]])
 
-    parts <- strsplit(as.character(res$bin), bin_separator, fixed = TRUE)
+    parts <- .ob_split_categories(res$bin, bin_separator)
     cats <- vapply(parts, paste, character(1), collapse = ", ")
 
     cp <- res$cutpoints
     lower <- rep(NA_real_, length(woe))
     upper <- rep(NA_real_, length(woe))
     if (identical(res$type, "numerical") && !is.null(cp) && length(cp) > 0L) {
+      na_bin <- .ob_numeric_na_bin(res$bin, cp)
       cp <- sort(unique(as.numeric(cp)))
       if (length(cp) + 1L == length(woe)) {
         lower <- c(-Inf, cp)
         upper <- c(cp, Inf)
+      } else if (!is.na(na_bin)) {
+        # a trailing missing-value bin has no interval
+        lower <- c(-Inf, cp, NA_real_)
+        upper <- c(cp, Inf, NA_real_)
       }
     }
 
@@ -400,7 +405,7 @@ obwoe_prune <- function(x, ranking, cutoff = 0.70, method = "pearson") {
 #' @param compare Vector observed in the sample being monitored.
 #' @param levels Character vector of the categories or bin labels to compare
 #'   over. Required when the inputs are not numeric; defaults to the union of
-#'   the values seen.
+#'   the values seen. Missing and repeated entries are dropped.
 #' @param breaks Numeric vector of cut points used to band numeric inputs.
 #'   \code{NULL} (default) bands them at the deciles of \code{base}.
 #' @param n_groups Integer. Number of bands when \code{breaks} is \code{NULL}.
@@ -467,12 +472,26 @@ obwoe_psi <- function(base, compare, levels = NULL, breaks = NULL,
   } else {
     b <- as.character(base)
     c_ <- as.character(compare)
-    lev <- if (is.null(levels)) sort(unique(c(b, c_))) else as.character(levels)
+    if (is.null(levels)) {
+      lev <- sort(unique(c(b, c_)))
+    } else {
+      # A missing value is not a band, and a band listed twice is one band.
+      # Either used to abort with an unrelated data.frame() or factor() error.
+      lev <- unique(as.character(levels))
+      lev <- lev[!is.na(lev)]
+      if (length(lev) == 0L) {
+        stop("'levels' must hold at least one non-missing category.")
+      }
+    }
   }
 
+  # Counts per band with tabulate() on integer codes. Rebuilding a factor from
+  # as.character() of every observation gave the same counts at a far higher
+  # cost on large samples. Missing values fall in no band either way.
   share <- function(v) {
-    tb <- table(factor(as.character(v), levels = lev))
-    as.numeric(tb) / sum(as.numeric(tb))
+    codes <- if (numeric_input) as.integer(v) else match(v, lev)
+    tb <- as.numeric(tabulate(codes, nbins = length(lev)))
+    tb / sum(tb)
   }
 
   p <- share(b)

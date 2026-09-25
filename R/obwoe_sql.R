@@ -365,7 +365,7 @@
   # split pieces reproduce the categories byte for byte. They are NOT trimmed by
   # default: a category whose value carries leading or trailing whitespace must
   # still be matched exactly.
-  parts <- strsplit(as.character(spec$bin), bin_separator, fixed = TRUE)
+  parts <- .ob_split_categories(spec$bin, bin_separator)
   if (isTRUE(trim_categories)) parts <- lapply(parts, trimws)
 
   for (i in seq_along(parts)) {
@@ -468,6 +468,9 @@
 #'   the WoE is a matrix; this selects which class column to export.
 #' @param bin_separator Character string separating merged categories inside a
 #'   bin label. Default \code{"\%;\%"}, matching \code{\link{control.obwoe}}.
+#'   When the argument is not supplied and \code{obj} records the separator it
+#'   was fitted with (an \code{"obwoe"} object, or a step or recipe whose
+#'   \code{step_obwoe()} control sets one), that separator is used instead.
 #' @param trim_categories Logical. When \code{FALSE} (default) category names
 #'   are matched byte for byte, including any leading or trailing whitespace
 #'   they carry, which is what \code{\link{obwoe_apply}} does in R. Set it to
@@ -662,6 +665,24 @@ obwoe_sql <- function(obj,
   d <- .ob_sql_dialect(dialect)
   specs <- .ob_sql_spec(obj)
 
+  # Unless the caller chose one, split grouped categories on the separator the
+  # model was fitted with (recorded by obwoe() since 1.13.2, and carried in a
+  # step's control list). Assuming "%;%" left every grouped category of a model
+  # fitted with another separator unmatched, i.e. scored at na_value.
+  if (missing(bin_separator)) {
+    if (inherits(obj, "obwoe") || inherits(obj, "step_obwoe")) {
+      bin_separator <- .ob_bin_separator(obj, default = bin_separator)
+    } else if (inherits(obj, "recipe")) {
+      # One separator per statement: used only when every step agrees.
+      seps <- unique(vapply(
+        Filter(function(s) inherits(s, "step_obwoe"), obj$steps),
+        .ob_bin_separator, character(1),
+        default = bin_separator
+      ))
+      if (length(seps) == 1L) bin_separator <- seps
+    }
+  }
+
   if (length(specs) == 0L) {
     stop("'obj' contains no binning results.")
   }
@@ -734,12 +755,17 @@ obwoe_sql <- function(obj,
 
     woe <- as.numeric(woe)
 
-    # Numerical features must have a cut-point vector consistent with the bins.
+    # Numerical features must have a cut-point vector consistent with the bins,
+    # not counting a trailing missing-value bin (see .ob_numeric_na_bin()),
+    # which the IS NULL branch serves instead of an interval.
+    num_na_idx <- NA_integer_
     if (identical(spec$type, "numerical")) {
+      num_na_idx <- .ob_numeric_na_bin(bins, spec$cutpoints)
+      k_int <- if (is.na(num_na_idx)) k else k - 1L
       cp <- spec$cutpoints
       cp <- if (is.null(cp)) numeric(0) else sort(unique(as.numeric(cp)))
-      if (length(cp) + 1L != k) {
-        if (!(k == 1L && length(cp) == 0L)) {
+      if (length(cp) + 1L != k_int) {
+        if (!(k_int == 1L && length(cp) == 0L)) {
           warning(sprintf(
             paste0(
               "Feature '%s': %d bins are inconsistent with %d distinct cut ",
@@ -759,7 +785,7 @@ obwoe_sql <- function(obj,
     # one, the fallback otherwise.
     na_bin_idx <- NA_integer_
     if (null_to_na_bin && !identical(spec$type, "numerical")) {
-      parts <- strsplit(bins, bin_separator, fixed = TRUE)
+      parts <- .ob_split_categories(bins, bin_separator)
       if (isTRUE(trim_categories)) parts <- lapply(parts, trimws)
       hit <- which(vapply(parts, function(p) any(p %in% na_categories), logical(1)))
       if (length(hit) > 0L) na_bin_idx <- hit[1L]
@@ -777,10 +803,15 @@ obwoe_sql <- function(obj,
         "index" = "NULL"
       )
       null_val <- if (!is.na(na_bin_idx)) vals[na_bin_idx] else fallback
+      case_vals <- vals
+      if (!is.na(num_na_idx)) {
+        case_vals <- vals[-num_na_idx]
+        if (null_to_na_bin) null_val <- vals[num_na_idx]
+      }
 
       .ob_sql_case(
         spec = spec, feature = feat, col = col, d = d,
-        values = vals, else_value = fallback, null_value = null_val,
+        values = case_vals, else_value = fallback, null_value = null_val,
         explicit_bounds = explicit_bounds, indent = indent_str,
         bin_separator = bin_separator, trim_categories = trim_categories
       )

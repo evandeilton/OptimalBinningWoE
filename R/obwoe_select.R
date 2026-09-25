@@ -199,7 +199,17 @@
     return(empty)
   }
 
-  d <- diff(v)
+  finite <- all(is.finite(v))
+  d <- if (finite) {
+    diff(v)
+  } else {
+    # An infinite WoE (a bin holding a single class, reported unsmoothed) makes
+    # diff() return NaN for Inf - Inf, and every comparison below NA, which
+    # used to abort obwoe_select() with "missing value where TRUE/FALSE
+    # needed". Only the direction of each step matters here, so compare.
+    m <- length(v)
+    as.numeric(v[-1L] > v[-m]) - as.numeric(v[-1L] < v[-m])
+  }
 
   non_decreasing <- all(d >= 0)
   non_increasing <- all(d <= 0)
@@ -224,11 +234,13 @@
   dominant_up <- sum(d[d > 0]) >= abs(sum(d[d < 0]))
   n_viol <- if (dominant_up) sum(d < 0) else sum(d > 0)
 
+  # A constant profile has no rank correlation. The guard is exactly the
+  # condition under which cor() would warn about a zero standard deviation,
+  # so no warning needs suppressing.
   sp <- NA_real_
-  if (stats::sd(v) > 0) {
-    sp <- suppressWarnings(
-      stats::cor(seq_along(v), v, method = "spearman")
-    )
+  varies <- if (finite) stats::sd(v) > 0 else length(unique(v)) > 1L
+  if (varies) {
+    sp <- stats::cor(seq_along(v), v, method = "spearman")
   }
 
   list(
@@ -421,10 +433,15 @@
   if (identical(base_row$type, "numerical")) {
     cp <- res$cutpoints
     if (!is.null(cp) && length(cp) > 0L) {
+      na_bin <- .ob_numeric_na_bin(bins, cp)
       cp <- sort(unique(as.numeric(cp)))
       if (length(cp) + 1L == k) {
         lower <- c(-Inf, cp)
         upper <- c(cp, Inf)
+      } else if (!is.na(na_bin)) {
+        # a trailing missing-value bin has no interval
+        lower <- c(-Inf, cp, NA_real_)
+        upper <- c(cp, Inf, NA_real_)
       }
     } else if (k == 1L) {
       lower <- -Inf
@@ -433,7 +450,7 @@
   } else {
     # Categories are reported exactly as the algorithm merged them; no
     # trimming, so a value carrying whitespace stays recognisable.
-    parts <- strsplit(bins, bin_separator, fixed = TRUE)
+    parts <- .ob_split_categories(bins, bin_separator)
     n_cat <- as.integer(vapply(parts, length, integer(1)))
     cats <- vapply(parts, paste, character(1), collapse = ", ")
   }
@@ -532,7 +549,8 @@
 #'   \code{top_n} cut always keep the highest values of the ranking metric.
 #' @param bin_separator Character string separating merged categories inside a
 #'   categorical bin label. Default \code{"\%;\%"}, matching
-#'   \code{\link{control.obwoe}}.
+#'   \code{\link{control.obwoe}}. When the argument is not supplied, the
+#'   separator recorded in \code{obj} (the one it was fitted with) is used.
 #'
 #' @return A \code{data.table} when the \pkg{data.table} package is installed
 #'   and a \code{data.frame} otherwise (\code{data.table} inherits from
@@ -808,6 +826,12 @@ obwoe_select <- function(obj,
     if (is.na(top_n) || top_n < 1L) {
       stop("'top_n' must be NULL or a single integer >= 1.")
     }
+  }
+
+  # Unless the caller chose one, report grouped categories split on the
+  # separator the model was actually fitted with.
+  if (missing(bin_separator)) {
+    bin_separator <- .ob_bin_separator(obj, default = bin_separator)
   }
 
   if (identical(obj$target_type, "multinomial")) {
