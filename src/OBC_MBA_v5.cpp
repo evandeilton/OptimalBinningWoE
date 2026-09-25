@@ -138,10 +138,8 @@ private:
         has_one = true;
       else
         throw std::invalid_argument("Target must contain only 0 and 1.");
-
-      // Early termination
-      if (has_zero && has_one)
-        break;
+      // No early exit: every value must be checked, otherwise a 2 or -1
+      // after the first 0 and 1 was silently counted as a positive.
     }
 
     if (!has_zero || !has_one) {
@@ -214,39 +212,28 @@ private:
               });
 
     // Initialize merge cache
-    merge_cache = std::make_unique<MergeCache>(bins.size(), bins.size() > 10);
+    // Disabled: entries were keyed by position and never shifted when a merge
+    // erased a bin, so after the first merge the cached loss for (i, i+1)
+    // belonged to a different pair.
+    merge_cache = std::make_unique<MergeCache>(bins.size(), false);
 
     // Reduce to max_n_prebins if necessary with improved strategy
     if (static_cast<int>(bins.size()) > max_n_prebins &&
         static_cast<int>(bins.size()) > min_bins) {
-      // First try merging smallest bins to preserve information
-      std::vector<size_t> small_bin_indices;
-      small_bin_indices.reserve(bins.size() - max_n_prebins);
-
-      // Identify bins to potentially merge
-      for (size_t i = max_n_prebins; i < bins.size(); ++i) {
-        small_bin_indices.push_back(i);
-      }
-
-      // Sort by count (ascending)
-      std::sort(
-          small_bin_indices.begin(), small_bin_indices.end(),
-          [this](size_t a, size_t b) { return bins[a].count < bins[b].count; });
-
-      // Iteratively merge smallest bins
-      for (size_t idx : small_bin_indices) {
+      // Merge the smallest bins first. `bins` is sorted by count descending,
+      // so ascending count is descending position. Walking the positions from
+      // the back keeps every index valid: a merge either erases the current
+      // (last unprocessed) position or a position behind it. The previous
+      // version sorted a list of positions taken before any merge; once a
+      // merge erased an earlier-listed position, later entries named the
+      // wrong bin (or ran past the end), so bins were skipped and pre-binning
+      // could stop above max_n_prebins.
+      for (size_t idx = bins.size() - 1;
+           idx >= static_cast<size_t>(max_n_prebins); --idx) {
         if (static_cast<int>(bins.size()) <= max_n_prebins ||
             static_cast<int>(bins.size()) <= min_bins) {
           break;
         }
-
-        // small_bin_indices was built before any merging, and every merge
-        // erases a bin, so an index taken later in the list can point past the
-        // end of the shrunken vector. Reading bins[idx] below would then be out
-        // of range -- undefined behaviour, which aborts under a checked
-        // standard library and silently reads foreign memory without one. The
-        // bin this index referred to has already been absorbed, so there is
-        // nothing left to merge and the entry is skipped.
         if (idx >= bins.size()) {
           continue;
         }
@@ -343,22 +330,38 @@ private:
       }
 
       // Try to merge with best candidate
+      size_t kept = 0, erased = 0;
+      bool merged = false;
       if (best_candidate != idx && best_candidate < bins.size()) {
-        if (!try_merge_bins(std::min(idx, best_candidate),
-                            std::max(idx, best_candidate))) {
+        kept = std::min(idx, best_candidate);
+        erased = std::max(idx, best_candidate);
+        merged = try_merge_bins(kept, erased);
+        if (!merged) {
           // If unable to merge with best candidate, try adjacent bins
           if (idx > 0) {
-            try_merge_bins(idx - 1, idx);
+            kept = idx - 1;
+            erased = idx;
+            merged = try_merge_bins(kept, erased);
           } else if (idx + 1 < bins.size()) {
-            try_merge_bins(idx, idx + 1);
+            kept = idx;
+            erased = idx + 1;
+            merged = try_merge_bins(kept, erased);
           }
         }
       }
 
-      // Adjust indices for remaining bins, since we removed one
-      for (auto &remaining_idx : low_freq_bins) {
-        if (remaining_idx > std::min(idx, best_candidate)) {
-          remaining_idx--;
+      // try_merge_bins() keeps the lower position and erases the higher one:
+      // an entry for the erased bin now names the merged bin, and every
+      // position after it moves down by one. The previous adjustment
+      // decremented everything after the *lower* position, so entries between
+      // the two named the wrong bin and a rare bin could be left unmerged.
+      if (merged) {
+        for (auto &remaining_idx : low_freq_bins) {
+          if (remaining_idx == erased) {
+            remaining_idx = kept;
+          } else if (remaining_idx > erased) {
+            remaining_idx--;
+          }
         }
       }
     }
@@ -568,11 +571,12 @@ private:
         best_bins = bins;
       }
 
-      // Check for convergence
-      if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-        break; // Convergence achieved
-      }
-
+      // No IV-convergence exit here: the loop runs only while there are
+      // more than max_bins bins, and stopping it early because one merge
+      // happened to cost less than convergence_threshold (two bins with the
+      // same event rate) left the result above max_bins, raised the warning
+      // below and made fit() call this function again -- one warning per
+      // such merge.
       prev_total_iv = total_iv;
       iterations++;
     }
@@ -735,6 +739,15 @@ public:
                            (static_cast<int>(bins.size()) <= max_bins);
         }
       }
+
+      // Report the bins in WoE order. Merging two WoE-adjacent bins does not
+      // always keep that order under Bayesian smoothing (two pure bins of
+      // different sizes), which left the documented monotone WoE unmet. The
+      // sort is stable, so an already ordered result is unchanged.
+      std::stable_sort(bins.begin(), bins.end(),
+                       [](const CategoricalBin &a, const CategoricalBin &b) {
+                         return a.woe < b.woe;
+                       });
 
       // Final consistency check
       check_consistency();

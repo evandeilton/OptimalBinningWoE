@@ -205,7 +205,15 @@ void OBC_MOB::calculateInitialBins() {
   // Initialize bins with category stats
   for (const auto& stats : cat_stats_vec) {
     CategoricalBin bin;
-    bin.categories.push_back(stats.category); bin.count++; bin.count_pos += static_cast<int>(stats.count_pos); bin.count_neg += static_cast<int>(stats.count_neg);
+    // count must be the number of observations. It was set to 1 (one
+    // category), which made every unmerged category look rare to
+    // handleRareCategories() -- so they were all merged down to min_bins
+    // whatever bin_cutoff said -- and turned event_rate() into count_pos,
+    // so "most similar event rate" compared raw positive counts.
+    bin.categories.push_back(stats.category);
+    bin.count_pos = stats.count_pos;
+    bin.count_neg = stats.count_neg;
+    bin.update_count();
     bin.woe = stats.woe; // Pre-computed WoE
     bins.push_back(std::move(bin));
   }
@@ -548,7 +556,10 @@ List OBC_MOB::fit() {
       double bad = category_bad[cat];
       
       CategoricalBin bin;
-      bin.categories.push_back(cat); bin.count++; bin.count_pos += static_cast<int>(good); bin.count_neg += static_cast<int>(bad);
+      bin.categories.push_back(cat);
+      bin.count_pos = static_cast<int>(good);
+      bin.count_neg = static_cast<int>(bad);
+      bin.update_count();
       bin.calculate_metrics(total_good, total_bad);
       bins.push_back(std::move(bin));
     }
@@ -578,6 +589,17 @@ List OBC_MOB::fit() {
     limitBins();
   }
   
+  // limitBins() merges WoE-adjacent bins, and under Bayesian smoothing the
+  // merged WoE can fall outside its parents' range (two pure bins of
+  // different sizes), leaving the reported bins non-monotone. Restore the
+  // WoE order in that case; a monotone result is left as it is.
+  if (!isMonotonic(bins)) {
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin& a, const CategoricalBin& b) {
+                       return a.woe < b.woe;
+                     });
+  }
+
   // At this point, bins.size() should be <= max_bins
   // If it's < min_bins, that's a problem that should have been handled earlier
   if (bins.size() < static_cast<size_t>(min_bins)) {

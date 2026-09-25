@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
-#include <random>
+#include <R_ext/Random.h>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -66,12 +66,13 @@ private:
   int iterations_run;
   int iterations_without_improvement;
   
-  // Random number generator
-  std::mt19937 gen;
-
-  // Seed drawn from R's RNG stream by the exported wrapper, so that set.seed()
-  // in R controls this algorithm's stochastic search.
-  unsigned int seed_from_r;
+  // Uniform integer in [0, n) from R's own RNG stream (the exported wrapper
+  // holds an RNGScope for the whole fit), so set.seed() controls the search
+  // and, unlike std::uniform_int_distribution, whose algorithm differs
+  // between libstdc++ and libc++, gives the same draws on every platform.
+  static int rand_index(int n) {
+    return static_cast<int>(R_unif_index(static_cast<double>(n)));
+  }
   
   // Initialize the algorithm with comprehensive error checking
   void initialize() {
@@ -83,6 +84,11 @@ private:
       }
     }
     unique_categories.assign(unique_set.begin(), unique_set.end());
+    // Hash-set iteration order differs between standard libraries (and with
+    // the bucket count), and it decides which category every random move
+    // touches, so the same data and seed gave different binnings on
+    // different platforms. Sorting makes the order a function of the labels.
+    std::sort(unique_categories.begin(), unique_categories.end());
     
     // Count totals
     total_count = static_cast<int>(feature.size());
@@ -148,10 +154,9 @@ private:
       }
       
       // Add some randomness to avoid local optima
-      std::uniform_int_distribution<> dis(0, 99);
       for (int i = 0; i < n_categories; ++i) {
-        if (dis(gen) < 10) { // 10% chance to reassign
-          current_solution[i] = std::uniform_int_distribution<>(0, actual_bins - 1)(gen);
+        if (rand_index(100) < 10) { // 10% chance to reassign
+          current_solution[i] = rand_index(actual_bins);
         }
       }
     }
@@ -171,10 +176,12 @@ private:
     }
     
     double iv = 0.0;
+    int non_empty = 0;
     
     // Apply Bayesian smoothing and calculate IV
     for (int i = 0; i < actual_bins; ++i) {
       if (bin_counts[i] > 0) {
+        ++non_empty;
         int bin_negatives = bin_counts[i] - bin_positives[i];
         
         // Calculate bin proportion and apply cutoff
@@ -206,6 +213,16 @@ private:
       }
     }
     
+    // Penalise solutions that leave bins empty below min_bins. An empty bin
+    // is dropped from the output, and with Bayesian smoothing merging two
+    // pure bins can *raise* IV (the prior is added once instead of twice),
+    // so without this the search happily returned fewer than min_bins bins
+    // although every category could have had its own.
+    const int required = std::min(min_bins, static_cast<int>(unique_categories.size()));
+    if (non_empty < required) {
+      iv -= 1000.0 * (required - non_empty);
+    }
+
     // Add monotonicity constraint as a penalty
     if (!is_monotonic(solution)) {
       iv -= 500.0; // Penalize non-monotonic solutions
@@ -214,6 +231,10 @@ private:
     return iv;
   }
   
+  // Iterations without improvement of the best IV after which the search is
+  // considered converged: twice the restart window used in fit().
+  static constexpr int kConvergenceWindow = 200;
+
   // Check monotonicity with adaptive threshold
   bool is_monotonic(const std::vector<int>& solution) const {
     std::vector<double> bin_rates(actual_bins, 0.0);
@@ -262,26 +283,23 @@ private:
     if (neighbor.size() <= 1) return neighbor;
     
     // Different neighbor generation strategies
-    std::uniform_int_distribution<> strategy_dis(0, 9);
-    int strategy = strategy_dis(gen);
+    int strategy = rand_index(10);
     
     if (strategy < 5) { // 50% chance for simple swap
       // Standard random swap
-      std::uniform_int_distribution<> dis(0, static_cast<int>(neighbor.size()) - 1);
-      int idx1 = dis(gen);
-      int idx2 = dis(gen);
+      const int n_cat = static_cast<int>(neighbor.size());
+      int idx1 = rand_index(n_cat);
+      int idx2 = rand_index(n_cat);
       
       while (idx2 == idx1 && neighbor.size() > 1) {
-        idx2 = dis(gen);
+        idx2 = rand_index(n_cat);
       }
       
       std::swap(neighbor[idx1], neighbor[idx2]);
     } else if (strategy < 8) { // 30% chance for reassigning a random category
       // Reassign a random category to a random bin
-      std::uniform_int_distribution<> cat_dis(0, static_cast<int>(neighbor.size()) - 1);
-      std::uniform_int_distribution<> bin_dis(0, actual_bins - 1);
-      int idx = cat_dis(gen);
-      neighbor[idx] = bin_dis(gen);
+      int idx = rand_index(static_cast<int>(neighbor.size()));
+      neighbor[idx] = rand_index(actual_bins);
     } else { // 20% chance for smarter event rate-based move
       // Find a category with highest event rate difference from its bin average
       std::vector<double> bin_rates(actual_bins, 0.0);
@@ -377,14 +395,12 @@ public:
                                double cooling_rate_ = 0.995,
                                int max_iterations_ = 1000,
                                double convergence_threshold_ = 1e-6,
-                               bool adaptive_cooling_ = true,
-                               unsigned int seed_from_r_ = 42u)
+                               bool adaptive_cooling_ = true)
     : feature(feature_), target(target_), min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_), bin_separator(bin_separator_),
       initial_temperature(initial_temperature_), cooling_rate(cooling_rate_),
       max_iterations(max_iterations_), convergence_threshold(convergence_threshold_),
-      adaptive_cooling(adaptive_cooling_), iterations_without_improvement(0),
-      seed_from_r(seed_from_r_) {
+      adaptive_cooling(adaptive_cooling_), iterations_without_improvement(0) {
     
     // Enhanced validation
     if (feature.size() != target.size()) {
@@ -427,30 +443,34 @@ public:
       else if (val == 1) has_one = true;
       else throw std::invalid_argument("Target must be binary (0 or 1)");
       
-      if (has_zero && has_one) break;
+      // No early exit: every value must be 0 or 1.
     }
     
     if (!has_zero || !has_one) {
       throw std::invalid_argument("Target must contain both 0 and 1 values");
     }
     
-    // Seed the generator from R's own RNG stream so that set.seed() in R makes
-    // this simulated-annealing search reproducible. Previously it was seeded
-    // from std::random_device, which made every call return a different binning
-    // for identical input with no way to control it -- unusable for auditable
-    // credit models, and std::random_device is additionally unreliable on some
-    // MinGW toolchains. seed_from_r is drawn by the exported wrapper while R's
-    // RNG state is held, so it must not be regenerated here.
-    std::seed_seq seq{seed_from_r};
-    gen.seed(seq);
+    if (!(initial_temperature > 0.0) || !std::isfinite(initial_temperature)) {
+      throw std::invalid_argument("initial_temperature must be a positive finite number");
+    }
+    if (!(cooling_rate > 0.0 && cooling_rate <= 1.0)) {
+      throw std::invalid_argument("cooling_rate must be in (0, 1]");
+    }
 
+    // All random draws come from R's RNG (see rand_index()), so set.seed()
+    // makes the search reproducible. It was first seeded from
+    // std::random_device (irreproducible), then from one R draw feeding a
+    // std::mt19937 whose distributions are library-specific.
     initialize();
   }
   
   // Enhanced fit method with adaptive cooling and parallel tempering
   void fit() {
     double temperature = initial_temperature;
-    double prev_best_iv = best_iv;
+    // Best IV at the last iteration where it improved by more than
+    // convergence_threshold, and that iteration.
+    double best_iv_at_improvement = best_iv;
+    int last_improvement_iter = 0;
     
     // Keep track of best solution found
     std::vector<int> global_best_solution = best_solution;
@@ -484,8 +504,7 @@ public:
         double acceptance_probability = calculate_acceptance_probability(
           current_iv, neighbor_iv, temperature, iter);
         
-        std::uniform_real_distribution<> dis(0.0, 1.0);
-        if (dis(gen) < acceptance_probability) {
+        if (R::unif_rand() < acceptance_probability) {
           current_solution = neighbor;
           current_iv = neighbor_iv;
         }
@@ -509,15 +528,25 @@ public:
         iterations_without_improvement = 0;
       }
       
-      // Check convergence
-      if (iter % 10 == 0) { // Check every 10 iterations to save computation
-        if (std::abs(best_iv - prev_best_iv) < convergence_threshold && 
-            is_monotonic(best_solution)) {
-          converged = true;
-          iterations_run = iter + 1;
-          break;
-        }
-        prev_best_iv = best_iv;
+      if (best_iv - best_iv_at_improvement >= convergence_threshold) {
+        best_iv_at_improvement = best_iv;
+        last_improvement_iter = iter;
+      }
+
+      // Converged once the best IV has not improved by convergence_threshold
+      // for kConvergenceWindow iterations (checked every 10). The old rule
+      // compared the best IV with its value 10 iterations earlier and was
+      // also evaluated at iter == 0, i.e. after a single neighbour: whenever
+      // that neighbour was rejected the search stopped after one iteration
+      // and returned the (partly random) initial assignment, and in general
+      // it stopped long before the restart-from-best logic above (100
+      // non-improving iterations) could ever run.
+      if (iter % 10 == 0 &&
+          iter - last_improvement_iter >= kConvergenceWindow &&
+          is_monotonic(best_solution)) {
+        converged = true;
+        iterations_run = iter + 1;
+        break;
       }
     }
     
@@ -684,6 +713,25 @@ public:
       }
     }
     
+    // The search keeps the bins monotone in the raw event rate; the smoothed
+    // WoE of two pure bins of different sizes can still come out in the
+    // other order, so the bins are reported in WoE order (a stable sort,
+    // which leaves an already monotone result untouched).
+    std::vector<size_t> order(bins.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::stable_sort(order.begin(), order.end(),
+                     [&woe](size_t a, size_t b) { return woe[a] < woe[b]; });
+    auto permute = [&order](auto& v) {
+      auto tmp = v;
+      for (size_t k = 0; k < order.size(); ++k) v[k] = tmp[order[k]];
+    };
+    permute(bins);
+    permute(woe);
+    permute(iv);
+    permute(count);
+    permute(count_pos);
+    permute(count_neg);
+
     // Create numeric IDs for bins
     Rcpp::NumericVector ids(bins.size());
     for(int i = 0; i < static_cast<int>(bins.size()); i++) {
@@ -780,11 +828,10 @@ Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
                    na_feature_count);
    }
    
-   // Draw the annealing seed from R's RNG stream so that set.seed() makes this
-   // function reproducible. Rcpp restores the RNG state on scope exit.
+   // Every random draw of the search comes from R's RNG, so set.seed() makes
+   // this function reproducible. RNGScope reads the RNG state here and writes
+   // it back on scope exit.
    Rcpp::RNGScope rng_scope;
-   unsigned int seed_from_r =
-     static_cast<unsigned int>(R::unif_rand() * 4294967295.0);
 
    // Create and run the binning algorithm
    OBC_SAB binner(feature_vec, target_vec,
@@ -792,7 +839,7 @@ Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
                                        max_n_prebins, bin_separator,
                                        initial_temperature, cooling_rate,
                                        max_iterations, convergence_threshold,
-                                       adaptive_cooling, seed_from_r);
+                                       adaptive_cooling);
    binner.fit();
    
    return binner.get_results();

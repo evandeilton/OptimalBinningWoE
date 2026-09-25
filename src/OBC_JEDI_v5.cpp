@@ -122,6 +122,9 @@ private:
     bool has_zero = false;
     bool has_one = false;
 
+    // Every value is checked: stopping as soon as both 0 and 1 had been seen
+    // let a later 2 (or -1) through, and it was then counted as
+    // count_pos += 2, count_neg += -1, i.e. negative counts.
     for (int t : target_) {
       if (t == 0)
         has_zero = true;
@@ -129,10 +132,6 @@ private:
         has_one = true;
       else
         throw std::invalid_argument("Target must be binary (0/1)");
-
-      // Optimization: Stop once we've confirmed both values exist
-      if (has_zero && has_one)
-        break;
     }
 
     if (!has_zero || !has_one) {
@@ -302,7 +301,12 @@ private:
     }
 
     // Initialize IV cache if needed
-    iv_cache_ = std::make_unique<IVCache>(bins_.size(), bins_.size() > 10);
+    // The cache stored the *total* IV after merging pair (i, i+1), which
+    // depends on every other bin, and it was never shifted when a merge
+    // erased a bin, so from the second merge on entries were compared against
+    // the wrong totals and the wrong pairs. Disabled: every candidate is
+    // evaluated fresh.
+    iv_cache_ = std::make_unique<IVCache>(bins_.size(), false);
   }
 
   // Enhanced rare category merging with improved handling
@@ -319,15 +323,34 @@ private:
                 return a.count < b.count;
               });
 
+    // When fewer than min_bins categories clear the cutoff, the most frequent
+    // of the rare ones are kept separate as well. The rare categories occupy
+    // the front of the (ascending) order, so those are the last `keep_rare`
+    // of them. The previous test (`new_bins.size() < min_bins_` while walking
+    // the ascending order) always kept the min_bins *rarest* categories --
+    // typically singletons -- as their own bins and pooled the larger rare
+    // ones, which is backwards and produced 1-observation bins that the
+    // bin_cutoff documentation promises cannot exist.
+    size_t n_rare = 0;
+    for (const auto &b : bins_) {
+      if (b.count < cutoff_count)
+        ++n_rare;
+    }
+    const size_t n_frequent = bins_.size() - n_rare;
+    const size_t keep_rare =
+        (static_cast<size_t>(std::max(min_bins_, 0)) > n_frequent)
+            ? std::min(n_rare, static_cast<size_t>(min_bins_) - n_frequent)
+            : 0;
+
     // Efficiently merge rare categories
     std::vector<CategoricalBin> new_bins;
     new_bins.reserve(bins_.size());
 
     CategoricalBin others;
 
-    for (auto &b : bins_) {
-      if (b.count >= cutoff_count ||
-          static_cast<int>(new_bins.size()) < min_bins_) {
+    for (size_t pos = 0; pos < bins_.size(); ++pos) {
+      auto &b = bins_[pos];
+      if (b.count >= cutoff_count || pos >= n_rare - keep_rare) {
         new_bins.push_back(std::move(b));
       } else {
         others.merge_with(b);

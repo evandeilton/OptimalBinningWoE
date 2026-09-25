@@ -85,13 +85,12 @@ private:
   void initialize_bins();
   void merge_bins();
   void calculate_woe_iv(CategoricalBin& bin);
-  bool is_monotonic() const;
   void handle_zero_counts();
   std::string join_categories(const std::vector<std::string>& categories) const;
   double calculate_total_iv() const;
   size_t find_best_merge_candidate(size_t bin_idx) const;
   void merge_rare_categories();
-  void enforce_monotonicity();
+  void sort_bins_by_woe();
   
   inline double safe_log(double value) const {
     // Safe log: avoids log(0) by adding a small epsilon
@@ -152,9 +151,8 @@ void OBC_MILP::validate_input() {
     if (val == 0) has_zero = true;
     else if (val == 1) has_one = true;
     else throw std::invalid_argument("Target must contain only 0 and 1.");
-    
-    // Early termination once we've found both values
-    if (has_zero && has_one) break;
+    // No early exit: a 2 after the first 0 and 1 used to be counted as
+    // count_pos += 2, count_neg += -1.
   }
   
   if (!has_zero || !has_one) {
@@ -238,38 +236,6 @@ void OBC_MILP::calculate_woe_iv(CategoricalBin& bin) {
   // Handle non-finite values
   if (!std::isfinite(bin.woe)) bin.woe = 0.0;
   if (!std::isfinite(bin.iv)) bin.iv = 0.0;
-}
-
-bool OBC_MILP::is_monotonic() const {
-  if (bins.size() <= 2) {
-    return true;  // Monotonic if <= 2 bins
-  }
-  
-  // Calculate average WoE gap for adaptive threshold
-  double total_woe_gap = 0.0;
-  for (size_t i = 1; i < bins.size(); ++i) {
-    total_woe_gap += std::fabs(bins[i].woe - bins[i-1].woe);
-  }
-  
-  double avg_gap = total_woe_gap / (bins.size() - 1);
-  double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
-  
-  bool increasing = true;
-  bool decreasing = true;
-  
-  for (size_t i = 1; i < bins.size(); ++i) {
-    if (bins[i].woe < bins[i-1].woe - monotonicity_threshold) {
-      increasing = false;
-    }
-    if (bins[i].woe > bins[i-1].woe + monotonicity_threshold) {
-      decreasing = false;
-    }
-    if (!increasing && !decreasing) {
-      return false;
-    }
-  }
-  
-  return true;
 }
 
 double OBC_MILP::calculate_total_iv() const {
@@ -365,98 +331,6 @@ void OBC_MILP::merge_rare_categories() {
   }
 }
 
-void OBC_MILP::enforce_monotonicity() {
-  if (bins.size() <= 2) return;  // Already monotonic
-  
-  // Calculate average WoE gap for adaptive threshold
-  double total_woe_gap = 0.0;
-  for (size_t i = 1; i < bins.size(); ++i) {
-    total_woe_gap += std::fabs(bins[i].woe - bins[i-1].woe);
-  }
-  
-  double avg_gap = total_woe_gap / (bins.size() - 1);
-  double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
-  
-  // Determine monotonicity direction (increasing or decreasing)
-  bool increasing = true;
-  int increasing_violations = 0;
-  int decreasing_violations = 0;
-  
-  for (size_t i = 1; i < bins.size(); ++i) {
-    if (bins[i].woe < bins[i-1].woe - monotonicity_threshold) {
-      increasing_violations++;
-    }
-    if (bins[i].woe > bins[i-1].woe + monotonicity_threshold) {
-      decreasing_violations++;
-    }
-  }
-  
-  // Determine preferred direction (fewer violations)
-  increasing = (increasing_violations <= decreasing_violations);
-  
-  // Fix violations with a maximum number of attempts
-  int attempts = 0;
-  const int max_attempts = static_cast<int>(bins.size() * 3);
-  
-  while (!is_monotonic() && static_cast<int>(bins.size()) > min_bins && attempts < max_attempts) {
-    // Find all violations and their severity
-    std::vector<std::pair<size_t, double>> violations;
-    
-    for (size_t i = 1; i < bins.size(); ++i) {
-      bool violation = (increasing && bins[i].woe < bins[i-1].woe - monotonicity_threshold) ||
-        (!increasing && bins[i].woe > bins[i-1].woe + monotonicity_threshold);
-      
-      if (violation) {
-        double severity = std::fabs(bins[i].woe - bins[i-1].woe);
-        violations.push_back(std::make_pair(i, severity));
-      }
-    }
-    
-    // If no violations, we're done
-    if (violations.empty()) break;
-    
-    // Sort violations by severity (descending)
-    std::sort(violations.begin(), violations.end(),
-              [](const std::pair<size_t, double>& a, const std::pair<size_t, double>& b) { 
-                return a.second > b.second; 
-              });
-    
-    // Fix the most severe violation
-    if (!violations.empty()) {
-      size_t i = violations[0].first;
-      size_t j = i - 1;
-      
-      // Create a new temporary bin
-      CategoricalBin merged_bin = bins[j];
-      merged_bin.merge_with(bins[i]);
-      
-      // Calculate metrics for merged bin
-      calculate_woe_iv(merged_bin);
-      
-      // Replace the bin with lower IV with the merged bin
-      bins[j] = std::move(merged_bin);
-      bins.erase(bins.begin() + i);
-    }
-    
-    attempts++;
-  }
-  
-  if (attempts >= max_attempts) {
-    Rcpp::warning("Could not ensure monotonicity in %d attempts. Using best solution found.", max_attempts);
-  }
-  
-  // Final sort by WoE to ensure consistent ordering
-  if (increasing) {
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe < b.woe;
-    });
-  } else {
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe > b.woe;
-    });
-  }
-}
-
 void OBC_MILP::merge_bins() {
   const size_t min_bins_size = static_cast<size_t>(min_bins);
   const size_t max_bins_size = static_cast<size_t>(std::min(max_bins, static_cast<int>(bins.size())));
@@ -497,75 +371,56 @@ void OBC_MILP::merge_bins() {
   
   // Handle rare categories
   merge_rare_categories();
-  
-  // Enforce monotonicity first
-  enforce_monotonicity();
-  
-  // Now optimize the number of bins if still needed
-  bool merging = true;
-  double prev_total_iv = calculate_total_iv();
-  
-  // Track best solution seen so far
-  double best_total_iv = prev_total_iv;
-  std::vector<CategoricalBin> best_bins = bins;
-  
-  while (merging && iterations_run < max_iterations) {
-    merging = false;
-    iterations_run++;
-    
-    // If too many bins, merge least informative bins
-    if (bins.size() > max_bins_size && bins.size() > min_bins_size) {
-      // Sort by absolute IV (ascending)
-      std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-        return std::fabs(a.iv) < std::fabs(b.iv);
-      });
-      
-      // Create a new merged bin
-      CategoricalBin merged_bin = bins[0];
-      merged_bin.merge_with(bins[1]);
-      calculate_woe_iv(merged_bin);
-      
-      // Replace and remove
-      bins[0] = std::move(merged_bin);
-      bins.erase(bins.begin() + 1);
-      
-      merging = true;
+
+  // A categorical feature has no natural order, so the monotone arrangement
+  // of its bins is simply their WoE order. The previous code checked
+  // monotonicity -- and merged "violating" neighbours -- in whatever order
+  // the bins happened to be in: hash-map order after pre-binning, and
+  // |IV| order inside the main loop, where a strongly negative and a
+  // strongly positive WoE bin are neighbours. It therefore merged the two
+  // extremes of the feature into one bin, collapsed almost everything down
+  // to min_bins (IV 0.007 instead of 0.99 on eight well-separated
+  // categories), and its IV-convergence exit could stop with more than
+  // max_bins bins.
+  sort_bins_by_woe();
+
+  // Greedy reduction to max_bins: merge the WoE-adjacent pair that loses the
+  // least IV, then restore the WoE order (with Bayesian smoothing a merged
+  // bin's WoE is not guaranteed to lie between its parents').
+  iterations_run = 0;
+  while (bins.size() > max_bins_size && bins.size() > min_bins_size) {
+    double best_loss = std::numeric_limits<double>::infinity();
+    size_t best_idx = 0;
+    for (size_t i = 0; i + 1 < bins.size(); ++i) {
+      CategoricalBin merged;
+      merged.count = bins[i].count + bins[i + 1].count;
+      merged.count_pos = bins[i].count_pos + bins[i + 1].count_pos;
+      merged.count_neg = bins[i].count_neg + bins[i + 1].count_neg;
+      calculate_woe_iv(merged);
+      const double loss = std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv) -
+        std::fabs(merged.iv);
+      if (loss < best_loss) {
+        best_loss = loss;
+        best_idx = i;
+      }
     }
-    
-    // Check for monotonicity after merging
-    if (!is_monotonic() && bins.size() > min_bins_size) {
-      enforce_monotonicity();
-      merging = true;
-    }
-    
-    // Calculate current IV
-    double total_iv = calculate_total_iv();
-    
-    // Track best solution
-    if (is_monotonic() && bins.size() <= max_bins_size && bins.size() >= min_bins_size && 
-        total_iv > best_total_iv) {
-      best_total_iv = total_iv;
-      best_bins = bins;
-    }
-    
-    // Check for convergence
-    if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-      converged = true;
-      break;
-    }
-    
-    prev_total_iv = total_iv;
+    bins[best_idx].merge_with(bins[best_idx + 1]);
+    calculate_woe_iv(bins[best_idx]);
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best_idx) + 1);
+    sort_bins_by_woe();
+    ++iterations_run;
   }
-  
-  // Restore best solution if found
-  if (best_total_iv > 0.0 && best_bins.size() <= max_bins_size && best_bins.size() >= min_bins_size) {
-    bins = std::move(best_bins);
-  }
-  
-  // Ensure final monotonicity
-  if (!is_monotonic() && bins.size() > min_bins_size) {
-    enforce_monotonicity();
-  }
+
+  // Reaching max_bins is the stopping state; only a reduction that needed
+  // more merges than max_iterations reports converged = FALSE.
+  converged = (iterations_run <= max_iterations);
+}
+
+void OBC_MILP::sort_bins_by_woe() {
+  std::stable_sort(bins.begin(), bins.end(),
+                   [](const CategoricalBin& a, const CategoricalBin& b) {
+                     return a.woe < b.woe;
+                   });
 }
 
 std::string OBC_MILP::join_categories(const std::vector<std::string>& categories) const {
@@ -602,6 +457,9 @@ Rcpp::List OBC_MILP::fit() {
     
     // If number of unique categories <= max_bins, no need for optimization
     if (bins.size() <= static_cast<size_t>(max_bins)) {
+      // Already within max_bins: report the bins in WoE order (they were
+      // returned in hash-map order, i.e. not monotone and platform-dependent).
+      sort_bins_by_woe();
       converged = true;
       iterations_run = 0;
     } else {

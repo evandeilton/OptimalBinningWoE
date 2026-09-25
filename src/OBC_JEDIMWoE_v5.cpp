@@ -468,7 +468,11 @@ private:
     }
     
     // Initialize M-WoE cache
-    mwoe_cache_ = std::make_unique<MWoECache>(bins_.size(), n_classes_, bins_.size() > 10);
+    // Disabled. The IV cache stored per-class *total* IV after merging pair
+    // (i, i+1), which depends on every other bin, and neither cache was
+    // shifted when a merge erased a bin, so later lookups returned values
+    // computed for other pairs. Every candidate is now evaluated fresh.
+    mwoe_cache_ = std::make_unique<MWoECache>(bins_.size(), n_classes_, false);
   }
   
   // Enhanced merging of low frequency categories
@@ -494,9 +498,23 @@ private:
     MultiCatBinInfo rare_bin(n_classes_);
     bool has_rare = false;
     
+    // Keep the most frequent rare categories when fewer than min_bins clear
+    // the cutoff (they are the last ones among the rare prefix of the
+    // ascending order); the previous test kept the min_bins rarest instead.
+    size_t n_rare = 0;
+    for (const auto& bin : bins_) {
+      if (bin.total_count < cutoff_count) ++n_rare;
+    }
+    const size_t n_frequent = bins_.size() - n_rare;
+    const size_t keep_rare =
+      (static_cast<size_t>(std::max(min_bins_, 0)) > n_frequent)
+      ? std::min(n_rare, static_cast<size_t>(min_bins_) - n_frequent)
+      : 0;
+
     // Process each bin
-    for (auto& bin : bins_) {
-      if (bin.total_count >= cutoff_count || static_cast<int>(new_bins.size()) < min_bins_) {
+    for (size_t pos = 0; pos < bins_.size(); ++pos) {
+      auto& bin = bins_[pos];
+      if (bin.total_count >= cutoff_count || pos >= n_rare - keep_rare) {
         // CategoricalBin with adequate frequency
         new_bins.push_back(std::move(bin));
       } else {
@@ -678,7 +696,9 @@ private:
   
   // Optimized merging of adjacent bins based on IV loss
   void merge_adjacent_bins() {
-    if (bins_.size() <= 2) return;
+    // `<= 2` made this a no-op on exactly two bins, so with max_bins = 1 the
+    // final `while (bins_.size() > max_bins_)` loop never terminated.
+    if (bins_.size() < 2) return;
     
     double min_total_iv_loss = std::numeric_limits<double>::max();
     size_t best_merge_idx = 0;
