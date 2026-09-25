@@ -17,42 +17,52 @@
 #' (for small N <= 50) or greedy IV-based selection (for larger datasets), followed by
 #' monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA).
 #'
-#' @param feature Numeric vector of feature values. Missing values (NA) are \strong{not
-#'   permitted} and will trigger an error. Infinite values (Inf, -Inf) and NaN are also
-#'   not allowed.
+#' @param feature Numeric vector of feature values. Missing values (NA/NaN) are
+#'   dropped silently: those rows are counted in no bin and the counts add up to the
+#'   number of non-missing rows. \code{-Inf} and \code{+Inf} are kept as extreme values
+#'   in the first and last bin and never become cutpoints. A feature whose values are all
+#'   missing is an error. The sketch
+#'   summarises the finite values; with fewer than two distinct finite values a single
+#'   bin is returned.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}. Missing values are not permitted.
 #' @param min_bins Minimum number of bins (default: 3). Must be at least 2.
 #' @param max_bins Maximum number of bins (default: 5). Must be >= \code{min_bins}.
 #' @param bin_cutoff Minimum fraction of total observations per bin (default: 0.05).
 #'   Must be in (0, 1). Bins with fewer observations will be merged with neighbors.
-#' @param max_n_prebins Maximum number of pre-bins to generate from quantiles (default: 20).
-#'   This parameter controls the initial granularity of binning candidates. Higher values
-#'   provide more flexibility but increase computational cost.
+#' @param max_n_prebins Accepted for compatibility with the other binning functions
+#'   (default: 20; must be in [2, 1000]). The candidate grid is a fixed set of about 40
+#'   sketch quantiles.
 #' @param monotonic Logical flag to enforce WoE monotonicity (default: TRUE). Uses
 #'   PAVA (Pool Adjacent Violators Algorithm) for enforcement. Direction (increasing/
 #'   decreasing) is automatically detected from the data.
-#' @param convergence_threshold Convergence threshold for IV change (default: 1e-6).
-#'   Optimization stops when the change in total IV between iterations falls below this value.
+#' @param convergence_threshold Convergence threshold (default: 1e-6). Accepted for
+#'   compatibility: the selected cutpoints never exceed \code{max_bins - 1}, so no
+#'   iterative bin-count reduction is needed.
 #' @param max_iterations Maximum iterations for bin optimization (default: 1000).
 #'   Prevents infinite loops in the optimization process.
 #' @param sketch_k Integer parameter controlling sketch accuracy (default: 200).
 #'   Larger values improve quantile precision but increase memory usage.
-#'   \strong{Approximation error}: \eqn{\epsilon \approx 1/k} (200 → 0.5\% error).
+#'   \strong{Approximation error}: observed rank error about \eqn{1/k} of the sample
+#'   size (200 → about 0.5\%).
 #'   \strong{Valid range}: [10, 1000]. Typical values: 50 (fast), 200 (balanced), 500 (precise).
 #'
-#' @return A list of class \code{c("OptimalBinningSketch", "OptimalBinning")} containing:
+#' @return A list of class \code{c("OptimalBinningSketch", "OptimalBinning", "list")} containing:
 #' \describe{
 #'   \item{id}{Numeric vector of bin identifiers (1-based indexing).}
-#'   \item{bin_lower}{Numeric vector of lower bin boundaries (inclusive).}
-#'   \item{bin_upper}{Numeric vector of upper bin boundaries (inclusive for last bin,
-#'     exclusive for others).}
+#'   \item{bin}{Character vector of right-closed bin labels \code{"(lower;upper]"};
+#'     the first bin is labelled from \code{-Inf} and the last one up to \code{+Inf}.}
+#'   \item{bin_lower}{Numeric vector of lower bin boundaries: the observed minimum
+#'     (included) for the first bin, the previous cutpoint (excluded) otherwise.}
+#'   \item{bin_upper}{Numeric vector of upper bin boundaries (included); the observed
+#'     maximum for the last bin.}
 #'   \item{woe}{Numeric vector of Weight of Evidence values. Monotonic if
 #'     \code{monotonic = TRUE}.}
 #'   \item{iv}{Numeric vector of Information Value contributions per bin.}
 #'   \item{count}{Integer vector of total observations per bin.}
 #'   \item{count_pos}{Integer vector of positive class (target = 1) counts per bin.}
 #'   \item{count_neg}{Integer vector of negative class (target = 0) counts per bin.}
+#'   \item{total_iv}{Total Information Value (sum of bin IVs).}
 #'   \item{cutpoints}{Numeric vector of bin split points (length = number of bins - 1).
 #'     These are the internal boundaries between bins.}
 #'   \item{converged}{Logical flag indicating whether optimization converged.}
@@ -81,6 +91,12 @@
 #'
 #' where \eqn{\epsilon \approx O(1/k)} and space complexity is \eqn{O(k \log(N/k))}.
 #'
+#' This implementation compacts deterministically (the kept element of each pair
+#' alternates between levels) instead of using KLL's random coin, so results are
+#' reproducible without a seed. Its worst-case rank error is \eqn{O(\log(N/k)/k)};
+#' the observed error is about \eqn{1/k}. The quantiles only propose candidate
+#' cutpoints: every bin statistic is then computed exactly from the data.
+#'
 #' \strong{Phase 2: Candidate Extraction}
 #'
 #' Approximately 40 quantiles are extracted from the sketch using a non-uniform grid
@@ -94,7 +110,7 @@
 #' \strong{Phase 4: Bin Refinement}
 #'
 #' Bins are refined through frequency constraint enforcement, monotonicity enforcement
-#' (if requested), and bin count optimization to minimize IV loss.
+#' (if requested). Bins that hold no observation are always merged.
 #'
 #' \strong{Computational Complexity}
 #'
@@ -211,28 +227,8 @@ ob_numerical_sketch <- function(feature,
   feature <- as.numeric(feature)
   target <- as.integer(target)
 
-  # Check for missing values in feature
-  if (any(is.na(feature))) {
-    stop(paste(
-      "Missing values (NA) detected in 'feature'.",
-      "Please remove or impute missing values before binning."
-    ), call. = FALSE)
-  }
-
-  # Check for infinite values in feature
-  if (any(is.infinite(feature))) {
-    stop(paste(
-      "Infinite values (Inf/-Inf) detected in 'feature'.",
-      "Please remove or cap infinite values before binning."
-    ), call. = FALSE)
-  }
-
-  # Check for NaN values in feature
-  if (any(is.nan(feature))) {
-    stop("NaN values detected in 'feature'. Please clean the data before binning.",
-      call. = FALSE
-    )
-  }
+  # Missing feature values (NA/NaN) are dropped silently and +/-Inf are kept
+  # as extreme values; both are handled in C++ so obwoe() agrees.
 
   # Check for missing values in target
   if (any(is.na(target))) {
@@ -358,18 +354,7 @@ ob_numerical_sketch <- function(feature,
     ), call. = FALSE)
   }
 
-  # Check for constant feature values
-  if (length(unique(feature)) == 1) {
-    warning(
-      "Feature has constant value. Returning single bin.",
-      call. = FALSE,
-      immediate. = TRUE
-    )
-  }
-
-
   # Call C++ Implementation
-
 
   result <- tryCatch(
     {
@@ -395,5 +380,8 @@ ob_numerical_sketch <- function(feature,
       ), call. = FALSE)
     }
   )
+
+  class(result) <- c("OptimalBinningSketch", "OptimalBinning", "list")
+
   return(result)
 }

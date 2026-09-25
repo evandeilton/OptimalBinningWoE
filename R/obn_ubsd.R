@@ -16,8 +16,12 @@
 #' starting point that may be advantageous for approximately normal distributions,
 #' but offers no guarantees for skewed or multimodal data.
 #'
-#' @param feature Numeric vector of feature values. Missing values (NA) and infinite
-#'   values are \strong{not permitted} and will trigger an error.
+#' @param feature Numeric vector of feature values. Missing values (NA/NaN) are
+#'   dropped silently: those rows are counted in no bin and the counts add up to the
+#'   number of non-missing rows. \code{-Inf} and \code{+Inf} are kept as extreme values
+#'   in the first and last bin and never become cutpoints. A feature whose values are all
+#'   missing is an error. Mean, standard
+#'   deviation, minimum and maximum are computed on the finite values.
 #' @param target Integer or numeric vector of binary target values (must contain
 #'   only 0 and 1). Must have the same length as \code{feature}.
 #' @param min_bins Minimum number of bins (default: 3). Must be at least 2.
@@ -34,7 +38,7 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer bin identifiers (1-based).}
-#'   \item{bin}{Character bin intervals \code{"[lower;upper)"}.}
+#'   \item{bin}{Character right-closed bin intervals \code{"(lower;upper]"}.}
 #'   \item{woe}{Numeric WoE values (monotonic after enforcement).}
 #'   \item{iv}{Numeric IV contributions per bin.}
 #'   \item{count}{Integer total observations per bin.}
@@ -77,14 +81,16 @@
 #' }
 #'
 #' \strong{Limitation}: For skewed distributions (e.g., log-normal), \eqn{\mu - 2\sigma}
-#' may fall outside the data range, creating empty bins.
+#' may fall outside the data range, creating empty bins. Empty bins are always
+#' merged away, even below \code{min_bins} (which cannot be met with bins that hold
+#' no observation).
 #'
 #' \strong{Special Case}: If \eqn{\sigma < \epsilon} (feature is nearly constant),
 #' fallback to pure equal-width binning.
 #'
 #' \strong{Phase 2: Observation Assignment}
 #'
-#' Each observation is assigned to a bin via linear search:
+#' Each observation is assigned to its right-closed bin (binary search):
 #' \deqn{\text{bin}(x_i) = \min\{j : x_i > \text{lower}_j \land x_i \le \text{upper}_j\}}
 #'
 #' Counts are accumulated: \code{count}, \code{count_pos}, \code{count_neg}.
@@ -227,7 +233,11 @@ ob_numerical_ubsd <- function(feature,
   feature <- as.numeric(feature)
   target <- as.integer(target)
 
-  unique_target <- unique(target[!is.na(target)])
+  if (anyNA(target)) {
+    stop("Target contains missing values (NA).")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }

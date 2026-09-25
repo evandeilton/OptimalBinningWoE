@@ -12,9 +12,11 @@
 #' patterns, but users should be aware that it does not employ the statistical rigor
 #' implied by "Likelihood Ratio" in the name.
 #'
-#' @param feature Numeric vector of feature values to be binned. Missing values (NA)
-#'   and infinite values are \strong{not permitted} and will trigger an error (unlike
-#'   other binning methods that issue warnings).
+#' @param feature Numeric vector of feature values to be binned. Missing values (NA/NaN) are
+#'   dropped silently: those rows are counted in no bin and the counts add up to the
+#'   number of non-missing rows. \code{-Inf} and \code{+Inf} are kept as extreme values
+#'   in the first and last bin and never become cutpoints. A feature whose values are all
+#'   missing is an error.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}.
 #' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
@@ -26,9 +28,9 @@
 #'   in the range (0, 1).
 #' @param max_n_prebins Maximum number of pre-bins before optimization (default: 20).
 #'   Must be at least equal to \code{min_bins}.
-#' @param convergence_threshold Convergence threshold (default: 1e-6). Currently used
-#'   to check if WoE range is below threshold; primary stopping criterion is
-#'   \code{max_iterations}.
+#' @param convergence_threshold Convergence threshold (default: 1e-6). Must be
+#'   positive; accepted for compatibility. Merging stops when the WoE is monotonic,
+#'   \code{min_bins} is reached or \code{max_iterations} is exhausted.
 #' @param max_iterations Maximum number of iterations for bin merging and monotonicity
 #'   enforcement (default: 1000). Prevents infinite loops.
 #' @param laplace_smoothing Laplace smoothing parameter for WoE calculation (default: 0.5).
@@ -37,8 +39,9 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer vector of bin identifiers (1-based indexing).}
-#'   \item{bin}{Character vector of bin intervals in the format \code{"[lower;upper)"}.}
-#'   \item{woe}{Numeric vector of Weight of Evidence values. Guaranteed to be monotonic.}
+#'   \item{bin}{Character vector of right-closed bin intervals \code{"(lower;upper]"}.}
+#'   \item{woe}{Numeric vector of Weight of Evidence values. Monotonic unless
+#'     \code{min_bins} or \code{max_iterations} stops the merging first.}
 #'   \item{iv}{Numeric vector of Information Value contributions per bin.}
 #'   \item{count}{Integer vector of total observations per bin.}
 #'   \item{count_pos}{Integer vector of positive class counts per bin.}
@@ -46,7 +49,8 @@
 #'   \item{event_rate}{Numeric vector of event rates per bin.}
 #'   \item{cutpoints}{Numeric vector of bin boundaries (excluding -Inf and +Inf).}
 #'   \item{total_iv}{Total Information Value (sum of bin IVs).}
-#'   \item{converged}{Logical flag indicating convergence within \code{max_iterations}.}
+#'   \item{converged}{Logical flag; \code{FALSE} only when \code{max_iterations} was
+#'     exhausted while merges were still pending.}
 #'   \item{iterations}{Integer count of iterations performed.}
 #' }
 #'
@@ -91,9 +95,9 @@
 #'
 #' \deqn{\text{increasing} = \begin{cases} \text{TRUE} & \text{if } \#\{\text{WoE}_i > \text{WoE}_{i-1}\} \ge \#\{\text{WoE}_i < \text{WoE}_{i-1}\} \\ \text{FALSE} & \text{otherwise} \end{cases}}
 #'
-#' This differs from:
+#' This is also the rule used by MOB (which in earlier versions used the first two bins only,
+#' \code{WoE[1] >= WoE[0]}). It differs from:
 #' \itemize{
-#'   \item \strong{MOB}: Uses first two bins only (\code{WoE[1] >= WoE[0]})
 #'   \item \strong{MBLP}: Uses Pearson correlation between bin indices and WoE
 #' }
 #'
@@ -246,7 +250,11 @@ ob_numerical_mrblp <- function(feature,
   feature <- as.numeric(feature)
   target <- as.integer(target)
 
-  unique_target <- unique(target[!is.na(target)])
+  if (anyNA(target)) {
+    stop("Target contains missing values (NA).")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }
