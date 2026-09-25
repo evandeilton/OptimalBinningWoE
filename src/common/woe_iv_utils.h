@@ -97,8 +97,8 @@ inline double compute_woe_laplace(
 ) {
   double smoothed_pos = pos + smoothing_param;
   double smoothed_neg = neg + smoothing_param;
-  double total_smoothed_pos = total_pos + num_bins * smoothing_param;
-  double total_smoothed_neg = total_neg + num_bins * smoothing_param;
+  double total_smoothed_pos = total_pos + static_cast<double>(num_bins) * smoothing_param;
+  double total_smoothed_neg = total_neg + static_cast<double>(num_bins) * smoothing_param;
   
   double dist_pos = smoothed_pos / total_smoothed_pos;
   double dist_neg = smoothed_neg / total_smoothed_neg;

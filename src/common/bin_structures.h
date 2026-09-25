@@ -97,11 +97,12 @@ struct NumericalBin {
   void calculate_metrics(long total_pos, long total_neg) {
     if (total_pos <= 0 || total_neg <= 0) return;
     
-    double prior_pos = BAYESIAN_PRIOR_STRENGTH * static_cast<double>(total_pos) / (total_pos + total_neg);
+    double prior_pos = BAYESIAN_PRIOR_STRENGTH * static_cast<double>(total_pos) /
+      static_cast<double>(total_pos + total_neg);
     double prior_neg = BAYESIAN_PRIOR_STRENGTH - prior_pos;
     
-    double dist_pos = (count_pos + prior_pos) / (total_pos + BAYESIAN_PRIOR_STRENGTH);
-    double dist_neg = (count_neg + prior_neg) / (total_neg + BAYESIAN_PRIOR_STRENGTH);
+    double dist_pos = (count_pos + prior_pos) / (static_cast<double>(total_pos) + BAYESIAN_PRIOR_STRENGTH);
+    double dist_neg = (count_neg + prior_neg) / (static_cast<double>(total_neg) + BAYESIAN_PRIOR_STRENGTH);
     
     woe = std::log(dist_pos / std::max(dist_neg, EPSILON));
     iv = (dist_pos - dist_neg) * woe;
@@ -201,7 +202,8 @@ struct CategoricalBin {
   }
   
   /// Merge with another bin
-  void merge_with(const CategoricalBin& other, const std::string& separator = "%;%") {
+  // The separator is only applied when the bin name is built (see name()).
+  void merge_with(const CategoricalBin& other, const std::string& /*separator*/ = "%;%") {
     categories.insert(categories.end(), other.categories.begin(), other.categories.end());
     count += other.count;
     count_pos += other.count_pos;
@@ -223,11 +225,12 @@ struct CategoricalBin {
   void calculate_metrics(long total_pos, long total_neg) {
     if (total_pos <= 0 || total_neg <= 0) return;
     
-    double prior_pos = BAYESIAN_PRIOR_STRENGTH * static_cast<double>(total_pos) / (total_pos + total_neg);
+    double prior_pos = BAYESIAN_PRIOR_STRENGTH * static_cast<double>(total_pos) /
+      static_cast<double>(total_pos + total_neg);
     double prior_neg = BAYESIAN_PRIOR_STRENGTH - prior_pos;
     
-    double dist_pos = (count_pos + prior_pos) / (total_pos + BAYESIAN_PRIOR_STRENGTH);
-    double dist_neg = (count_neg + prior_neg) / (total_neg + BAYESIAN_PRIOR_STRENGTH);
+    double dist_pos = (count_pos + prior_pos) / (static_cast<double>(total_pos) + BAYESIAN_PRIOR_STRENGTH);
+    double dist_neg = (count_neg + prior_neg) / (static_cast<double>(total_neg) + BAYESIAN_PRIOR_STRENGTH);
     
     woe = std::log(dist_pos / std::max(dist_neg, EPSILON));
     iv = (dist_pos - dist_neg) * woe;
@@ -241,10 +244,12 @@ struct CategoricalBin {
   /// @return Jensen-Shannon divergence value
   double divergence_from(const CategoricalBin& other, long total_pos, long total_neg,
                         double alpha = DEFAULT_LAPLACE_ALPHA) const {
-    double p1 = (count_pos + alpha) / (total_pos + alpha * 2);
-    double n1 = (count_neg + alpha) / (total_neg + alpha * 2);
-    double p2 = (other.count_pos + alpha) / (total_pos + alpha * 2);
-    double n2 = (other.count_neg + alpha) / (total_neg + alpha * 2);
+    const double tp = static_cast<double>(total_pos);
+    const double tn = static_cast<double>(total_neg);
+    double p1 = (count_pos + alpha) / (tp + alpha * 2);
+    double n1 = (count_neg + alpha) / (tn + alpha * 2);
+    double p2 = (other.count_pos + alpha) / (tp + alpha * 2);
+    double n2 = (other.count_neg + alpha) / (tn + alpha * 2);
 
     double p_avg = (p1 + p2) / 2;
     double n_avg = (n1 + n2) / 2;

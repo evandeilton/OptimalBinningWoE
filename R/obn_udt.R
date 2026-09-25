@@ -12,8 +12,9 @@
 #' non-linear but highly informative in specific regions.
 #'
 #' @param feature Numeric vector of feature values. Missing values (NA) are handled
-#'   by placing them in a separate bin. Infinite values are treated as valid numeric
-#'   extremes or placed in the missing bin if they represent errors.
+#'   by placing them in a separate bin (labelled "NA"). Infinite values are valid
+#'   numeric extremes: \code{-Inf} falls in the first bin and \code{Inf} in the last
+#'   bin, and they never become cut points.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}.
 #' @param min_bins Minimum number of bins (default: 3). Must be at least 2.
