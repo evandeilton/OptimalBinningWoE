@@ -14,7 +14,8 @@
 #'
 #' @param feature Numeric vector of feature values to be binned. Missing values (NA)
 #'   are automatically removed during preprocessing. Infinite values trigger a warning
-#'   but are handled internally.
+#'   but are handled internally: they are counted in the first (\code{-Inf}) or last
+#'   (\code{+Inf}) bin and never become cutpoints.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}.
 #' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
@@ -45,7 +46,7 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer vector of bin identifiers (1-based indexing).}
-#'   \item{bin}{Character vector of bin intervals in the format \code{"[lower;upper)"}.
+#'   \item{bin}{Character vector of bin intervals in the format \code{"(lower;upper]"}.
 #'     The first bin starts with \code{-Inf} and the last bin ends with \code{+Inf}.}
 #'   \item{woe}{Numeric vector of Weight of Evidence values for each bin, computed with
 #'     Laplace smoothing.}
@@ -74,7 +75,8 @@
 #' \itemize{
 #'   \item Binary target (only 0 and 1 values)
 #'   \item Parameter consistency (\code{min_bins <= max_bins}, valid ranges)
-#'   \item Missing value detection (NaN/Inf are filtered out with a warning)
+#'   \item Missing value detection (NaN values are removed and Inf values kept in
+#'     the extreme bins, with a warning)
 #' }
 #'
 #' Feature-target pairs are sorted by feature value in ascending order, enabling
@@ -115,7 +117,7 @@
 #'     Encodes the number of bins. Increases logarithmically with bin count,
 #'     penalizing complex models.
 #'
-#'   \item \strong{Data Cost}: \eqn{L_{\text{data}}(k) = N \cdot H(S_{\text{total}}) - \sum_{i=1}^{k} n_i \cdot H(S_i)}
+#'   \item \strong{Data Cost}: \eqn{L_{\text{data}}(k) = \sum_{i=1}^{k} n_i \cdot H(S_i)}
 #'
 #'     Measures unexplained uncertainty after binning. Lower values indicate better
 #'     class separation.
@@ -174,7 +176,7 @@
 #'
 #' Information Value is computed as:
 #'
-#' \deqn{\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i}
+#' \deqn{\text{IV}_i = \left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} - \frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right) \times \text{WoE}_i}
 #'
 #' \strong{Comparison with Other Methods}
 #'

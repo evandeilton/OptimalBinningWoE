@@ -11,6 +11,7 @@
 #include <limits>
 #include <unordered_set>
 #include <functional>
+#include <cstdlib>
 
 /**
  * @file OBN_LDB.cpp
@@ -45,7 +46,8 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
+  // (convergence_threshold is accepted by the constructor for API
+  // compatibility; no step of this algorithm uses it.)
   int max_iterations;
   bool enforce_monotonic;
   
@@ -83,7 +85,7 @@ private:
    * Compute initial bins based on density analysis
    * Uses a density-sensitive approach to create initial bin boundaries
    */
-  void compute_prebins();
+  void compute_prebins(const std::vector<double>& valid_feature);
   
   /**
    * Compute Weight of Evidence (WoE) and Information Value (IV) for each bin
@@ -94,6 +96,12 @@ private:
    * Enforce monotonicity in WoE values across bins
    */
   void enforce_monotonicity();
+
+  /**
+   * Merge adjacent bins that violate monotonicity_direction until none is
+   * left, min_bins is reached, or max_iterations is exhausted
+   */
+  void merge_monotonicity_violations();
   
   /**
    * Merge bins based on frequency and information preservation
@@ -182,16 +190,29 @@ private:
     event_rates.erase(event_rates.begin() + bin_idx2);
     
     // Update event rate for merged bin
-    event_rates[bin_idx1] = (counts[bin_idx1] > 0) ? 
+    event_rates[bin_idx1] = (counts[bin_idx1] > 0) ?
     static_cast<double>(count_pos[bin_idx1]) / counts[bin_idx1] : 0.0;
-    
-    // Recalculate WoE and IV for the merged bin
+
+    // Recalculate WoE and IV for EVERY bin, not just the merged one. The
+    // Laplace denominators depend on the bin count K, so after a merge the
+    // untouched bins still carried the smoothing of the previous K: the
+    // returned WoE mixed several K values (none of them the final one), and
+    // the monotonicity test compared WoE values computed on different scales.
+    refresh_woe_iv();
+  }
+
+  /**
+   * Recompute WoE and IV of all bins from their counts, with the current
+   * number of bins as the smoothing K.
+   */
+  void refresh_woe_iv() {
     double total_pos = std::accumulate(count_pos.begin(), count_pos.end(), 0.0);
     double total_neg = std::accumulate(count_neg.begin(), count_neg.end(), 0.0);
-    
-    woe_values[bin_idx1] = calculateWOE(count_pos[bin_idx1], count_neg[bin_idx1], total_pos, total_neg);
-    iv_values[bin_idx1] = calculateIV(woe_values[bin_idx1], count_pos[bin_idx1], count_neg[bin_idx1], 
-                                      total_pos, total_neg);
+    for (size_t b = 0; b < counts.size(); ++b) {
+      woe_values[b] = calculateWOE(count_pos[b], count_neg[b], total_pos, total_neg);
+      iv_values[b] = calculateIV(woe_values[b], count_pos[b], count_neg[b],
+                                 total_pos, total_neg);
+    }
   }
   
   /**
@@ -202,26 +223,14 @@ private:
    * @return The index of the bin containing the value
    */
   size_t find_bin_index(double value) const {
-    // Edge cases
-    if (std::isnan(value)) {
-      return SIZE_MAX; // Special value to indicate NaN
-    }
-    
-    if (value <= bin_edges.front()) {
-      return 0;
-    }
-    
-    if (value > bin_edges.back()) {
-      return bin_edges.size() - 2; // Last bin
-    }
-    
-    // Binary search for the bin. Bins are right-closed (a, b], as the emitted
+    // Callers never pass NaN. Bins are right-closed (a, b], as the emitted
     // labels state, so a value sitting exactly on an edge belongs to the bin
-    // BELOW it: lower_bound (first edge >= value), not upper_bound.
-    auto it = std::lower_bound(bin_edges.begin(), bin_edges.end(), value);
-    size_t idx = std::distance(bin_edges.begin(), it) - 1;
-    
-    return idx;
+    // BELOW it: the bin index is the position of the first upper edge
+    // (edges[1..], the last of which is +Inf) that is >= value. -Inf lands in
+    // bin 0 and +Inf in the last bin without special cases.
+    auto first_upper = bin_edges.begin() + 1;
+    auto it = std::lower_bound(first_upper, bin_edges.end(), value);
+    return static_cast<size_t>(std::distance(first_upper, it));
   }
   
   /**
@@ -255,14 +264,12 @@ private:
     
     // Check if target is binary and contains both 0 and 1
     std::unordered_set<int> unique_target;
-    int pos_count = 0;
-    
+
     for (int t : target) {
       if (t != 0 && t != 1) {
         Rcpp::stop("Target must contain only binary values (0 or 1).");
       }
       unique_target.insert(t);
-      if (t == 1) pos_count++;
     }
     
     if (unique_target.size() != 2 || unique_target.find(0) == unique_target.end() || 
@@ -284,6 +291,20 @@ private:
   }
   
   /**
+   * Midpoint of two finite values that does not overflow: (a + b) / 2 is
+   * exact-halving of the rounded sum, so it is kept whenever it is finite
+   * (bit-identical to the former expression) and a/2 + b/2 is used only when
+   * a + b overflows, e.g. for values near +/-1e308.
+   */
+  static double safe_midpoint(double a, double b) {
+    double m = (a + b) / 2.0;
+    if (!std::isfinite(m)) {
+      m = a / 2.0 + b / 2.0;
+    }
+    return m;
+  }
+
+  /**
    * Handle the special case of few unique values
    * 
    * @param unique_values Vector of unique feature values
@@ -301,7 +322,7 @@ private:
         bin_edges.push_back(std::numeric_limits<double>::infinity());
       } else if (unique_count == 2) {
         // Use midpoint as bin edge
-        double midpoint = (unique_values[0] + unique_values[1]) / 2.0;
+        double midpoint = safe_midpoint(unique_values[0], unique_values[1]);
         bin_edges.push_back(midpoint);
         bin_edges.push_back(std::numeric_limits<double>::infinity());
       }
@@ -310,6 +331,8 @@ private:
       create_bin_labels();
       converged = true;
       iterations_run = 0;
+      // This path returned total_iv = 0 whatever the bins' IV was.
+      total_iv = std::accumulate(iv_values.begin(), iv_values.end(), 0.0);
       return true;
     }
     
@@ -320,7 +343,7 @@ private:
       
       for (int i = 1; i < unique_count; ++i) {
         // Use midpoint between adjacent unique values
-        double mid = (unique_values[i - 1] + unique_values[i]) / 2.0;
+        double mid = safe_midpoint(unique_values[i - 1], unique_values[i]);
         bin_edges.push_back(mid);
       }
       
@@ -330,6 +353,8 @@ private:
       create_bin_labels();
       converged = true;
       iterations_run = 0;
+      // This path returned total_iv = 0 whatever the bins' IV was.
+      total_iv = std::accumulate(iv_values.begin(), iv_values.end(), 0.0);
       return true;
     }
     
@@ -344,13 +369,11 @@ private:
    * @return Vector of density estimates at each point
    */
   std::vector<double> estimate_local_density(const std::vector<double>& sorted_values) const {
+    // Only called from compute_prebins(), with more distinct values than
+    // min_bins (>= 2), so n >= 3 here.
     size_t n = sorted_values.size();
     std::vector<double> density(n, 0.0);
-    
-    if (n <= 1) {
-      return density;
-    }
-    
+
     // Estimate bandwidth using Silverman's rule of thumb
     double range = sorted_values.back() - sorted_values.front();
     double iqr = 0.0;
@@ -375,15 +398,24 @@ private:
       sum_sq += val * val;
     }
     
-    double mean = sum / n;
-    double variance = (sum_sq / n) - (mean * mean);
+    const double nd = static_cast<double>(n);
+    double mean = sum / nd;
+    double variance = (sum_sq / nd) - (mean * mean);
     double std_dev = std::sqrt(std::max(variance, EPSILON));
-    
+
     // Bandwidth using Silverman's rule
-    double h = 0.9 * std::min(std_dev, iqr / 1.34) * std::pow(n, -0.2);
-    
+    double h = 0.9 * std::min(std_dev, iqr / 1.34) * std::pow(nd, -0.2);
+
     // Ensure minimum bandwidth
     h = std::max(h, range / 1000.0);
+
+    // Values near +/-DBL_MAX overflow the range or the moments. The grid
+    // estimator then divides by an infinite spacing and casts NaN to an
+    // index, which is undefined behaviour. There is no usable density in
+    // that case; a flat one makes the caller fall back to quantile cuts.
+    if (!std::isfinite(range) || !std::isfinite(h) || !(h > 0.0)) {
+      return density;
+    }
     
     // Kernel density estimation, by linear binning on a grid rather than by
     // evaluating every point against every other one. The double loop this
@@ -406,20 +438,19 @@ public:
    * @param max_iterations Maximum iterations allowed
    */
   OBN_LDB(
-    int min_bins = 3, 
-    int max_bins = 5, 
-    double bin_cutoff = 0.05,
-    int max_n_prebins = 20, 
-    bool enforce_monotonic = true,
-    double convergence_threshold = 1e-6,
-    int max_iterations = 1000)
-    : min_bins(min_bins), 
-      max_bins(max_bins),
-      bin_cutoff(bin_cutoff), 
-      max_n_prebins(max_n_prebins),
-      convergence_threshold(convergence_threshold), 
-      max_iterations(max_iterations),
-      enforce_monotonic(enforce_monotonic),
+    int min_bins_ = 3,
+    int max_bins_ = 5,
+    double bin_cutoff_ = 0.05,
+    int max_n_prebins_ = 20,
+    bool enforce_monotonic_ = true,
+    double /* convergence_threshold (unused) */ = 1e-6,
+    int max_iterations_ = 1000)
+    : min_bins(min_bins_),
+      max_bins(max_bins_),
+      bin_cutoff(bin_cutoff_),
+      max_n_prebins(max_n_prebins_),
+      max_iterations(max_iterations_),
+      enforce_monotonic(enforce_monotonic_),
       converged(true), 
       iterations_run(0),
       total_iv(0.0),
@@ -431,44 +462,54 @@ public:
    * @param feature_input Feature vector to be binned
    * @param target_input Binary target vector (0/1)
    */
-  void fit(const std::vector<double>& feature_input, const std::vector<int>& target_input) {
-    // Store and validate inputs
-    this->feature = feature_input;
-    this->target = target_input;
-    
+  void fit(std::vector<double> feature_input, std::vector<int> target_input) {
+    // Store and validate inputs (taken by value and moved: no extra copy)
+    this->feature = std::move(feature_input);
+    this->target = std::move(target_input);
+
     validate_inputs();
-    
-    // Get valid feature values (non-NaN, non-Inf)
-    std::vector<double> valid_feature;
-    std::vector<int> valid_target;
-    
+
+    // Finite feature values, sorted once. The pre-binning used to filter and
+    // sort the whole feature a second time, and a matching target vector was
+    // built here and never read.
+    std::vector<double> sorted_feature;
+    sorted_feature.reserve(feature.size());
     for (size_t i = 0; i < feature.size(); ++i) {
       if (!std::isnan(feature[i]) && !std::isinf(feature[i])) {
-        valid_feature.push_back(feature[i]);
-        valid_target.push_back(target[i]);
+        sorted_feature.push_back(feature[i]);
       }
     }
-    
+    std::sort(sorted_feature.begin(), sorted_feature.end());
+
     // Extract unique sorted values
-    std::vector<double> unique_feature = valid_feature;
-    std::sort(unique_feature.begin(), unique_feature.end());
-    unique_feature.erase(std::unique(unique_feature.begin(), unique_feature.end()), 
+    std::vector<double> unique_feature(sorted_feature);
+    unique_feature.erase(std::unique(unique_feature.begin(), unique_feature.end()),
                          unique_feature.end());
-    
+
     // Handle special cases of few unique values
     if (handle_few_unique_values(unique_feature)) {
       return;
     }
-    
+
     // General case: proceed with density-based binning
-    compute_prebins();
+    compute_prebins(sorted_feature);
     compute_woe_iv();
-    
+
     if (enforce_monotonic) {
       enforce_monotonicity();
     }
-    
+
     merge_bins();
+
+    // The frequency and max_bins merges can reintroduce a violation: with
+    // Laplace smoothing the WoE of a pooled bin need not lie between the
+    // WoE of its halves (two bins at (0+, 5-) give a pooled bin below both).
+    // Re-run the violation merge, in the direction already chosen, so the
+    // documented monotonic result holds (it still stops at min_bins).
+    if (enforce_monotonic) {
+      merge_monotonicity_violations();
+    }
+
     create_bin_labels();
     
     // Check convergence
@@ -529,18 +570,9 @@ public:
  * Compute initial bins based on density analysis
  * This method uses local density estimates to place bin boundaries in optimal locations
  */
-void OBN_LDB::compute_prebins() {
-  // Filter out NaN and Inf values
-  std::vector<double> valid_feature;
-  for (double val : feature) {
-    if (!std::isnan(val) && !std::isinf(val)) {
-      valid_feature.push_back(val);
-    }
-  }
-  
-  // Sort valid values
-  std::sort(valid_feature.begin(), valid_feature.end());
-  
+void OBN_LDB::compute_prebins(const std::vector<double>& valid_feature) {
+  // valid_feature: the finite feature values, sorted ascending (by fit()).
+
   // Get density estimates
   std::vector<double> density = estimate_local_density(valid_feature);
   
@@ -557,16 +589,33 @@ void OBN_LDB::compute_prebins() {
     unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
     
     for (size_t i = 1; i < unique_values.size(); ++i) {
-      bin_edges.push_back((unique_values[i-1] + unique_values[i]) / 2.0);
+      bin_edges.push_back(safe_midpoint(unique_values[i-1], unique_values[i]));
     }
   } else {
     // Density-based binning for larger datasets
     
-    // Find local minima in density as potential cut points
+    // Find local minima in density as potential cut points.
+    //
+    // The search runs over DISTINCT values (first occurrence of each run of
+    // ties). Tied observations share one density value, so on the raw sorted
+    // vector a strict minimum could only ever sit on a value that occurs
+    // once: any feature with repeated values (integers, rounded amounts) got
+    // no density-based cut at all and fell through to the min_bins quantile
+    // cuts. Without ties the distinct values are the observations and this
+    // is the former loop exactly.
+    std::vector<size_t> first_idx;
+    first_idx.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+      if (i == 0 || valid_feature[i] != valid_feature[i - 1]) {
+        first_idx.push_back(i);
+      }
+    }
+
     std::vector<size_t> min_indices;
-    for (size_t i = 1; i < density.size() - 1; ++i) {
-      if (density[i] < density[i-1] && density[i] < density[i+1]) {
-        min_indices.push_back(i);
+    for (size_t j = 1; j + 1 < first_idx.size(); ++j) {
+      const double d = density[first_idx[j]];
+      if (d < density[first_idx[j - 1]] && d < density[first_idx[j + 1]]) {
+        min_indices.push_back(first_idx[j]);
       }
     }
     
@@ -582,10 +631,11 @@ void OBN_LDB::compute_prebins() {
       selected_indices.push_back(min_indices[0]);
       
       // Add more cut points, ensuring they're well-spaced
+      const long min_gap = static_cast<long>(n / static_cast<size_t>(max_n_prebins * 2));
       for (size_t i = 1; i < min_indices.size() && selected_indices.size() < static_cast<size_t>(n_cuts); ++i) {
         bool too_close = false;
         for (size_t sel_idx : selected_indices) {
-          if (std::abs(static_cast<int>(min_indices[i]) - static_cast<int>(sel_idx)) < static_cast<int>(n / (max_n_prebins * 2))) {
+          if (std::labs(static_cast<long>(min_indices[i]) - static_cast<long>(sel_idx)) < min_gap) {
             too_close = true;
             break;
           }
@@ -610,7 +660,7 @@ void OBN_LDB::compute_prebins() {
       int n_additional = min_bins - static_cast<int>(bin_edges.size());
       for (int i = 1; i <= n_additional; ++i) {
         double q = static_cast<double>(i) / (n_additional + 1);
-        size_t idx = static_cast<size_t>(std::floor(q * n));
+        size_t idx = static_cast<size_t>(std::floor(q * static_cast<double>(n)));
         if (idx >= n) idx = n - 1;
         bin_edges.push_back(valid_feature[idx]);
       }
@@ -618,6 +668,35 @@ void OBN_LDB::compute_prebins() {
       // Ensure bin edges are unique and sorted
       std::sort(bin_edges.begin(), bin_edges.end());
       bin_edges.erase(std::unique(bin_edges.begin(), bin_edges.end()), bin_edges.end());
+
+      // A quantile that lands on the largest value (heavy ties at the top)
+      // would open an empty (max, +Inf] bin, which the rare-bin merge cannot
+      // remove once min_bins is reached; such a cut separates nothing.
+      bool dropped = false;
+      while (bin_edges.size() > 1 && bin_edges.back() >= valid_feature.back()) {
+        bin_edges.pop_back();
+        dropped = true;
+      }
+
+      // If that left too few bins, the observation quantiles sat inside the
+      // run of ties at the top: take the missing cuts from the distinct
+      // values below the maximum instead, spread evenly over them.
+      if (dropped && bin_edges.size() < static_cast<size_t>(min_bins)) {
+        std::vector<double> distinct;
+        for (size_t j = 0; j < first_idx.size(); ++j) {
+          distinct.push_back(valid_feature[first_idx[j]]);
+        }
+        distinct.pop_back();  // the maximum itself is never a cut
+        const int m = min_bins - static_cast<int>(bin_edges.size());
+        for (int j = 1; j <= m; ++j) {
+          const size_t idx = std::min(
+            static_cast<size_t>(j) * distinct.size() / static_cast<size_t>(m + 1),
+            distinct.size() - 1);
+          bin_edges.push_back(distinct[idx]);
+        }
+        std::sort(bin_edges.begin(), bin_edges.end());
+        bin_edges.erase(std::unique(bin_edges.begin(), bin_edges.end()), bin_edges.end());
+      }
     }
   }
   
@@ -720,7 +799,18 @@ void OBN_LDB::enforce_monotonicity() {
   
   // Set direction based on correlation
   monotonicity_direction = (correlation >= 0.0) ? 1 : -1;
-  
+
+  merge_monotonicity_violations();
+}
+
+/**
+ * Merge adjacent bins violating the chosen monotonicity direction
+ */
+void OBN_LDB::merge_monotonicity_violations() {
+  if (woe_values.size() <= 1 || monotonicity_direction == 0) {
+    return;
+  }
+
   // Enforce monotonicity by merging bins
   bool monotonic = false;
   int iter = 0;
@@ -804,21 +894,28 @@ void OBN_LDB::merge_bins() {
   
   iterations_run += iter;
   
-  // Step 2: Ensure number of bins doesn't exceed max_bins
-  while (counts.size() > static_cast<size_t>(max_bins) && iterations_run < max_iterations) {
+  // Step 2: Ensure number of bins doesn't exceed max_bins.
+  //
+  // max_bins is a hard post-condition: each pass removes one bin, so the loop
+  // is finite without an iteration cap. It used to stop at max_iterations as
+  // well, which returned more than max_bins bins whenever the cap was small;
+  // a pass beyond the cap is still counted, so `converged` reports it.
+  // Class totals are invariant under merging and are summed once per pass,
+  // not once per candidate pair.
+  while (counts.size() > static_cast<size_t>(max_bins)) {
     // Find pair of adjacent bins with smallest IV loss when merged
     size_t merge_idx1 = 0;
     size_t merge_idx2 = 1;
     double min_iv_loss = std::numeric_limits<double>::max();
-    
+
+    const double total_pos = std::accumulate(count_pos.begin(), count_pos.end(), 0.0);
+    const double total_neg = std::accumulate(count_neg.begin(), count_neg.end(), 0.0);
+
     for (size_t b = 0; b < counts.size() - 1; ++b) {
       // Calculate combined IV for merged bin
       int combined_pos = count_pos[b] + count_pos[b + 1];
       int combined_neg = count_neg[b] + count_neg[b + 1];
-      
-      double total_pos = std::accumulate(count_pos.begin(), count_pos.end(), 0.0);
-      double total_neg = std::accumulate(count_neg.begin(), count_neg.end(), 0.0);
-      
+
       double combined_woe = calculateWOE(combined_pos, combined_neg, total_pos, total_neg);
       double combined_iv = calculateIV(combined_woe, combined_pos, combined_neg, total_pos, total_neg);
       
@@ -900,7 +997,7 @@ Rcpp::List optimal_binning_numerical_ldb(
         enforce_monotonic,
         convergence_threshold, max_iterations);
     
-    binner.fit(feature_vec, target_vec);
+    binner.fit(std::move(feature_vec), std::move(target_vec));
     
     return binner.transform();
   } catch(std::exception &e) {

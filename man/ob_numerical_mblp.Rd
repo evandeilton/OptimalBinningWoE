@@ -18,7 +18,8 @@ ob_numerical_mblp(
 }
 \arguments{
 \item{feature}{Numeric vector of feature values to be binned. Missing values (NA)
-and infinite values are automatically removed during preprocessing.}
+are removed. Infinite values never become cutpoints; they are counted in
+the first (\code{-Inf}) or last (\code{+Inf}) bin.}
 
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
 Must have the same length as \code{feature}.}
@@ -45,8 +46,10 @@ direction (default: 0). Valid values:
 }}
 
 \item{convergence_threshold}{Convergence threshold for iterative optimization
-(default: 1e-6). Iteration stops when the absolute change in total IV between
-consecutive iterations falls below this value.}
+(default: 1e-6). Validated for compatibility but no longer used as a stopping
+rule: stopping on a small change in total IV ended the loop before
+monotonicity was enforced. The loop now stops when WoE is monotone or when
+no merge is possible without going below \code{min_bins}.}
 
 \item{max_iterations}{Maximum number of iterations for the optimization loop
 (default: 1000). Prevents infinite loops in pathological cases.}
@@ -99,10 +102,12 @@ distribution. For \eqn{k} pre-bins, cutpoints are computed as:
 
 \deqn{q_i = x_{(\lceil p_i \times (N - 1) \rceil)}, \quad p_i = \frac{i}{k}, \quad i = 1, 2, \ldots, k-1}
 
-where \eqn{x_{(j)}} denotes the \eqn{j}-th order statistic. This approach ensures
+where \eqn{x_{(j)}} denotes the \eqn{j}-th smallest \emph{distinct} value and
+\eqn{N} the number of distinct values. This approach ensures
 equal-frequency bins under the assumption of continuous data, though ties may
-cause deviations in practice. The first and last boundaries are set to
-\eqn{-\infty} and \eqn{+\infty}, respectively.
+cause deviations in practice. When \eqn{k} is at least the number of distinct
+values, every distinct value gets its own pre-bin. The first and last
+boundaries are set to \eqn{-\infty} and \eqn{+\infty}, respectively.
 
 \strong{Phase 2: Frequency-Based Bin Merging}
 
@@ -133,9 +138,11 @@ The core optimization alternates between two enforcement steps until convergence
     \code{max_bins}, the algorithm identifies the pair of adjacent bins
     \eqn{(i, i+1)} that minimizes the IV loss when merged:
     \deqn{\Delta \text{IV}_{i,i+1} = \text{IV}_i + \text{IV}_{i+1} - \text{IV}_{\text{merged}}}
-    where \eqn{\text{IV}_{\text{merged}}} is recalculated using combined counts.
-    The merge is performed only if it preserves monotonicity (checked via WoE
-    comparison with neighboring bins).
+    where \eqn{\text{IV}_{\text{merged}}} is recalculated using combined counts
+    and WoE/IV of all bins are refreshed after every merge.
+    Merges that preserve monotonicity (checked via WoE comparison with
+    neighboring bins) are preferred; when none does, the cheapest merge is
+    taken, so \code{max_bins} is always met.
 
   \item \strong{Monotonicity Enforcement}: For each pair of consecutive bins,
     violations are detected as:
@@ -146,9 +153,11 @@ The core optimization alternates between two enforcement steps until convergence
     where \eqn{\epsilon = 10^{-10}} (numerical tolerance). Violating bins are
     immediately merged.
 
-  \item \strong{Convergence Test}: After each iteration, the total IV is compared
-    to the previous iteration. If \eqn{|\text{IV}^{(t)} - \text{IV}^{(t-1)}| < \text{convergence\_threshold}}
-    or monotonicity is achieved, the loop terminates.
+  \item \strong{Termination}: The loop terminates when the WoE sequence is
+    monotone in the chosen direction, or when a violation remains but
+    \code{min_bins} has been reached (no further merge is allowed). Both are
+    reported as \code{converged = TRUE}; \code{converged = FALSE} (with a
+    warning) means \code{max_iterations} was exhausted first.
 }
 
 \strong{Weight of Evidence Computation}

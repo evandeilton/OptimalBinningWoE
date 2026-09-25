@@ -18,7 +18,8 @@ ob_numerical_ldb(
 }
 \arguments{
 \item{feature}{Numeric vector of feature values to be binned. Missing values (NA)
-and infinite values are automatically filtered out during preprocessing.}
+are removed. Infinite values do not influence the bin boundaries; they
+are counted in the first (\code{-Inf}) or last (\code{+Inf}) bin.}
 
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
 Must have the same length as \code{feature}.}
@@ -43,7 +44,9 @@ merged until global monotonicity is achieved.}
 (default: 1e-6). Currently used for future extensions.}
 
 \item{max_iterations}{Maximum number of iterations for merging operations
-(default: 1000). Prevents infinite loops in edge cases.}
+(default: 1000). Prevents infinite loops in edge cases. The \code{max_bins}
+limit is enforced even beyond this cap, which is then reported through
+\code{converged = FALSE}.}
 }
 \value{
 A list containing:
@@ -107,7 +110,9 @@ where:
 
 and \eqn{K} is the total number of bins. The Information Value for bin \eqn{i} is:
 
-\deqn{\text{IV}_i = (\text{DistGood}_i - \text{DistBad}_i) \times \text{WoE}_i}
+\deqn{\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i}
+
+(the unsmoothed class distributions; smoothing enters through the WoE only).
 
 Total IV aggregates discriminatory power: \eqn{\text{IV}_{\text{total}} = \sum_{i=1}^{K} \text{IV}_i}.
 
@@ -157,14 +162,14 @@ Two merging criteria are applied sequentially:
 \strong{Computational Complexity}
 
 \itemize{
-  \item KDE computation: \eqn{O(n^2)} for naive implementation (each of \eqn{n}
-    points evaluates \eqn{n} kernel terms).
+  \item KDE computation: \eqn{O(n + G^2)} by linear binning on a fixed grid of
+    \eqn{G = 512} points (the naive estimator is \eqn{O(n^2)}).
   \item Binary search for bin assignment: \eqn{O(n \log K)} where \eqn{K} is
     the number of bins.
   \item Merge iterations: \eqn{O(K^2 \times \text{max\_iterations})} in worst case.
 }
 
-For large datasets (\eqn{n > 10^5}), the KDE phase dominates runtime.
+For large datasets the initial sort, \eqn{O(n \log n)}, dominates runtime.
 }
 \examples{
 \donttest{
