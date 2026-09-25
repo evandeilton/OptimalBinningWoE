@@ -1,4 +1,4 @@
-# OptimalBinningWoE (development version)
+# OptimalBinningWoE 1.14.0
 
 ## Full audit of the C++ engines and the R layer (2026-09-25)
 
@@ -141,6 +141,8 @@ accepted; anything else is an error.
     pairwise-complete observations. Kendall and Hoeffding are O(n log n):
     about 500 and 300 times faster at n = 10^4.
 *   `ob_check_distincts()` compared numbers through six-decimal strings.
+*   `obcorr(threads = n)` no longer warns on a build without OpenMP (the
+    macOS default); `threads` is ignored there, as documented.
 *   The `"obwoe"` scorecard engine's logistic regression is now a plain C++
     Newton-IRLS (glm's convergence rule); it no longer drops standard errors
     of well-conditioned small-scale designs and reports the real iteration
