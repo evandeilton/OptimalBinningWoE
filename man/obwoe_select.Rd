@@ -91,7 +91,8 @@ ranking used by \code{top_n}: \code{"iv"} (default), \code{"ks"},
 
 \item{bin_separator}{Character string separating merged categories inside a
 categorical bin label. Default \code{"\%;\%"}, matching
-\code{\link{control.obwoe}}.}
+\code{\link{control.obwoe}}. When the argument is not supplied, the
+separator recorded in \code{obj} (the one it was fitted with) is used.}
 }
 \value{
 A \code{data.table} when the \pkg{data.table} package is installed

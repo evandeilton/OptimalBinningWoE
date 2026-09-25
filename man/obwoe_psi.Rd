@@ -13,7 +13,7 @@ obwoe_psi(base, compare, levels = NULL, breaks = NULL, n_groups = 10L)
 
 \item{levels}{Character vector of the categories or bin labels to compare
 over. Required when the inputs are not numeric; defaults to the union of
-the values seen.}
+the values seen. Missing and repeated entries are dropped.}
 
 \item{breaks}{Numeric vector of cut points used to band numeric inputs.
 \code{NULL} (default) bands them at the deciles of \code{base}.}

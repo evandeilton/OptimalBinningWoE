@@ -38,7 +38,10 @@ For \code{data.frame} objects: can be any column name representing groups
 
 \item{sort_by}{Character string specifying sort order for bins:
 \describe{
-  \item{\code{"id"}}{The algorithm's own internal bin order - default}
+  \item{\code{"id"}}{The algorithm's own internal bin order - default.
+    For a \code{data.frame}, the groups' natural order: factor levels,
+    ascending value for a numeric column (earlier versions sorted numeric
+    values as text), alphabetical order otherwise.}
   \item{\code{"woe"}}{Descending WoE (highest risk first)}
   \item{\code{"event_rate"}}{Descending event rate}
   \item{\code{"bin"}}{The bins' natural (level) order if \code{obj} is a

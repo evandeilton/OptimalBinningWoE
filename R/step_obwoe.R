@@ -698,27 +698,22 @@ prep.step_obwoe <- function(x, training, info = NULL, ...) {
 
     # Pre-compute category mapping for categorical features (efficiency)
     if (feat_res$type == "categorical") {
-      cat_map_keys <- character(0L)
-      cat_map_bins <- character(0L)
-      cat_map_woes <- numeric(0L)
-
-      for (i in seq_along(feat_res$bin)) {
-        bin_label <- feat_res$bin[i]
-        woe_val <- feat_res$woe[i]
-        # Split merged categories. The binning engines join the original
-        # category strings with the separator and add no padding, so the split
-        # pieces are the categories byte for byte. They must NOT be trimmed:
-        # a category carrying leading or trailing whitespace would otherwise
-        # become unmatchable and silently fall back to 'na_woe'.
-        parts <- strsplit(bin_label, "%;%", fixed = TRUE)[[1L]]
-        cat_map_keys <- c(cat_map_keys, parts)
-        cat_map_bins <- c(cat_map_bins, rep(bin_label, length(parts)))
-        cat_map_woes <- c(cat_map_woes, rep(woe_val, length(parts)))
-      }
-
-      stored_result$cat_map_keys <- cat_map_keys
-      stored_result$cat_map_bins <- cat_map_bins
-      stored_result$cat_map_woes <- cat_map_woes
+      # Split merged categories. The binning engines join the original
+      # category strings with the separator and add no padding, so the split
+      # pieces are the categories byte for byte. They must NOT be trimmed:
+      # a category carrying leading or trailing whitespace would otherwise
+      # become unmatchable and silently fall back to 'na_woe'.
+      #
+      # The separator is the one this step actually fitted with. It was
+      # hard-coded to "%;%" before, so a step prepped with
+      # control = list(bin_separator = "|") stored unsplit keys such as
+      # "a|b", and bake() then scored every one of those categories as
+      # na_woe without a warning.
+      parts <- .ob_split_categories(feat_res$bin, final_control$bin_separator)
+      n_parts <- lengths(parts)
+      stored_result$cat_map_keys <- as.character(unlist(parts, use.names = FALSE))
+      stored_result$cat_map_bins <- as.character(rep.int(feat_res$bin, n_parts))
+      stored_result$cat_map_woes <- as.numeric(rep.int(feat_res$woe, n_parts))
     }
 
     binning_results[[col]] <- stored_result

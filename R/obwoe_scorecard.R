@@ -484,8 +484,10 @@ obwoe_scorecard <- function(data,
 
   screened <- shortlist
 
+  # Fewer than two distinct finite values, tested without hashing the column.
   constant <- names(woe_train)[vapply(woe_train, function(v) {
-    length(unique(v[is.finite(v)])) < 2L
+    v <- v[is.finite(v)]
+    length(v) == 0L || all(v == v[1L])
   }, logical(1))]
   if (length(constant) > 0L) {
     add_warning(sprintf(
@@ -740,10 +742,46 @@ obwoe_scorecard <- function(data,
 #' @title Internal: WoE Design Matrix
 #' @keywords internal
 .ob_woe_matrix <- function(data, binning, features, na_woe) {
-  w <- obwoe_apply(data, binning, keep_original = FALSE, na_woe = na_woe)
+  w <- .ob_apply_features(data, binning, features, na_woe)
+  .ob_woe_columns(w, features)
+}
+
+
+#' @title Internal: WoE Columns of an obwoe_apply() Result
+#' @keywords internal
+.ob_woe_columns <- function(w, features) {
   out <- w[, paste0(features, "_woe"), drop = FALSE]
   names(out) <- features
   out
+}
+
+
+#' @title Internal: Restrict a Binning to Some Features
+#'
+#' @description
+#' Keeps only the listed features of an \code{"obwoe"} object, so that
+#' \code{\link{obwoe_apply}} transforms the variables a scorecard actually uses
+#' instead of every candidate that was binned. The per-feature transform does
+#' not depend on the other features, so the columns produced are identical.
+#'
+#' @keywords internal
+.ob_subset_binning <- function(binning, features) {
+  keep <- binning$summary$feature %in% features
+  if (all(keep)) {
+    return(binning)
+  }
+  binning$summary <- binning$summary[keep, , drop = FALSE]
+  binning$results <- binning$results[names(binning$results) %in% features]
+  binning
+}
+
+
+#' @title Internal: obwoe_apply() Restricted to Some Features
+#' @keywords internal
+.ob_apply_features <- function(data, binning, features, na_woe) {
+  obwoe_apply(data, .ob_subset_binning(binning, features),
+    keep_original = FALSE, na_woe = na_woe
+  )
 }
 
 
@@ -854,12 +892,15 @@ obwoe_scorecard <- function(data,
     ))
   }
 
-  w <- .ob_woe_matrix(df, binning, features, control$na_woe)
+  # One transform serves both the WoE design matrix and the bin labels; it used
+  # to be computed twice, each time for every binned candidate rather than just
+  # the variables in the model.
+  bins <- .ob_apply_features(df, binning, features, control$na_woe)
+  w <- .ob_woe_columns(bins, features)
 
   # Count values that landed in no fitted bin. WoE 0 is the population average,
   # which is a defensible fallback but is not "no effect" once an intercept is
   # in the model, so the size of that segment has to be visible.
-  bins <- obwoe_apply(df, binning, keep_original = FALSE, na_woe = control$na_woe)
   unseen <- vapply(features, function(f) {
     sum(is.na(bins[[paste0(f, "_bin")]]))
   }, integer(1))
@@ -1128,16 +1169,14 @@ predict.obwoe_scorecard <- function(object,
   } else {
     0
   }
-  w <- .ob_woe_matrix(new_data, object$binning, object$final, na_woe)
+  bins <- .ob_apply_features(new_data, object$binning, object$final, na_woe)
+  w <- .ob_woe_columns(bins, object$final)
   if (identical(type, "woe")) {
     return(w)
   }
 
   if (identical(type, "card")) {
     if (is.null(object$points)) stop("This scorecard has no points table.")
-    bins <- obwoe_apply(new_data, object$binning,
-      keep_original = FALSE, na_woe = na_woe
-    )
     return(.ob_card_score(bins, object$points, object$final))
   }
 
