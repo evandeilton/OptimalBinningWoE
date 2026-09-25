@@ -6,7 +6,8 @@
 #' The algorithm then optimizes these bins using statistical constraints.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) should be handled prior to binning.
+#'   Missing values (\code{NA}/\code{NaN}) are left out of every bin (with a
+#'   warning); \code{-Inf} and \code{+Inf} fall in the first and last bin.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
@@ -16,13 +17,14 @@
 #' @param bin_cutoff Numeric. The minimum fraction of total observations required
 #'   for a bin to be considered valid. Bins smaller than this threshold are merged.
 #'   Value must be in (0, 1). Defaults to 0.05.
-#' @param max_n_prebins Integer. The number of initial centroids/bins to generate
-#'   during the initialization phase. Defaults to 20.
+#' @param max_n_prebins Integer. Upper limit on the number of initial
+#'   centroids/bins; see Details. Defaults to 20.
 #' @param enforce_monotonic Logical. If \code{TRUE}, the algorithm enforces a
 #'   monotonic relationship in the Weight of Evidence (WoE) across bins.
 #'   Defaults to \code{TRUE}.
-#' @param convergence_threshold Numeric. The threshold for determining convergence
-#'   during the iterative optimization process. Defaults to 1e-6.
+#' @param convergence_threshold Numeric. Currently unused: every step of this
+#'   algorithm stops on a bin-count or monotonicity condition. Kept for
+#'   interface compatibility. Defaults to 1e-6.
 #' @param max_iterations Integer. Safety limit for the maximum number of iterations.
 #'   Defaults to 1000.
 #'
@@ -47,7 +49,9 @@
 #'
 #' \enumerate{
 #'   \item \strong{Initialization (K-means Style):}
-#'   Instead of using quantiles, \code{max_n_prebins} centroids are placed uniformly
+#'   Instead of using quantiles, \eqn{m} centroids are placed uniformly, where
+#'   \eqn{m} is the smaller of \code{max_n_prebins} and the number of distinct
+#'   values, clamped to \code{[min_bins, max_bins]},
 #'   across the range \eqn{[min(x), max(x)]}. Bin boundaries are then defined as the
 #'   midpoints between adjacent centroids. This can lead to more evenly distributed
 #'   initial bin widths in terms of the feature's scale.
@@ -56,7 +60,13 @@
 #'   The initialized bins undergo standard post-processing:
 #'   \itemize{
 #'     \item \strong{Rare Bin Merging:} Bins below \code{bin_cutoff} are merged with
-#'           their most similar neighbor (by event rate).
+#'           their most similar neighbor (by event rate), as long as more than
+#'           \code{min_bins} bins remain. An interval that holds no observation
+#'           at all is always merged into its neighbour; if that leaves fewer
+#'           than \code{min_bins} bins, the most populous bin is bisected at the
+#'           midpoint of its value range until \code{min_bins} is reached. Only a
+#'           feature with fewer distinct values than \code{min_bins} ends below
+#'           it (with a warning).
 #'     \item \strong{Monotonicity:} If \code{enforce_monotonic = TRUE}, adjacent bins
 #'           violating the dominant WoE trend are merged.
 #'     \item \strong{Bin Count Adjustment:} If the number of bins exceeds \code{max_bins},

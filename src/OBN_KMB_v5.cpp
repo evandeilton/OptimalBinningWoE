@@ -7,7 +7,6 @@
 #include <limits>
 #include <string>
 #include <sstream>
-#include <unordered_set>
 #include <numeric>
 #include <functional>
 
@@ -43,7 +42,6 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
   int max_iterations;
   bool enforce_monotonic;
   
@@ -135,22 +133,19 @@ private:
       Rcpp::stop("Feature vector must contain at least one valid (non-NaN, non-Inf) value.");
     }
     
-    // Check that target contains only 0 and 1
-    std::unordered_set<int> target_set;
+    // Check that target contains only 0 and 1 (NA is "anything else")
     int pos_count = 0;
     for (const auto& t : target) {
-      target_set.insert(t);
-      if (t == 1) pos_count++;
+      if (t != 0 && t != 1) {
+        Rcpp::stop("Target vector must contain only binary values 0 and 1.");
+      }
+      pos_count += t;
     }
-    
-    if (target_set.size() > 2 || (target_set.find(0) == target_set.end() && target_set.find(1) == target_set.end())) {
-      Rcpp::stop("Target vector must contain only binary values 0 and 1.");
-    }
-    
+
     if (pos_count == 0 || pos_count == static_cast<int>(target.size())) {
       Rcpp::stop("Target vector must contain both positive (1) and negative (0) cases.");
     }
-    
+
     // Validate parameters
     if (min_bins < 2) {
       Rcpp::stop("min_bins must be at least 2.");
@@ -177,48 +172,70 @@ private:
    * Perform initial binning based on unique values or quantiles
    */
   void initialBinning() {
-    // Collect valid values (non-NaN, non-Inf)
-    std::vector<double> valid_feature;
-    std::vector<int> valid_target;
-    
+    // Only three facts about the finite feature values are needed here: their
+    // minimum, their maximum and their number of distinct values -- and the
+    // latter only up to the point where it can still change the number of
+    // initial bins, min(max_n_prebins, #distinct), or the "at most two
+    // distinct values" special case. That needs no sort of the sample: one pass
+    // keeps min / max and a short list of the distinct values seen so far,
+    // which stops growing once it exceeds that cap. Large caps
+    // (max_n_prebins > 64) fall back to sort + unique.
+    const size_t cap = static_cast<size_t>(std::max(max_n_prebins, 2)) + 1;
+    const bool small_cap = cap <= 65;
+    double min_val = std::numeric_limits<double>::infinity();
+    double max_val = -std::numeric_limits<double>::infinity();
+    std::vector<double> distinct;   // distinct finite values (up to `cap`)
+    bool capped = false;
     for (size_t i = 0; i < feature.size(); ++i) {
-      if (!std::isnan(feature[i]) && !std::isinf(feature[i])) {
-        valid_feature.push_back(feature[i]);
-        valid_target.push_back(target[i]);
+      const double v = feature[i];
+      if (std::isnan(v) || std::isinf(v)) continue;
+      if (v < min_val) min_val = v;
+      if (v > max_val) max_val = v;
+      if (!small_cap) {
+        distinct.push_back(v);
+      } else if (!capped) {
+        bool seen = false;
+        for (double d : distinct) {
+          if (d == v) { seen = true; break; }
+        }
+        if (!seen) {
+          distinct.push_back(v);
+          if (distinct.size() >= cap) capped = true;
+        }
       }
     }
-    
-    // Extract unique sorted values
-    std::vector<double> unique_values = valid_feature;
-    std::sort(unique_values.begin(), unique_values.end());
-    unique_values.erase(std::unique(unique_values.begin(), unique_values.end()), unique_values.end());
-    
-    int num_unique_values = static_cast<int>(unique_values.size());
-    
+    std::sort(distinct.begin(), distinct.end());
+    if (!small_cap) {
+      distinct.erase(std::unique(distinct.begin(), distinct.end()), distinct.end());
+    }
+    // -0.0 and +0.0 are one value; report it unsigned.
+    min_val += 0.0;
+    max_val += 0.0;
+    for (double& d : distinct) d += 0.0;
+
+    const int num_unique_values = static_cast<int>(distinct.size());
+
     // Special case: very few unique values
     if (num_unique_values <= 2) {
-      handleFewUniqueValues(unique_values, valid_feature, valid_target);
+      handleFewUniqueValues(distinct);
     } else {
       // Regular binning for more unique values
-      createRegularBins(unique_values, num_unique_values);
+      createRegularBins(min_val, max_val, num_unique_values);
     }
   }
-  
+
   /**
-   * Handle the special case of very few (<=2) unique values
-   * 
-   * @param unique_values Vector of unique feature values
-   * @param valid_feature Vector of valid feature values
-   * @param valid_target Vector of corresponding target values
+   * Handle the special case of very few (<=2) unique values. The counts are
+   * filled in by assignDataToBins(), like those of the regular bins.
+   *
+   * @param unique_values Sorted unique finite feature values
    */
-  void handleFewUniqueValues(const std::vector<double>& unique_values, 
-                             const std::vector<double>& valid_feature,
-                             const std::vector<int>& valid_target) {
+  void handleFewUniqueValues(const std::vector<double>& unique_values) {
     is_unique_two_or_less = true;
     bins.clear();
-    
-    int num_unique_values = static_cast<int>(unique_values.size());
-    
+
+    const int num_unique_values = static_cast<int>(unique_values.size());
+
     if (num_unique_values == 0) {
       // No valid values - shouldn't happen due to validation, but handle anyway
       Rcpp::stop("No valid feature values to bin.");
@@ -227,176 +244,150 @@ private:
       NumericalBin bin;
       bin.lower_bound = -std::numeric_limits<double>::infinity();
       bin.upper_bound = std::numeric_limits<double>::infinity();
-      bin.count = static_cast<int>(valid_feature.size());
-      bin.count_pos = std::accumulate(valid_target.begin(), valid_target.end(), 0);
-      bin.count_neg = bin.count - bin.count_pos;
-      // bin.event_rate() assignment removed (calculated dynamically)
       bin.centroid = unique_values[0];
-      
       bins.push_back(bin);
     } else { // num_unique_values == 2
-      // Two unique values - create two bins
-      double split_point = unique_values[0];
-      
+      // Two unique values - create two bins split at the smaller one
       NumericalBin bin1, bin2;
       bin1.lower_bound = -std::numeric_limits<double>::infinity();
-      bin1.upper_bound = split_point;
-      bin2.lower_bound = split_point;
+      bin1.upper_bound = unique_values[0];
+      bin2.lower_bound = unique_values[0];
       bin2.upper_bound = std::numeric_limits<double>::infinity();
-      
       bin1.centroid = unique_values[0];
       bin2.centroid = unique_values[1];
-      
-      // Assign observations to bins
-      for (size_t i = 0; i < valid_feature.size(); ++i) {
-        if (valid_feature[i] <= split_point) {
-          bin1.count++;
-          bin1.count_pos += valid_target[i];
-        } else {
-          bin2.count++;
-          bin2.count_pos += valid_target[i];
-        }
-      }
-      
-      bin1.count_neg = bin1.count - bin1.count_pos;
-      bin2.count_neg = bin2.count - bin2.count_pos;
-      
-      // bin1.event_rate() assignment removed (calculated dynamically)
-      // bin2.event_rate() assignment removed (calculated dynamically)
-      
       bins.push_back(bin1);
       bins.push_back(bin2);
     }
   }
-  
+
   /**
    * Create regular bins for the normal case (more than 2 unique values)
    * Uses a K-means inspired approach for initial bin boundaries
-   * 
-   * @param unique_values Vector of unique feature values
-   * @param num_unique_values Number of unique values
+   *
+   * @param min_val Smallest finite feature value
+   * @param max_val Largest finite feature value
+   * @param num_unique_values Number of unique values (possibly capped)
    */
-  void createRegularBins(const std::vector<double>& unique_values, int num_unique_values) {
+  void createRegularBins(double min_val, double max_val, int num_unique_values) {
     is_unique_two_or_less = false;
-    
+
     // Determine number of initial bins
     int n_bins = std::min(max_n_prebins, num_unique_values);
     n_bins = std::max(n_bins, min_bins);
     n_bins = std::min(n_bins, max_bins);
-    
-    // K-means inspired approach: create equally spaced centroids
-    double min_val = unique_values.front();
-    double max_val = unique_values.back();
-    double range = max_val - min_val;
-    
-    if (range < EPSILON) {
-      // Handle the case of very small range
-      // Create a single bin
-      NumericalBin bin;
-      bin.lower_bound = -std::numeric_limits<double>::infinity();
-      bin.upper_bound = std::numeric_limits<double>::infinity();
-      bin.centroid = min_val;
-      bins.push_back(bin);
-      return;
-    }
-    
-    // Initialize centroids approximately evenly spaced
+
+    // K-means inspired approach: equally spaced centroids over [min, max].
+    //
+    // With three or more distinct values the range is positive, whatever its
+    // magnitude (the previous absolute test `range < 1e-10` collapsed any
+    // feature measured on a small scale into a single bin). The range, or its
+    // product with (i + 0.5), can overflow to +Inf for extreme values such as
+    // -1e308 and 1e308; the spacing is then computed from the halves.
+    const double range = max_val - min_val;
     std::vector<double> centroids;
+    centroids.reserve(static_cast<size_t>(n_bins));
     for (int i = 0; i < n_bins; ++i) {
       double centroid = min_val + (i + 0.5) * range / n_bins;
+      if (!std::isfinite(centroid)) {
+        const double t = (i + 0.5) / n_bins;
+        centroid = min_val * (1.0 - t) + max_val * t;
+      }
       centroids.push_back(centroid);
     }
-    
+
     // Determine bin boundaries as midpoints between centroids
     bins.clear();
     bins.reserve(static_cast<size_t>(n_bins));
-    
+
     for (int i = 0; i < n_bins; ++i) {
       NumericalBin bin;
-      bin.centroid = centroids[i];
-      
+      const size_t ui = static_cast<size_t>(i);
+      bin.centroid = centroids[ui];
+
       if (i == 0) {
         bin.lower_bound = -std::numeric_limits<double>::infinity();
       } else {
-        bin.lower_bound = (centroids[i-1] + centroids[i]) / 2.0;
+        bin.lower_bound = midpoint(centroids[ui - 1], centroids[ui]);
       }
-      
+
       if (i == n_bins - 1) {
         bin.upper_bound = std::numeric_limits<double>::infinity();
       } else {
-        bin.upper_bound = (centroids[i] + centroids[i+1]) / 2.0;
+        bin.upper_bound = midpoint(centroids[ui], centroids[ui + 1]);
       }
-      
+
       bins.push_back(bin);
     }
   }
-  
+
+  // (a + b) / 2 for finite a, b, without overflow.
+  static double midpoint(double a, double b) {
+    const double m = (a + b) / 2.0;
+    return std::isfinite(m) ? m : a / 2.0 + b / 2.0;
+  }
+
+  // Upper bounds of the bins, the last one forced to +Inf, for lower_bound().
+  std::vector<double> binUppers() const {
+    std::vector<double> uppers(bins.size());
+    for (size_t b = 0; b < bins.size(); ++b) uppers[b] = bins[b].upper_bound;
+    uppers.back() = std::numeric_limits<double>::infinity();
+    return uppers;
+  }
+
   /**
    * Assign data points to bins and calculate bin statistics
+   *
+   * A value goes to the first bin whose upper bound is >= the value: the bins
+   * are right-closed intervals (lower, upper] covering the whole real line
+   * (the first one also holds -Inf, the last one +Inf). NaN values are skipped.
    */
   void assignDataToBins() {
-    // Reset bin counts
+    const std::vector<double> uppers = binUppers();
     for (auto& bin : bins) {
       bin.count = 0;
       bin.count_pos = 0;
       bin.count_neg = 0;
     }
-    
-    // Assign data points to bins
+
     for (size_t i = 0; i < feature.size(); ++i) {
-      // Skip NaN values
-      if (std::isnan(feature[i])) {
-        continue;
-      }
-      
-      double value = feature[i];
-      int target_value = target[i];
-      bool assigned = false;
-      
-      for (auto& bin : bins) {
-        // Check if value falls within bin boundaries
-        // For the first bin, include the lower bound
-        if ((bin.lower_bound == bins.front().lower_bound && value >= bin.lower_bound && value <= bin.upper_bound) ||
-            (bin.lower_bound != bins.front().lower_bound && value > bin.lower_bound && value <= bin.upper_bound)) {
-          
-          bin.count++;
-          if (target_value == 1) {
-            bin.count_pos++;
-          } else {
-            bin.count_neg++;
-          }
-          assigned = true;
-          break;
-        }
-      }
-      
-      // Handle edge cases for infinity or values outside bin ranges
-      if (!assigned && !std::isinf(value)) {
-        if (value <= bins.front().lower_bound) {
-          bins.front().count++;
-          if (target_value == 1) {
-            bins.front().count_pos++;
-          } else {
-            bins.front().count_neg++;
-          }
-        } else if (value > bins.back().upper_bound) {
-          bins.back().count++;
-          if (target_value == 1) {
-            bins.back().count_pos++;
-          } else {
-            bins.back().count_neg++;
-          }
-        }
-      }
+      const double value = feature[i];
+      if (std::isnan(value)) continue;
+      NumericalBin& bin = bins[static_cast<size_t>(
+        std::lower_bound(uppers.begin(), uppers.end(), value) - uppers.begin())];
+      bin.count++;
+      if (target[i] == 1) bin.count_pos++;
     }
-    
-    // Calculate event rates for each bin
+
     for (auto& bin : bins) {
       bin.count_neg = bin.count - bin.count_pos;
-      // bin.event_rate() assignment removed (calculated dynamically)
     }
   }
-  
+
+  /**
+   * Set each bin's centroid to the mean of its finite feature values, as the
+   * documentation of the `centroids` output states. (It used to report the
+   * evenly spaced initial centroid, count-weighted through the merges, which
+   * is not the mean of anything in the data.) A bin holding no finite value
+   * keeps that initial centroid.
+   */
+  void computeCentroids() {
+    const std::vector<double> uppers = binUppers();
+    std::vector<double> mean(bins.size(), 0.0);
+    std::vector<double> k(bins.size(), 0.0);
+    for (size_t i = 0; i < feature.size(); ++i) {
+      const double value = feature[i];
+      if (!std::isfinite(value)) continue;
+      const size_t b = static_cast<size_t>(
+        std::lower_bound(uppers.begin(), uppers.end(), value) - uppers.begin());
+      // Running mean: cannot overflow, unlike a plain sum of extreme values.
+      k[b] += 1.0;
+      mean[b] += (value - mean[b]) / k[b];
+    }
+    for (size_t b = 0; b < bins.size(); ++b) {
+      if (k[b] > 0.0) bins[b].centroid = mean[b];
+    }
+  }
+
   /**
    * Merge bins with frequency below the cutoff threshold
    * This ensures statistical reliability of each bin
@@ -452,6 +443,67 @@ private:
     }
   }
   
+  /**
+   * Remove the bins that hold no observation, then restore min_bins.
+   *
+   * Equally spaced intervals over a skewed or outlier-laden feature (and, for
+   * features spanning only a few ulps, intervals whose bounds coincide) can be
+   * empty. mergeLowFrequencyBins() absorbs them only while more than min_bins
+   * bins remain; one left over is not a bin of the data -- it has no event
+   * rate, its WoE is an artefact of the smoothing and its bounds are
+   * arbitrary. Each is merged into its lower neighbour (the first bin into the
+   * next one). If that leaves fewer than min_bins bins, the most populous bin
+   * whose values are not all equal is bisected at the midpoint of its value
+   * range -- the equal-width rule applied locally, which always leaves both
+   * halves non-empty -- until min_bins bins exist or no bin can be split
+   * (fewer distinct values than min_bins; adjustBinCount() reports that).
+   */
+  void removeEmptyBins() {
+    size_t i = 0;
+    bool removed = false;
+    while (i < bins.size() && bins.size() > 1) {
+      if (bins[i].count == 0) {
+        if (i == 0) mergeBins(0, 1);
+        else mergeBins(i - 1, i);
+        removed = true;
+      } else {
+        ++i;
+      }
+    }
+    if (!removed) return;
+
+    while (static_cast<int>(bins.size()) < min_bins) {
+      // Smallest and largest finite value in each bin.
+      const std::vector<double> uppers = binUppers();
+      std::vector<double> vmin(bins.size(), std::numeric_limits<double>::infinity());
+      std::vector<double> vmax(bins.size(), -std::numeric_limits<double>::infinity());
+      for (size_t k = 0; k < feature.size(); ++k) {
+        const double value = feature[k];
+        if (!std::isfinite(value)) continue;
+        const size_t b = static_cast<size_t>(
+          std::lower_bound(uppers.begin(), uppers.end(), value) - uppers.begin());
+        if (value < vmin[b]) vmin[b] = value;
+        if (value > vmax[b]) vmax[b] = value;
+      }
+      size_t best = bins.size();
+      for (size_t b = 0; b < bins.size(); ++b) {
+        if (!(vmin[b] < vmax[b])) continue;
+        if (best == bins.size() || bins[b].count > bins[best].count) best = b;
+      }
+      if (best == bins.size()) break;
+
+      double cut = vmin[best] + (vmax[best] / 2.0 - vmin[best] / 2.0);
+      if (!(cut < vmax[best]) || !(cut >= vmin[best])) cut = vmin[best];
+      NumericalBin upper_half = bins[best];
+      upper_half.lower_bound = cut;
+      upper_half.centroid = vmax[best];
+      bins[best].upper_bound = cut;
+      bins[best].centroid = vmin[best];
+      bins.insert(bins.begin() + static_cast<std::ptrdiff_t>(best) + 1, upper_half);
+      assignDataToBins();
+    }
+  }
+
   /**
    * Merge two adjacent bins
    * 
@@ -684,11 +736,14 @@ public:
     : feature(feature_), target(target_), 
       min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
-      convergence_threshold(convergence_threshold_), 
       max_iterations(max_iterations_),
       enforce_monotonic(enforce_monotonic_),
       converged(true), iterations_run(0), total_iv(0.0),
-      is_unique_two_or_less(false) {}
+      is_unique_two_or_less(false) {
+    // Accepted for interface compatibility; this engine has no tolerance-based
+    // stopping rule (every loop ends on a bin-count or monotonicity condition).
+    (void) convergence_threshold_;
+  }
   
   /**
    * Execute the binning algorithm and return results
@@ -709,6 +764,9 @@ public:
     if (!is_unique_two_or_less) {
       // Step 4a: Merge low frequency bins
       mergeLowFrequencyBins();
+
+      // Step 4a': equal-width intervals holding no observation at all
+      removeEmptyBins();
       
       // Step 4b: Enforce monotonicity if requested
       if (enforce_monotonic) {
@@ -719,8 +777,9 @@ public:
       adjustBinCount();
     }
     
-    // Step 5: Final calculation of WoE and IV
+    // Step 5: Final calculation of WoE and IV, and of the bin means
     calculateBinStatistics();
+    computeCentroids();
     
     // Step 6: Prepare output
     return createResultList();
