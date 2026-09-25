@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <numeric>
+#include <utility>
 
 
 // Include shared headers
@@ -23,7 +24,6 @@ using namespace OptimalBinning;
 
 // Constants for better readability and consistency
 // Constant removed (uses shared definition)
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 // Bayesian smoothing parameter (adjustable prior strength)
 // Constant removed (uses shared definition)
 
@@ -67,15 +67,15 @@ private:
   
 public:
   OBC_MILP(
-    const std::vector<int>& target,
-    const std::vector<std::string>& feature,
-    int min_bins,
-    int max_bins,
-    double bin_cutoff,
-    int max_n_prebins,
-    const std::string& bin_separator,
-    double convergence_threshold,
-    int max_iterations
+    std::vector<int> target_,
+    std::vector<std::string> feature_,
+    int min_bins_,
+    int max_bins_,
+    double bin_cutoff_,
+    int max_n_prebins_,
+    const std::string& bin_separator_,
+    double convergence_threshold_,
+    int max_iterations_
   );
   
   Rcpp::List fit();
@@ -91,6 +91,7 @@ private:
   size_t find_best_merge_candidate(size_t bin_idx) const;
   void merge_rare_categories();
   void sort_bins_by_woe();
+  void reduce_prebins_by_similarity(size_t target_bins);
   
   inline double safe_log(double value) const {
     // Safe log: avoids log(0) by adding a small epsilon
@@ -99,18 +100,19 @@ private:
 };
 
 OBC_MILP::OBC_MILP(
-  const std::vector<int>& target,
-  const std::vector<std::string>& feature,
-  int min_bins,
-  int max_bins,
-  double bin_cutoff,
-  int max_n_prebins,
-  const std::string& bin_separator,
-  double convergence_threshold,
-  int max_iterations
-) : target(target), feature(feature), min_bins(min_bins), max_bins(max_bins),
-bin_cutoff(bin_cutoff), max_n_prebins(max_n_prebins), bin_separator(bin_separator),
-convergence_threshold(convergence_threshold), max_iterations(max_iterations),
+  std::vector<int> target_,
+  std::vector<std::string> feature_,
+  int min_bins_,
+  int max_bins_,
+  double bin_cutoff_,
+  int max_n_prebins_,
+  const std::string& bin_separator_,
+  double convergence_threshold_,
+  int max_iterations_
+) : target(std::move(target_)), feature(std::move(feature_)),
+min_bins(min_bins_), max_bins(max_bins_), bin_cutoff(bin_cutoff_),
+max_n_prebins(max_n_prebins_), bin_separator(bin_separator_),
+convergence_threshold(convergence_threshold_), max_iterations(max_iterations_),
 total_pos(0), total_neg(0), converged(false), iterations_run(0) {}
 
 void OBC_MILP::validate_input() {
@@ -182,11 +184,18 @@ void OBC_MILP::initialize_bins() {
     const std::string& cat = feature[i];
     int tar = target[i];
     
-    if (bin_map.find(cat) == bin_map.end()) {
-      bin_map[cat] = CategoricalBin();
+    // One lookup per row, and the category name is stored once per bin: it
+    // used to be appended for every observation (n strings in total, all
+    // copied again on every merge and only de-duplicated when printing).
+    auto it = bin_map.find(cat);
+    if (it == bin_map.end()) {
+      it = bin_map.emplace(cat, CategoricalBin()).first;
+      it->second.categories.push_back(cat);
     }
-    
-    { auto& b = bin_map[cat]; b.categories.push_back(cat); b.count++; b.count_pos += tar; b.count_neg += (1 - tar); }
+    CategoricalBin& b = it->second;
+    b.count++;
+    b.count_pos += tar;
+    b.count_neg += (1 - tar);
     
     if (tar == 1) {
       total_pos++;
@@ -272,59 +281,66 @@ size_t OBC_MILP::find_best_merge_candidate(size_t bin_idx) const {
 void OBC_MILP::merge_rare_categories() {
   double total_count = static_cast<double>(total_pos + total_neg);
   double min_count = bin_cutoff * total_count;
-  
-  // Identify all low-frequency bins at once
-  std::vector<size_t> low_freq_bins;
-  
-  for (size_t i = 0; i < bins.size(); ++i) {
-    if (bins[i].total() < min_count) {
-      low_freq_bins.push_back(i);
+
+  // Passes are repeated until no bin is below the cutoff (or min_bins is
+  // reached). A single pass could leave one: two rare bins merged into a bin
+  // that was still rare, at a position whose entry had already been handled.
+  bool merged_any = true;
+  while (merged_any) {
+    merged_any = false;
+
+    // Identify all low-frequency bins at once
+    std::vector<size_t> low_freq_bins;
+    for (size_t i = 0; i < bins.size(); ++i) {
+      if (bins[i].total() < min_count) {
+        low_freq_bins.push_back(i);
+      }
     }
-  }
-  
-  // Sort bins by frequency (ascending) for better merging strategy
-  std::sort(low_freq_bins.begin(), low_freq_bins.end(),
-            [this](size_t a, size_t b) { 
-              return bins[a].total() < bins[b].total(); 
-            });
-  
-  // Process low-frequency bins efficiently
-  for (size_t idx : low_freq_bins) {
-    if (static_cast<int>(bins.size()) <= min_bins) {
-      break; // Never go below min_bins
-    }
-    
-    // Check if bin still exists and is still below cutoff
-    if (idx >= bins.size() || bins[idx].total() >= min_count) {
-      continue;
-    }
-    
-    // Find best merge candidate based on event rate similarity
-    size_t best_candidate = find_best_merge_candidate(idx);
-    
-    // Try to merge with best candidate
-    if (best_candidate != idx && best_candidate < bins.size()) {
-      // Create a new temporary bin
-      CategoricalBin merged_bin = bins[idx];
-      merged_bin.merge_with(bins[best_candidate]);
-      
-      // Calculate metrics for merged bin
-      calculate_woe_iv(merged_bin);
-      
-      // Replace the bin with lower IV with the merged bin
-      size_t replace_idx = (std::fabs(bins[idx].iv) <= std::fabs(bins[best_candidate].iv)) 
-        ? idx : best_candidate;
-      size_t remove_idx = (replace_idx == idx) ? best_candidate : idx;
-      
-      bins[replace_idx] = std::move(merged_bin);
-      bins.erase(bins.begin() + remove_idx);
-      
-      // Adjust indices for remaining bins
-      for (auto& remaining_idx : low_freq_bins) {
-        if (remaining_idx == remove_idx) {
-          remaining_idx = replace_idx;
-        } else if (remaining_idx > remove_idx) {
-          remaining_idx--;
+    if (low_freq_bins.empty()) break;
+
+    // Sort bins by frequency (ascending) for better merging strategy
+    std::sort(low_freq_bins.begin(), low_freq_bins.end(),
+              [this](size_t a, size_t b) {
+                return bins[a].total() < bins[b].total();
+              });
+
+    for (size_t idx : low_freq_bins) {
+      if (static_cast<int>(bins.size()) <= min_bins) {
+        return; // Never go below min_bins
+      }
+
+      // Check if bin still exists and is still below cutoff
+      if (idx >= bins.size() || bins[idx].total() >= min_count) {
+        continue;
+      }
+
+      // Find best merge candidate based on event rate similarity
+      size_t best_candidate = find_best_merge_candidate(idx);
+
+      if (best_candidate != idx && best_candidate < bins.size()) {
+        CategoricalBin merged_bin = bins[idx];
+        merged_bin.merge_with(bins[best_candidate]);
+        calculate_woe_iv(merged_bin);
+
+        // Replace the bin with lower IV with the merged bin
+        size_t replace_idx = (std::fabs(bins[idx].iv) <= std::fabs(bins[best_candidate].iv))
+          ? idx : best_candidate;
+        size_t remove_idx = (replace_idx == idx) ? best_candidate : idx;
+
+        bins[replace_idx] = std::move(merged_bin);
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(remove_idx));
+        merged_any = true;
+
+        // Adjust indices for remaining bins. The merged bin itself moves
+        // down by one when it sat after the erased position (the previous
+        // remapping pointed such entries one past it).
+        const size_t merged_pos = replace_idx > remove_idx ? replace_idx - 1 : replace_idx;
+        for (auto& remaining_idx : low_freq_bins) {
+          if (remaining_idx == remove_idx || remaining_idx == replace_idx) {
+            remaining_idx = merged_pos;
+          } else if (remaining_idx > remove_idx) {
+            remaining_idx--;
+          }
         }
       }
     }
@@ -343,30 +359,7 @@ void OBC_MILP::merge_bins() {
       return (a.count_pos + a.count_neg) < (b.count_pos + b.count_neg);
     });
     
-    while (bins.size() > max_n_prebins_size && bins.size() > min_bins_size) {
-      // Find best pair to merge based on event rate similarity
-      double best_similarity = -1.0;
-      size_t merge_idx1 = 0;
-      size_t merge_idx2 = 0;
-      
-      for (size_t i = 0; i < bins.size(); ++i) {
-        for (size_t j = i + 1; j < bins.size(); ++j) {
-          double rate_diff = std::fabs(bins[i].event_rate() - bins[j].event_rate());
-          double similarity = 1.0 / (rate_diff + EPSILON);
-          
-          if (similarity > best_similarity) {
-            best_similarity = similarity;
-            merge_idx1 = i;
-            merge_idx2 = j;
-          }
-        }
-      }
-      
-      // Merge the best pair
-      bins[merge_idx1].merge_with(bins[merge_idx2]);
-      calculate_woe_iv(bins[merge_idx1]);
-      bins.erase(bins.begin() + merge_idx2);
-    }
+    reduce_prebins_by_similarity(std::max(max_n_prebins_size, min_bins_size));
   }
   
   // Handle rare categories
@@ -414,6 +407,96 @@ void OBC_MILP::merge_bins() {
   // Reaching max_bins is the stopping state; only a reduction that needed
   // more merges than max_iterations reports converged = FALSE.
   converged = (iterations_run <= max_iterations);
+}
+
+// Repeatedly merge the pair (i < j) with the most similar event rates -- the
+// first such pair in index order -- until `target` bins remain. Rescanning all
+// pairs after every merge was O(B^2) per merge, O(B^3) overall (7 s for 2000
+// categories). The similarity of a pair depends only on its two bins, so each
+// bin keeps its best partner among the bins after it and, after a merge, only
+// the merged bin's row and the rows that pointed at the merged or removed bin
+// are rescanned. Bins keep their relative order (a merge keeps the lower
+// slot), so the pair chosen is the one the full scan chose.
+void OBC_MILP::reduce_prebins_by_similarity(size_t target_bins) {
+  const size_t nb = bins.size();
+  if (nb <= target_bins || nb < 2) return;
+  const size_t NONE = std::numeric_limits<size_t>::max();
+
+  std::vector<double> rate(nb);
+  for (size_t i = 0; i < nb; ++i) rate[i] = bins[i].event_rate();
+  auto similarity = [&rate](size_t i, size_t j) {
+    double rate_diff = std::fabs(rate[i] - rate[j]);
+    return 1.0 / (rate_diff + EPSILON);
+  };
+
+  std::vector<size_t> nxt(nb);
+  for (size_t i = 0; i < nb; ++i) nxt[i] = (i + 1 < nb) ? i + 1 : NONE;
+  std::vector<size_t> prv(nb);
+  for (size_t i = 0; i < nb; ++i) prv[i] = (i > 0) ? i - 1 : NONE;
+  std::vector<char> alive(nb, 1);
+  std::vector<double> best_s(nb, -1.0);
+  std::vector<size_t> best_j(nb, NONE);
+
+  auto recompute_row = [&](size_t i) {
+    best_s[i] = -1.0;
+    best_j[i] = NONE;
+    for (size_t j = nxt[i]; j != NONE; j = nxt[j]) {
+      const double sim = similarity(i, j);
+      if (sim > best_s[i]) {
+        best_s[i] = sim;
+        best_j[i] = j;
+      }
+    }
+  };
+  for (size_t i = 0; i < nb; ++i) recompute_row(i);
+
+  size_t head = 0;
+  size_t count = nb;
+  while (count > target_bins && count >= 2) {
+    double bs = -1.0;
+    size_t a = NONE;
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (best_j[i] != NONE && best_s[i] > bs) {
+        bs = best_s[i];
+        a = i;
+      }
+    }
+    if (a == NONE) break;
+    const size_t b = best_j[a];
+
+    bins[a].merge_with(bins[b]);
+    calculate_woe_iv(bins[a]);
+    rate[a] = bins[a].event_rate();
+    alive[b] = 0;
+    const size_t p = prv[b];
+    const size_t q = nxt[b];
+    if (p != NONE) nxt[p] = q;
+    if (q != NONE) prv[q] = p;
+    if (b == head) head = q;
+    --count;
+
+    recompute_row(a);
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (i == a) continue;
+      if (best_j[i] == a || best_j[i] == b) {
+        recompute_row(i);
+      } else if (i < a) {
+        const double sim = similarity(i, a);
+        if (sim > best_s[i] || (sim == best_s[i] && a < best_j[i])) {
+          best_s[i] = sim;
+          best_j[i] = a;
+        }
+      }
+    }
+    Rcpp::checkUserInterrupt();
+  }
+
+  std::vector<CategoricalBin> kept;
+  kept.reserve(count);
+  for (size_t i = 0; i < nb; ++i) {
+    if (alive[i]) kept.push_back(std::move(bins[i]));
+  }
+  bins = std::move(kept);
 }
 
 void OBC_MILP::sort_bins_by_woe() {
@@ -486,7 +569,7 @@ Rcpp::List OBC_MILP::fit() {
       bin_count[i] = bin.count_pos + bin.count_neg;
       bin_count_pos[i] = bin.count_pos;
       bin_count_neg[i] = bin.count_neg;
-      ids[i] = i + 1;
+      ids[i] = static_cast<double>(i + 1);
       
       total_iv += std::fabs(bin.iv);
     }
@@ -538,20 +621,19 @@ Rcpp::List optimal_binning_categorical_milp(
  feature_vec.reserve(feature.size());
  
  int na_feature_count = 0;
- int na_target_count = 0;
  
  for (R_xlen_t i = 0; i < feature.size(); ++i) {
    // Handle NA in feature
-   if (feature[i] == NA_STRING) {
-     feature_vec.push_back("NA");
+   SEXP s = STRING_ELT(feature, i);
+   if (s == NA_STRING) {
+     feature_vec.emplace_back("NA");
      na_feature_count++;
    } else {
-     feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+     feature_vec.emplace_back(CHAR(s));
    }
    
    // Check for NA in target
    if (IntegerVector::is_na(target[i])) {
-     na_target_count++;
      Rcpp::stop("Target cannot contain missing values at position %d.", i+1);
    } else {
      target_vec.push_back(target[i]);
@@ -565,8 +647,8 @@ Rcpp::List optimal_binning_categorical_milp(
  }
  
  OBC_MILP obcm(
-     target_vec,
-     feature_vec,
+     std::move(target_vec),
+     std::move(feature_vec),
      min_bins,
      max_bins,
      bin_cutoff,

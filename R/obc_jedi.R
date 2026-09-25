@@ -112,7 +112,7 @@
 #' \deqn{\alpha_p = \alpha_{total} \times \frac{N_{pos}}{N_{pos} + N_{neg}}}
 #' \deqn{\alpha_n = \alpha_{total} - \alpha_p}
 #'
-#' with \eqn{\alpha_{total} = 1.0} as the prior strength parameter.
+#' with \eqn{\alpha_{total} = 0.5} as the prior strength parameter.
 #'
 #' \strong{Adaptive Monotonicity Threshold:}
 #'
@@ -126,8 +126,8 @@
 #' \strong{Computational Complexity:}
 #' \itemize{
 #'   \item Time: \eqn{O(k^2 \cdot m)} where \eqn{k} = bins, \eqn{m} = iterations
-#'   \item Space: \eqn{O(k^2)} for IV cache
-#'   \item Cache hit rate typically > 70\% for \eqn{k > 10}
+#'   \item Space: \eqn{O(k)}; the IV loss of each candidate merge is
+#'         screened from per-bin IV contributions and confirmed exactly
 #' }
 #'
 #' \strong{Key Innovations:}

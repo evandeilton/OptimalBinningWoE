@@ -4,14 +4,13 @@
 #include <string>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
-#include <sstream>
-#include <memory>
 #include <numeric>
-
+#include <utility>
 
 // Include shared headers
 #include "common/optimal_binning_common.h"
@@ -20,17 +19,11 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
-
-// Global constants for better readability and consistency
-// Constant removed (uses shared definition)
 static constexpr double LAPLACE_ALPHA = 0.5;  // Laplace smoothing parameter
-// [D8] Standardized to "NA", matching every other categorical algorithm
-// (this file and OBC_Sketch_v5.cpp were the only two using "N/A"). The R
-// wrapper (R/obc_jedi_mwoe.R) already converts NA to this token before the
-// vector reaches here, so this constant is normally unreachable, but is
-// kept in sync for any caller that invokes this .Call() target directly.
-static constexpr const char* MISSING_VALUE = "NA";  // Special category for missing values
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
+// [D8] Standardized to "NA", matching every other categorical algorithm.
+// The R wrapper (R/obc_jedi_mwoe.R) already converts NA to this token before
+// the vector reaches here; kept for callers of the .Call() target itself.
+static constexpr const char* MISSING_VALUE = "NA";
 
 // Namespace for utility functions
 namespace utils {
@@ -40,220 +33,76 @@ inline double safe_log(double x) {
 }
 
 // Join vector of strings ensuring uniqueness
-inline std::string join_categories(const std::vector<std::string>& categories, 
+inline std::string join_categories(const std::vector<std::string>& categories,
                                    const std::string& separator) {
   if (categories.empty()) return "";
   if (categories.size() == 1) return categories[0];
-  
-  // Create a set for uniqueness check
+
   std::unordered_set<std::string> unique_cats;
   std::vector<std::string> unique_vec;
   unique_vec.reserve(categories.size());
-  
+
   for (const auto& cat : categories) {
     if (unique_cats.insert(cat).second) {
       unique_vec.push_back(cat);
     }
   }
-  
-  // Estimate result size for pre-allocation
+
   size_t total_length = 0;
   for (const auto& cat : unique_vec) {
     total_length += cat.length();
   }
   total_length += separator.length() * (unique_vec.size() - 1);
-  
-  // Build result string
+
   std::string result;
   result.reserve(total_length);
-  
+
   result = unique_vec[0];
   for (size_t i = 1; i < unique_vec.size(); ++i) {
     result += separator;
     result += unique_vec[i];
   }
-  
+
   return result;
 }
 
-// Calculate Multinomial Weight of Evidence with Laplace smoothing
-inline double calculate_mwoe(int class_count, int total_class_count,
-                             const std::vector<int>& other_counts,
-                             const std::vector<int>& total_other_counts,
-                             double alpha = LAPLACE_ALPHA) {
-  // Apply Laplace smoothing for current class
+// One-vs-rest M-WoE and IV of a class with Laplace smoothing. `other_total`
+// and `total_other` are the summed counts of the remaining classes (in the
+// bin and overall).
+inline void mwoe_iv(int class_count, int total_class_count, int other_total,
+                    int total_other, double alpha, double& woe, double& iv) {
   double class_rate = (class_count + alpha) / (total_class_count + alpha * 2);
-  
-  // Calculate combined rate for all other classes with smoothing
-  int other_total = std::accumulate(other_counts.begin(), other_counts.end(), 0);
-  int total_other = std::accumulate(total_other_counts.begin(), total_other_counts.end(), 0);
-  
   double other_rate = (other_total + alpha) / (total_other + alpha * 2);
-  
-  // Calculate M-WoE
-  return safe_log(class_rate / other_rate);
+  woe = safe_log(class_rate / other_rate);
+  iv = (class_rate - other_rate) * woe;
 }
 
-// Calculate Information Value with Laplace smoothing
-inline double calculate_iv(int class_count, int total_class_count,
-                           const std::vector<int>& other_counts,
-                           const std::vector<int>& total_other_counts,
-                           double alpha = LAPLACE_ALPHA) {
-  // Apply Laplace smoothing
-  double class_rate = (class_count + alpha) / (total_class_count + alpha * 2);
-  
-  // Calculate combined rate for all other classes with smoothing
-  int other_total = std::accumulate(other_counts.begin(), other_counts.end(), 0);
-  int total_other = std::accumulate(total_other_counts.begin(), total_other_counts.end(), 0);
-  
-  double other_rate = (other_total + alpha) / (total_other + alpha * 2);
-  
-  // Calculate M-WoE and IV
-  double woe = safe_log(class_rate / other_rate);
-  return (class_rate - other_rate) * woe;
-}
-
-// Calculate Jensen-Shannon divergence between bins for multiclass case
-inline double calculate_divergence(const std::vector<int>& bin1_counts, 
-                                   const std::vector<int>& bin2_counts,
-                                   const std::vector<int>& total_counts) {
-  // Preallocate vectors
-  std::vector<double> p1(bin1_counts.size()), p2(bin2_counts.size()), m(bin1_counts.size());
-  
-  // Calculate bin total counts
+// Jensen-Shannon divergence between the Laplace-smoothed class distributions
+// of two bins. Same expressions, in the same order, as the allocation-based
+// version it replaces, so the value is bit-identical.
+inline double calculate_divergence(const std::vector<int>& bin1_counts,
+                                   const std::vector<int>& bin2_counts) {
+  const size_t k = bin1_counts.size();
   int bin1_total = std::accumulate(bin1_counts.begin(), bin1_counts.end(), 0);
   int bin2_total = std::accumulate(bin2_counts.begin(), bin2_counts.end(), 0);
-  
-  // Calculate smoothed proportions for each bin
-  for (size_t i = 0; i < bin1_counts.size(); ++i) {
-    p1[i] = (bin1_counts[i] + LAPLACE_ALPHA) / (bin1_total + LAPLACE_ALPHA * bin1_counts.size());
-    p2[i] = (bin2_counts[i] + LAPLACE_ALPHA) / (bin2_total + LAPLACE_ALPHA * bin2_counts.size());
-    m[i] = (p1[i] + p2[i]) / 2.0;
-  }
-  
-  // Calculate Jensen-Shannon divergence (symmetric KL divergence)
+  const double d1 = bin1_total + LAPLACE_ALPHA * static_cast<double>(k);
+  const double d2 = bin2_total + LAPLACE_ALPHA * static_cast<double>(k);
+
   double div = 0.0;
-  for (size_t i = 0; i < bin1_counts.size(); ++i) {
-    if (p1[i] > EPSILON) {
-      div += 0.5 * p1[i] * safe_log(p1[i] / m[i]);
+  for (size_t i = 0; i < k; ++i) {
+    const double p1 = (bin1_counts[i] + LAPLACE_ALPHA) / d1;
+    const double p2 = (bin2_counts[i] + LAPLACE_ALPHA) / d2;
+    const double m = (p1 + p2) / 2.0;
+    if (p1 > EPSILON) {
+      div += 0.5 * p1 * safe_log(p1 / m);
     }
-    if (p2[i] > EPSILON) {
-      div += 0.5 * p2[i] * safe_log(p2[i] / m[i]);
+    if (p2 > EPSILON) {
+      div += 0.5 * p2 * safe_log(p2 / m);
     }
   }
-  
   return div;
 }
-}
-
-// Enhanced cache for M-WoE and IV values
-class MWoECache {
-private:
-  std::vector<std::vector<std::vector<double>>> bin_pair_iv_cache;
-  std::vector<std::vector<double>> bin_pair_divergence_cache;
-  size_t n_classes;
-  bool enabled;
-  
-public:
-  MWoECache(size_t max_bins, size_t num_classes, bool use_cache = true) 
-    : n_classes(num_classes), enabled(use_cache && max_bins > 0) {
-    if (enabled) {
-      // IV cache: three dimensions: bin1 x bin2 x class
-      bin_pair_iv_cache.resize(max_bins);
-      for (auto& matrix : bin_pair_iv_cache) {
-        matrix.resize(max_bins);
-        for (auto& row : matrix) {
-          row.resize(n_classes, -1.0);
-        }
-      }
-      
-      // Divergence cache: two dimensions: bin1 x bin2
-      bin_pair_divergence_cache.resize(max_bins);
-      for (auto& row : bin_pair_divergence_cache) {
-        row.resize(max_bins, -1.0);
-      }
-    }
-  }
-  
-  // Retrieve cached class IV
-  inline double get_class_iv(size_t bin1, size_t bin2, size_t class_idx) {
-    if (!enabled || bin1 >= bin_pair_iv_cache.size() || bin2 >= bin_pair_iv_cache[bin1].size()) {
-      return -1.0;
-    }
-    return bin_pair_iv_cache[bin1][bin2][class_idx];
-  }
-  
-  // Store class IV in cache
-  inline void set_class_iv(size_t bin1, size_t bin2, size_t class_idx, double value) {
-    if (!enabled || bin1 >= bin_pair_iv_cache.size() || bin2 >= bin_pair_iv_cache[bin1].size()) {
-      return;
-    }
-    bin_pair_iv_cache[bin1][bin2][class_idx] = value;
-  }
-  
-  // Retrieve cached divergence
-  inline double get_divergence(size_t bin1, size_t bin2) {
-    if (!enabled || bin1 >= bin_pair_divergence_cache.size() || bin2 >= bin_pair_divergence_cache[bin1].size()) {
-      return -1.0;
-    }
-    return bin_pair_divergence_cache[bin1][bin2];
-  }
-  
-  // Store divergence in cache
-  inline void set_divergence(size_t bin1, size_t bin2, double value) {
-    if (!enabled || bin1 >= bin_pair_divergence_cache.size() || bin2 >= bin_pair_divergence_cache[bin1].size()) {
-      return;
-    }
-    bin_pair_divergence_cache[bin1][bin2] = value;
-  }
-  
-  // Invalidate cache entries for a specific bin
-  inline void invalidate_bin(size_t bin_idx) {
-    if (!enabled || bin_idx >= bin_pair_iv_cache.size()) {
-      return;
-    }
-    
-    // Clear IV cache
-    for (size_t i = 0; i < bin_pair_iv_cache.size(); ++i) {
-      if (i < bin_pair_iv_cache[bin_idx].size()) {
-        std::fill(bin_pair_iv_cache[bin_idx][i].begin(), bin_pair_iv_cache[bin_idx][i].end(), -1.0);
-      }
-      if (bin_idx < bin_pair_iv_cache[i].size()) {
-        std::fill(bin_pair_iv_cache[i][bin_idx].begin(), bin_pair_iv_cache[i][bin_idx].end(), -1.0);
-      }
-    }
-    
-    // Clear divergence cache
-    for (size_t i = 0; i < bin_pair_divergence_cache.size(); ++i) {
-      if (i < bin_pair_divergence_cache.size()) {
-        bin_pair_divergence_cache[bin_idx][i] = -1.0;
-      }
-      if (bin_idx < bin_pair_divergence_cache[i].size()) {
-        bin_pair_divergence_cache[i][bin_idx] = -1.0;
-      }
-    }
-  }
-  
-  // Resize cache for new number of bins
-  inline void resize(size_t new_size) {
-    if (!enabled) return;
-    
-    // Resize IV cache
-    bin_pair_iv_cache.resize(new_size);
-    for (auto& matrix : bin_pair_iv_cache) {
-      matrix.resize(new_size);
-      for (auto& row : matrix) {
-        row.resize(n_classes, -1.0);
-      }
-    }
-    
-    // Resize divergence cache
-    bin_pair_divergence_cache.resize(new_size);
-    for (auto& row : bin_pair_divergence_cache) {
-      row.resize(new_size, -1.0);
-    }
-  }
-};
+}  // namespace utils
 
 // Enhanced structure for multinomial bin information
 struct MultiCatBinInfo {
@@ -264,64 +113,35 @@ struct MultiCatBinInfo {
   std::vector<double> woes;
   std::vector<double> ivs;
   std::vector<double> class_rates;  // Cache for class rates
-  
-  // Default constructor
+
   MultiCatBinInfo() : total_count(0) {}
-  
-  // Constructor with number of classes
-  MultiCatBinInfo(size_t n_classes) 
-    : total_count(0), 
+
+  explicit MultiCatBinInfo(size_t n_classes)
+    : total_count(0),
       class_counts(n_classes, 0),
       woes(n_classes, 0.0),
       ivs(n_classes, 0.0),
-      class_rates(n_classes, 0.0) {
-        categories.reserve(8);  // Pre-allocate for typical categories
-  }
-  
+      class_rates(n_classes, 0.0) {}
+
   // Add a category ensuring uniqueness
   inline void add_category(const std::string& cat) {
-    if (category_set.insert(cat).second) {  // Only add if not already present
+    if (category_set.insert(cat).second) {
       categories.push_back(cat);
     }
   }
-  
-  // Add a category with its class
-  inline void add_instance(const std::string& cat, int class_idx, size_t n_classes) {
-    if (categories.empty()) {
-      // If first, initialize vectors
-      class_counts.resize(n_classes, 0);
-      woes.resize(n_classes, 0.0);
-      ivs.resize(n_classes, 0.0);
-      class_rates.resize(n_classes, 0.0);
-    }
-    
-    // Add category ensuring uniqueness
-    add_category(cat);
-    
-    // Update counts
-    total_count++;
-    class_counts[class_idx]++;
-    update_class_rates();
-  }
-  
+
   // Merge with another bin ensuring uniqueness of categories
   inline void merge_with(const MultiCatBinInfo& other) {
-    // Add each category from other bin, ensuring uniqueness
     for (const auto& cat : other.categories) {
       add_category(cat);
     }
-    
-    // Update counts
     total_count += other.total_count;
-    
     for (size_t i = 0; i < class_counts.size(); ++i) {
       class_counts[i] += other.class_counts[i];
     }
-    
     update_class_rates();
   }
-  
-  // Update cached class rates
+
   inline void update_class_rates() {
     if (total_count > 0) {
       for (size_t i = 0; i < class_counts.size(); ++i) {
@@ -329,39 +149,18 @@ struct MultiCatBinInfo {
       }
     }
   }
-  
-  // Compute M-WoE and IV metrics with Laplace smoothing
-  inline void calculate_metrics(const std::vector<int>& total_class_counts) {
-    // Pre-allocate vectors for better performance
-    std::vector<int> other_counts(class_counts.size() - 1);
-    std::vector<int> total_other_counts(class_counts.size() - 1);
-    
-    for (size_t class_idx = 0; class_idx < class_counts.size(); ++class_idx) {
-      // Extract counts for other classes
-      size_t other_idx = 0;
-      for (size_t i = 0; i < class_counts.size(); ++i) {
-        if (i != class_idx) {
-          other_counts[other_idx] = class_counts[i];
-          total_other_counts[other_idx] = total_class_counts[i];
-          other_idx++;
-        }
-      }
-      
-      // Calculate M-WoE and IV using utility functions with Laplace smoothing
-      woes[class_idx] = utils::calculate_mwoe(
-        class_counts[class_idx], total_class_counts[class_idx],
-                                                   other_counts, total_other_counts, LAPLACE_ALPHA);
-      
-      ivs[class_idx] = utils::calculate_iv(
-        class_counts[class_idx], total_class_counts[class_idx],
-                                                   other_counts, total_other_counts, LAPLACE_ALPHA);
+
+  // Compute M-WoE and IV (one class against the pooled others) with Laplace
+  // smoothing. The pooled counts are sums of int counts, so taking them as
+  // (total - own) is exact and replaces the per-class copy of the others.
+  inline void calculate_metrics(const std::vector<int>& total_class_counts,
+                                int grand_total) {
+    for (size_t c = 0; c < class_counts.size(); ++c) {
+      utils::mwoe_iv(class_counts[c], total_class_counts[c],
+                     total_count - class_counts[c],
+                     grand_total - total_class_counts[c], LAPLACE_ALPHA,
+                     woes[c], ivs[c]);
     }
-  }
-  
-  // Calculate statistical divergence from another bin
-  inline double divergence_from(const MultiCatBinInfo& other, 
-                                const std::vector<int>& total_class_counts) const {
-    return utils::calculate_divergence(class_counts, other.class_counts, total_class_counts);
   }
 };
 
@@ -378,48 +177,49 @@ private:
   std::string bin_separator_;
   double convergence_threshold_;
   int max_iterations_;
-  
+
   std::vector<MultiCatBinInfo> bins_;
   std::vector<int> total_class_counts_;
-  std::unique_ptr<MWoECache> mwoe_cache_;
+  int grand_total_;
   bool converged_;
   int iterations_run_;
   bool use_divergence_;  // Flag to toggle between IV and divergence-based merging
-  
+
+  // Per-category statistics, built once (same reserve and insertion
+  // sequence as before, so the iteration order is unchanged).
+  std::unordered_map<std::string, MultiCatBinInfo> bin_map_;
+  int ncat_;
+
   // Advanced input validation
   void validate_inputs() {
     if (feature_.empty() || feature_.size() != target_.size()) {
       throw std::invalid_argument("Feature and target vectors must have the same non-empty length");
     }
-    
-    // Find max class value and validate class values
+
     int max_class = -1;
     std::unordered_set<int> class_set;
-    
+
     for (int t : target_) {
       if (t < 0) {
         throw std::invalid_argument("Target values must be non-negative integers");
       }
-      
       max_class = std::max(max_class, t);
       class_set.insert(t);
     }
-    
-    // Check for consecutive classes starting from 0
-    n_classes_ = max_class + 1;
-    
+
+    n_classes_ = static_cast<size_t>(max_class) + 1;
+
     if (class_set.size() < 2) {
       throw std::invalid_argument("Target must have at least 2 distinct classes");
     }
-    
+
     // Ensure all classes from 0 to max_class are present
     for (int i = 0; i < static_cast<int>(n_classes_); ++i) {
       if (class_set.find(i) == class_set.end()) {
         throw std::invalid_argument("Target classes must be consecutive integers starting from 0");
       }
     }
-    
-    // Validate parameters
+
     if (min_bins_ < 1) {
       throw std::invalid_argument("min_bins must be at least 1");
     }
@@ -433,133 +233,114 @@ private:
       throw std::invalid_argument("max_n_prebins must be at least min_bins");
     }
   }
-  
-  // Optimized initial binning
-  void initial_binning() {
-    // Estimate number of unique categories
+
+  // Single pass over the data: one hash lookup per row, class rates computed
+  // once per category instead of after every observation.
+  void count_categories() {
     size_t est_cats = std::min(feature_.size() / 4, static_cast<size_t>(1024));
-    std::unordered_map<std::string, MultiCatBinInfo> bin_map;
-    bin_map.reserve(est_cats);
-    
-    // Initialize class counts
-    total_class_counts_ = std::vector<int>(n_classes_, 0);
-    
-    // Process in a single pass
+    bin_map_.reserve(est_cats);
+    total_class_counts_.assign(n_classes_, 0);
+
     for (size_t i = 0; i < feature_.size(); ++i) {
       const std::string& cat = feature_[i];
-      int class_idx = target_[i];
-      
-      // Initialize bin if needed
-      if (bin_map.find(cat) == bin_map.end()) {
-        bin_map[cat] = MultiCatBinInfo(n_classes_);
+      const int class_idx = target_[i];
+
+      auto it = bin_map_.find(cat);
+      if (it == bin_map_.end()) {
+        it = bin_map_.emplace(cat, MultiCatBinInfo(n_classes_)).first;
+        it->second.add_category(cat);
       }
-      
-      // Update counts
-      bin_map[cat].add_instance(cat, class_idx, n_classes_);
-      total_class_counts_[class_idx]++;
+      MultiCatBinInfo& bin = it->second;
+      bin.total_count++;
+      bin.class_counts[static_cast<size_t>(class_idx)]++;
+      total_class_counts_[static_cast<size_t>(class_idx)]++;
     }
-    
-    // Transfer to bins vector
+    for (auto& kv : bin_map_) {
+      kv.second.update_class_rates();
+    }
+    grand_total_ = std::accumulate(total_class_counts_.begin(),
+                                   total_class_counts_.end(), 0);
+    ncat_ = static_cast<int>(bin_map_.size());
+  }
+
+  void initial_binning() {
     bins_.clear();
-    bins_.reserve(bin_map.size());
-    
-    for (auto& kv : bin_map) {
+    bins_.reserve(bin_map_.size());
+    for (auto& kv : bin_map_) {
       bins_.push_back(std::move(kv.second));
     }
-    
-    // Initialize M-WoE cache
-    // Disabled. The IV cache stored per-class *total* IV after merging pair
-    // (i, i+1), which depends on every other bin, and neither cache was
-    // shifted when a merge erased a bin, so later lookups returned values
-    // computed for other pairs. Every candidate is now evaluated fresh.
-    mwoe_cache_ = std::make_unique<MWoECache>(bins_.size(), n_classes_, false);
+    bin_map_.clear();
   }
-  
+
   // Enhanced merging of low frequency categories
   void merge_low_freq() {
-    // Calculate total count
     int total_count = std::accumulate(bins_.begin(), bins_.end(), 0,
                                       [](int sum, const MultiCatBinInfo& bin) {
                                         return sum + bin.total_count;
                                       });
     double cutoff_count = total_count * bin_cutoff_;
-    
+
     // Sort bins by count (ascending)
-    std::sort(bins_.begin(), bins_.end(), 
+    std::sort(bins_.begin(), bins_.end(),
               [](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
                 return a.total_count < b.total_count;
               });
-    
-    // Prepare new bins with reserved space
+
     std::vector<MultiCatBinInfo> new_bins;
     new_bins.reserve(bins_.size());
-    
-    // CategoricalBin for rare categories
+
     MultiCatBinInfo rare_bin(n_classes_);
     bool has_rare = false;
-    
-    // Keep the most frequent rare categories when fewer than min_bins clear
-    // the cutoff (they are the last ones among the rare prefix of the
-    // ascending order); the previous test kept the min_bins rarest instead.
+
+    // Up to min_bins rare categories stay separate (as they always have); the
+    // rest are pooled. They are now the most frequent of the rare ones (the
+    // last of the rare prefix of the ascending order); the previous test kept
+    // the min_bins rarest instead.
     size_t n_rare = 0;
     for (const auto& bin : bins_) {
       if (bin.total_count < cutoff_count) ++n_rare;
     }
-    const size_t n_frequent = bins_.size() - n_rare;
     const size_t keep_rare =
-      (static_cast<size_t>(std::max(min_bins_, 0)) > n_frequent)
-      ? std::min(n_rare, static_cast<size_t>(min_bins_) - n_frequent)
-      : 0;
+      std::min(n_rare, static_cast<size_t>(std::max(min_bins_, 0)));
 
-    // Process each bin
     for (size_t pos = 0; pos < bins_.size(); ++pos) {
       auto& bin = bins_[pos];
       if (bin.total_count >= cutoff_count || pos >= n_rare - keep_rare) {
-        // CategoricalBin with adequate frequency
         new_bins.push_back(std::move(bin));
       } else {
-        // Rare bin, merge
         rare_bin.merge_with(bin);
         has_rare = true;
       }
     }
-    
-    // Add the rare categories bin if it exists
+
     if (has_rare && rare_bin.total_count > 0) {
       new_bins.push_back(std::move(rare_bin));
     }
-    
+
     bins_ = std::move(new_bins);
-    mwoe_cache_->resize(bins_.size());
   }
-  
-  // Calculate class-specific IV with caching
+
+  // Class-specific IV, summed in bin order
   double calculate_class_iv(const std::vector<MultiCatBinInfo>& current_bins, size_t class_idx) const {
     double iv = 0.0;
-    
     for (const auto& bin : current_bins) {
-      // Add contribution from this bin
       iv += bin.ivs[class_idx];
     }
-    
     return iv;
   }
-  
-  // Compute M-WoE and IV for all bins
+
   void compute_metrics() {
     for (auto& bin : bins_) {
-      bin.calculate_metrics(total_class_counts_);
+      bin.calculate_metrics(total_class_counts_, grand_total_);
     }
   }
-  
-  // Check monotonicity for a specific class
+
   bool is_monotonic_for_class(const std::vector<MultiCatBinInfo>& current_bins, size_t class_idx) const {
     if (current_bins.size() <= 2) return true;
-    
-    // Determine monotonicity direction from first two bins
+
     bool should_increase = true;
     bool should_decrease = true;
-    
+
     for (size_t i = 1; i < current_bins.size(); ++i) {
       if (current_bins[i].woes[class_idx] < current_bins[i-1].woes[class_idx] - EPSILON) {
         should_increase = false;
@@ -567,17 +348,13 @@ private:
       if (current_bins[i].woes[class_idx] > current_bins[i-1].woes[class_idx] + EPSILON) {
         should_decrease = false;
       }
-      
-      // If neither pattern holds, not monotonic
       if (!should_increase && !should_decrease) {
         return false;
       }
     }
-    
     return true;
   }
-  
-  // Check monotonicity across all classes
+
   bool is_monotonic(const std::vector<MultiCatBinInfo>& current_bins) const {
     for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
       if (!is_monotonic_for_class(current_bins, class_idx)) {
@@ -586,101 +363,120 @@ private:
     }
     return true;
   }
-  
+
+  // Sum of the per-class IV losses of merging bins i and i+1, accumulated
+  // exactly as the version that built a merged copy of the whole bin vector:
+  // for each class, the total over the bins in order with the merged bin in
+  // place of the pair, subtracted from the current total.
+  double merge_loss(size_t i, const std::vector<double>& original_ivs) const {
+    MultiCatBinInfo merged(n_classes_);
+    merged.total_count = bins_[i].total_count + bins_[i + 1].total_count;
+    for (size_t c = 0; c < n_classes_; ++c) {
+      merged.class_counts[c] = bins_[i].class_counts[c] + bins_[i + 1].class_counts[c];
+    }
+    merged.calculate_metrics(total_class_counts_, grand_total_);
+
+    double total_iv_loss = 0.0;
+    for (size_t c = 0; c < n_classes_; ++c) {
+      double new_iv = 0.0;
+      for (size_t j = 0; j < bins_.size(); ++j) {
+        if (j == i) {
+          new_iv += merged.ivs[c];
+        } else if (j != i + 1) {
+          new_iv += bins_[j].ivs[c];
+        }
+      }
+      total_iv_loss += original_ivs[c] - new_iv;
+    }
+    return total_iv_loss;
+  }
+
+  std::vector<double> class_iv_totals() const {
+    std::vector<double> ivs(n_classes_);
+    for (size_t c = 0; c < n_classes_; ++c) {
+      ivs[c] = calculate_class_iv(bins_, c);
+    }
+    return ivs;
+  }
+
   // Main optimization algorithm
   void optimize() {
-    // Initialize previous IVs
-    std::vector<double> prev_ivs(n_classes_);
-    for (size_t i = 0; i < n_classes_; ++i) {
-      prev_ivs[i] = calculate_class_iv(bins_, i);
-    }
-    
+    std::vector<double> prev_ivs = class_iv_totals();
+
     converged_ = false;
     iterations_run_ = 0;
-    
-    // Main optimization loop
+
     while (iterations_run_ < max_iterations_) {
-      // Check stopping criteria
-      if (is_monotonic(bins_) && 
-          static_cast<int>(bins_.size()) <= max_bins_ && 
+      if (is_monotonic(bins_) &&
+          static_cast<int>(bins_.size()) <= max_bins_ &&
           static_cast<int>(bins_.size()) >= min_bins_) {
         converged_ = true;
         break;
       }
-      
-      // Decide action based on current state
+
       if (static_cast<int>(bins_.size()) > min_bins_) {
         if (static_cast<int>(bins_.size()) > max_bins_) {
-          // Need to reduce number of bins
           if (use_divergence_) {
             merge_most_similar_bins();
           } else {
             merge_adjacent_bins();
           }
-          // Toggle strategy
           use_divergence_ = !use_divergence_;
         } else {
-          // Need to improve monotonicity
           improve_monotonicity();
         }
       } else {
-        // Cannot merge more (reached min_bins)
         break;
       }
-      
-      // Check convergence
+
       std::vector<double> current_ivs(n_classes_);
       bool all_converged = true;
-      
+
       for (size_t i = 0; i < n_classes_; ++i) {
         current_ivs[i] = calculate_class_iv(bins_, i);
         if (std::abs(current_ivs[i] - prev_ivs[i]) >= convergence_threshold_) {
           all_converged = false;
         }
       }
-      
+
       if (all_converged) {
         converged_ = true;
         break;
       }
-      
+
       prev_ivs = std::move(current_ivs);
       iterations_run_++;
     }
-    
+
     // Final adjustments to meet max_bins
-    while (static_cast<int>(bins_.size()) > max_bins_) {
+    while (static_cast<int>(bins_.size()) > max_bins_ && bins_.size() >= 2) {
       merge_adjacent_bins();
     }
-    
-    // Ensure monotonic ordering
+
     ensure_monotonic_order();
     compute_metrics();
   }
-  
-  // Find and merge statistically most similar bins
+
+  // Weighted pair score used by merge_most_similar_bins(): the divergence,
+  // with a 5% discount for neighbouring bins.
+  double pair_score(size_t i, size_t j, bool adjacent) const {
+    double div = utils::calculate_divergence(bins_[i].class_counts, bins_[j].class_counts);
+    if (adjacent) {
+      div *= 0.95;  // Small bias towards adjacent bins
+    }
+    return div;
+  }
+
+  // Find and merge statistically most similar bins: the first pair (i < j),
+  // in index order, with the smallest weighted divergence.
   void merge_most_similar_bins() {
     double min_divergence = std::numeric_limits<double>::max();
     size_t merge_idx1 = 0;
     size_t merge_idx2 = 0;
-    
-    // Find pair with minimal statistical divergence
+
     for (size_t i = 0; i < bins_.size(); ++i) {
       for (size_t j = i + 1; j < bins_.size(); ++j) {
-        // Check cache first
-        double div = mwoe_cache_->get_divergence(i, j);
-        
-        if (div < 0.0) {
-          // Not in cache, calculate
-          div = bins_[i].divergence_from(bins_[j], total_class_counts_);
-          mwoe_cache_->set_divergence(i, j, div);
-        }
-        
-        // Prefer adjacent bins if divergence is similar
-        if (j == i + 1) {
-          div *= 0.95;  // Small bias towards adjacent bins
-        }
-        
+        double div = pair_score(i, j, j == i + 1);
         if (div < min_divergence) {
           min_divergence = div;
           merge_idx1 = i;
@@ -688,211 +484,200 @@ private:
         }
       }
     }
-    
-    // Perform the merge with minimal divergence
-    if (merge_idx2 < merge_idx1) std::swap(merge_idx1, merge_idx2);
+
     merge_bins(merge_idx1, merge_idx2);
   }
-  
+
+  // Pre-binning reduction: repeat merge_most_similar_bins() while there are
+  // more than `target` bins. Scanning all pairs after every merge cost
+  // O(B^2) divergences per merge -- O(B^3) overall, ~20 s for 2000
+  // categories. Divergences depend only on the two bins, so each bin keeps
+  // its best partner among the bins after it; after a merge only the rows
+  // that referenced the merged or removed bin, the merged bin's own row and
+  // the row whose neighbour changed are rescanned. Bins keep their relative
+  // order (a merge keeps the lower slot), so comparing slots is comparing
+  // positions and the first minimal pair in index order is the one chosen.
+  void reduce_prebins_by_divergence(size_t target) {
+    const size_t nb = bins_.size();
+    if (nb <= target || nb < 2) return;
+    const size_t NONE = std::numeric_limits<size_t>::max();
+    const double INF = std::numeric_limits<double>::infinity();
+
+    std::vector<size_t> nxt(nb), prv(nb);
+    for (size_t i = 0; i < nb; ++i) {
+      nxt[i] = (i + 1 < nb) ? i + 1 : NONE;
+      prv[i] = (i > 0) ? i - 1 : NONE;
+    }
+    std::vector<char> alive(nb, 1);
+    std::vector<double> best_d(nb, INF);
+    std::vector<size_t> best_j(nb, NONE);
+
+    auto recompute_row = [&](size_t i) {
+      best_d[i] = INF;
+      best_j[i] = NONE;
+      for (size_t j = nxt[i]; j != NONE; j = nxt[j]) {
+        const double d = pair_score(i, j, j == nxt[i]);
+        if (d < best_d[i]) {
+          best_d[i] = d;
+          best_j[i] = j;
+        }
+      }
+    };
+
+    for (size_t i = 0; i < nb; ++i) recompute_row(i);
+
+    size_t head = 0;
+    size_t count = nb;
+    while (count > target && count >= 2) {
+      // First row, in slot order, holding the smallest score.
+      double bd = std::numeric_limits<double>::max();
+      size_t a = NONE;
+      for (size_t i = head; i != NONE; i = nxt[i]) {
+        if (best_d[i] < bd) {
+          bd = best_d[i];
+          a = i;
+        }
+      }
+      if (a == NONE) break;
+      const size_t b = best_j[a];
+
+      bins_[a].merge_with(bins_[b]);
+      alive[b] = 0;
+      const size_t p = prv[b];
+      const size_t q = nxt[b];
+      if (p != NONE) nxt[p] = q;
+      if (q != NONE) prv[q] = p;
+      if (b == head) head = q;
+      --count;
+
+      recompute_row(a);
+      if (p != NONE && p != a) recompute_row(p);
+      for (size_t i = head; i != NONE; i = nxt[i]) {
+        if (i == a || i == p) continue;
+        if (best_j[i] == a || best_j[i] == b) {
+          recompute_row(i);
+        } else if (i < a) {
+          const double d = pair_score(i, a, a == nxt[i]);
+          if (d < best_d[i] || (d == best_d[i] && a < best_j[i])) {
+            best_d[i] = d;
+            best_j[i] = a;
+          }
+        }
+      }
+      Rcpp::checkUserInterrupt();
+    }
+
+    std::vector<MultiCatBinInfo> kept;
+    kept.reserve(count);
+    for (size_t i = 0; i < nb; ++i) {
+      if (alive[i]) kept.push_back(std::move(bins_[i]));
+    }
+    bins_ = std::move(kept);
+    compute_metrics();
+  }
+
   // Optimized merging of adjacent bins based on IV loss
   void merge_adjacent_bins() {
     // `<= 2` made this a no-op on exactly two bins, so with max_bins = 1 the
     // final `while (bins_.size() > max_bins_)` loop never terminated.
     if (bins_.size() < 2) return;
-    
+
     double min_total_iv_loss = std::numeric_limits<double>::max();
     size_t best_merge_idx = 0;
-    
-    // Calculate original IVs for each class
-    std::vector<double> original_ivs(n_classes_);
-    for (size_t i = 0; i < n_classes_; ++i) {
-      original_ivs[i] = calculate_class_iv(bins_, i);
-    }
-    
-    // Test each adjacent bin pair
-    for (size_t i = 0; i < bins_.size() - 1; ++i) {
-      // Check cache
-      double total_iv_loss = 0.0;
-      bool all_cached = true;
-      
-      for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
-        double cached_iv = mwoe_cache_->get_class_iv(i, i+1, class_idx);
-        
-        if (cached_iv >= 0.0) {
-          total_iv_loss += original_ivs[class_idx] - cached_iv;
-        } else {
-          all_cached = false;
-          break;
-        }
-      }
-      
-      // If not cached, calculate
-      if (!all_cached) {
-        // Create temporary bins with merge applied
-        auto temp_bins = bins_;
-        temp_bins[i].merge_with(temp_bins[i+1]);
-        temp_bins.erase(temp_bins.begin() + i + 1);
-        
-        // Compute metrics for merged bin
-        for (auto& bin : temp_bins) {
-          bin.calculate_metrics(total_class_counts_);
-        }
-        
-        // Calculate IV loss
-        total_iv_loss = 0.0;
-        for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
-          double new_iv = calculate_class_iv(temp_bins, class_idx);
-          mwoe_cache_->set_class_iv(i, i+1, class_idx, new_iv);
-          total_iv_loss += original_ivs[class_idx] - new_iv;
-        }
-      }
-      
-      // Update best merge if necessary
+
+    const std::vector<double> original_ivs = class_iv_totals();
+
+    for (size_t i = 0; i + 1 < bins_.size(); ++i) {
+      const double total_iv_loss = merge_loss(i, original_ivs);
       if (total_iv_loss < min_total_iv_loss) {
         min_total_iv_loss = total_iv_loss;
         best_merge_idx = i;
       }
     }
-    
-    // Perform the best merge
+
     merge_bins(best_merge_idx, best_merge_idx + 1);
   }
-  
-  // Merge bins with caching updates
+
+  // Merge bin idx2 into idx1. Each bin's metrics depend only on its own
+  // counts and the fixed totals, so only the merged bin is recomputed.
   void merge_bins(size_t idx1, size_t idx2) {
     if (idx1 >= bins_.size() || idx2 >= bins_.size() || idx1 == idx2) return;
     if (idx2 < idx1) std::swap(idx1, idx2);
-    
-    // Merge bins
+
     bins_[idx1].merge_with(bins_[idx2]);
-    bins_.erase(bins_.begin() + idx2);
-    
-    // Recompute metrics
-    compute_metrics();
-    
-    // Update cache
-    mwoe_cache_->invalidate_bin(idx1);
-    mwoe_cache_->resize(bins_.size());
+    bins_.erase(bins_.begin() + static_cast<std::ptrdiff_t>(idx2));
+    bins_[idx1].calculate_metrics(total_class_counts_, grand_total_);
   }
-  
+
   // Improved algorithm for monotonicity correction
   void improve_monotonicity() {
-    // For each class, check and fix monotonicity issues
     for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
-      // Find most severe violation
       double max_violation = 0.0;
       size_t violation_idx = 0;
       bool found_violation = false;
-      
-      // Identify the most significant monotonicity violation
+
       for (size_t i = 1; i < bins_.size(); ++i) {
         double curr_violation = 0.0;
-        
-        // Check if this bin violates monotonicity with neighbors
-        bool is_peak = (i > 0 && i + 1 < bins_.size() &&
-                        bins_[i].woes[class_idx] > bins_[i-1].woes[class_idx] + EPSILON && 
+
+        bool is_peak = (i + 1 < bins_.size() &&
+                        bins_[i].woes[class_idx] > bins_[i-1].woes[class_idx] + EPSILON &&
                         bins_[i].woes[class_idx] > bins_[i+1].woes[class_idx] + EPSILON);
-        
-        bool is_valley = (i > 0 && i + 1 < bins_.size() &&
-                          bins_[i].woes[class_idx] < bins_[i-1].woes[class_idx] - EPSILON && 
+
+        bool is_valley = (i + 1 < bins_.size() &&
+                          bins_[i].woes[class_idx] < bins_[i-1].woes[class_idx] - EPSILON &&
                           bins_[i].woes[class_idx] < bins_[i+1].woes[class_idx] - EPSILON);
-        
+
         if (is_peak) {
-          curr_violation = std::max(
-            bins_[i].woes[class_idx] - bins_[i-1].woes[class_idx],
-                                                      bins_[i].woes[class_idx] - bins_[i+1].woes[class_idx]);
+          curr_violation = std::max(bins_[i].woes[class_idx] - bins_[i-1].woes[class_idx],
+                                    bins_[i].woes[class_idx] - bins_[i+1].woes[class_idx]);
         } else if (is_valley) {
-          curr_violation = std::max(
-            bins_[i-1].woes[class_idx] - bins_[i].woes[class_idx],
-                                                      bins_[i+1].woes[class_idx] - bins_[i].woes[class_idx]);
+          curr_violation = std::max(bins_[i-1].woes[class_idx] - bins_[i].woes[class_idx],
+                                    bins_[i+1].woes[class_idx] - bins_[i].woes[class_idx]);
         }
-        
+
         if (curr_violation > max_violation) {
           max_violation = curr_violation;
           violation_idx = i;
           found_violation = true;
         }
       }
-      
-      // If found a violation, fix it with minimal IV loss
+
       if (found_violation) {
-        // Calculate IVs for potential merges
-        auto original_ivs = std::vector<double>(n_classes_);
-        for (size_t i = 0; i < n_classes_; ++i) {
-          original_ivs[i] = calculate_class_iv(bins_, i);
-        }
-        
-        // Try merge with previous bin
-        double loss_prev = 0.0;
-        if (violation_idx > 0) {
-          auto temp_bins = bins_;
-          temp_bins[violation_idx-1].merge_with(temp_bins[violation_idx]);
-          temp_bins.erase(temp_bins.begin() + violation_idx);
-          
-          for (auto& bin : temp_bins) {
-            bin.calculate_metrics(total_class_counts_);
-          }
-          
-          for (size_t i = 0; i < n_classes_; ++i) {
-            loss_prev += original_ivs[i] - calculate_class_iv(temp_bins, i);
-          }
-        } else {
-          loss_prev = std::numeric_limits<double>::max();
-        }
-        
-        // Try merge with next bin
-        double loss_next = 0.0;
-        if (violation_idx + 1 < bins_.size()) {
-          auto temp_bins = bins_;
-          temp_bins[violation_idx].merge_with(temp_bins[violation_idx+1]);
-          temp_bins.erase(temp_bins.begin() + violation_idx + 1);
-          
-          for (auto& bin : temp_bins) {
-            bin.calculate_metrics(total_class_counts_);
-          }
-          
-          for (size_t i = 0; i < n_classes_; ++i) {
-            loss_next += original_ivs[i] - calculate_class_iv(temp_bins, i);
-          }
-        } else {
-          loss_next = std::numeric_limits<double>::max();
-        }
-        
-        // Perform merge with minimal IV loss
-        if (loss_prev <= loss_next && violation_idx > 0) {
+        const std::vector<double> original_ivs = class_iv_totals();
+
+        // violation_idx is always >= 1 and has a successor (peaks and
+        // valleys are interior bins).
+        const double loss_prev = merge_loss(violation_idx - 1, original_ivs);
+        const double loss_next = merge_loss(violation_idx, original_ivs);
+
+        if (loss_prev <= loss_next) {
           merge_bins(violation_idx - 1, violation_idx);
-        } else if (violation_idx + 1 < bins_.size()) {
+        } else {
           merge_bins(violation_idx, violation_idx + 1);
         }
-        
-        // After a successful merge, exit this class's loop
+
         break;
       }
     }
   }
-  
+
   // Ensure monotonic ordering of bins
   void ensure_monotonic_order() {
-    // Sort bins for each class to ensure monotonicity
     for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
-      // Only reorder if not already monotonic
       if (!is_monotonic_for_class(bins_, class_idx)) {
         std::stable_sort(bins_.begin(), bins_.end(),
                          [class_idx](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
                            return a.woes[class_idx] < b.woes[class_idx];
                          });
-        
-        // Recompute metrics after reordering
         compute_metrics();
       }
     }
   }
-  
+
 public:
-  // Enhanced constructor with better validation
   OBC_JEDIMWoE(
-    const std::vector<std::string>& feature,
-    const std::vector<int>& target,
+    std::vector<std::string> feature,
+    std::vector<int> target,
     int min_bins = 3,
     int max_bins = 5,
     double bin_cutoff = 0.05,
@@ -900,99 +685,89 @@ public:
     std::string bin_separator = "%;%",
     double convergence_threshold = 1e-6,
     int max_iterations = 1000
-  ) : feature_(feature),
-  target_(target),
+  ) : feature_(std::move(feature)),
+  target_(std::move(target)),
   n_classes_(0),  // Will be set in validate_inputs
-  min_bins_(min_bins), 
+  min_bins_(min_bins),
   max_bins_(max_bins),
-  bin_cutoff_(bin_cutoff), 
+  bin_cutoff_(bin_cutoff),
   max_n_prebins_(max_n_prebins),
-  bin_separator_(bin_separator),
+  bin_separator_(std::move(bin_separator)),
   convergence_threshold_(convergence_threshold),
   max_iterations_(max_iterations),
-  converged_(false), 
+  grand_total_(0),
+  converged_(false),
   iterations_run_(0),
-  use_divergence_(true)  // Start with divergence-based merging
+  use_divergence_(true),  // Start with divergence-based merging
+  ncat_(0)
   {
     validate_inputs();
-    
-    // Adjust parameters based on unique categories
-    std::unordered_set<std::string> unique_cats(feature_.begin(), feature_.end());
-    int ncat = static_cast<int>(unique_cats.size());
-    
+
+    count_categories();
+    const int ncat = ncat_;
+
     // Cap max_bins at number of unique categories
     max_bins_ = std::min(max_bins_, ncat);
-    
+
     // Ensure min_bins is valid
     min_bins_ = std::min(min_bins_, max_bins_);
-    
+
     // Ensure max_n_prebins is sufficient
     if (max_n_prebins_ < min_bins_) {
       max_n_prebins_ = min_bins_;
     }
   }
-  
-  // Optimized fit method
+
   void fit() {
-    // Handle special case of few categories
-    std::unordered_set<std::string> unique_cats(feature_.begin(), feature_.end());
-    int ncat = static_cast<int>(unique_cats.size());
-    
-    if (ncat <= 2) {
-      // Trivial case: ≤2 categories
+    if (ncat_ <= 2) {
+      // Trivial case: <= 2 categories
       initial_binning();
       compute_metrics();
       converged_ = true;
       iterations_run_ = 0;
       return;
     }
-    
-    // Normal flow for many categories
+
     initial_binning();
     merge_low_freq();
     compute_metrics();
-    
+
     // Reduce number of pre-bins if needed
-    while (static_cast<int>(bins_.size()) > max_n_prebins_) {
-      merge_most_similar_bins();
-    }
-    
-    // Optimize bins
+    reduce_prebins_by_divergence(static_cast<size_t>(std::max(max_n_prebins_, 1)));
+
     optimize();
   }
-  
-  // Get results with enhanced structure
+
   Rcpp::List get_results() const {
-    size_t n_bins = bins_.size();
-    
-    // Pre-allocate result vectors
-    CharacterVector bin_names(n_bins);
-    NumericMatrix woes(n_bins, n_classes_);
-    NumericMatrix ivs(n_bins, n_classes_);
-    IntegerVector counts(n_bins);
-    IntegerMatrix class_counts(n_bins, n_classes_);
-    NumericMatrix class_rates(n_bins, n_classes_);
-    NumericVector ids(n_bins);
-    NumericVector total_ivs(n_classes_);
-    
-    // Fill results
-    for (size_t i = 0; i < n_bins; ++i) {
-      bin_names[i] = utils::join_categories(bins_[i].categories, bin_separator_);
-      counts[i] = bins_[i].total_count;
+    const size_t n_bins = bins_.size();
+    const int nb = static_cast<int>(n_bins);
+    const int nc = static_cast<int>(n_classes_);
+
+    CharacterVector bin_names(nb);
+    NumericMatrix woes(nb, nc);
+    NumericMatrix ivs(nb, nc);
+    IntegerVector counts(nb);
+    IntegerMatrix class_counts(nb, nc);
+    NumericMatrix class_rates(nb, nc);
+    NumericVector ids(nb);
+    NumericVector total_ivs(nc);
+
+    for (int i = 0; i < nb; ++i) {
+      const MultiCatBinInfo& bin = bins_[static_cast<size_t>(i)];
+      bin_names[i] = utils::join_categories(bin.categories, bin_separator_);
+      counts[i] = bin.total_count;
       ids[i] = i + 1;
-      
-      for (size_t j = 0; j < n_classes_; ++j) {
-        woes(i,j) = bins_[i].woes[j];
-        ivs(i,j) = bins_[i].ivs[j];
-        class_counts(i,j) = bins_[i].class_counts[j];
-        class_rates(i,j) = bins_[i].class_rates[j];
-        
-        // Add to total IV for this class
-        total_ivs[j] += std::fabs(bins_[i].ivs[j]);
+
+      for (int j = 0; j < nc; ++j) {
+        const size_t c = static_cast<size_t>(j);
+        woes(i, j) = bin.woes[c];
+        ivs(i, j) = bin.ivs[c];
+        class_counts(i, j) = bin.class_counts[c];
+        class_rates(i, j) = bin.class_rates[c];
+        total_ivs[j] += std::fabs(bin.ivs[c]);
       }
     }
-    
-    // Return enhanced results
+
     return Rcpp::List::create(
       Named("id") = ids,
       Named("bin") = bin_names,
@@ -1003,7 +778,7 @@ public:
       Named("class_rates") = class_rates,
       Named("converged") = converged_,
       Named("iterations") = iterations_run_,
-      Named("n_classes") = static_cast<int>(n_classes_),
+      Named("n_classes") = nc,
       Named("total_iv") = total_ivs
     );
   }
@@ -1022,32 +797,30 @@ Rcpp::List optimal_binning_categorical_jedi_mwoe(
    int max_iterations = 1000
 ) {
  try {
-   // Handle missing values in feature
    std::vector<std::string> feature_vec;
-   feature_vec.reserve(feature.size());
-   
+   feature_vec.reserve(static_cast<size_t>(feature.size()));
+
    for (R_xlen_t i = 0; i < feature.size(); ++i) {
-     if (feature[i] == NA_STRING) {
-       feature_vec.push_back(MISSING_VALUE);
+     SEXP s = STRING_ELT(feature, i);
+     if (s == NA_STRING) {
+       feature_vec.emplace_back(MISSING_VALUE);
      } else {
-       feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+       feature_vec.emplace_back(CHAR(s));
      }
    }
-   
-   // Check for missing values in target
+
    std::vector<int> target_vec;
-   target_vec.reserve(target.size());
-   
+   target_vec.reserve(static_cast<size_t>(target.size()));
+
    for (R_xlen_t i = 0; i < target.size(); ++i) {
      if (IntegerVector::is_na(target[i])) {
        Rcpp::stop("Target cannot contain missing values");
      }
      target_vec.push_back(target[i]);
    }
-   
-   // Execute optimized algorithm
+
    OBC_JEDIMWoE jedi(
-       feature_vec, target_vec,
+       std::move(feature_vec), std::move(target_vec),
        min_bins, max_bins,
        bin_cutoff, max_n_prebins,
        bin_separator, convergence_threshold,

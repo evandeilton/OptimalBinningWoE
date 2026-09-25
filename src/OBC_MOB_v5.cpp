@@ -22,7 +22,6 @@ using namespace OptimalBinning;
 
 // Constants for better readability and numerical stability
 // Constant removed (uses shared definition)
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 // Bayesian smoothing parameter (adjustable prior strength)
 // Constant removed (uses shared definition)
 
@@ -39,11 +38,17 @@ private:
   double convergence_threshold;
   int max_iterations;
   
-  std::unordered_map<std::string, double> category_counts;
-  std::unordered_map<std::string, double> category_good;
-  std::unordered_map<std::string, double> category_bad;
-  double total_good;
-  double total_bad;
+  // Per-category counts (target == 1 as "good", as throughout this file).
+  // One map instead of three parallel ones: one hash lookup per row. The
+  // insertion sequence is the same, so the iteration order is unchanged.
+  struct CatCounts {
+    int count = 0;
+    int good = 0;
+    int bad = 0;
+  };
+  std::unordered_map<std::string, CatCounts> category_counts;
+  int total_good;
+  int total_bad;
   
   // Local CategoricalBin definition removed
 
@@ -53,6 +58,7 @@ private:
   
   void calculateCategoryStats();
   void calculateInitialBins();
+  void reducePrebinsBySimilarity(size_t target_bins);
   bool isMonotonic(const std::vector<CategoricalBin>& bins_to_check) const;
   void enforceMonotonicity();
   void limitBins();
@@ -138,19 +144,17 @@ bool OBC_MOB::validateInputs() const {
 
 void OBC_MOB::calculateCategoryStats() {
   category_counts.clear();
-  category_good.clear();
-  category_bad.clear();
   total_good = 0;
   total_bad = 0;
   
   for (size_t i = 0; i < feature.size(); ++i) {
-    const auto& cat = feature[i];
-    category_counts[cat]++;
+    CatCounts& cc = category_counts[feature[i]];
+    cc.count++;
     if (target[i]) {
-      category_good[cat]++;
+      cc.good++;
       total_good++;
     } else {
-      category_bad[cat]++;
+      cc.bad++;
       total_bad++;
     }
   }
@@ -169,13 +173,15 @@ void OBC_MOB::calculateInitialBins() {
   cat_stats_vec.reserve(category_counts.size());
   
   // Collect category statistics with Bayesian smoothing
-  for (const auto& [cat, count] : category_counts) {
-    double good = category_good[cat];
-    double bad = category_bad[cat];
+  for (const auto& kv : category_counts) {
+    const std::string& cat = kv.first;
+    const double good = kv.second.good;
+    const double bad = kv.second.bad;
     
     // Calculate Bayesian prior based on overall prevalence
     double prior_weight = BAYESIAN_PRIOR_STRENGTH;
-    double overall_event_rate = total_good / (total_good + total_bad);
+    double overall_event_rate = static_cast<double>(total_good) /
+      static_cast<double>(total_good + total_bad);
     
     double prior_good = prior_weight * overall_event_rate;
     double prior_bad = prior_weight * (1.0 - overall_event_rate);
@@ -190,7 +196,7 @@ void OBC_MOB::calculateInitialBins() {
     // Handle non-finite values
     if (!std::isfinite(woe)) woe = 0.0;
     
-    cat_stats_vec.emplace_back(cat, good, bad, woe);
+    cat_stats_vec.emplace_back(cat, kv.second.good, kv.second.bad, woe);
   }
   
   // Sort categories by WoE
@@ -222,30 +228,8 @@ void OBC_MOB::calculateInitialBins() {
   handleRareCategories();
   
   // Merge bins to limit the number of prebins using similarity-based approach
-  while (bins.size() > static_cast<size_t>(max_n_prebins) && bins.size() > static_cast<size_t>(min_bins)) {
-    // Find best pair to merge based on event rate similarity
-    double best_similarity = -1.0;
-    size_t merge_idx1 = 0;
-    size_t merge_idx2 = 0;
-    
-    for (size_t i = 0; i < bins.size(); ++i) {
-      for (size_t j = i + 1; j < bins.size(); ++j) {
-        double rate_diff = std::fabs(bins[i].event_rate() - bins[j].event_rate());
-        double similarity = 1.0 / (rate_diff + EPSILON);
-        
-        if (similarity > best_similarity) {
-          best_similarity = similarity;
-          merge_idx1 = i;
-          merge_idx2 = j;
-        }
-      }
-    }
-    
-    // Merge the most similar bins
-    bins[merge_idx1].merge_with(bins[merge_idx2]);
-    bins[merge_idx1].calculate_metrics(total_good, total_bad);
-    bins.erase(bins.begin() + merge_idx2);
-  }
+  reducePrebinsBySimilarity(std::max(static_cast<size_t>(max_n_prebins),
+                                     static_cast<size_t>(min_bins)));
   
   // Compute WoE and IV for all bins
   computeWoEandIV();
@@ -310,6 +294,97 @@ void OBC_MOB::handleRareCategories() {
   }
 }
 
+// Repeatedly merge the pair (i < j) with the most similar event rates -- the
+// first such pair in index order -- while more than `target_bins` bins remain.
+// Rescanning all pairs after every merge was O(B^2) per merge, O(B^3)
+// overall. The similarity of a pair depends only on its two bins, so each bin
+// keeps its best partner among the bins after it and, after a merge, only
+// the merged bin's row and the rows that pointed at the merged or removed bin
+// are rescanned. Bins keep their relative order (a merge keeps the lower
+// slot), so the pair chosen is the one the full scan chose.
+void OBC_MOB::reducePrebinsBySimilarity(size_t target_bins) {
+  const size_t nb = bins.size();
+  if (nb <= target_bins || nb < 2) return;
+  const size_t NONE = std::numeric_limits<size_t>::max();
+
+  std::vector<double> rate(nb);
+  for (size_t i = 0; i < nb; ++i) rate[i] = bins[i].event_rate();
+  auto similarity = [&rate](size_t i, size_t j) {
+    double rate_diff = std::fabs(rate[i] - rate[j]);
+    return 1.0 / (rate_diff + EPSILON);
+  };
+
+  std::vector<size_t> nxt(nb), prv(nb);
+  for (size_t i = 0; i < nb; ++i) {
+    nxt[i] = (i + 1 < nb) ? i + 1 : NONE;
+    prv[i] = (i > 0) ? i - 1 : NONE;
+  }
+  std::vector<char> alive(nb, 1);
+  std::vector<double> best_s(nb, -1.0);
+  std::vector<size_t> best_j(nb, NONE);
+
+  auto recompute_row = [&](size_t i) {
+    best_s[i] = -1.0;
+    best_j[i] = NONE;
+    for (size_t j = nxt[i]; j != NONE; j = nxt[j]) {
+      const double sim = similarity(i, j);
+      if (sim > best_s[i]) {
+        best_s[i] = sim;
+        best_j[i] = j;
+      }
+    }
+  };
+  for (size_t i = 0; i < nb; ++i) recompute_row(i);
+
+  size_t head = 0;
+  size_t count = nb;
+  while (count > target_bins && count >= 2) {
+    double bs = -1.0;
+    size_t a = NONE;
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (best_j[i] != NONE && best_s[i] > bs) {
+        bs = best_s[i];
+        a = i;
+      }
+    }
+    if (a == NONE) break;
+    const size_t b = best_j[a];
+
+    bins[a].merge_with(bins[b]);
+    bins[a].calculate_metrics(total_good, total_bad);
+    rate[a] = bins[a].event_rate();
+    alive[b] = 0;
+    const size_t p = prv[b];
+    const size_t q = nxt[b];
+    if (p != NONE) nxt[p] = q;
+    if (q != NONE) prv[q] = p;
+    if (b == head) head = q;
+    --count;
+
+    recompute_row(a);
+    for (size_t i = head; i != NONE; i = nxt[i]) {
+      if (i == a) continue;
+      if (best_j[i] == a || best_j[i] == b) {
+        recompute_row(i);
+      } else if (i < a) {
+        const double sim = similarity(i, a);
+        if (sim > best_s[i] || (sim == best_s[i] && a < best_j[i])) {
+          best_s[i] = sim;
+          best_j[i] = a;
+        }
+      }
+    }
+    Rcpp::checkUserInterrupt();
+  }
+
+  std::vector<CategoricalBin> kept;
+  kept.reserve(count);
+  for (size_t i = 0; i < nb; ++i) {
+    if (alive[i]) kept.push_back(std::move(bins[i]));
+  }
+  bins = std::move(kept);
+}
+
 size_t OBC_MOB::findBestMergeCandidate(size_t bin_idx) const {
   if (bin_idx >= bins.size()) return bin_idx;
   
@@ -344,7 +419,7 @@ bool OBC_MOB::isMonotonic(const std::vector<CategoricalBin>& bins_to_check) cons
     total_woe_gap += std::fabs(bins_to_check[i].woe - bins_to_check[i-1].woe);
   }
   
-  double avg_gap = total_woe_gap / (bins_to_check.size() - 1);
+  double avg_gap = total_woe_gap / static_cast<double>(bins_to_check.size() - 1);
   double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
   
   // Check for monotonicity (either strictly increasing or strictly decreasing)
@@ -494,7 +569,7 @@ double OBC_MOB::calculateTotalIV() const {
 List OBC_MOB::fit() {
   calculateCategoryStats();
   
-  int ncat = category_counts.size();
+  int ncat = static_cast<int>(category_counts.size());
   // [C-08/A-06] Was hardcoded to true and only ever reassigned in the
   // ncat > max_bins branch below; the ncat <= max_bins branch (one bin per
   // category, no enforceMonotonicity() call) always reported
@@ -551,14 +626,11 @@ List OBC_MOB::fit() {
   } else {
     // If we have fewer unique categories than max_bins, just create one bin per category
     bins.clear();
-    for (const auto& [cat, count] : category_counts) {
-      double good = category_good[cat];
-      double bad = category_bad[cat];
-      
+    for (const auto& kv : category_counts) {
       CategoricalBin bin;
-      bin.categories.push_back(cat);
-      bin.count_pos = static_cast<int>(good);
-      bin.count_neg = static_cast<int>(bad);
+      bin.categories.push_back(kv.first);
+      bin.count_pos = kv.second.good;
+      bin.count_neg = kv.second.bad;
       bin.update_count();
       bin.calculate_metrics(total_good, total_bad);
       bins.push_back(std::move(bin));
@@ -604,7 +676,7 @@ List OBC_MOB::fit() {
   // If it's < min_bins, that's a problem that should have been handled earlier
   if (bins.size() < static_cast<size_t>(min_bins)) {
     Rcpp::warning("Could not create the minimum number of bins requested (%d). Created %d bins instead.", 
-                  min_bins, bins.size());
+                  min_bins, static_cast<int>(bins.size()));
   }
   
   // Prepare output
@@ -679,11 +751,9 @@ Rcpp::List optimal_binning_categorical_mob(Rcpp::IntegerVector target,
  std::vector<bool> target_vec;
  target_vec.reserve(target.size());
  
- int na_target_count = 0;
  
- for (int i = 0; i < target.size(); ++i) {
+ for (R_xlen_t i = 0; i < target.size(); ++i) {
    if (IntegerVector::is_na(target[i])) {
-     na_target_count++;
      Rcpp::stop("Target cannot contain missing values at position %d.", i+1);
    } else if (target[i] != 0 && target[i] != 1) {
      Rcpp::stop("Target vector must be binary (0 and 1).");
@@ -698,12 +768,13 @@ Rcpp::List optimal_binning_categorical_mob(Rcpp::IntegerVector target,
  
  int na_feature_count = 0;
  
- for (int i = 0; i < feature.size(); ++i) {
-   if (feature[i] == NA_STRING) {
-     feature_vec.push_back("NA");
+ for (R_xlen_t i = 0; i < feature.size(); ++i) {
+   SEXP s = STRING_ELT(feature, i);
+   if (s == NA_STRING) {
+     feature_vec.emplace_back("NA");
      na_feature_count++;
    } else {
-     feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+     feature_vec.emplace_back(CHAR(s));
    }
  }
  

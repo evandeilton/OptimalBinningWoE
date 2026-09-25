@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include <numeric>
+#include <utility>
 
 
 // Include shared headers
@@ -23,7 +24,6 @@ using namespace OptimalBinning;
 
 // Constants for better readability and numerical stability
 // Constant removed (uses shared definition)
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 // Bayesian smoothing parameter (adjustable prior strength)
 // Constant removed (uses shared definition)
 
@@ -50,8 +50,11 @@ private:
   
   // Category statistics
   std::vector<std::string> unique_categories;
-  std::unordered_map<std::string, int> category_counts;
-  std::unordered_map<std::string, int> positive_counts;
+  // Observations and events per category, indexed like unique_categories.
+  // (Were two string-keyed hash maps queried with .at() for every category
+  // on every iteration of the search.)
+  std::vector<int> cat_count_;
+  std::vector<int> cat_pos_;
   int total_count;
   int total_positive;
   int total_negative;
@@ -76,36 +79,40 @@ private:
   
   // Initialize the algorithm with comprehensive error checking
   void initialize() {
-    // Extract unique categories with uniqueness guarantee
-    std::unordered_set<std::string> unique_set;
-    for (const auto& f : feature) {
-      if (!f.empty()) {
-        unique_set.insert(f);
-      }
+    // Count per category (one hash lookup per row)
+    std::unordered_map<std::string, std::pair<int, int>> counts;
+    for (size_t i = 0; i < feature.size(); ++i) {
+      std::pair<int, int>& c = counts[feature[i]];
+      c.first++;
+      c.second += (target[i] == 1) ? 1 : 0;
     }
-    unique_categories.assign(unique_set.begin(), unique_set.end());
+
     // Hash-set iteration order differs between standard libraries (and with
     // the bucket count), and it decides which category every random move
     // touches, so the same data and seed gave different binnings on
     // different platforms. Sorting makes the order a function of the labels.
+    unique_categories.clear();
+    unique_categories.reserve(counts.size());
+    for (const auto& kv : counts) {
+      unique_categories.push_back(kv.first);
+    }
     std::sort(unique_categories.begin(), unique_categories.end());
+    cat_count_.resize(unique_categories.size());
+    cat_pos_.resize(unique_categories.size());
+    for (size_t i = 0; i < unique_categories.size(); ++i) {
+      const std::pair<int, int>& c = counts[unique_categories[i]];
+      cat_count_[i] = c.first;
+      cat_pos_[i] = c.second;
+    }
     
     // Count totals
     total_count = static_cast<int>(feature.size());
-    total_positive = std::count(target.begin(), target.end(), 1);
+    total_positive = static_cast<int>(std::count(target.begin(), target.end(), 1));
     total_negative = total_count - total_positive;
     
     // Check for extremely imbalanced datasets
     if (total_positive < 5 || total_negative < 5) {
       Rcpp::warning("Dataset has fewer than 5 samples in one class. Results may be unstable.");
-    }
-    
-    // Count per category
-    for (size_t i = 0; i < feature.size(); ++i) {
-      category_counts[feature[i]]++;
-      // Touch the key unconditionally so categories with zero events still have an
-      // entry; the .at() lookups below would otherwise throw for them.
-      positive_counts[feature[i]] += (target[i] == 1) ? 1 : 0;
     }
     
     int n_categories = static_cast<int>(unique_categories.size());
@@ -135,9 +142,8 @@ private:
       // Calculate event rates for each category
       std::vector<double> event_rates(n_categories);
       for (int i = 0; i < n_categories; ++i) {
-        const std::string& category = unique_categories[i];
-        int count = category_counts[category];
-        int pos_count = positive_counts[category];
+        int count = cat_count_[static_cast<size_t>(i)];
+        int pos_count = cat_pos_[static_cast<size_t>(i)];
         event_rates[i] = count > 0 ? static_cast<double>(pos_count) / count : 0.0;
       }
       
@@ -169,10 +175,9 @@ private:
     
     // Aggregate counts per bin
     for (size_t i = 0; i < unique_categories.size(); ++i) {
-      const std::string& category = unique_categories[i];
       int bin = solution[i];
-      bin_counts[bin] += category_counts.at(category);
-      bin_positives[bin] += positive_counts.at(category);
+      bin_counts[bin] += cat_count_[i];
+      bin_positives[bin] += cat_pos_[i];
     }
     
     double iv = 0.0;
@@ -242,10 +247,9 @@ private:
     
     // Calculate event rates for each bin
     for (size_t i = 0; i < unique_categories.size(); ++i) {
-      const std::string& category = unique_categories[i];
       int bin = solution[i];
-      bin_counts[bin] += category_counts.at(category);
-      bin_rates[bin] += positive_counts.at(category);
+      bin_counts[bin] += cat_count_[i];
+      bin_rates[bin] += cat_pos_[i];
     }
     
     for (int i = 0; i < actual_bins; ++i) {
@@ -307,10 +311,9 @@ private:
       
       // Calculate bin event rates
       for (size_t i = 0; i < unique_categories.size(); ++i) {
-        const std::string& category = unique_categories[i];
         int bin = solution[i];
-        bin_counts[bin] += category_counts.at(category);
-        bin_rates[bin] += positive_counts.at(category);
+        bin_counts[bin] += cat_count_[i];
+        bin_rates[bin] += cat_pos_[i];
       }
       
       for (int i = 0; i < actual_bins; ++i) {
@@ -324,10 +327,9 @@ private:
       int max_diff_idx = -1;
       
       for (size_t i = 0; i < unique_categories.size(); ++i) {
-        const std::string& category = unique_categories[i];
         int bin = solution[i];
-        int count = category_counts.at(category);
-        int pos = positive_counts.at(category);
+        int count = cat_count_[i];
+        int pos = cat_pos_[i];
         
         double cat_rate = count > 0 ? static_cast<double>(pos) / count : 0.0;
         double diff = std::fabs(cat_rate - bin_rates[bin]);
@@ -340,9 +342,8 @@ private:
       
       if (max_diff_idx >= 0) {
         // Move the category to a bin with closer average rate
-        const std::string& category = unique_categories[max_diff_idx];
-        int count = category_counts.at(category);
-        int pos = positive_counts.at(category);
+        int count = cat_count_[static_cast<size_t>(max_diff_idx)];
+        int pos = cat_pos_[static_cast<size_t>(max_diff_idx)];
         double cat_rate = count > 0 ? static_cast<double>(pos) / count : 0.0;
         
         // Find closest bin by event rate
@@ -367,10 +368,10 @@ private:
   }
   
   // Calculate acceptance probability with adaptive temperature
-  double calculate_acceptance_probability(double current_iv, double neighbor_iv, 
-                                          double temperature, int iter) const {
+  double calculate_acceptance_probability(double cur_iv, double neighbor_iv,
+                                          double temperature) const {
     // Calculate scaled energy difference
-    double energy_diff = (neighbor_iv - current_iv);
+    double energy_diff = (neighbor_iv - cur_iv);
     
     // Standard Boltzmann acceptance probability
     double probability = std::exp(energy_diff / temperature);
@@ -502,7 +503,7 @@ public:
       } else {
         // Consider accepting worse solutions based on temperature
         double acceptance_probability = calculate_acceptance_probability(
-          current_iv, neighbor_iv, temperature, iter);
+          current_iv, neighbor_iv, temperature);
         
         if (R::unif_rand() < acceptance_probability) {
           current_solution = neighbor;
@@ -579,10 +580,9 @@ public:
     
     // Calculate bin event rates
     for (size_t i = 0; i < unique_categories.size(); ++i) {
-      const std::string& category = unique_categories[i];
       int bin = best_solution[i];
-      bin_counts[bin] += category_counts.at(category);
-      bin_rates[bin] += positive_counts.at(category);
+      bin_counts[bin] += cat_count_[i];
+      bin_rates[bin] += cat_pos_[i];
     }
     
     for (int i = 0; i < actual_bins; ++i) {
@@ -656,8 +656,8 @@ public:
         bin_categories[bin].push_back(category);
       }
       
-      bin_counts[bin] += category_counts.at(category);
-      bin_positives[bin] += positive_counts.at(category);
+      bin_counts[bin] += cat_count_[i];
+      bin_positives[bin] += cat_pos_[i];
     }
     
     // Calculate total IV with statistics
@@ -802,20 +802,19 @@ Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
    target_vec.reserve(target.size());
    
    int na_feature_count = 0;
-   int na_target_count = 0;
    
    for (R_xlen_t i = 0; i < feature.size(); ++i) {
      // Handle NA in feature
-     if (feature[i] == NA_STRING) {
-       feature_vec.push_back("NA");
+     SEXP s = STRING_ELT(feature, i);
+     if (s == NA_STRING) {
+       feature_vec.emplace_back("NA");
        na_feature_count++;
      } else {
-       feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+       feature_vec.emplace_back(CHAR(s));
      }
      
      // Check for NA in target
      if (IntegerVector::is_na(target[i])) {
-       na_target_count++;
        Rcpp::stop("Target cannot contain missing values at position %d.", i+1);
      } else {
        target_vec.push_back(target[i]);

@@ -4,12 +4,11 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <memory>
 #include <numeric>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
 // Include shared headers
@@ -18,66 +17,6 @@
 
 using namespace Rcpp;
 using namespace OptimalBinning;
-
-// Enhanced cache for potential merges
-class MergeCache {
-private:
-  std::vector<std::vector<double>> iv_loss_cache;
-  bool enabled;
-
-public:
-  MergeCache() : enabled(false) {}
-
-  MergeCache(size_t max_size, bool use_cache = true) : enabled(use_cache) {
-    if (enabled && max_size > 0) {
-      iv_loss_cache.resize(max_size);
-      for (auto &row : iv_loss_cache) {
-        row.resize(max_size, -1.0);
-      }
-    }
-  }
-
-  inline double get_iv_loss(size_t bin1, size_t bin2) {
-    if (!enabled || bin1 >= iv_loss_cache.size() ||
-        bin2 >= iv_loss_cache[bin1].size()) {
-      return -1.0;
-    }
-    return iv_loss_cache[bin1][bin2];
-  }
-
-  inline void set_iv_loss(size_t bin1, size_t bin2, double value) {
-    if (!enabled || bin1 >= iv_loss_cache.size() ||
-        bin2 >= iv_loss_cache[bin1].size()) {
-      return;
-    }
-    iv_loss_cache[bin1][bin2] = value;
-  }
-
-  inline void invalidate_bin(size_t bin_idx) {
-    if (!enabled || bin_idx >= iv_loss_cache.size()) {
-      return;
-    }
-
-    for (size_t i = 0; i < iv_loss_cache.size(); ++i) {
-      if (i < iv_loss_cache[bin_idx].size()) {
-        iv_loss_cache[bin_idx][i] = -1.0;
-      }
-      if (bin_idx < iv_loss_cache[i].size()) {
-        iv_loss_cache[i][bin_idx] = -1.0;
-      }
-    }
-  }
-
-  inline void resize(size_t new_size) {
-    if (!enabled)
-      return;
-
-    iv_loss_cache.resize(new_size);
-    for (auto &row : iv_loss_cache) {
-      row.resize(new_size, -1.0);
-    }
-  }
-};
 
 // Enhanced main class with improved optimization strategies
 class OBC_MBA {
@@ -96,7 +35,12 @@ private:
   int total_bad;
 
   std::vector<CategoricalBin> bins;
-  std::unique_ptr<MergeCache> merge_cache;
+
+  // Per-category counts, built once while validating (it also yields the
+  // number of categories, which used a separate hash pass over the data).
+  // Same reserve and insertion sequence as before, so the iteration order --
+  // which decides the order of equal-count bins -- is unchanged.
+  std::unordered_map<std::string, CategoricalBin> category_bins_;
 
   // Enhanced input validation with comprehensive checks
   void validate_inputs() {
@@ -147,9 +91,8 @@ private:
     }
 
     // Adjust max_bins based on unique categories
-    std::unordered_set<std::string> unique_categories(feature.begin(),
-                                                      feature.end());
-    int ncat = static_cast<int>(unique_categories.size());
+    count_categories();
+    int ncat = static_cast<int>(category_bins_.size());
     if (max_bins > ncat) {
       max_bins = ncat;
     }
@@ -158,11 +101,10 @@ private:
     min_bins = std::min(min_bins, max_bins);
   }
 
-  // Enhanced prebinning with better statistical handling
-  void prebinning() {
-    // Efficient single-pass counting
-    std::unordered_map<std::string, CategoricalBin> category_bins;
-    category_bins.reserve(
+  // Single-pass counting, one hash lookup per row.
+  void count_categories() {
+    category_bins_.clear();
+    category_bins_.reserve(
         std::min(feature.size() / 4, static_cast<size_t>(1024)));
 
     total_good = 0;
@@ -170,27 +112,30 @@ private:
 
     for (size_t i = 0; i < feature.size(); ++i) {
       const auto &cat = feature[i];
-      int is_positive = target[i];
+      const int is_positive = target[i];
 
-      if (category_bins.find(cat) == category_bins.end()) {
-        category_bins[cat] = CategoricalBin();
-        // Initialize the vector with this category
-        category_bins[cat].categories.push_back(cat);
+      auto it = category_bins_.find(cat);
+      if (it == category_bins_.end()) {
+        it = category_bins_.emplace(cat, CategoricalBin()).first;
+        it->second.categories.push_back(cat);
       }
-
-      // Update counts directly since shared struct doesn't have add_category
-      // helper with this logic
-      category_bins[cat].count++;
+      CategoricalBin &bin = it->second;
+      bin.count++;
       if (is_positive) {
-        category_bins[cat].count_pos++;
+        bin.count_pos++;
         total_bad++;
       } else {
-        category_bins[cat].count_neg++;
+        bin.count_neg++;
         total_good++;
       }
-      // Note: event_rate update is deferred or calculated on-demand in shared
-      // struct, but shared struct has event_rate() method.
     }
+  }
+
+  // Enhanced prebinning with better statistical handling
+  void prebinning() {
+    std::unordered_map<std::string, CategoricalBin> category_bins =
+        std::move(category_bins_);
+    category_bins_ = std::unordered_map<std::string, CategoricalBin>();
 
     // Check for extremely imbalanced datasets
     if (total_good < 5 || total_bad < 5) {
@@ -210,12 +155,6 @@ private:
               [](const CategoricalBin &a, const CategoricalBin &b) {
                 return a.count > b.count;
               });
-
-    // Initialize merge cache
-    // Disabled: entries were keyed by position and never shifted when a merge
-    // erased a bin, so after the first merge the cached loss for (i, i+1)
-    // belonged to a different pair.
-    merge_cache = std::make_unique<MergeCache>(bins.size(), false);
 
     // Reduce to max_n_prebins if necessary with improved strategy
     if (static_cast<int>(bins.size()) > max_n_prebins &&
@@ -426,7 +365,10 @@ private:
       }
     }
 
-    double avg_gap = bins.size() > 1 ? total_woe_gap / (bins.size() - 1) : 0.0;
+    double avg_gap =
+        bins.size() > 1
+            ? total_woe_gap / static_cast<double>(bins.size() - 1)
+            : 0.0;
     double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
 
     // Determine monotonicity direction
@@ -513,7 +455,6 @@ private:
     }
 
     int iterations = 0;
-    double prev_total_iv = best_total_iv;
 
     while (static_cast<int>(bins.size()) > max_bins &&
            iterations < max_iterations) {
@@ -525,27 +466,19 @@ private:
       double min_iv_loss = std::numeric_limits<double>::max();
       size_t min_iv_index = 0;
 
-      // Optimized search with cache
-      for (size_t i = 0; i < bins.size() - 1; ++i) {
-        // Try to merge each adjacent pair
-        double cached_iv_loss = merge_cache->get_iv_loss(i, i + 1);
-        double iv_loss;
+      // The loss of a pair depends only on the two bins, so it is evaluated
+      // directly; the merged bin is simulated from the counts alone instead of
+      // copying the category-name vector for every candidate.
+      for (size_t i = 0; i + 1 < bins.size(); ++i) {
+        CategoricalBin merged_bin;
+        merged_bin.count = bins[i].count + bins[i + 1].count;
+        merged_bin.count_pos = bins[i].count_pos + bins[i + 1].count_pos;
+        merged_bin.count_neg = bins[i].count_neg + bins[i + 1].count_neg;
+        calculate_bin_metrics(merged_bin);
 
-        if (cached_iv_loss >= 0.0) {
-          iv_loss = cached_iv_loss;
-        } else {
-          // Simulate the merge to calculate IV loss
-          CategoricalBin merged_bin = bins[i];
-          merged_bin.merge_with(bins[i + 1]);
-          calculate_bin_metrics(merged_bin);
-
-          double original_iv =
-              std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv);
-          double new_iv = std::fabs(merged_bin.iv);
-          iv_loss = original_iv - new_iv;
-
-          merge_cache->set_iv_loss(i, i + 1, iv_loss);
-        }
+        double original_iv = std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv);
+        double new_iv = std::fabs(merged_bin.iv);
+        double iv_loss = original_iv - new_iv;
 
         if (iv_loss < min_iv_loss) {
           min_iv_loss = iv_loss;
@@ -577,7 +510,6 @@ private:
       // same event rate) left the result above max_bins, raised the warning
       // below and made fit() call this function again -- one warning per
       // such merge.
-      prev_total_iv = total_iv;
       iterations++;
     }
 
@@ -611,11 +543,7 @@ private:
     bins[index1].merge_with(bins[index2]);
     calculate_bin_metrics(bins[index1]);
 
-    bins.erase(bins.begin() + index2);
-
-    // Update cache
-    merge_cache->invalidate_bin(index1);
-    merge_cache->resize(bins.size());
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(index2));
 
     return true;
   }
@@ -644,12 +572,13 @@ private:
 
 public:
   // Enhanced constructor with improved parameter handling
-  OBC_MBA(const std::vector<std::string> &feature_,
+  OBC_MBA(std::vector<std::string> feature_,
           const Rcpp::IntegerVector &target_, int min_bins_ = 3,
           int max_bins_ = 5, double bin_cutoff_ = 0.05, int max_n_prebins_ = 20,
           std::string bin_separator_ = "%;%",
           double convergence_threshold_ = 1e-6, int max_iterations_ = 1000)
-      : feature(feature_), target(Rcpp::as<std::vector<int>>(target_)),
+      : feature(std::move(feature_)),
+        target(Rcpp::as<std::vector<int>>(target_)),
         min_bins(min_bins_), max_bins(max_bins_), bin_cutoff(bin_cutoff_),
         max_n_prebins(max_n_prebins_), bin_separator(bin_separator_),
         convergence_threshold(convergence_threshold_),
@@ -773,7 +702,7 @@ public:
         bin_count[i] = bins[i].count;
         bin_count_pos[i] = bins[i].count_pos;
         bin_count_neg[i] = bins[i].count_neg;
-        ids[i] = i + 1;
+        ids[i] = static_cast<double>(i + 1);
 
         total_iv += std::fabs(bins[i].iv);
       }
@@ -811,20 +740,19 @@ Rcpp::List optimal_binning_categorical_mba(
   feature_vec.reserve(feature.size());
 
   int na_feature_count = 0;
-  int na_target_count = 0;
 
   for (R_xlen_t i = 0; i < feature.size(); ++i) {
     // Handle NA in feature
-    if (feature[i] == NA_STRING) {
-      feature_vec.push_back("NA");
+    SEXP s = STRING_ELT(feature, i);
+    if (s == NA_STRING) {
+      feature_vec.emplace_back("NA");
       na_feature_count++;
     } else {
-      feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
+      feature_vec.emplace_back(CHAR(s));
     }
 
     // Check for NA in target
     if (IntegerVector::is_na(target[i])) {
-      na_target_count++;
       Rcpp::stop("Target cannot contain missing values at position %d.", i + 1);
     }
   }
@@ -837,7 +765,7 @@ Rcpp::List optimal_binning_categorical_mba(
   }
 
   // Execute optimized algorithm
-  OBC_MBA mba(feature_vec, target, min_bins, max_bins, bin_cutoff,
+  OBC_MBA mba(std::move(feature_vec), target, min_bins, max_bins, bin_cutoff,
               max_n_prebins, bin_separator, convergence_threshold,
               max_iterations);
 
