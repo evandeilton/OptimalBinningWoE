@@ -474,25 +474,38 @@ List optimal_binning_numerical_jedi(NumericVector target,
  // Missing feature values (NA / NaN) are excluded, as the R wrapper documents;
  // the remaining values are split by class.
  const R_xlen_t n = feature.size();
- std::vector<double> pos, neg;
+ const double* fp = feature.begin();
+ const double* tp = target.begin();
+ size_t n_pos = 0, n_neg = 0;
  bool has_inf = false, bad_target = false;
  for (R_xlen_t i = 0; i < n; ++i) {
-   const double f = feature[i];
+   const double f = fp[i];
    if (std::isnan(f)) continue;
-   const double t = target[i];
-   if (t == 1.0) pos.push_back(f);
-   else if (t == 0.0) neg.push_back(f);
+   const double t = tp[i];
+   if (t == 1.0) ++n_pos;
+   else if (t == 0.0) ++n_neg;
    else { bad_target = true; break; }
    if (std::isinf(f)) has_inf = true;
+ }
+ std::vector<double> pos, neg;
+ if (!bad_target && !has_inf) {
+   pos.reserve(n_pos);
+   neg.reserve(n_neg);
+   for (R_xlen_t i = 0; i < n; ++i) {
+     const double f = fp[i];
+     if (std::isnan(f)) continue;
+     if (tp[i] == 1.0) pos.push_back(f);
+     else neg.push_back(f);
+   }
  }
 
  try {
    if (bad_target)
      throw std::invalid_argument("Target must contain only 0 and 1.");
-   if (pos.empty() && neg.empty())
-     throw std::invalid_argument("Feature has no non-missing values.");
    if (has_inf)
      throw std::invalid_argument("Feature contains Inf.");
+   if (pos.empty() && neg.empty())
+     throw std::invalid_argument("Feature has no non-missing values.");
    OBN_Jedi model(std::move(pos), std::move(neg), min_bins, max_bins,
                   bin_cutoff, max_n_prebins,
                   convergence_threshold, max_iterations);

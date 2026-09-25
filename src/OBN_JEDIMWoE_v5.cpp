@@ -610,15 +610,17 @@ Rcpp::List optimal_binning_numerical_jedi_mwoe(
    // Missing feature values (NA / NaN) are excluded. The classes are the
    // distinct target values of the remaining rows and must be exactly
    // 0..K-1, K >= 2.
+   const double* fp = feature.begin();
+   const int* tp = target.begin();
    int max_t = -1;
    size_t n_used = 0;
    bool has_inf = false;
    for (R_xlen_t i = 0; i < n; ++i) {
-     if (std::isnan(feature[i])) continue;
-     const int t = target[i];
+     if (std::isnan(fp[i])) continue;
+     const int t = tp[i];
      if (t == NA_INTEGER || t < 0)
        throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
-     if (std::isinf(feature[i])) has_inf = true;
+     if (std::isinf(fp[i])) has_inf = true;
      if (t > max_t) max_t = t;
      ++n_used;
    }
@@ -627,10 +629,16 @@ Rcpp::List optimal_binning_numerical_jedi_mwoe(
    if (static_cast<size_t>(max_t) >= n_used + 1)
      throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
 
-   std::vector<std::vector<double>> class_vals(static_cast<size_t>(max_t) + 1);
+   const size_t n_cls = static_cast<size_t>(max_t) + 1;
+   std::vector<size_t> cls_n(n_cls, 0);
    for (R_xlen_t i = 0; i < n; ++i) {
-     if (std::isnan(feature[i])) continue;
-     class_vals[static_cast<size_t>(target[i])].push_back(feature[i]);
+     if (!std::isnan(fp[i])) ++cls_n[static_cast<size_t>(tp[i])];
+   }
+   std::vector<std::vector<double>> class_vals(n_cls);
+   for (size_t k = 0; k < n_cls; ++k) class_vals[k].reserve(cls_n[k]);
+   for (R_xlen_t i = 0; i < n; ++i) {
+     if (std::isnan(fp[i])) continue;
+     class_vals[static_cast<size_t>(tp[i])].push_back(fp[i]);
    }
    size_t n_present = 0;
    for (const auto& cv : class_vals) if (!cv.empty()) ++n_present;
