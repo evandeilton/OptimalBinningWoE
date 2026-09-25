@@ -33,13 +33,17 @@ ob_numerical_mblp(
 
 - feature:
 
-  Numeric vector of feature values to be binned. Missing values (NA) and
-  infinite values are automatically removed during preprocessing.
+  Numeric vector of feature values to be binned. Missing values (NA)
+  Missing values (`NA`/`NaN`) are excluded from the fit silently, so the
+  bin counts sum to the number of non-missing rows. Infinite values are
+  legitimate extremes: they never become cutpoints and are counted in
+  the first (`-Inf`) or last (`+Inf`) bin.
 
 - target:
 
   Integer vector of binary target values (must contain only 0 and 1).
-  Must have the same length as `feature`.
+  Must have the same length as `feature`. Missing values are not
+  permitted (an error is raised).
 
 - min_bins:
 
@@ -78,8 +82,10 @@ ob_numerical_mblp(
 - convergence_threshold:
 
   Convergence threshold for iterative optimization (default: 1e-6).
-  Iteration stops when the absolute change in total IV between
-  consecutive iterations falls below this value.
+  Validated for compatibility but no longer used as a stopping rule:
+  stopping on a small change in total IV ended the loop before
+  monotonicity was enforced. The loop now stops when WoE is monotone or
+  when no merge is possible without going below `min_bins`.
 
 - max_iterations:
 
@@ -162,10 +168,13 @@ feature distribution. For \\k\\ pre-bins, cutpoints are computed as:
 \$\$q_i = x\_{(\lceil p_i \times (N - 1) \rceil)}, \quad p_i =
 \frac{i}{k}, \quad i = 1, 2, \ldots, k-1\$\$
 
-where \\x\_{(j)}\\ denotes the \\j\\-th order statistic. This approach
-ensures equal-frequency bins under the assumption of continuous data,
-though ties may cause deviations in practice. The first and last
-boundaries are set to \\-\infty\\ and \\+\infty\\, respectively.
+where \\x\_{(j)}\\ denotes the \\j\\-th smallest *distinct* value and
+\\N\\ the number of distinct values. This approach ensures
+equal-frequency bins under the assumption of continuous data, though
+ties may cause deviations in practice. When \\k\\ is at least the number
+of distinct values, every distinct value gets its own pre-bin. The first
+and last boundaries are set to \\-\infty\\ and \\+\infty\\,
+respectively.
 
 **Phase 2: Frequency-Based Bin Merging**
 
@@ -201,9 +210,11 @@ convergence:
     i+1)\\ that minimizes the IV loss when merged: \$\$\Delta
     \text{IV}\_{i,i+1} = \text{IV}\_i + \text{IV}\_{i+1} -
     \text{IV}\_{\text{merged}}\$\$ where \\\text{IV}\_{\text{merged}}\\
-    is recalculated using combined counts. The merge is performed only
-    if it preserves monotonicity (checked via WoE comparison with
-    neighboring bins).
+    is recalculated using combined counts and WoE/IV of all bins are
+    refreshed after every merge. Merges that preserve monotonicity
+    (checked via WoE comparison with neighboring bins) are preferred;
+    when none does, the cheapest merge is taken, so `max_bins` is always
+    met.
 
 2.  **Monotonicity Enforcement**: For each pair of consecutive bins,
     violations are detected as:
@@ -215,10 +226,11 @@ convergence:
     where \\\epsilon = 10^{-10}\\ (numerical tolerance). Violating bins
     are immediately merged.
 
-3.  **Convergence Test**: After each iteration, the total IV is compared
-    to the previous iteration. If \\\|\text{IV}^{(t)} -
-    \text{IV}^{(t-1)}\| \< \text{convergence\\threshold}\\ or
-    monotonicity is achieved, the loop terminates.
+3.  **Termination**: The loop terminates when the WoE sequence is
+    monotone in the chosen direction, or when a violation remains but
+    `min_bins` has been reached (no further merge is allowed). Both are
+    reported as `converged = TRUE`; `converged = FALSE` (with a warning)
+    means `max_iterations` was exhausted first.
 
 **Weight of Evidence Computation**
 
@@ -357,7 +369,7 @@ result_auto <- ob_numerical_mblp(
 print(result_auto$monotonicity) # Check detected direction
 #> [1] "decreasing"
 print(result_auto$total_iv) # Should be > 0.1 for predictive features
-#> [1] 0.2360193
+#> [1] 0.4106877
 
 # Force decreasing monotonicity (higher score = lower WoE = lower risk)
 result_forced <- ob_numerical_mblp(
@@ -376,12 +388,12 @@ cat(sprintf(
   "Auto mode: %d iterations, IV = %.4f\n",
   result_auto$iterations, result_auto$total_iv
 ))
-#> Auto mode: 2 iterations, IV = 0.2360
+#> Auto mode: 1 iterations, IV = 0.4107
 cat(sprintf(
   "Forced mode: %d iterations, IV = %.4f\n",
   result_forced$iterations, result_forced$total_iv
 ))
-#> Forced mode: 2 iterations, IV = 0.2658
+#> Forced mode: 1 iterations, IV = 0.4128
 
 # Visualize binning quality
 oldpar <- par(mfrow = c(1, 2))

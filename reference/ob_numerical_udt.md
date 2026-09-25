@@ -34,9 +34,9 @@ ob_numerical_udt(
 - feature:
 
   Numeric vector of feature values. Missing values (NA) are handled by
-  placing them in a separate bin. Infinite values are treated as valid
-  numeric extremes or placed in the missing bin if they represent
-  errors.
+  placing them in a separate bin (labelled "NA"). Infinite values are
+  valid numeric extremes: `-Inf` falls in the first bin and `Inf` in the
+  last bin, and they never become cut points.
 
 - target:
 

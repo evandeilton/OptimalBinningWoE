@@ -244,9 +244,8 @@ where \\C\\ is the number of classes and \\\alpha = 0.5\\.
 - Time: \\O(k^2 \cdot C \cdot m)\\ where \\k\\ = bins, \\C\\ = classes,
   \\m\\ = iterations
 
-- Space: \\O(k^2 \cdot C)\\ for M-WoE cache
-
-- Cache hit rate typically \> 60% for \\k \> 10\\
+- Space: \\O(k \cdot C)\\; during pre-binning each bin keeps its most
+  similar partner, so a merge rescans only the affected bins
 
 **Key Innovations:**
 
@@ -439,7 +438,8 @@ for (i in seq_along(result_mwoe_hc$bin)) {
     cat(sprintf("Bin %d: %d categories merged\n", i, n_merged))
   }
 }
-#> Bin 2: 13 categories merged
+#> Bin 1: 12 categories merged
+#> Bin 2: 2 categories merged
 
 # Example 3: Laplace smoothing demonstration
 set.seed(789)

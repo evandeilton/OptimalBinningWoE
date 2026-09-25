@@ -62,7 +62,9 @@ ob_categorical_gmb(
 - bin_separator:
 
   Character string used to concatenate category names when multiple
-  categories are merged into a single bin. Defaults to "%;%".
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
 
 - convergence_threshold:
 
@@ -133,7 +135,9 @@ cost.
 
 2.  Initial bin creation (one category per bin)
 
-3.  Rare category merging (frequencies \< `bin_cutoff`)
+3.  Rare category merging (frequencies \< `bin_cutoff`); if this would
+    leave fewer than `min_bins` bins, rare neighbours are pooled only
+    until each pool reaches `bin_cutoff`
 
 4.  Pre-bin limitation (if bins \> `max_n_prebins`)
 
@@ -144,8 +148,6 @@ cost.
     - Select merge that maximizes total IV
 
     - Apply tie-breaking rules for similar merges
-
-    - Update IV cache incrementally
 
     - Check convergence criteria
 
@@ -326,9 +328,9 @@ cat("\nPerformance comparison (high cardinality):\n")
 cat("  GMB time:", round(time_gmb[3], 3), "seconds\n")
 #>   GMB time: 0.001 seconds
 cat("  DP time:", round(time_dp[3], 3), "seconds\n")
-#>   DP time: 0.001 seconds
+#>   DP time: 0 seconds
 cat("  Speedup:", round(time_dp[3] / time_gmb[3], 1), "x\n")
-#>   Speedup: 1 x
+#>   Speedup: 0 x
 cat("\n  GMB IV:", round(result_gmb_hc$total_iv, 4), "\n")
 #> 
 #>   GMB IV: 0.0431 

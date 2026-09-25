@@ -15,7 +15,7 @@ stability and adaptive thresholding for robust monotonicity enforcement."><meta 
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -192,7 +192,7 @@ $$n'_i = \frac{n_{i,neg} + \alpha_n}{N_{neg} + \alpha_{total}}$$</p>
 <p>where priors are proportional to overall prevalence:</p>
 <p>$$\alpha_p = \alpha_{total} \times \frac{N_{pos}}{N_{pos} + N_{neg}}$$
 $$\alpha_n = \alpha_{total} - \alpha_p$$</p>
-<p>with \(\alpha_{total} = 1.0\) as the prior strength parameter.</p>
+<p>with \(\alpha_{total} = 0.5\) as the prior strength parameter.</p>
 <p><strong>Intelligent Bin Merging:</strong></p>
 <p>When reducing bins to meet the <code>max_bins</code> constraint, MBA employs an
 IV-loss minimization strategy:</p>
@@ -200,8 +200,7 @@ IV-loss minimization strategy:</p>
 <p>The pair with minimum \(\Delta IV\) is merged to preserve maximum
 predictive information.</p>
 <p><strong>Computational Complexity:</strong></p><ul><li><p>Time: \(O(k^2 \cdot m)\) where \(k\) = bins, \(m\) = iterations</p></li>
-<li><p>Space: \(O(k^2)\) for IV loss cache</p></li>
-<li><p>Cache hit rate typically &gt; 75% for \(k &gt; 10\)</p></li>
+<li><p>Space: \(O(k)\)</p></li>
 </ul><p><strong>Key Features:</strong></p><ul><li><p><strong>Guaranteed monotonicity</strong>: Strict enforcement with adaptive thresholds</p></li>
 <li><p><strong>Bayesian regularization</strong>: Robust to sparse bins and class imbalance</p></li>
 <li><p><strong>Intelligent merging</strong>: Preserves maximum information during reduction</p></li>
@@ -316,7 +315,7 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span>  <span class="st">"  Std WoE differences:"</span>,</span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result_std_comp</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Std WoE differences: 0.1431, 0.0695, 0.0645 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Std WoE differences: 0.1431, 0.0984 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Std monotonic:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result_std_comp</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">-</span><span class="fl">1e-10</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Std monotonic: TRUE </span>
 <span class="r-in"><span></span></span>
@@ -398,7 +397,7 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span>  <span class="st">"  Largest merged bin contains:"</span>,</span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strsplit.html" class="external-link">strsplit</a></span><span class="op">(</span><span class="va">result_mba_hc</span><span class="op">$</span><span class="va">bin</span>, <span class="st">"%;%"</span><span class="op">)</span>, <span class="va">length</span><span class="op">)</span><span class="op">)</span>, <span class="st">"categories\n"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Largest merged bin contains: 19 categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Largest merged bin contains: 11 categories</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Verify monotonicity in high-cardinality case</span></span></span>
 <span class="r-in"><span><span class="va">woe_monotonic</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result_mba_hc</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">-</span><span class="fl">1e-10</span><span class="op">)</span></span></span>

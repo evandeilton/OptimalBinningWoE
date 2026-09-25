@@ -15,7 +15,7 @@ predictive power while maintaining statistical significance."><meta property="og
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,7 +113,9 @@ merging. Controls computational complexity. Must be &gt;= 2. Defaults to 20.</p>
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
 <dd><p>String. Separator used when combining multiple
-categories into a single bin label. Defaults to "%;%".</p></dd>
+categories into a single bin label. Defaults to "%;%". A warning is
+issued when a category name contains it, since such labels cannot be split
+back into categories.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
@@ -128,9 +130,13 @@ Prevents infinite loops. Must be &gt; 0. Defaults to 1000.</p></dd>
 
 
 <dt id="arg-chi-merge-threshold">chi_merge_threshold<a class="anchor" aria-label="anchor" href="#arg-chi-merge-threshold"></a></dt>
-<dd><p>Numeric. Statistical significance level (p-value)
-for chi-square tests during merging. Higher values create fewer bins.
-Value must be in (0, 1). Defaults to 0.05.</p></dd>
+<dd><p>Numeric. Significance level \(\alpha\) of the
+chi-square test used as the ChiMerge stopping rule: adjacent bins keep
+being merged while their chi-square statistic (1 degree of freedom, Yates'
+continuity correction) is below the critical value
+\(\chi^2_{1,1-\alpha}\) (3.841 for \(\alpha = 0.05\)), i.e. while
+they do not differ significantly. Lower values merge more and create fewer
+bins. Value must be in (0, 1). Defaults to 0.05.</p></dd>
 
 
 <dt id="arg-use-chi-algorithm">use_chi2_algorithm<a class="anchor" aria-label="anchor" href="#arg-use-chi-algorithm"></a></dt>
@@ -215,21 +221,21 @@ Conference on Tools with Artificial Intelligence</em> (pp. 372-377).</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_cm</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "A"     "B"     "C%;%D" "E%;%G" "F%;%H"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "A%;%B"         "C%;%D"         "E%;%G%;%F%;%H"</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.18847425 -0.80239061 -0.01771012  0.87051615  1.37170669</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.01276387 -0.01771012  1.11336392</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2.801835e-01 1.052373e-01 7.275865e-05 1.299588e-01 3.041406e-01</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 3.715884e-01 7.275865e-05 4.130731e-01</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 198 159 242 195 206</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 357 242 401</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># View metadata</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Total IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">total_iv</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Total IV: 0.82"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Total IV: 0.785"</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Algorithm converged:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">converged</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Algorithm converged: TRUE"</span>
 <span class="r-in"><span></span></span>
@@ -241,7 +247,7 @@ Conference on Tools with Artificial Intelligence</em> (pp. 372-377).</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Compare number of bins</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Standard ChiMerge bins:"</span>, <span class="va">result</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">n_bins</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Standard ChiMerge bins: 5 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Standard ChiMerge bins: 3 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Chi2 algorithm bins:"</span>, <span class="va">result_chi2</span><span class="op">$</span><span class="va">metadata</span><span class="op">$</span><span class="va">n_bins</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Chi2 algorithm bins: 6 </span>
 <span class="r-in"><span></span></span>

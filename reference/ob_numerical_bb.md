@@ -27,8 +27,8 @@ ob_numerical_bb(
 - feature:
 
   A numeric vector representing the continuous predictor variable to be
-  binned. NA values are handled by exclusion during the pre-binning
-  phase.
+  binned. Missing values (`NA`/`NaN`) are excluded from the fit;
+  `-Inf`/`Inf` fall in the first/last bin.
 
 - target:
 
@@ -67,8 +67,9 @@ ob_numerical_bb(
 
 - convergence_threshold:
 
-  Numeric. The threshold for the change in total IV to determine
-  convergence during the iterative merging process. Defaults to 1e-6.
+  Numeric. Accepted for backward compatibility and not used: merging
+  always continues until the number of bins reaches `max_bins` (or
+  `max_iterations` is exhausted). Defaults to 1e-6.
 
 - max_iterations:
 
@@ -125,8 +126,8 @@ and optimality:
 4.  **Optimization Phase:** The algorithm iteratively merges adjacent
     bins that have the lowest contribution to the total Information
     Value (IV). This process continues until the number of bins is
-    reduced to `max_bins` or the change in IV falls below
-    `convergence_threshold`.
+    reduced to `max_bins`. With `is_monotonic = TRUE` the returned WoE
+    is monotonic unless that would require fewer than `min_bins` bins.
 
 **Information Value (IV) Interpretation:**
 

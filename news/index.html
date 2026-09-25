@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,94 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.14.0" id="optimalbinningwoe-1140">OptimalBinningWoE 1.14.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1140"></a></h2>
+<div class="section level3">
+<h3 id="full-audit-of-the-c-engines-and-the-r-layer-1-14-0">Full audit of the C++ engines and the R layer (2026-09-25)<a class="anchor" aria-label="anchor" href="#full-audit-of-the-c-engines-and-the-r-layer-1-14-0"></a></h3>
+<p>Every algorithm file in <code>src/</code> was read end to end and checked against the method it implements, then against a battery of adversarial inputs (ties, two-value and constant features, NA/NaN/±Inf, ±1e308, tiny scales, heavy tails, 500 to 5000 categories, separators inside category names, n from 1 to 10^6). Each fix below has a regression test that fails on 1.13.6. Pure refactors were proved bit-identical to 1.13.6 on the same battery. <strong>Many fitted bins change</strong>: in every such case the old result broke the documented algorithm or contract. No argument was added or removed and every returned list keeps its names, types and order.</p>
+<div class="section level4">
+<h4 id="crashes-hangs-and-memory-safety-1-14-0">Crashes, hangs and memory safety<a class="anchor" aria-label="anchor" href="#crashes-hangs-and-memory-safety-1-14-0"></a></h4>
+<ul><li>Session crashes fixed: <code><a href="../reference/ob_numerical_cm.html">ob_numerical_cm()</a></code> segfaulted on a range that overflows (−1e308, 1e308); <code><a href="../reference/ob_numerical_fetb.html">ob_numerical_fetb()</a></code> and <code><a href="../reference/ob_categorical_dp.html">ob_categorical_dp()</a></code> crashed on <code>max_n_prebins = 0</code>; <code><a href="../reference/ob_numerical_ir.html">ob_numerical_ir()</a></code> aborted on empty input; <code><a href="../reference/ob_apply_woe_num.html">ob_apply_woe_num()</a></code> segfaulted on a one-bin fit (no cut points); <code><a href="../reference/ob_cutpoints_cat.html">ob_cutpoints_cat()</a></code> segfaulted on <code>character(0)</code>.</li>
+<li>Infinite loops fixed: <code><a href="../reference/ob_categorical_jedi_mwoe.html">ob_categorical_jedi_mwoe()</a></code> with <code>max_bins = 1</code>, <code><a href="../reference/ob_numerical_udt.html">ob_numerical_udt()</a></code> when <code>3 &lt;= distinct values &lt; min_bins</code>, and <code><a href="../reference/ob_categorical_swb.html">ob_categorical_swb()</a></code> when <code>min_bins &gt; max_bins</code>.</li>
+<li>Out-of-bounds reads fixed in <code><a href="../reference/ob_numerical_fast_mdlp.html">ob_numerical_fast_mdlp()</a></code> (monotonic merge indexed merged vectors with pre-merge positions; <code>sum(count)</code> could exceed n threefold), <code><a href="../reference/ob_categorical_ivb.html">ob_categorical_ivb()</a></code> (feature shorter than target), <code><a href="../reference/ob_cutpoints_num.html">ob_cutpoints_num()</a></code> (short target), <code><a href="../reference/ob_preprocess.html">ob_preprocess()</a></code> (IQR with n &lt;= 2), and undefined behaviour in <code><a href="../reference/ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code> (<code>trim("")</code>), in <code>std::sort</code> over NaN (fetb, mdlp), in the KDE grid on an infinite span (ldb, lpdb) and in <code>int</code> overflow of count products (cm numerical and categorical, shared chi-square helper) once bins exceed ~46k rows.</li>
+<li>
+<code><a href="../reference/ob_preprocess.html">ob_preprocess()</a></code> overwrote the caller’s feature vector in place and <code><a href="../reference/ob_cutpoints_num.html">ob_cutpoints_num()</a></code> sorted the caller’s <code>cutpoints</code> in place.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="one-contract-for-missing-and-infinite-values-1-14-0">One contract for missing and infinite values<a class="anchor" aria-label="anchor" href="#one-contract-for-missing-and-infinite-values-1-14-0"></a></h4>
+<p>The 21 numerical binners disagreed: six stopped on an NA feature (including the default <code>jedi</code>, so <code><a href="../reference/obwoe.html">obwoe()</a></code> failed on any numeric feature with a missing value), eleven dropped it, <code>fetb</code> sorted NaN into a bin and <code>udt</code> gave it a bin of its own. They now all follow one rule, implemented in C++ so that the <code>ob_numerical_*()</code> wrappers and <code><a href="../reference/obwoe.html">obwoe()</a></code> agree:</p>
+<ul><li>NA/NaN feature values are excluded from the fit silently; bin counts sum to the non-missing rows. (<code><a href="../reference/ob_numerical_udt.html">ob_numerical_udt()</a></code> keeps its documented trailing <code>"NA"</code> bin, which now holds NaN only.)</li>
+<li>±Inf is an ordinary extreme value in the first or last bin and never a cut point; no algorithm returns a NaN or infinite cut point or WoE.</li>
+<li>An NA target is a clear error.</li>
+<li>The NA warnings of <code>jedi</code>, <code>jedi_mwoe</code>, <code>lpdb</code>, <code>ewb</code>, <code>ir</code>, <code>kmb</code>, <code>fast_mdlp</code>, <code>mdlp</code> and <code>mob</code> are gone.</li>
+</ul><p>Targets are now validated instead of truncated: every wrapper used <code>as.integer(target)</code>, which turned 0.7 into class 0 and <code>"yes"</code> into NA. Integer, whole-valued double, logical, and factor/character holding whole numbers are accepted; anything else is an error.</p>
+</div>
+<div class="section level4">
+<h4 id="algorithms-that-did-not-do-what-they-document-1-14-0">Algorithms that did not do what they document<a class="anchor" aria-label="anchor" href="#algorithms-that-did-not-do-what-they-document-1-14-0"></a></h4>
+<ul><li>
+<strong>ChiMerge</strong> (<code>cm</code>, both types): the critical value came from a table keyed by confidence instead of significance, so the default <code>chi_merge_threshold = 0.05</code> gave 0.004 instead of 3.841 and the significance rule almost never merged; it is now <code>qchisq(1 - alpha, 1)</code> (Kerber, 1992). The Yates correction is clamped at zero as in <code><a href="https://rdrr.io/r/stats/chisq.test.html" class="external-link">chisq.test()</a></code>. The numerical chi-square cache returned stale values after merges (its invalidation was a no-op); it is replaced by an incrementally updated vector of adjacent-pair statistics, which matches an independent <code><a href="https://rdrr.io/r/stats/chisq.test.html" class="external-link">chisq.test()</a></code>-based ChiMerge on 30/30 samples (0/30 before). The categorical default now merges more.</li>
+<li>
+<strong>Fisher exact test</strong> (<code>fetb</code>, both types): the merge criterion was the point probability of the observed table, not a p-value. It is now the two-sided Fisher p-value, matching <code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test()</a></code>. The numerical loop could stop on IV convergence with more than <code>max_bins</code> bins.</li>
+<li>
+<strong>MDLP</strong>: <code>fast_mdlp</code>’s acceptance test omitted the <code>k1 E(S1) + k2 E(S2)</code> term of Fayyad &amp; Irani (1993) and now agrees with a reference implementation on 292/292 datasets (265 before); when <code>max_bins</code> binds, splits are kept best-first by gain instead of dropping the rightmost ones. <code>mdlp</code>’s documentation of its merge cost and bin format was corrected.</li>
+<li>
+<strong>IV-optimal DP</strong> (<code>ivb</code>): a banded search excluded valid partitions, so the result was not optimal; the monotonic repair could drop the last bin’s categories. <strong>DP</strong> (<code>dp</code>, categorical): recovered counts by splitting labels on the separator and rejected valid partitions with a bogus monotonicity test.</li>
+<li>
+<strong>Stale merge caches</strong> keyed by bin position chose the wrong pairs after the first merge in <code>jedi</code>, <code>jedi_mwoe</code>, <code>mba</code> and <code>gmb</code> (categorical).</li>
+<li>
+<strong>Monotonicity promised but not delivered</strong>: fixed in <code>bb</code>, <code>dmiv</code>, <code>dp</code>, <code>ldb</code>, <code>lpdb</code>, <code>mblp</code>, <code>mdlp</code>, <code>mob</code>, <code>mrblp</code>, <code>oslp</code> (numerical) and <code>milp</code>, <code>sblp</code> (categorical), mostly by refreshing WoE after merges and re-checking after the <code>max_bins</code> reduction.</li>
+<li>
+<strong><code>max_bins</code> / <code>min_bins</code> not honoured</strong>: <code>ldb</code>, <code>lpdb</code>, <code>dmiv</code> (categorical: 2000 bins for <code>max_bins = 5</code>), <code>fetb</code>, <code>sketch</code>, <code>sblp</code>, <code>mba</code>, <code>sab</code>, <code>swb</code>, <code>udt</code> and <code>fetb</code>/<code>gmb</code>/<code>ivb</code> on high-cardinality features, which collapsed to a single bin with IV 0.</li>
+<li>
+<strong>Wrong statistics reported</strong>: <code><a href="../reference/ob_numerical_udt.html">ob_numerical_udt()</a></code> returned Gini as 2·AUC instead of 2·AUC − 1 and merged on an IV that was always 0; <code><a href="../reference/ob_numerical_kmb.html">ob_numerical_kmb()</a></code> reported grid centroids instead of bin means; <code><a href="../reference/ob_categorical_mob.html">ob_categorical_mob()</a></code> gave every initial bin a count of 1; <code><a href="../reference/ob_categorical_sketch.html">ob_categorical_sketch()</a></code> returned count-min estimates as bin counts; <code>ldb</code>/<code>lpdb</code> WoE used the pre-bin count in its Laplace denominator.</li>
+<li>
+<strong>Labels</strong>: <code>oslp</code> and <code>ubsd</code> labelled bins <code>[a;b)</code> while assigning <code>(a;b]</code>; <code>ewb</code>, numerical <code>sketch</code> and <code>ubsd</code> produced empty bins or labels that excluded the minimum.</li>
+<li>
+<code><a href="../reference/ob_categorical_sab.html">ob_categorical_sab()</a></code> stopped after one iteration whenever the first move was rejected, and now draws from R’s RNG only, so results are reproducible across platforms under <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>.</li>
+<li>
+<code><a href="../reference/ob_categorical_milp.html">ob_categorical_milp()</a></code> merged the two WoE extremes together; its merge phase now combines WoE-adjacent bins with the least IV loss.</li>
+<li>Rare-category pooling kept the <code>min_bins</code> <em>rarest</em> categories in <code>jedi</code>, <code>jedi_mwoe</code> and categorical <code>udt</code>; it keeps the most frequent ones.</li>
+<li>The categorical <code>dmiv</code> pooled bin was labelled <code>"PREBIN_OTHER"</code>, so its categories could not be scored; it now lists them.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="r-interface-1-14-0">R interface<a class="anchor" aria-label="anchor" href="#r-interface-1-14-0"></a></h4>
+<ul><li>
+<code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> is vectorised (<code><a href="https://rdrr.io/r/base/match.html" class="external-link">match()</a></code> instead of two closures per row): 25 to 50 times faster on wide or long data. The scorecard applies the binning once, to the model variables only (<code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> about 40 times faster).</li>
+<li>A category equal to <code>""</code> was lost when splitting labels, and was scored as missing by <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code>, <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> and <code><a href="https://recipes.tidymodels.org/reference/bake.html" class="external-link">bake()</a></code>.</li>
+<li>
+<code><a href="../reference/step_obwoe.html">step_obwoe()</a></code> ignored <code>control = list(bin_separator = ...)</code>; <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> and <code><a href="../reference/obwoe_select.html">obwoe_select()</a></code> now default to the fitted separator.</li>
+<li>A category listed in two bins now resolves to the first bin in <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code>, as in <code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> and <code><a href="../reference/ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code>.</li>
+<li>
+<code><a href="../reference/obwoe_gains.html">obwoe_gains()</a></code> sorted a numeric grouping column as text (KS 25.7% instead of 50%); <code><a href="../reference/obwoe_gains_variable.html">obwoe_gains_variable()</a></code> pooled distinct WoE values that agree to six decimals.</li>
+<li>
+<code><a href="../reference/ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code> now scores NA with the fitted missing-value bin, as <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> and the SQL do, and matches categories in O(n).</li>
+<li>Missing values of a <code>udt</code> feature go to its <code>"NA"</code> bin in <code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> and in the SQL (every row used to get the mean WoE).</li>
+<li>
+<code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> on a 0-row frame, <code><a href="../reference/obwoe_select.html">obwoe_select()</a></code> on an infinite WoE and <code><a href="../reference/obwoe_psi.html">obwoe_psi()</a></code> with NA or repeated <code>levels</code> no longer fail.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="other-functions-1-14-0">Other functions<a class="anchor" aria-label="anchor" href="#other-functions-1-14-0"></a></h4>
+<ul><li>
+<code><a href="../reference/obcorr.html">obcorr()</a></code>: the distance correlation was wrong (a column against itself gave 1.69); it is now Székely’s V-statistic in O(n log n). Ties are exact (results were scale-dependent), Pearson is two-pass, Spearman uses pairwise-complete observations. Kendall and Hoeffding are O(n log n): about 500 and 300 times faster at n = 10^4.</li>
+<li>
+<code><a href="../reference/ob_check_distincts.html">ob_check_distincts()</a></code> compared numbers through six-decimal strings.</li>
+<li>
+<code>obcorr(threads = n)</code> no longer warns on a build without OpenMP (the macOS default); <code>threads</code> is ignored there, as documented.</li>
+<li>The <code>"obwoe"</code> scorecard engine’s logistic regression is now a plain C++ Newton-IRLS (glm’s convergence rule); it no longer drops standard errors of well-conditioned small-scale designs and reports the real iteration count.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="performance-1-14-0">Performance<a class="anchor" aria-label="anchor" href="#performance-1-14-0"></a></h4>
+<p>Median speed-ups at n = 10^6 unless stated: <code>mdlp</code> 11x, <code>mob</code> 24x, <code>oslp</code> 28x, <code>ubsd</code> 75x, <code>dmiv</code> 7x, <code>ewb</code> 4x, <code>kmb</code> 4x, <code>jedi</code> (the default) 2.5x, <code>fast_mdlp</code> 2.6x (24x on alternating classes); categorical with 2000 levels: <code>milp</code> 190x, <code>mob</code> 21x, <code>jedi</code> 19x, <code>jedi_mwoe</code> 14x; <code>dmiv</code> with 3000 levels 160x; <code>swb</code>/<code>sketch</code>/<code>udt</code> with 5000 levels 175-600x; <code><a href="../reference/ob_apply_woe_cat.html">ob_apply_woe_cat()</a></code> 270x; <code>ob_preprocess(method = "grubbs")</code> 65x. The test suite runs in under a minute (about five before).</p>
+</div>
+<div class="section level4">
+<h4 id="build-1-14-0">Build<a class="anchor" aria-label="anchor" href="#build-1-14-0"></a></h4>
+<ul><li>
+<code>RcppEigen</code> and <code>RcppNumerical</code> are no longer needed (<code>LinkingTo: Rcpp</code> only) and the unused BLAS/LAPACK link flags are gone. Their headers emitted several hundred <code>-Wignored-attributes</code> warnings on every source install; the package now compiles without a single warning under gcc (<code>-Wall -Wextra -Wpedantic -Wshadow -Wconversion</code>) and clang (<code>-Wall -Wextra -Wpedantic -Wshadow</code>).</li>
+<li>No algorithm prints to the console any more (<code>dmiv</code>, <code>bb</code>).</li>
+<li>The full test suite passes with zero warnings, and under AddressSanitizer and UndefinedBehaviorSanitizer.</li>
+</ul></div>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.13.6" id="optimalbinningwoe-1136">OptimalBinningWoE 1.13.6<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1136"></a></h2>
 <div class="section level3">

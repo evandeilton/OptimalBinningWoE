@@ -67,13 +67,17 @@ ob_categorical_fetb(
 
 - max_iterations:
 
-  Integer. Maximum number of merge operations allowed. Prevents
-  excessive computation. Must be \> 0. Defaults to 1000.
+  Integer. Iteration budget for the merge phase. Must be \> 0. Defaults
+  to 1000. When it is used up before the convergence tolerance is met,
+  `converged` is `FALSE`; merging still continues until `max_bins` is
+  satisfied, since `max_bins` is a hard constraint.
 
 - bin_separator:
 
   Character string used to concatenate category names when multiple
-  categories are merged into a single bin. Defaults to "%;%".
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
 
 ## Value
 
@@ -128,7 +132,9 @@ for small sample sizes.
 1.  Data preprocessing and frequency computation
 
 2.  Rare category identification and pre-merging (frequencies \<
-    `bin_cutoff`)
+    `bin_cutoff`); if pooling all rare categories would leave fewer than
+    `min_bins` bins, they are pooled in event-rate order into groups of
+    at least `bin_cutoff`
 
 3.  Initial bin creation (one category per bin)
 
@@ -154,13 +160,22 @@ For two bins with contingency table:
 | Positives | \\a\\ | \\c\\ |
 | Negatives | \\b\\ | \\d\\ |
 
-The exact probability under the null hypothesis of independence is:
+Under the null hypothesis of identical event rates, with all margins
+fixed, the number of positives in Bin 1 is hypergeometric, and the
+probability of a table with \\x\\ positives in Bin 1 is
 
-\$\$p = \frac{(a+b)!(c+d)!(a+c)!(b+d)!}{n! \cdot a! \cdot b! \cdot c!
-\cdot d!}\$\$
+\$\$P(x) = \frac{\binom{a+b}{x}\binom{c+d}{a+c-x}}{\binom{n}{a+c}},
+\quad n = a + b + c + d.\$\$
 
-where \\n = a + b + c + d\\. Higher p-values indicate greater similarity
-(less evidence against the null hypothesis of identical distributions).
+The two-sided p-value is the total probability of all tables with the
+same margins that are no more likely than the observed one, \\p =
+\sum\_{x:\\P(x) \le P(a)} P(x)\\ (with the relative tolerance
+\\10^{-7}\\ used by
+[`fisher.test`](https://rdrr.io/r/stats/fisher.test.html)), which is the
+value [`fisher.test()`](https://rdrr.io/r/stats/fisher.test.html)
+reports. Higher p-values indicate greater similarity (less evidence
+against the null hypothesis of identical distributions). Monotonicity
+repairs stop at `min_bins`.
 
 **Key Features:**
 
@@ -274,9 +289,9 @@ cat("\nChiMerge:\n")
 #> 
 #> ChiMerge:
 cat("  Final bins:", length(result_cm$bin), "\n")
-#>   Final bins: 4 
+#>   Final bins: 3 
 cat("  Total IV:", round(sum(result_cm$iv), 4), "\n")
-#>   Total IV: 0.2937 
+#>   Total IV: 0.25 
 
 # Example 3: Small sample size (Fisher's advantage)
 set.seed(123)
@@ -356,11 +371,11 @@ for (i in seq_along(result_fetb_hc$bin)) {
     cat("  Bin", i, "contains", n_merged, "merged categories\n")
   }
 }
-#>   Bin 1 contains 4 merged categories
-#>   Bin 2 contains 4 merged categories
+#>   Bin 1 contains 3 merged categories
+#>   Bin 2 contains 5 merged categories
 #>   Bin 4 contains 12 merged categories
-#>   Bin 5 contains 6 merged categories
-#>   Bin 6 contains 3 merged categories
+#>   Bin 5 contains 7 merged categories
+#>   Bin 6 contains 2 merged categories
 
 # Example 5: Missing value handling
 set.seed(456)
@@ -385,8 +400,8 @@ if (length(na_bin_idx) > 0) {
 }
 #> 
 #> Missing value handling:
-#>   NA bin: Budget%;%NA 
-#>   NA count: 174 
-#>   NA WoE: 0.427 
+#>   NA bin: Budget%;%NA%;%Economy 
+#>   NA count: 260 
+#>   NA WoE: 0.54 
 # }
 ```

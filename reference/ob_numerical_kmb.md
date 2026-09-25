@@ -26,13 +26,17 @@ ob_numerical_kmb(
 
 - feature:
 
-  A numeric vector representing the continuous predictor variable.
-  Missing values (NA) should be handled prior to binning.
+  A numeric vector representing the continuous predictor variable. Rows
+  whose value is missing (`NA`/`NaN`) are excluded from the fit
+  silently, so the bin counts sum to the number of non-missing rows;
+  `-Inf` and `+Inf` are kept as extreme values of the first and last bin
+  and never become a cutpoint.
 
 - target:
 
   An integer vector of binary outcomes (0/1) corresponding to each
-  observation in `feature`. Must have the same length as `feature`.
+  observation in `feature`. Must have the same length as `feature`. A
+  missing value in `target` is an error.
 
 - min_bins:
 
@@ -52,8 +56,8 @@ ob_numerical_kmb(
 
 - max_n_prebins:
 
-  Integer. The number of initial centroids/bins to generate during the
-  initialization phase. Defaults to 20.
+  Integer. Upper limit on the number of initial centroids/bins; see
+  Details. Defaults to 20.
 
 - enforce_monotonic:
 
@@ -62,8 +66,9 @@ ob_numerical_kmb(
 
 - convergence_threshold:
 
-  Numeric. The threshold for determining convergence during the
-  iterative optimization process. Defaults to 1e-6.
+  Numeric. Currently unused: every step of this algorithm stops on a
+  bin-count or monotonicity condition. Kept for interface compatibility.
+  Defaults to 1e-6.
 
 - max_iterations:
 
@@ -103,16 +108,24 @@ The KMB algorithm offers a unique initialization strategy compared to
 standard binning methods:
 
 1.  **Initialization (K-means Style):** Instead of using quantiles,
-    `max_n_prebins` centroids are placed uniformly across the range
-    \\\[min(x), max(x)\]\\. Bin boundaries are then defined as the
-    midpoints between adjacent centroids. This can lead to more evenly
-    distributed initial bin widths in terms of the feature's scale.
+    \\m\\ centroids are placed uniformly, where \\m\\ is the smaller of
+    `max_n_prebins` and the number of distinct values, clamped to
+    `[min_bins, max_bins]`, across the range \\\[min(x), max(x)\]\\. Bin
+    boundaries are then defined as the midpoints between adjacent
+    centroids. This can lead to more evenly distributed initial bin
+    widths in terms of the feature's scale.
 
 2.  **Optimization:** The initialized bins undergo standard
     post-processing:
 
     - **Rare Bin Merging:** Bins below `bin_cutoff` are merged with
-      their most similar neighbor (by event rate).
+      their most similar neighbor (by event rate), as long as more than
+      `min_bins` bins remain. An interval that holds no observation at
+      all is always merged into its neighbour; if that leaves fewer than
+      `min_bins` bins, the most populous bin is bisected at the midpoint
+      of its value range until `min_bins` is reached. Only a feature
+      with fewer distinct values than `min_bins` ends below it (with a
+      warning).
 
     - **Monotonicity:** If `enforce_monotonic = TRUE`, adjacent bins
       violating the dominant WoE trend are merged.

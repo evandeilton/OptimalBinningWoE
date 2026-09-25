@@ -11,7 +11,7 @@ with configurable preprocessing strategies."><meta property="og:image" content="
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -173,7 +173,12 @@ Lower values are more conservative (fewer outliers detected).</p></dd>
     preprocessing for validation.</p></li>
 </ol><p><strong>Outlier Treatment Strategies</strong>:</p><ul><li><p>IQR and Z-score: <strong>Winsorization</strong> (capping at boundaries).</p></li>
 <li><p>Grubbs: <strong>Removal</strong> (replaced with <code>num_miss_value</code>).</p></li>
-</ul><p><strong>Use Cases</strong>:</p><ul><li><p><strong>Before binning</strong>: Stabilize binning algorithms by removing
+</ul><p>Outliers are detected among the observed values only: the missing-value
+sentinel <code>num_miss_value</code> does not enter the quartiles, mean or standard
+deviation, is never capped and is not counted in <code>outlier_count</code>, so the
+"this field was blank" information survives outlier treatment. The input
+vector is never modified.</p>
+<p><strong>Use Cases</strong>:</p><ul><li><p><strong>Before binning</strong>: Stabilize binning algorithms by removing
     extreme values that could create singleton bins.</p></li>
 <li><p><strong>Data quality audit</strong>: Identify features with excessive missingness
     or outliers.</p></li>
@@ -208,12 +213,12 @@ Lower values are more conservative (fewer outliers detected).</p></dd>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_iqr</span><span class="op">$</span><span class="va">report</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   variable_type missing_count outlier_count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1       numeric             2             5</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       numeric             2             4</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                            original_stats</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 { min: -100.000000, Q1: 45.061458, median: 50.905956, mean: 52.773778, Q3: 57.210082, max: 250.000000 }</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                     preprocessed_stats</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 { min: 25.774368, Q1: 44.575383, median: 50.617563, mean: 50.502606, Q3: 56.981770, max: 75.553623 }</span>
-<span class="r-in"><span><span class="co"># Shows: missing_count = 2, outlier_count = 3</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                       preprocessed_stats</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 { min: -999.000000, Q1: 44.575383, median: 50.617563, mean: 30.009026, Q3: 56.981770, max: 75.068749 }</span>
+<span class="r-in"><span><span class="co"># Shows: missing_count = 2, outlier_count = 4 (the two NAs are not outliers)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Categorical feature</span></span></span>
 <span class="r-in"><span><span class="va">feature_cat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="fl">30</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"B"</span>, <span class="fl">40</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"C"</span>, <span class="fl">28</span><span class="op">)</span>, <span class="cn">NA</span>, <span class="cn">NA</span><span class="op">)</span></span></span>

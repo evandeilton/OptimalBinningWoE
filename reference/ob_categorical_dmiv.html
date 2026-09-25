@@ -15,7 +15,7 @@ structures for credit scoring and binary classification tasks."><meta property="
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -117,7 +117,9 @@ categories are pre-merged into an "other" bin. Must be &gt;= 2. Defaults to 20.<
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
 <dd><p>Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "%;%".</p></dd>
+when multiple categories are merged into a single bin. Defaults to "%;%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
@@ -130,8 +132,10 @@ Must be &gt; 0. Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
-<dd><p>Integer. Maximum number of merge operations allowed.
-Prevents infinite loops in edge cases. Must be &gt; 0. Defaults to 1000.</p></dd>
+<dd><p>Integer. Iteration budget for the merge phase. Must be &gt; 0.
+Defaults to 1000. When it is used up before the convergence tolerance is
+met, <code>converged</code> is <code>FALSE</code>; merging still continues until
+<code>max_bins</code> is satisfied, since <code>max_bins</code> is a hard constraint.</p></dd>
 
 
 <dt id="arg-bin-method">bin_method<a class="anchor" aria-label="anchor" href="#arg-bin-method"></a></dt>
@@ -242,8 +246,11 @@ The choice of divergence measure affects the binning structure:</p><ul><li><p>In
     Bounded measure; suitable for probability distributions</p></li>
 </ul><p><strong>Pre-binning Strategy:</strong>
 When the number of unique categories exceeds <code>max_n_prebins</code>, categories
-with fewer than 5 observations are aggregated into a special "PREBIN_OTHER"
-bin to control computational complexity.</p>
+with fewer than 5 observations are pooled into one bin to control
+computational complexity. The pooled bin is labelled with the categories it
+contains, like any other bin, so it can be mapped when the binning is
+applied. Pre-binning is skipped when it would leave fewer than
+<code>min_bins</code> bins.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -329,9 +336,6 @@ Credit Scoring. <em>Journal of Mathematics</em>, 2013, Article ID 848271.
 <span class="r-in"><span>  max_n_prebins <span class="op">=</span> <span class="fl">15</span>,</span></span>
 <span class="r-in"><span>  max_bins <span class="op">=</span> <span class="fl">5</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Info: Number of unique categories (50) exceeds max_n_prebins (15). Pre-binning rare categories.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Info: Pre-binning reduced categories from 50 to 50 initial bins.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Info: Converged after 1 iterations (divergence change &lt; threshold).</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Final bins after pre-binning:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_prebin</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Final bins after pre-binning: 5 </span>

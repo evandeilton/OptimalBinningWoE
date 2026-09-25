@@ -75,7 +75,9 @@ ob_categorical_dp(
 - bin_separator:
 
   Character string used to concatenate category names when multiple
-  categories are merged into a single bin. Defaults to "%;%".
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
 
 - monotonic_trend:
 
@@ -98,8 +100,9 @@ ob_categorical_dp(
 
   :   No monotonicity constraint
 
-  Monotonicity constraints are enforced during the DP optimization
-  phase. Defaults to `"auto"`.
+  Categories are ordered by event rate (reversed for `"descending"`)
+  before the DP, so every bin partition it considers is monotone.
+  Defaults to `"auto"`.
 
 ## Value
 
@@ -186,13 +189,15 @@ relation is:
 \$\$DP\[i\]\[k\] = \max\_{j\<i} \\DP\[j\]\[k-1\] + IV(j+1, i)\\\$\$
 
 where \\IV(j+1, i)\\ is the Information Value of a bin containing
-categories from \\j+1\\ to \\i\\. Monotonicity constraints are enforced
-by restricting transitions that violate WoE ordering.
+categories from \\j+1\\ to \\i\\. Because the categories are sorted by
+event rate, the pooled event rate – and hence the WoE – of consecutive
+bins is monotone for every partition, so no transition needs to be
+excluded.
 
 **Computational Complexity:**
 
-- Time: \\O(n^2 \cdot k \cdot m)\\ where \\n\\ = categories, \\k\\ =
-  max_bins, \\m\\ = iterations
+- Time: \\O(n^2 \cdot k)\\ where \\n\\ = pre-bins and \\k\\ = max_bins
+  (a single exact pass)
 
 - Space: \\O(n \cdot k)\\ for DP tables
 

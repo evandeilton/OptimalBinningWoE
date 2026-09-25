@@ -25,13 +25,17 @@ ob_numerical_jedi(
 
 - feature:
 
-  A numeric vector representing the continuous predictor variable.
-  Missing values (NA) should be handled prior to binning.
+  A numeric vector representing the continuous predictor variable. Rows
+  whose value is missing (`NA`/`NaN`) are excluded from the fit
+  silently, so the bin counts sum to the number of non-missing rows;
+  `-Inf` and `+Inf` are kept as extreme values of the first and last bin
+  and never become a cutpoint.
 
 - target:
 
   An integer vector of binary outcomes (0/1) corresponding to each
-  observation in `feature`. Must have the same length as `feature`.
+  observation in `feature`. Must have the same length as `feature`. A
+  missing value in `target` is an error.
 
 - min_bins:
 
@@ -95,13 +99,16 @@ scoring and risk modeling. Its methodology proceeds in four distinct
 stages:
 
 1.  **Initialization (Quantile Pre-binning):** The feature space is
-    divided into `max_n_prebins` segments containing approximately equal
-    numbers of observations. This ensures the algorithm starts with a
-    statistically balanced view of the data.
+    divided into up to `max_n_prebins` segments whose edges are equally
+    spaced over the sorted *distinct* feature values (for a continuous
+    feature without ties these are equal-frequency segments). A feature
+    with fewer distinct values than `min_bins` gets one bin per distinct
+    value, so the result can then hold fewer than `min_bins` bins; no
+    empty bin is ever created.
 
 2.  **Stabilization (Rare Bin Merging):** Adjacent bins with frequencies
-    below `bin_cutoff` are merged. The merge direction is chosen to
-    minimize the distortion of the event rate (similar to ChiMerge).
+    below `bin_cutoff` are merged into the smaller of their two
+    neighbours (the outermost bins into their only neighbour).
 
 3.  **Monotonicity Enforcement:** The algorithm heuristically determines
     the dominant trend (increasing or decreasing) of the Weight of
@@ -110,10 +117,9 @@ stages:
     the binning sequence with respect to the target.
 
 4.  **IV Optimization:** If the number of bins exceeds `max_bins`, the
-    algorithm merges the pair of adjacent bins that results in the
-    smallest decrease in total Information Value. This greedy approach
-    ensures that the final discretization retains the maximum possible
-    predictive power given the constraints.
+    algorithm repeatedly merges the pair of adjacent bins with the
+    smallest combined Information Value, a greedy proxy for the merge
+    that loses the least total IV.
 
 This joint approach (Entropy/IV + Stability constraints) makes JEDI
 particularly effective for datasets with noise or non-monotonic initial

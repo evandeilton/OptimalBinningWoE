@@ -11,7 +11,7 @@ values using pre-computed binning results from an optimal binning algorithm
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -94,10 +94,13 @@ missing bin if it exists in <code>obresults</code>, or <code>NA</code> otherwise
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>Numeric vector of WoE values with the same length as <code>feature</code>.
-  Values outside the range of <code>cutpoints</code> are assigned to the first or
-  last bin. <code>NA</code> values in <code>feature</code> are propagated to the output
-  unless explicitly listed in <code>missing_values</code>.</p>
+    <p>A data frame with one row per element of <code>feature</code> and the
+  columns <code>feature</code>, <code>bin</code> (interval label, or <code>"Special"</code>),
+  <code>woe</code>, <code>idbin</code> and <code>ismissing</code>. Values outside the range of
+  <code>cutpoints</code> are assigned to the first or last bin. <code>NA</code>/<code>NaN</code>
+  values and values listed in <code>missing_values</code> get <code>ismissing = 1</code>
+  and the WoE of the missing-value bin when <code>obresults</code> has one (see
+  Details), or <code>bin = "Special"</code> and <code>woe = NA</code> otherwise.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -107,8 +110,16 @@ missing bin if it exists in <code>obresults</code>, or <code>NA</code> otherwise
 For <code>k</code> cutpoints \(c_1 &lt; c_2 &lt; \cdots &lt; c_k\), values are assigned as:</p><ul><li><p>Bin 1: \(x \le c_1\) (if <code>include_upper_bound = TRUE</code>)</p></li>
 <li><p>Bin i: \(c_{i-1} &lt; x \le c_i\) for \(i = 2, \ldots, k\)</p></li>
 <li><p>Bin k+1: \(x &gt; c_k\)</p></li>
-</ul><p><strong>Handling of Edge Cases</strong>:</p><ul><li><p>Values in <code>missing_values</code> are matched against a bin labeled
-    <code>"NA"</code> or <code>"Missing"</code> in <code>obresults$bin</code> (if available).</p></li>
+</ul><p><strong>Handling of Edge Cases</strong>:</p><ul><li><p><code>obresults$woe</code> and <code>obresults$id</code> may carry
+    <code>length(cutpoints) + 2</code> entries when the fit has a dedicated
+    missing-value bin (e.g. <code><a href="ob_numerical_udt.html">ob_numerical_udt</a></code> on data with
+    <code>NA</code>): that bin is the one labelled <code>"NA"</code> or
+    <code>"Missing"</code> in <code>obresults$bin</code> (the last one when no label
+    says so), and missing values are scored with it.</p></li>
+<li><p>With no cut points at all (a single bin) every non-missing value
+    gets the WoE of that bin.</p></li>
+<li><p>Each value is placed with one binary search over the cut points,
+    \(O(n \log k)\) in total.</p></li>
 <li><p><code>Inf</code> and <code>-Inf</code> are assigned to the last and first bins,
     respectively.</p></li>
 <li><p>Values exactly equal to cutpoints follow the <code>include_upper_bound</code>

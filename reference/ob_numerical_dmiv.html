@@ -15,7 +15,7 @@ the Information Value (IV) or other discriminatory statistics."><meta property="
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -82,7 +82,8 @@ the Information Value (IV) or other discriminatory statistics.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) are excluded during the pre-binning phase.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit;
+<code>-Inf</code>/<code>Inf</code> fall in the first/last bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -118,9 +119,9 @@ and their WoE values. Defaults to <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Numeric. The threshold for the change in total
-divergence to determine convergence during the iterative merging process.
-Defaults to 1e-6.</p></dd>
+<dd><p>Numeric. Accepted for backward compatibility and not
+used: merging always continues until the number of bins reaches
+<code>max_bins</code> (or <code>max_iterations</code> is exhausted). Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -136,8 +137,7 @@ iterations. Defaults to 1000.</p></dd>
 
 <dt id="arg-divergence-method">divergence_method<a class="anchor" aria-label="anchor" href="#arg-divergence-method"></a></dt>
 <dd><p>Character string specifying the divergence measure to maximize.
-Available options:</p><ul><li><p><code>"iv"</code>: Information Value (conceptually similar to KL).</p></li>
-<li><p><code>"he"</code>: Hellinger Distance.</p></li>
+Available options:</p><ul><li><p><code>"he"</code>: Hellinger Distance.</p></li>
 <li><p><code>"kl"</code>: Kullback-Leibler Divergence.</p></li>
 <li><p><code>"tr"</code>: Triangular Discrimination.</p></li>
 <li><p><code>"klj"</code>: Jeffrey's Divergence (Symmetric KL).</p></li>
@@ -154,12 +154,16 @@ Available options:</p><ul><li><p><code>"iv"</code>: Information Value (conceptua
     <p>A list containing the binning results:</p><ul><li><p><code>id</code>: Integer vector of bin identifiers.</p></li>
 <li><p><code>bin</code>: Character vector of bin labels in interval notation.</p></li>
 <li><p><code>woe</code>: Numeric vector of Weight of Evidence for each bin.</p></li>
+<li><p><code>iv</code>: Numeric vector of standard Information Value per bin.</p></li>
 <li><p><code>divergence</code>: Numeric vector of the chosen divergence contribution per bin.</p></li>
 <li><p><code>count</code>: Integer vector of total observations per bin.</p></li>
 <li><p><code>count_pos</code>: Integer vector of positive cases.</p></li>
 <li><p><code>count_neg</code>: Integer vector of negative cases.</p></li>
 <li><p><code>cutpoints</code>: Numeric vector of upper boundaries (excluding Inf).</p></li>
+<li><p><code>converged</code>: Logical indicating if the algorithm converged.</p></li>
+<li><p><code>iterations</code>: Integer count of merging iterations performed.</p></li>
 <li><p><code>total_divergence</code>: The sum of the divergence measure across all bins.</p></li>
+<li><p><code>total_iv</code>: The total standard Information Value.</p></li>
 <li><p><code>bin_method</code>: The WoE calculation method used.</p></li>
 <li><p><code>divergence_method</code>: The divergence measure used.</p></li>
 </ul></div>

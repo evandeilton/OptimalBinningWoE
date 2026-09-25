@@ -15,7 +15,7 @@ and enforce monotonicity."><meta property="og:image" content="https://evandeilto
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,8 +80,8 @@ and enforce monotonicity.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) are excluded during the pre-binning phase but should
-ideally be handled prior to binning.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit;
+<code>-Inf</code>/<code>Inf</code> fall in the first/last bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -209,8 +209,7 @@ Machine Learning</em>, 164-178.</p>
 <span class="r-in"><span><span class="co"># Note: The algorithm tries to recover, but the initial split is distorted</span></span></span>
 <span class="r-in"><span><span class="va">res_outlier</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_ewb</span><span class="op">(</span><span class="va">feature_outlier</span>, <span class="va">target_outlier</span>, max_bins <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">res_outlier</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;500.044208]"        "(500.044208;9500.002327]"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "(9500.002327;+Inf]"      </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;9500.002327]" "(9500.002327;+Inf]"</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

@@ -15,7 +15,7 @@ massive datasets."><meta property="og:image" content="https://evandeilton.github
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -187,7 +187,10 @@ computational overhead. Must be &gt;= 3. Default is 5.</p></dd>
         categories (above a threshold defined by <code>bin_cutoff</code>) using
         sketch estimates.</p></li>
 <li><p><strong>Pre-binning</strong>: Creates initial bins from detected heavy
-        categories, grouping rare categories separately.</p></li>
+        categories, grouping rare categories separately. The sketch only
+        decides which categories are heavy hitters; the bin counts, WoE and
+        IV are computed from the exact category counts, so <code>count</code>
+        always sums to the number of observations.</p></li>
 <li><p><strong>Optimization</strong>: Applies iterative merging based on
         statistical divergence measures to optimize Information Value (IV)
         while respecting bin count constraints (<code>min_bins</code>,
@@ -253,18 +256,18 @@ Discovery, 15(2), 107-144.</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_sketch</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"             "u%;%v%;%y%;%l%;%m%;%h%;%j"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "n%;%p%;%x%;%w%;%r%;%s%;%q" "a%;%e%;%f%;%g"            </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"             "n%;%p%;%x%;%w%;%r%;%s%;%q"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [3] "u%;%v%;%y%;%l%;%m%;%h%;%j" "a%;%e%;%f%;%g"            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [5] "b%;%d%;%c%;%i"            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $woe</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.0034757 -0.2273163 -0.8511470  0.8348822  0.8848772</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -1.0034757 -0.8511470 -0.2273163  0.8348822  0.8848772</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $iv</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.12596961 0.01506567 0.11500632 0.13680931 0.14428996</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.12596961 0.11500632 0.01506567 0.13680931 0.14428996</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1354 2928 1682 2075 1961</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1354 1682 2928 2075 1961</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With custom sketch parameters for higher accuracy</span></span></span>

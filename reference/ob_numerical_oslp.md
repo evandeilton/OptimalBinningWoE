@@ -34,8 +34,11 @@ ob_numerical_oslp(
 
 - feature:
 
-  Numeric vector of feature values. Missing values (NA) and infinite
-  values are **not permitted** and will trigger an error.
+  Numeric vector of feature values. Missing values (NA/NaN) are dropped
+  silently: those rows are counted in no bin and the counts add up to
+  the number of non-missing rows. `-Inf` and `+Inf` are kept as extreme
+  values in the first and last bin and never become cutpoints. A feature
+  whose values are all missing is an error.
 
 - target:
 
@@ -65,7 +68,9 @@ ob_numerical_oslp(
 
 - convergence_threshold:
 
-  Convergence threshold for IV change (default: 1e-6).
+  Convergence threshold (default: 1e-6). Must be positive; accepted for
+  compatibility. Monotonicity enforcement merges violations until none
+  is left (or `min_bins` / `max_iterations` is reached).
 
 - max_iterations:
 
@@ -85,11 +90,12 @@ A list containing:
 
 - bin:
 
-  Character bin intervals `"[lower;upper)"`.
+  Character right-closed bin intervals `"(lower;upper]"`.
 
 - woe:
 
-  Numeric WoE values (guaranteed monotonic).
+  Numeric WoE values (monotonic unless `min_bins` or `max_iterations`
+  stops the merging first).
 
 - iv:
 
@@ -121,7 +127,8 @@ A list containing:
 
 - converged:
 
-  Logical convergence flag.
+  Logical flag; `FALSE` only when `max_iterations` was exhausted while
+  merges were still pending.
 
 - iterations:
 

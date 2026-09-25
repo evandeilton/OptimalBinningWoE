@@ -23,7 +23,7 @@ obwoe_psi(base, compare, levels = NULL, breaks = NULL, n_groups = 10L)
 
   Character vector of the categories or bin labels to compare over.
   Required when the inputs are not numeric; defaults to the union of the
-  values seen.
+  values seen. Missing and repeated entries are dropped.
 
 - breaks:
 

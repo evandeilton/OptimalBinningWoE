@@ -29,12 +29,16 @@ ob_numerical_lpdb(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) should be handled prior to binning.
+  Missing values (`NA`/`NaN`) are excluded from the fit silently, so the
+  bin counts sum to the number of non-missing rows. Infinite values are
+  legitimate extremes: they never become cutpoints and are counted in
+  the first (`-Inf`) or last (`+Inf`) bin.
 
 - target:
 
   An integer vector of binary outcomes (0/1) corresponding to each
   observation in `feature`. Must have the same length as `feature`.
+  Missing values are not permitted (an error is raised).
 
 - min_bins:
 

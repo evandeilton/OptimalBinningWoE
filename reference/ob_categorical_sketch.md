@@ -146,7 +146,10 @@ The Sketch-based algorithm follows these steps:
     estimates.
 
 3.  **Pre-binning**: Creates initial bins from detected heavy
-    categories, grouping rare categories separately.
+    categories, grouping rare categories separately. The sketch only
+    decides which categories are heavy hitters; the bin counts, WoE and
+    IV are computed from the exact category counts, so `count` always
+    sums to the number of observations.
 
 4.  **Optimization**: Applies iterative merging based on statistical
     divergence measures to optimize Information Value (IV) while
@@ -229,18 +232,18 @@ target <- rbinom(n, 1, prob = target_probs)
 result <- ob_categorical_sketch(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "k%;%z%;%o%;%t"             "u%;%v%;%y%;%l%;%m%;%h%;%j"
-#> [3] "n%;%p%;%x%;%w%;%r%;%s%;%q" "a%;%e%;%f%;%g"            
+#> [1] "k%;%z%;%o%;%t"             "n%;%p%;%x%;%w%;%r%;%s%;%q"
+#> [3] "u%;%v%;%y%;%l%;%m%;%h%;%j" "a%;%e%;%f%;%g"            
 #> [5] "b%;%d%;%c%;%i"            
 #> 
 #> $woe
-#> [1] -1.0034757 -0.2273163 -0.8511470  0.8348822  0.8848772
+#> [1] -1.0034757 -0.8511470 -0.2273163  0.8348822  0.8848772
 #> 
 #> $iv
-#> [1] 0.12596961 0.01506567 0.11500632 0.13680931 0.14428996
+#> [1] 0.12596961 0.11500632 0.01506567 0.13680931 0.14428996
 #> 
 #> $count
-#> [1] 1354 2928 1682 2075 1961
+#> [1] 1354 1682 2928 2075 1961
 #> 
 
 # With custom sketch parameters for higher accuracy

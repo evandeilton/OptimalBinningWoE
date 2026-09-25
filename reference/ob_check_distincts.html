@@ -11,7 +11,7 @@ binning algorithms to determine if the feature has sufficient variability."><met
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,9 +76,12 @@ required for interface consistency and may be used for future extensions
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>Integer scalar representing the number of unique values in <code>x</code>,
-  excluding <code>NA</code> values. Returns 0 if <code>x</code> is empty or contains only
-  <code>NA</code> values.</p>
+    <p>Integer vector of length 2: the number of distinct values of
+  <code>x</code> (excluding <code>NA</code>, <code>NaN</code> and <code>Inf</code>; numeric values
+  are compared exactly, and <code>0</code> and <code>-0</code> are the same value) and
+  the largest number of distinct target classes observed for a single value.
+  Rows whose target is <code>NA</code> are ignored. Both are 0 when <code>x</code>
+  contains only missing values.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

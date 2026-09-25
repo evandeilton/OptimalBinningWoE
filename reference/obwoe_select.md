@@ -135,6 +135,8 @@ obwoe_select(
   Character string separating merged categories inside a categorical bin
   label. Default `"%;%"`, matching
   [`control.obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md).
+  When the argument is not supplied, the separator recorded in `obj`
+  (the one it was fitted with) is used.
 
 ## Value
 

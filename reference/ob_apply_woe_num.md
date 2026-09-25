@@ -49,10 +49,13 @@ ob_apply_woe_num(
 
 ## Value
 
-Numeric vector of WoE values with the same length as `feature`. Values
-outside the range of `cutpoints` are assigned to the first or last bin.
-`NA` values in `feature` are propagated to the output unless explicitly
-listed in `missing_values`.
+A data frame with one row per element of `feature` and the columns
+`feature`, `bin` (interval label, or `"Special"`), `woe`, `idbin` and
+`ismissing`. Values outside the range of `cutpoints` are assigned to the
+first or last bin. `NA`/`NaN` values and values listed in
+`missing_values` get `ismissing = 1` and the WoE of the missing-value
+bin when `obresults` has one (see Details), or `bin = "Special"` and
+`woe = NA` otherwise.
 
 ## Details
 
@@ -75,8 +78,18 @@ c_k\\, values are assigned as:
 
 **Handling of Edge Cases**:
 
-- Values in `missing_values` are matched against a bin labeled `"NA"` or
-  `"Missing"` in `obresults$bin` (if available).
+- `obresults$woe` and `obresults$id` may carry `length(cutpoints) + 2`
+  entries when the fit has a dedicated missing-value bin (e.g.
+  [`ob_numerical_udt`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_udt.md)
+  on data with `NA`): that bin is the one labelled `"NA"` or `"Missing"`
+  in `obresults$bin` (the last one when no label says so), and missing
+  values are scored with it.
+
+- With no cut points at all (a single bin) every non-missing value gets
+  the WoE of that bin.
+
+- Each value is placed with one binary search over the cut points, \\O(n
+  \log k)\\ in total.
 
 - `Inf` and `-Inf` are assigned to the last and first bins,
   respectively.

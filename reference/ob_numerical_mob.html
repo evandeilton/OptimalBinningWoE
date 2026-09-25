@@ -23,7 +23,7 @@ that the final binning satisfies: \(\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,9 +91,12 @@ that the final binning satisfies: \(\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le
 
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
-<dd><p>Numeric vector of feature values to be binned. Missing values (NA)
-are automatically removed during preprocessing. Infinite values trigger a warning
-but are handled internally.</p></dd>
+<dd><p>Numeric vector of feature values to be binned. Missing values (NA/NaN) are
+dropped silently: those rows are counted in no bin and the counts add up to the
+number of non-missing rows. <code>-Inf</code> and <code>+Inf</code> are kept as extreme values
+in the first and last bin and never become cutpoints. A feature whose values are all
+missing is an error. The
+totals used for WoE, IV and <code>bin_cutoff</code> exclude the missing rows.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -133,8 +136,8 @@ equal to <code>min_bins</code>.</p></dd>
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
 <dd><p>Maximum number of iterations for bin merging and monotonicity
-enforcement (default: 1000). Prevents infinite loops in pathological cases. A
-warning is issued if this limit is reached without achieving convergence.</p></dd>
+enforcement (default: 1000). Prevents infinite loops in pathological cases. When
+the limit is reached with merges still pending, <code>converged</code> is <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-laplace-smoothing">laplace_smoothing<a class="anchor" aria-label="anchor" href="#arg-laplace-smoothing"></a></dt>
@@ -149,12 +152,15 @@ for one class. Must be non-negative. Standard values: 0.5 (Laplace), 1.0 (Jeffre
 <dd><p>Integer vector of bin identifiers (1-based indexing).</p></dd>
 
   <dt>bin</dt>
-<dd><p>Character vector of bin intervals in the format <code>"[lower;upper)"</code>.
-    The first bin starts with <code>-Inf</code> and the last bin ends with <code>+Inf</code>.</p></dd>
+<dd><p>Character vector of right-closed bin intervals in the format
+    <code>"(lower;upper]"</code>. The first bin starts with <code>-Inf</code> and the last bin
+    ends with <code>+Inf</code>.</p></dd>
 
   <dt>woe</dt>
-<dd><p>Numeric vector of Weight of Evidence values for each bin. Guaranteed
-    to be monotonic (either non-decreasing or non-increasing).</p></dd>
+<dd><p>Numeric vector of Weight of Evidence values for each bin. Monotonic
+    (either non-decreasing or non-increasing) unless <code>min_bins</code> or
+    <code>max_iterations</code> stops the merging first (no warning is issued; check
+    the returned WoE).</p></dd>
 
   <dt>iv</dt>
 <dd><p>Numeric vector of Information Value contributions for each bin.</p></dd>
@@ -222,9 +228,11 @@ of bins. Information Value is:</p>
 <li><p>If only positive distribution is zero: \(\text{WoE}_i = -20\) (capped)</p></li>
 <li><p>If only negative distribution is zero: \(\text{WoE}_i = +20\) (capped)</p></li>
 </ul><p><strong>Phase 4: Monotonicity Enforcement</strong></p>
-<p>The algorithm first determines the desired monotonicity direction by examining the
-relationship between the first two bins:</p>
-<p>$$\text{should\_increase} = \begin{cases} \text{TRUE} &amp; \text{if } \text{WoE}_1 \ge \text{WoE}_0 \\ \text{FALSE} &amp; \text{otherwise} \end{cases}$$</p>
+<p>The algorithm first determines the desired monotonicity direction by majority vote
+over adjacent bins (as MRBLP does):</p>
+<p>$$\text{should\_increase} = \begin{cases} \text{TRUE} &amp; \text{if } \#\{\text{WoE}_i &gt; \text{WoE}_{i-1}\} \ge \#\{\text{WoE}_i &lt; \text{WoE}_{i-1}\} \\ \text{FALSE} &amp; \text{otherwise} \end{cases}$$</p>
+<p>(Earlier versions used the first two bins only, \(\text{WoE}_1 \ge \text{WoE}_0\),
+which let sampling noise in the two lowest pre-bins reverse the direction.)</p>
 <p>For each bin \(i\) from 1 to \(k-1\), violations are detected as:</p>
 <p>$$\text{violation} = \begin{cases} \text{WoE}_i &lt; \text{WoE}_{i-1} &amp; \text{if should\_increase} \\ \text{WoE}_i &gt; \text{WoE}_{i-1} &amp; \text{if } \neg\text{should\_increase} \end{cases}$$</p>
 <p>When a violation is found at index \(i\), the algorithm attempts two merge strategies:</p>
@@ -234,7 +242,7 @@ relationship between the first two bins:</p>
 <li><p><strong>Merge with next bin</strong>: If strategy 1 fails, merge bins \(i\) and \(i+1\).</p></li>
 </ol><p>Merging continues iteratively until either:</p><ul><li><p>All WoE values satisfy monotonicity constraints</p></li>
 <li><p>The number of bins reaches <code>min_bins</code></p></li>
-<li><p><code>max_iterations</code> is exceeded (triggers warning)</p></li>
+<li><p><code>max_iterations</code> is exceeded (<code>converged = FALSE</code>)</p></li>
 </ul><p>After each merge, WoE and IV are recalculated for all bins to reflect updated
 distributions.</p>
 <p><strong>Phase 5: Bin Count Reduction</strong></p>
@@ -331,7 +339,7 @@ constraints.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Verify monotonicity</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  0.77178577 -0.05402436</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1]  0.76074361  0.43537076 -0.07088068 -0.54044132 -1.06483783</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="op">&lt;=</span> <span class="fl">1e-10</span><span class="op">)</span><span class="op">)</span> <span class="co"># Non-increasing WoE</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Inspect binning quality</span></span></span>
@@ -343,18 +351,21 @@ constraints.</p></div>
 <span class="r-in"><span>  EventRate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">event_rate</span>, <span class="fl">4</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">binning_table</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                 Bin     WoE     IV Count EventRate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 (-Inf;547.248269]  0.7718 0.0388   600    0.2533</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 (547.248269;+Inf] -0.0540 0.0027 11400    0.1296</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                       Bin     WoE     IV Count EventRate</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1       (-Inf;589.503086]  0.7607 0.1126  1800    0.2517</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 (589.503086;640.518853]  0.4354 0.0442  2400    0.1954</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3 (640.518853;692.217368] -0.0709 0.0012  3000    0.1277</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 (692.217368;731.558694] -0.5404 0.0478  2400    0.0838</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5       (731.558694;+Inf] -1.0648 0.1532  2400    0.0512</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"\nTotal IV: %.4f\n"</span>, <span class="va">result</span><span class="op">$</span><span class="va">total_iv</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV: 0.0416</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV: 0.3591</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  <span class="st">"Converged: %s (iterations: %d)\n"</span>,</span></span>
 <span class="r-in"><span>  <span class="va">result</span><span class="op">$</span><span class="va">converged</span>, <span class="va">result</span><span class="op">$</span><span class="va">iterations</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Converged: TRUE (iterations: 18)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Converged: TRUE (iterations: 15)</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Visualize monotonic pattern</span></span></span>
 <span class="r-in"><span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></span>

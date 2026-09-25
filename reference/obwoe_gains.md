@@ -80,7 +80,10 @@ obwoe_gains(
 
   `"id"`
 
-  :   The algorithm's own internal bin order - default
+  :   The algorithm's own internal bin order - default. For a
+      `data.frame`, the groups' natural order: factor levels, ascending
+      value for a numeric column (earlier versions sorted numeric values
+      as text), alphabetical order otherwise.
 
   `"woe"`
 

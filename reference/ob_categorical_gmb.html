@@ -15,7 +15,7 @@ approximation to optimal binning suitable for high-cardinality features."><meta 
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -114,7 +114,9 @@ greedy merging phase. Controls computational complexity. Must be &gt;=
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
 <dd><p>Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "%;%".</p></dd>
+when multiple categories are merged into a single bin. Defaults to "%;%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
@@ -170,12 +172,13 @@ optimization methods (e.g., dynamic programming), GMB provides approximate
 solutions with significantly reduced computational cost.</p>
 <p><strong>Algorithm Workflow:</strong></p><ol><li><p>Input validation and preprocessing</p></li>
 <li><p>Initial bin creation (one category per bin)</p></li>
-<li><p>Rare category merging (frequencies &lt; <code>bin_cutoff</code>)</p></li>
+<li><p>Rare category merging (frequencies &lt; <code>bin_cutoff</code>); if this would
+    leave fewer than <code>min_bins</code> bins, rare neighbours are pooled only
+    until each pool reaches <code>bin_cutoff</code></p></li>
 <li><p>Pre-bin limitation (if bins &gt; <code>max_n_prebins</code>)</p></li>
 <li><p>Greedy merging phase:</p><ul><li><p>Evaluate IV for all possible adjacent bin merges</p></li>
 <li><p>Select merge that maximizes total IV</p></li>
 <li><p>Apply tie-breaking rules for similar merges</p></li>
-<li><p>Update IV cache incrementally</p></li>
 <li><p>Check convergence criteria</p></li>
 </ul></li>
 <li><p>Adaptive monotonicity enforcement</p></li>
@@ -319,9 +322,9 @@ for credit risk modeling. <em>SSRN Electronic Journal</em>.
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  GMB time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_gmb</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   GMB time: 0.001 seconds</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  DP time:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_dp</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   DP time: 0.001 seconds</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DP time: 0 seconds</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Speedup:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">time_dp</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">/</span> <span class="va">time_gmb</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"x\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Speedup: 1 x</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Speedup: 0 x</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n  GMB IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result_gmb_hc</span><span class="op">$</span><span class="va">total_iv</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   GMB IV: 0.0431 </span>

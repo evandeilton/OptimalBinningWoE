@@ -13,7 +13,7 @@ The algorithm then optimizes these bins using statistical constraints."><meta pr
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,12 +77,16 @@ The algorithm then optimizes these bins using statistical constraints.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be handled prior to binning.</p></dd>
+Rows whose value is missing (<code>NA</code>/<code>NaN</code>) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+<code>-Inf</code> and <code>+Inf</code> are kept as extreme values of the first and
+last bin and never become a cutpoint.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>An integer vector of binary outcomes (0/1) corresponding to
-each observation in <code>feature</code>. Must have the same length as <code>feature</code>.</p></dd>
+each observation in <code>feature</code>. Must have the same length as <code>feature</code>.
+A missing value in <code>target</code> is an error.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -102,8 +106,8 @@ Value must be in (0, 1). Defaults to 0.05.</p></dd>
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Integer. The number of initial centroids/bins to generate
-during the initialization phase. Defaults to 20.</p></dd>
+<dd><p>Integer. Upper limit on the number of initial
+centroids/bins; see Details. Defaults to 20.</p></dd>
 
 
 <dt id="arg-enforce-monotonic">enforce_monotonic<a class="anchor" aria-label="anchor" href="#arg-enforce-monotonic"></a></dt>
@@ -113,8 +117,9 @@ Defaults to <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Numeric. The threshold for determining convergence
-during the iterative optimization process. Defaults to 1e-6.</p></dd>
+<dd><p>Numeric. Currently unused: every step of this
+algorithm stops on a bin-count or monotonicity condition. Kept for
+interface compatibility. Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -141,13 +146,21 @@ Defaults to 1000.</p></dd>
     <p>The KMB algorithm offers a unique initialization strategy compared to standard
 binning methods:</p>
 <ol><li><p><strong>Initialization (K-means Style):</strong>
-  Instead of using quantiles, <code>max_n_prebins</code> centroids are placed uniformly
+  Instead of using quantiles, \(m\) centroids are placed uniformly, where
+  \(m\) is the smaller of <code>max_n_prebins</code> and the number of distinct
+  values, clamped to <code>[min_bins, max_bins]</code>,
   across the range \([min(x), max(x)]\). Bin boundaries are then defined as the
   midpoints between adjacent centroids. This can lead to more evenly distributed
   initial bin widths in terms of the feature's scale.</p></li>
 <li><p><strong>Optimization:</strong>
   The initialized bins undergo standard post-processing:</p><ul><li><p><strong>Rare Bin Merging:</strong> Bins below <code>bin_cutoff</code> are merged with
-          their most similar neighbor (by event rate).</p></li>
+          their most similar neighbor (by event rate), as long as more than
+          <code>min_bins</code> bins remain. An interval that holds no observation
+          at all is always merged into its neighbour; if that leaves fewer
+          than <code>min_bins</code> bins, the most populous bin is bisected at the
+          midpoint of its value range until <code>min_bins</code> is reached. Only a
+          feature with fewer distinct values than <code>min_bins</code> ends below
+          it (with a warning).</p></li>
 <li><p><strong>Monotonicity:</strong> If <code>enforce_monotonic = TRUE</code>, adjacent bins
           violating the dominant WoE trend are merged.</p></li>
 <li><p><strong>Bin Count Adjustment:</strong> If the number of bins exceeds <code>max_bins</code>,

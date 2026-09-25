@@ -15,7 +15,7 @@ statistically rigorous approach to optimal binning."><meta property="og:image" c
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -120,13 +120,17 @@ Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
-<dd><p>Integer. Maximum number of merge operations allowed.
-Prevents excessive computation. Must be &gt; 0. Defaults to 1000.</p></dd>
+<dd><p>Integer. Iteration budget for the merge phase. Must be &gt; 0.
+Defaults to 1000. When it is used up before the convergence tolerance is
+met, <code>converged</code> is <code>FALSE</code>; merging still continues until
+<code>max_bins</code> is satisfied, since <code>max_bins</code> is a hard constraint.</p></dd>
 
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
 <dd><p>Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "%;%".</p></dd>
+when multiple categories are merged into a single bin. Defaults to "%;%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -167,7 +171,9 @@ between bins based on their 2×2 contingency tables. Unlike chi-square based
 methods, Fisher's test provides exact p-values without relying on asymptotic
 approximations, making it particularly suitable for small sample sizes.</p>
 <p><strong>Algorithm Workflow:</strong></p><ol><li><p>Data preprocessing and frequency computation</p></li>
-<li><p>Rare category identification and pre-merging (frequencies &lt; <code>bin_cutoff</code>)</p></li>
+<li><p>Rare category identification and pre-merging (frequencies &lt; <code>bin_cutoff</code>);
+    if pooling all rare categories would leave fewer than <code>min_bins</code> bins,
+    they are pooled in event-rate order into groups of at least <code>bin_cutoff</code></p></li>
 <li><p>Initial bin creation (one category per bin)</p></li>
 <li><p>Iterative merging phase:</p><ul><li><p>Compute Fisher's Exact Test p-values for all adjacent bin pairs</p></li>
 <li><p>Merge the pair with the <strong>highest</strong> p-value (most similar)</p></li>
@@ -177,10 +183,17 @@ approximations, making it particularly suitable for small sample sizes.</p>
 <li><p>Final monotonicity enforcement</p></li>
 </ol><p><strong>Fisher's Exact Test:</strong></p>
 <p>For two bins with contingency table:</p>
-<table class="table table"><tr><td></td><td>Bin 1</td><td>Bin 2</td></tr><tr><td>Positives</td><td>\(a\)</td><td>\(c\)</td></tr><tr><td>Negatives</td><td>\(b\)</td><td>\(d\)</td></tr></table><p>The exact probability under the null hypothesis of independence is:</p>
-<p>$$p = \frac{(a+b)!(c+d)!(a+c)!(b+d)!}{n! \cdot a! \cdot b! \cdot c! \cdot d!}$$</p>
-<p>where \(n = a + b + c + d\). Higher p-values indicate greater similarity
-(less evidence against the null hypothesis of identical distributions).</p>
+<table class="table table"><tr><td></td><td>Bin 1</td><td>Bin 2</td></tr><tr><td>Positives</td><td>\(a\)</td><td>\(c\)</td></tr><tr><td>Negatives</td><td>\(b\)</td><td>\(d\)</td></tr></table><p>Under the null hypothesis of identical event rates, with all margins fixed,
+the number of positives in Bin 1 is hypergeometric, and the probability of
+a table with \(x\) positives in Bin 1 is</p>
+<p>$$P(x) = \frac{\binom{a+b}{x}\binom{c+d}{a+c-x}}{\binom{n}{a+c}}, \quad n = a + b + c + d.$$</p>
+<p>The two-sided p-value is the total probability of all tables with the same
+margins that are no more likely than the observed one,
+\(p = \sum_{x:\,P(x) \le P(a)} P(x)\) (with the relative tolerance
+\(10^{-7}\) used by <code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test</a></code>), which is the value
+<code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test()</a></code> reports. Higher p-values indicate greater similarity
+(less evidence against the null hypothesis of identical distributions).
+Monotonicity repairs stop at <code>min_bins</code>.</p>
 <p><strong>Key Features:</strong></p><ul><li><p><strong>Exact inference</strong>: No asymptotic approximations required</p></li>
 <li><p><strong>Small sample robustness</strong>: Valid for any sample size</p></li>
 <li><p><strong>Automatic monotonicity</strong>: WoE ordering enforced after each merge</p></li>
@@ -275,9 +288,9 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ChiMerge:</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Final bins:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">result_cm</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Final bins: 4 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Final bins: 3 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Total IV:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result_cm</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Total IV: 0.2937 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Total IV: 0.25 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 3: Small sample size (Fisher's advantage)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span></span>
@@ -357,11 +370,11 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Bin"</span>, <span class="va">i</span>, <span class="st">"contains"</span>, <span class="va">n_merged</span>, <span class="st">"merged categories\n"</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="op">}</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 1 contains 4 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 2 contains 4 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 1 contains 3 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 2 contains 5 merged categories</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 4 contains 12 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 5 contains 6 merged categories</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 6 contains 3 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 5 contains 7 merged categories</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Bin 6 contains 2 merged categories</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 5: Missing value handling</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">456</span><span class="op">)</span></span></span>
@@ -386,9 +399,9 @@ credit scoring. <em>Applied Mathematical Sciences</em>, 8(65), 3229-3242.</p>
 <span class="r-in"><span><span class="op">}</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Missing value handling:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   NA bin: Budget%;%NA </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   NA count: 174 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   NA WoE: 0.427 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   NA bin: Budget%;%NA%;%Economy </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   NA count: 260 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   NA WoE: 0.54 </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

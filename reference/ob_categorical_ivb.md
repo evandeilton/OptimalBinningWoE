@@ -63,7 +63,9 @@ ob_categorical_ivb(
 - bin_separator:
 
   Character string used to concatenate category names when multiple
-  categories are merged into a single bin. Defaults to "%;%".
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
 
 - convergence_threshold:
 
@@ -132,7 +134,9 @@ subject to constraints on bin count and monotonicity.
 
 2.  Single-pass category counting and statistics computation
 
-3.  Rare category pre-merging (frequencies \< `bin_cutoff`)
+3.  Rare category pre-merging (frequencies \< `bin_cutoff`); if pooling
+    all rare categories would leave fewer than `min_bins` bins, they are
+    pooled in event-rate order into groups of at least `bin_cutoff`
 
 4.  Pre-bin limitation (if categories \> `max_n_prebins`)
 
@@ -147,8 +151,6 @@ subject to constraints on bin count and monotonicity.
 
     - Transition: \\DP\[i\]\[k\] = \max_j \\DP\[j\]\[k-1\] + IV(j+1,
       i)\\\\
-
-    - Banded optimization to skip infeasible splits
 
 8.  Backtracking to reconstruct optimal bins
 
@@ -218,8 +220,6 @@ by:
 - **Bayesian regularization**: Robust to sparse bins and class imbalance
 
 - **Efficient caching**: Cumulative stats and IV memoization
-
-- **Banded optimization**: Reduced search space via feasibility pruning
 
 - **Adaptive monotonicity**: Context-aware threshold for enforcement
 

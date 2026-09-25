@@ -27,9 +27,11 @@ ob_check_distincts(x, target)
 
 ## Value
 
-Integer scalar representing the number of unique values in `x`,
-excluding `NA` values. Returns 0 if `x` is empty or contains only `NA`
-values.
+Integer vector of length 2: the number of distinct values of `x`
+(excluding `NA`, `NaN` and `Inf`; numeric values are compared exactly,
+and `0` and `-0` are the same value) and the largest number of distinct
+target classes observed for a single value. Rows whose target is `NA`
+are ignored. Both are 0 when `x` contains only missing values.
 
 ## Details
 

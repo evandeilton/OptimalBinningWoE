@@ -31,14 +31,17 @@ ob_numerical_mdlp(
 
 - feature:
 
-  Numeric vector of feature values to be binned. Missing values (NA) are
-  automatically removed during preprocessing. Infinite values trigger a
-  warning but are handled internally.
+  Numeric vector of feature values to be binned. Missing values (NA)
+  Missing values (`NA`/`NaN`) are excluded from the fit silently, so the
+  bin counts sum to the number of non-missing rows. Infinite values are
+  legitimate extremes: they never become cutpoints and are counted in
+  the first (`-Inf`) or last (`+Inf`) bin.
 
 - target:
 
   Integer vector of binary target values (must contain only 0 and 1).
-  Must have the same length as `feature`.
+  Must have the same length as `feature`. Missing values are not
+  permitted (an error is raised).
 
 - min_bins:
 
@@ -97,7 +100,7 @@ A list containing:
 
 - bin:
 
-  Character vector of bin intervals in the format `"[lower;upper)"`. The
+  Character vector of bin intervals in the format `"(lower;upper]"`. The
   first bin starts with `-Inf` and the last bin ends with `+Inf`.
 
 - woe:
@@ -155,7 +158,8 @@ Input data is validated for:
 
 - Parameter consistency (`min_bins <= max_bins`, valid ranges)
 
-- Missing value detection (NaN/Inf are filtered out with a warning)
+- Missing values: `NA`/`NaN` rows are excluded silently and `Inf` values
+  are kept in the extreme bins
 
 Feature-target pairs are sorted by feature value in ascending order,
 enabling efficient bin assignment via linear scan.
@@ -197,8 +201,8 @@ where:
   Encodes the number of bins. Increases logarithmically with bin count,
   penalizing complex models.
 
-- **Data Cost**: \\L\_{\text{data}}(k) = N \cdot H(S\_{\text{total}}) -
-  \sum\_{i=1}^{k} n_i \cdot H(S_i)\\
+- **Data Cost**: \\L\_{\text{data}}(k) = \sum\_{i=1}^{k} n_i \cdot
+  H(S_i)\\
 
   Measures unexplained uncertainty after binning. Lower values indicate
   better class separation.
@@ -264,8 +268,8 @@ bins.
 
 Information Value is computed as:
 
-\$\$\text{IV}\_i = \left(\frac{n_i^{+}}{n^{+}} -
-\frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}\_i\$\$
+\$\$\text{IV}\_i = \left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} -
+\frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right) \times \text{WoE}\_i\$\$
 
 **Comparison with Other Methods**
 

@@ -128,13 +128,11 @@ The algorithm follows these steps:
 2.  Rare category handling: Categories below `bin_cutoff` frequency are
     merged with similar ones
 
-3.  Bin reduction: Greedily merge bins to satisfy `min_bins` and
-    `max_bins` constraints
+3.  Monotonic ordering: bins are ordered by WoE (a categorical feature
+    has no natural order, so this ordering is monotone by construction)
 
-4.  Monotonicity enforcement: Ensures WoE is either consistently
-    increasing or decreasing across bins
-
-5.  Optimization: Iteratively improves Information Value
+4.  Bin reduction: while there are more than `max_bins` bins, the two
+    WoE-adjacent bins whose merge loses the least IV are merged
 
 Key features include:
 
@@ -182,16 +180,16 @@ target <- rbinom(n, 1, prob = ifelse(feature %in% c("a", "b"), 0.7, 0.3))
 result <- ob_categorical_milp(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "h"             "b%;%f%;%c%;%g" "a%;%d%;%e"    
+#> [1] "f%;%c%;%h" "e%;%d"     "g"         "a"         "b"        
 #> 
 #> $woe
-#> [1] -0.55634710  0.02805836  0.14604873
+#> [1] -0.5956586 -0.4119210 -0.2096304  1.1317116  1.4348044
 #> 
 #> $iv
-#> [1] 0.0379899544 0.0003986034 0.0078405377
+#> [1] 0.122239809 0.037903254 0.005811696 0.164890413 0.256633210
 #> 
 #> $count
-#> [1] 132 505 363
+#> [1] 374 235 135 128 128
 #> 
 
 # With custom parameters

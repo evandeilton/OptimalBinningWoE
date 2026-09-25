@@ -279,7 +279,7 @@ model
 #>   credit_history: IV = 0.2908 (5 bins, jedi)
 #>   duration: IV = 0.2727 (6 bins, jedi)
 #>   savings: IV = 0.1946 (5 bins, jedi)
-#>   purpose: IV = 0.1667 (6 bins, jedi)
+#>   purpose: IV = 0.1544 (6 bins, jedi)
 #>   ... and 15 more
 ```
 
@@ -293,8 +293,8 @@ summary(model)
 #> 
 #> Aggregate Statistics:
 #>   Features: 20 total, 20 successful, 0 errors
-#>   Total IV: 2.1900
-#>   Mean IV: 0.1095 (SD: 0.1572)
+#>   Total IV: 2.1777
+#>   Mean IV: 0.1089 (SD: 0.1570)
 #>   Median IV: 0.0509
 #>   IV Range: [0.0000, 0.6640]
 #>   Mean Bins: 3.6
@@ -311,7 +311,7 @@ summary(model)
 #>           credit_history categorical      5 2.908e-01       Medium
 #>                 duration   numerical      6 2.727e-01       Medium
 #>                  savings categorical      5 1.946e-01       Medium
-#>                  purpose categorical      6 1.667e-01       Medium
+#>                  purpose categorical      6 1.544e-01       Medium
 #>                 property categorical      4 1.122e-01       Medium
 #>                      age   numerical      5 8.868e-02         Weak
 #>      employment_duration categorical      5 8.606e-02         Weak
@@ -347,7 +347,7 @@ head(sel[, c("feature", "type", "n_bins", "total_iv", "iv_class",
 #>  1:          credit_history categorical      5  0.29323   Medium 0.18048 0.25361      TRUE
 #>  2:                duration   numerical      6  0.27274   Medium 0.19000 0.26647      TRUE
 #>  3:                 savings categorical      5  0.19601   Medium 0.18667 0.19826     FALSE
-#>  4:                 purpose categorical      6  0.16760   Medium 0.17905 0.22114      TRUE
+#>  4:                 purpose categorical      6  0.15528   Medium 0.17095 0.21354      TRUE
 #>  5:                property categorical      4  0.11264   Medium 0.11714 0.17066      TRUE
 #>  6:                     age   numerical      5  0.08868     Weak 0.13143 0.16225      TRUE
 #>  7:     employment_duration categorical      5  0.08643     Weak 0.11952 0.16164      TRUE
@@ -530,11 +530,16 @@ a validation sample, on a scoring run, or on next month’s file.
 scored <- obwoe_apply(german, model, keep_original = FALSE)
 head(scored[, c("default", "duration_bin", "duration_woe",
                 "purpose_bin", "purpose_woe")], 4)
-#>   default          duration_bin duration_woe                      purpose_bin purpose_woe
-#> 1       0       (-Inf;7.000000]      -1.3122              domestic appliances    -0.41020
-#> 2       1      (39.000000;+Inf]       0.9939              domestic appliances    -0.41020
-#> 3       0 (10.000000;16.000000]      -0.3029 furniture/equipment%;%retraining     0.58243
-#> 4       0      (39.000000;+Inf]       0.9939                 radio/television     0.09435
+#>   default          duration_bin duration_woe
+#> 1       0       (-Inf;7.000000]      -1.3122
+#> 2       1      (39.000000;+Inf]       0.9939
+#> 3       0 (10.000000;16.000000]      -0.3029
+#> 4       0      (39.000000;+Inf]       0.9939
+#>                                                   purpose_bin purpose_woe
+#> 1                                         domestic appliances    -0.41020
+#> 2                                         domestic appliances    -0.41020
+#> 3                                                  retraining     0.59956
+#> 4 business%;%furniture/equipment%;%radio/television%;%repairs     0.08206
 ```
 
 Values outside the training range fall into the extreme bins; categories
@@ -552,16 +557,11 @@ new_data <- data.frame(
   purpose  = c("car (new)", "unseen category", "education", NA)
 )
 obwoe_apply(new_data, two, keep_original = TRUE)
-#>   duration         duration_bin duration_woe         purpose                  purpose_bin
-#> 1        4      (-Inf;7.000000]      -1.3122       car (new)                    car (new)
-#> 2       10 (7.000000;10.000000]      -0.4520 unseen category                         <NA>
-#> 3      200     (39.000000;+Inf]       0.9939       education others%;%repairs%;%education
-#> 4       NA                 <NA>       0.0000            <NA>                         <NA>
-#>   purpose_woe
-#> 1      0.3575
-#> 2      0.0000
-#> 3      0.2315
-#> 4      0.0000
+#>   duration         duration_bin duration_woe         purpose        purpose_bin purpose_woe
+#> 1        4      (-Inf;7.000000]      -1.3122       car (new)          car (new)      0.3575
+#> 2       10 (7.000000;10.000000]      -0.4520 unseen category               <NA>      0.0000
+#> 3      200     (39.000000;+Inf]       0.9939       education others%;%education      0.2392
+#> 4       NA                 <NA>       0.0000            <NA>               <NA>      0.0000
 ```
 
 A WoE-transformed frame is exactly what a logistic regression wants:
@@ -575,12 +575,12 @@ train <- scored[, c("default", woe_cols)]
 glm_fit <- glm(default ~ ., data = train, family = binomial())
 round(head(coef(summary(glm_fit)), 6), 4)
 #>                    Estimate Std. Error z value Pr(>|z|)
-#> (Intercept)         -0.8522     0.0802 -10.630    0.000
-#> credit_history_woe   0.8408     0.1520   5.532    0.000
-#> duration_woe         0.9435     0.1661   5.682    0.000
-#> savings_woe          0.9785     0.1917   5.104    0.000
-#> purpose_woe          1.0711     0.1993   5.373    0.000
-#> property_woe         0.5125     0.2715   1.888    0.059
+#> (Intercept)         -0.8534     0.0802 -10.642   0.0000
+#> credit_history_woe   0.8256     0.1513   5.455   0.0000
+#> duration_woe         0.9642     0.1666   5.789   0.0000
+#> savings_woe          0.9823     0.1916   5.128   0.0000
+#> purpose_woe          1.1243     0.2078   5.411   0.0000
+#> property_woe         0.5197     0.2716   1.914   0.0557
 ```
 
 Coefficients on WoE predictors should all come out positive: a WoE of
@@ -604,7 +604,7 @@ obwoe_sql(
 )
 #> -- ---------------------------------------------------------------
 #> -- Weight of Evidence transformation
-#> -- Generated by OptimalBinningWoE 1.13.6
+#> -- Generated by OptimalBinningWoE 1.14.0
 #> -- Algorithm(s): jedi
 #> -- Dialect: postgres
 #> -- Interval convention: (lower, upper]  -- upper bound inclusive
@@ -612,7 +612,7 @@ obwoe_sql(
 #> --
 #> -- Variable                 Type          Bins        IV
 #> --   duration               numerical        6   0.27274
-#> --   purpose                categorical      6   0.16671
+#> --   purpose                categorical      6   0.15442
 #> -- ---------------------------------------------------------------
 #> SELECT
 #> application_id,
@@ -628,12 +628,12 @@ obwoe_sql(
 #> END AS duration_woe,
 #> CASE
 #>     WHEN purpose IS NULL THEN 0
-#>     WHEN purpose IN ('business', 'car (used)') THEN -0.8019940993019
+#>     WHEN purpose = 'car (used)' THEN -0.7700640191789392
 #>     WHEN purpose = 'domestic appliances' THEN -0.4102018501730504
-#>     WHEN purpose = 'radio/television' THEN 0.094346647791107185
-#>     WHEN purpose IN ('others', 'repairs', 'education') THEN 0.23148312351021103
+#>     WHEN purpose IN ('business', 'furniture/equipment', 'radio/television', 'repairs') THEN 0.08205675680644628
+#>     WHEN purpose IN ('others', 'education') THEN 0.23924071923058887
 #>     WHEN purpose = 'car (new)' THEN 0.357522329106064
-#>     WHEN purpose IN ('furniture/equipment', 'retraining') THEN 0.5824252658391619
+#>     WHEN purpose = 'retraining' THEN 0.5995570781191829
 #>     ELSE 0
 #> END AS purpose_woe
 #> FROM risk.applications;
@@ -685,11 +685,11 @@ prep <- ob_preprocess(
 
 prep$report
 #>   variable_type missing_count outlier_count
-#> 1       numeric           100            73
+#> 1       numeric           100            84
 #>                                                                                                       original_stats
 #> 1 { min: -8995.151324, Q1: 3697.784305, median: 5113.928039, mean: 6625.179803, Q3: 6705.149551, max: 49477.654407 }
-#>                                                                                                   preprocessed_stats
-#> 1 { min: -2161.216958, Q1: 3042.732437, median: 4792.608602, mean: 4703.116058, Q3: 6517.601547, max: 11703.913644 }
+#>                                                                                                  preprocessed_stats
+#> 1 { min: -999.000000, Q1: 3042.732437, median: 4792.608602, mean: 4694.288173, Q3: 6517.601547, max: 11213.709465 }
 ```
 
 The cleaned vector is in `prep$preprocess$feature_preprocessed` and goes
@@ -755,10 +755,10 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] OptimalBinningWoE_1.13.6
+#> [1] OptimalBinningWoE_1.14.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] future_1.75.0       sass_0.4.10         generics_0.1.4      class_7.3-23       
+#>  [1] future_1.76.0       sass_0.4.10         generics_0.1.4      class_7.3-23       
 #>  [5] lattice_0.22-9      DiceDesign_1.10     listenv_1.0.0       digest_0.6.39      
 #>  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.1         
 #> [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-5       

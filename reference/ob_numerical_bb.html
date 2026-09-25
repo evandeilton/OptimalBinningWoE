@@ -13,7 +13,7 @@ Value (IV) while optionally enforcing monotonicity in Weight of Evidence (WoE)."
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,7 +77,8 @@ Value (IV) while optionally enforcing monotonicity in Weight of Evidence (WoE).<
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable
-to be binned. NA values are handled by exclusion during the pre-binning phase.</p></dd>
+to be binned. Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit;
+<code>-Inf</code>/<code>Inf</code> fall in the first/last bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -116,9 +117,9 @@ models. Defaults to <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Numeric. The threshold for the change in total
-IV to determine convergence during the iterative merging process.
-Defaults to 1e-6.</p></dd>
+<dd><p>Numeric. Accepted for backward compatibility and not
+used: merging always continues until the number of bins reaches
+<code>max_bins</code> (or <code>max_iterations</code> is exhausted). Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -159,8 +160,9 @@ optimality:</p>
   monotonicity constraint.</p></li>
 <li><p><strong>Optimization Phase:</strong> The algorithm iteratively merges adjacent
   bins that have the lowest contribution to the total Information Value (IV).
-  This process continues until the number of bins is reduced to <code>max_bins</code>
-  or the change in IV falls below <code>convergence_threshold</code>.</p></li>
+  This process continues until the number of bins is reduced to <code>max_bins</code>.
+  With <code>is_monotonic = TRUE</code> the returned WoE is monotonic unless that
+  would require fewer than <code>min_bins</code> bins.</p></li>
 </ol><p><strong>Information Value (IV) Interpretation:</strong></p><ul><li><p>\(&lt; 0.02\): Not predictive</p></li>
 <li><p>\(0.02 \text{ to } 0.1\): Weak predictive power</p></li>
 <li><p>\(0.1 \text{ to } 0.3\): Medium predictive power</p></li>

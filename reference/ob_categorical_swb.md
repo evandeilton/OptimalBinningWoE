@@ -129,7 +129,8 @@ The SWB algorithm follows these steps:
 
 1.  **Initialization**: Categories are initially grouped based on
     frequency thresholds (`bin_cutoff`), separating frequent categories
-    from rare ones.
+    from rare ones (pooled into one bin). When that leaves fewer than
+    `min_bins` bins, the largest rare categories keep their own bins.
 
 2.  **Preprocessing**: Initial bins are sorted by their WoE values to
     establish a baseline ordering.

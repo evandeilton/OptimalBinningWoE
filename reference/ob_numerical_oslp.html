@@ -23,7 +23,7 @@ packages), though these scale poorly beyond N &amp;gt; 10,000 observations.'><me
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,8 +91,11 @@ packages), though these scale poorly beyond N &gt; 10,000 observations.</p>
 
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
-<dd><p>Numeric vector of feature values. Missing values (NA) and infinite
-values are <strong>not permitted</strong> and will trigger an error.</p></dd>
+<dd><p>Numeric vector of feature values. Missing values (NA/NaN) are
+dropped silently: those rows are counted in no bin and the counts add up to the
+number of non-missing rows. <code>-Inf</code> and <code>+Inf</code> are kept as extreme values
+in the first and last bin and never become cutpoints. A feature whose values are all
+missing is an error.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -122,7 +125,9 @@ equal to <code>min_bins</code>.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Convergence threshold for IV change (default: 1e-6).</p></dd>
+<dd><p>Convergence threshold (default: 1e-6). Must be
+positive; accepted for compatibility. Monotonicity enforcement merges violations
+until none is left (or <code>min_bins</code> / <code>max_iterations</code> is reached).</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -140,10 +145,11 @@ non-negative.</p></dd>
 <dd><p>Integer bin identifiers (1-based).</p></dd>
 
   <dt>bin</dt>
-<dd><p>Character bin intervals <code>"[lower;upper)"</code>.</p></dd>
+<dd><p>Character right-closed bin intervals <code>"(lower;upper]"</code>.</p></dd>
 
   <dt>woe</dt>
-<dd><p>Numeric WoE values (guaranteed monotonic).</p></dd>
+<dd><p>Numeric WoE values (monotonic unless <code>min_bins</code> or
+    <code>max_iterations</code> stops the merging first).</p></dd>
 
   <dt>iv</dt>
 <dd><p>Numeric IV contributions per bin.</p></dd>
@@ -167,7 +173,8 @@ non-negative.</p></dd>
 <dd><p>Total Information Value.</p></dd>
 
   <dt>converged</dt>
-<dd><p>Logical convergence flag.</p></dd>
+<dd><p>Logical flag; <code>FALSE</code> only when <code>max_iterations</code> was
+    exhausted while merges were still pending.</p></dd>
 
   <dt>iterations</dt>
 <dd><p>Integer iteration count.</p></dd>

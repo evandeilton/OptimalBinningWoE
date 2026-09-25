@@ -15,7 +15,7 @@ and statistical robustness."><meta property="og:image" content="https://evandeil
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -82,7 +82,8 @@ and statistical robustness.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) are not supported and should be handled before binning.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit;
+<code>-Inf</code>/<code>Inf</code> fall in the first/last bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -199,10 +200,10 @@ numeric attributes. <em>Tools with Artificial Intelligence</em>, 388-391.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">res_cm</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;0.664416]"     "(0.665160;0.840540]" "(0.844904;1.253815]"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(1.263185;1.675697]" "(1.684436;+Inf]"    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-1.284716]"      "(-1.284716;-0.489870]" "(-0.489870;-0.097412]"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(-0.097412;0.373241]"  "(0.373241;1.253815]"   "(1.253815;+Inf]"      </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">res_cm</span><span class="op">$</span><span class="va">iv</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.2381152 0.1010034 0.2925531 0.3484273 0.3484273</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.599764630 0.451713110 0.059311155 0.005623405 0.458128572 0.731526553</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 2: Using the Chi2 Algorithm variant</span></span></span>
 <span class="r-in"><span><span class="va">res_chi2</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_cm</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span>,</span></span>
@@ -212,9 +213,9 @@ numeric attributes. <em>Tools with Artificial Intelligence</em>, 388-391.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Total IV (ChiMerge):"</span>, <span class="va">res_cm</span><span class="op">$</span><span class="va">total_iv</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV (ChiMerge): 1.328526 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV (ChiMerge): 2.306067 </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Total IV (Chi2):"</span>, <span class="va">res_chi2</span><span class="op">$</span><span class="va">total_iv</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV (Chi2): 1.328526 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Total IV (Chi2): 2.306067 </span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

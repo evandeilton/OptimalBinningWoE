@@ -151,6 +151,12 @@ A list with up to two elements (depending on `preprocess`):
 
 - Grubbs: **Removal** (replaced with `num_miss_value`).
 
+Outliers are detected among the observed values only: the missing-value
+sentinel `num_miss_value` does not enter the quartiles, mean or standard
+deviation, is never capped and is not counted in `outlier_count`, so the
+"this field was blank" information survives outlier treatment. The input
+vector is never modified.
+
 **Use Cases**:
 
 - **Before binning**: Stabilize binning algorithms by removing extreme
@@ -190,12 +196,12 @@ result_iqr <- ob_preprocess(
 
 print(result_iqr$report)
 #>   variable_type missing_count outlier_count
-#> 1       numeric             2             5
+#> 1       numeric             2             4
 #>                                                                                            original_stats
 #> 1 { min: -100.000000, Q1: 45.061458, median: 50.905956, mean: 52.773778, Q3: 57.210082, max: 250.000000 }
-#>                                                                                     preprocessed_stats
-#> 1 { min: 25.774368, Q1: 44.575383, median: 50.617563, mean: 50.502606, Q3: 56.981770, max: 75.553623 }
-# Shows: missing_count = 2, outlier_count = 3
+#>                                                                                       preprocessed_stats
+#> 1 { min: -999.000000, Q1: 44.575383, median: 50.617563, mean: 30.009026, Q3: 56.981770, max: 75.068749 }
+# Shows: missing_count = 2, outlier_count = 4 (the two NAs are not outliers)
 
 # Categorical feature
 feature_cat <- c(rep("A", 30), rep("B", 40), rep("C", 28), NA, NA)

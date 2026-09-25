@@ -11,7 +11,7 @@ Information Value (IV) for each bin."><meta property="og:image" content="https:/
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -119,11 +119,16 @@ a <code>"Special"</code>/<code>NA</code> bin for every observation.</p>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
 
-<ul><li><p>Target variable must contain only 0 and 1 values.</p></li>
+<ul><li><p>Target variable must contain only 0 and 1 values (no <code>NA</code>),
+        with both classes present, and have the same length as
+        <code>feature</code>; otherwise an error is raised.</p></li>
 <li><p>Every unique category in <code>feature</code> must be included in exactly
-        one bin definition in <code>cutpoints</code>.</p></li>
-<li><p>Categories not mentioned in <code>cutpoints</code> will be assigned to bin 0
-        (which may lead to unexpected results).</p></li>
+        one bin definition in <code>cutpoints</code>. A category of
+        <code>feature</code> that no bin lists, or a category listed in two bins,
+        is an error (unlisted categories used to be counted silently in the
+        first bin). <code>NA</code> values of <code>feature</code> are matched as the
+        category <code>"NA"</code>, the token the <code>ob_categorical_*()</code>
+        wrappers use for missing values.</p></li>
 </ul></div>
 
     <div class="section level2">

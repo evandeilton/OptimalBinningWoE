@@ -29,7 +29,7 @@ but offers no guarantees for skewed or multimodal data.'><meta property="og:imag
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -100,8 +100,12 @@ but offers no guarantees for skewed or multimodal data.</p>
 
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
-<dd><p>Numeric vector of feature values. Missing values (NA) and infinite
-values are <strong>not permitted</strong> and will trigger an error.</p></dd>
+<dd><p>Numeric vector of feature values. Missing values (NA/NaN) are
+dropped silently: those rows are counted in no bin and the counts add up to the
+number of non-missing rows. <code>-Inf</code> and <code>+Inf</code> are kept as extreme values
+in the first and last bin and never become cutpoints. A feature whose values are all
+missing is an error. Mean, standard
+deviation, minimum and maximum are computed on the finite values.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -146,7 +150,7 @@ non-negative.</p></dd>
 <dd><p>Integer bin identifiers (1-based).</p></dd>
 
   <dt>bin</dt>
-<dd><p>Character bin intervals <code>"[lower;upper)"</code>.</p></dd>
+<dd><p>Character right-closed bin intervals <code>"(lower;upper]"</code>.</p></dd>
 
   <dt>woe</dt>
 <dd><p>Numeric WoE values (monotonic after enforcement).</p></dd>
@@ -198,11 +202,13 @@ edges (plus \(-\infty\) and \(+\infty\) boundaries).</p>
 cutpoints align with natural quantiles:</p><ul><li><p>\(\mu - 2\sigma\) to \(\mu + 2\sigma\) captures ~95% of data (68-95-99.7 rule)</p></li>
 <li><p>Equal-width ensures coverage of entire range</p></li>
 </ul><p><strong>Limitation</strong>: For skewed distributions (e.g., log-normal), \(\mu - 2\sigma\)
-may fall outside the data range, creating empty bins.</p>
+may fall outside the data range, creating empty bins. Empty bins are always
+merged away, even below <code>min_bins</code> (which cannot be met with bins that hold
+no observation).</p>
 <p><strong>Special Case</strong>: If \(\sigma &lt; \epsilon\) (feature is nearly constant),
 fallback to pure equal-width binning.</p>
 <p><strong>Phase 2: Observation Assignment</strong></p>
-<p>Each observation is assigned to a bin via linear search:
+<p>Each observation is assigned to its right-closed bin (binary search):
 $$\text{bin}(x_i) = \min\{j : x_i &gt; \text{lower}_j \land x_i \le \text{upper}_j\}$$</p>
 <p>Counts are accumulated: <code>count</code>, <code>count_pos</code>, <code>count_neg</code>.</p>
 <p><strong>Phase 3: Rare Bin Merging (SUPERVISED)</strong></p>

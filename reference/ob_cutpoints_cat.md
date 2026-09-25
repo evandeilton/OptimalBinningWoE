@@ -87,13 +87,16 @@ back to a `"Special"`/`NA` bin for every observation.
 
 ## Note
 
-- Target variable must contain only 0 and 1 values.
+- Target variable must contain only 0 and 1 values (no `NA`), with both
+  classes present, and have the same length as `feature`; otherwise an
+  error is raised.
 
 - Every unique category in `feature` must be included in exactly one bin
-  definition in `cutpoints`.
-
-- Categories not mentioned in `cutpoints` will be assigned to bin 0
-  (which may lead to unexpected results).
+  definition in `cutpoints`. A category of `feature` that no bin lists,
+  or a category listed in two bins, is an error (unlisted categories
+  used to be counted silently in the first bin). `NA` values of
+  `feature` are matched as the category `"NA"`, the token the
+  `ob_categorical_*()` wrappers use for missing values.
 
 ## Examples
 

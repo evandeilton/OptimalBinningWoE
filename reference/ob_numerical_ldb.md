@@ -26,13 +26,17 @@ ob_numerical_ldb(
 
 - feature:
 
-  Numeric vector of feature values to be binned. Missing values (NA) and
-  infinite values are automatically filtered out during preprocessing.
+  Numeric vector of feature values to be binned. Missing values (NA)
+  Missing values (`NA`/`NaN`) are excluded from the fit silently, so the
+  bin counts sum to the number of non-missing rows. Infinite values are
+  legitimate extremes: they never become cutpoints and are counted in
+  the first (`-Inf`) or last (`+Inf`) bin.
 
 - target:
 
   Integer vector of binary target values (must contain only 0 and 1).
-  Must have the same length as `feature`.
+  Must have the same length as `feature`. Missing values are not
+  permitted (an error is raised).
 
 - min_bins:
 
@@ -68,7 +72,9 @@ ob_numerical_ldb(
 - max_iterations:
 
   Maximum number of iterations for merging operations (default: 1000).
-  Prevents infinite loops in edge cases.
+  Prevents infinite loops in edge cases. The `max_bins` limit is
+  enforced even beyond this cap, which is then reported through
+  `converged = FALSE`.
 
 ## Value
 
@@ -173,8 +179,11 @@ K\alpha}\$\$
 and \\K\\ is the total number of bins. The Information Value for bin
 \\i\\ is:
 
-\$\$\text{IV}\_i = (\text{DistGood}\_i - \text{DistBad}\_i) \times
-\text{WoE}\_i\$\$
+\$\$\text{IV}\_i = \left(\frac{n_i^{+}}{n^{+}} -
+\frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}\_i\$\$
+
+(the unsmoothed class distributions; smoothing enters through the WoE
+only).
 
 Total IV aggregates discriminatory power: \\\text{IV}\_{\text{total}} =
 \sum\_{i=1}^{K} \text{IV}\_i\\.
@@ -225,8 +234,8 @@ Two merging criteria are applied sequentially:
 
 **Computational Complexity**
 
-- KDE computation: \\O(n^2)\\ for naive implementation (each of \\n\\
-  points evaluates \\n\\ kernel terms).
+- KDE computation: \\O(n + G^2)\\ by linear binning on a fixed grid of
+  \\G = 512\\ points (the naive estimator is \\O(n^2)\\).
 
 - Binary search for bin assignment: \\O(n \log K)\\ where \\K\\ is the
   number of bins.
@@ -234,7 +243,7 @@ Two merging criteria are applied sequentially:
 - Merge iterations: \\O(K^2 \times \text{max\\iterations})\\ in worst
   case.
 
-For large datasets (\\n \> 10^5\\), the KDE phase dominates runtime.
+For large datasets the initial sort, \\O(n \log n)\\, dominates runtime.
 
 ## References
 

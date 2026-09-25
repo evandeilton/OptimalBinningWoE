@@ -62,7 +62,7 @@ fit <- obwoe(gc_data, target = "target", feature = c("duration", "purpose"),
 fit$summary[, c("feature", "type", "algorithm", "n_bins", "total_iv")]
 #>    feature        type algorithm n_bins total_iv
 #> 1 duration   numerical      jedi      5   0.2474
-#> 2  purpose categorical      jedi      5   0.1653
+#> 2  purpose categorical      jedi      5   0.1533
 ```
 
 **Or by calling the engine directly**, which returns a plain list for
@@ -575,26 +575,26 @@ knitr::kable(num_res[order(-num_res$total_iv), ], row.names = FALSE,
 | algorithm | bins | total_iv |
 |:----------|-----:|---------:|
 | jedi_mwoe |    5 |   0.4947 |
+| udt       |    5 |   0.2781 |
 | ewb       |    5 |   0.2747 |
 | ubsd      |    5 |   0.2680 |
-| lpdb      |    5 |   0.2635 |
+| lpdb      |    5 |   0.2626 |
 | dp        |    5 |   0.2568 |
-| udt       |    5 |   0.2546 |
+| mblp      |    5 |   0.2537 |
 | fetb      |    5 |   0.2531 |
 | mob       |    5 |   0.2531 |
 | mrblp     |    5 |   0.2531 |
+| cm        |    4 |   0.2487 |
 | jedi      |    5 |   0.2474 |
 | oslp      |    5 |   0.2458 |
 | dmiv      |    5 |   0.2395 |
 | ir        |    5 |   0.2338 |
 | kmb       |    4 |   0.2290 |
 | bb        |    5 |   0.2281 |
-| cm        |    5 |   0.2237 |
 | sketch    |    4 |   0.2134 |
-| mblp      |    4 |   0.1961 |
 | mdlp      |    3 |   0.1910 |
+| ldb       |    4 |   0.1807 |
 | fast_mdlp |    2 |   0.1556 |
-| ldb       |    2 |   0.0923 |
 
 Numerical engines on `duration` {.table}
 
@@ -607,22 +607,22 @@ knitr::kable(cat_res[order(-cat_res$total_iv), ], row.names = FALSE,
 
 | algorithm | bins | total_iv |
 |:----------|-----:|---------:|
+| mob       |    5 |   0.1656 |
 | gmb       |    5 |   0.1656 |
 | mba       |    5 |   0.1656 |
-| jedi      |    5 |   0.1653 |
-| cm        |    5 |   0.1645 |
+| milp      |    5 |   0.1656 |
+| sab       |    5 |   0.1656 |
 | sblp      |    5 |   0.1629 |
-| sab       |    5 |   0.1562 |
 | dmiv      |    5 |   0.1549 |
 | dp        |    5 |   0.1533 |
+| fetb      |    5 |   0.1533 |
+| jedi      |    5 |   0.1533 |
 | ivb       |    5 |   0.1525 |
-| fetb      |    5 |   0.1513 |
 | sketch    |    5 |   0.1464 |
 | udt       |    5 |   0.1464 |
 | swb       |    5 |   0.1464 |
-| jedi_mwoe |    2 |   0.1272 |
-| mob       |    4 |   0.0687 |
-| milp      |    2 |   0.0576 |
+| cm        |    2 |   0.1414 |
+| jedi_mwoe |    3 |   0.1349 |
 
 Categorical engines on `purpose` {.table}
 

@@ -30,7 +30,8 @@ ob_numerical_dmiv(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) are excluded during the pre-binning phase.
+  Missing values (`NA`/`NaN`) are excluded from the fit; `-Inf`/`Inf`
+  fall in the first/last bin.
 
 - target:
 
@@ -66,8 +67,9 @@ ob_numerical_dmiv(
 
 - convergence_threshold:
 
-  Numeric. The threshold for the change in total divergence to determine
-  convergence during the iterative merging process. Defaults to 1e-6.
+  Numeric. Accepted for backward compatibility and not used: merging
+  always continues until the number of bins reaches `max_bins` (or
+  `max_iterations` is exhausted). Defaults to 1e-6.
 
 - max_iterations:
 
@@ -89,8 +91,6 @@ ob_numerical_dmiv(
 
   Character string specifying the divergence measure to maximize.
   Available options:
-
-  - `"iv"`: Information Value (conceptually similar to KL).
 
   - `"he"`: Hellinger Distance.
 
@@ -122,6 +122,8 @@ A list containing the binning results:
 
 - `woe`: Numeric vector of Weight of Evidence for each bin.
 
+- `iv`: Numeric vector of standard Information Value per bin.
+
 - `divergence`: Numeric vector of the chosen divergence contribution per
   bin.
 
@@ -133,7 +135,13 @@ A list containing the binning results:
 
 - `cutpoints`: Numeric vector of upper boundaries (excluding Inf).
 
+- `converged`: Logical indicating if the algorithm converged.
+
+- `iterations`: Integer count of merging iterations performed.
+
 - `total_divergence`: The sum of the divergence measure across all bins.
+
+- `total_iv`: The total standard Information Value.
 
 - `bin_method`: The WoE calculation method used.
 

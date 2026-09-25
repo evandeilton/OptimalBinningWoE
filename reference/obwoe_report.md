@@ -97,7 +97,7 @@ german$default <- 1L - german$credit_risk
 german$credit_risk <- NULL
 
 sc <- obwoe_scorecard(german, target = "default", seed = 1)
-#> Warning: 210 events for 13 variables (16.2 per variable): below the 20-events-per-variable rule of thumb, so the coefficients are unstable.
+#> Warning: 210 events for 14 variables (15.0 per variable): below the 20-events-per-variable rule of thumb, so the coefficients are unstable.
 obwoe_report(sc, file = file.path(tempdir(), "scorecard.xlsx"))
 # }
 ```

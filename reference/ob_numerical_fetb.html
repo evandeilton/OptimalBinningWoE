@@ -13,7 +13,7 @@ Weight of Evidence (WoE) trend."><meta property="og:image" content="https://evan
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,7 +75,8 @@ Weight of Evidence (WoE) trend.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be handled prior to binning.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit;
+<code>-Inf</code>/<code>Inf</code> fall in the first/last bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -94,14 +95,14 @@ Defaults to 3.</p></dd>
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Integer. The number of initial quantiles to generate
-during the pre-binning phase. Defaults to 20.</p></dd>
+<dd><p>Integer. The maximum number of equal-frequency bins
+created during the pre-binning phase (at least 2). Defaults to 20.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Numeric. The threshold for the change in Information
-Value (IV) to determine convergence during the iterative merging process.
-Defaults to 1e-6.</p></dd>
+<dd><p>Numeric. Accepted for backward compatibility and not
+used: merging always continues until the number of bins reaches
+<code>max_bins</code> (or <code>max_iterations</code> is exhausted). Defaults to 1e-6.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -131,7 +132,8 @@ alternative to ChiMerge.</p>
         the exact hypergeometric probability of independence between the bin index
         and the target.</p></li>
 <li><p><strong>Merge Criterion:</strong> In each step, the algorithm identifies the pair of
-        adjacent bins with the <em>highest</em> p-value (indicating they are the most
+        adjacent bins with the <em>highest</em> two-sided Fisher p-value (defined as
+        in <code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test</a></code>; indicating they are the most
         statistically indistinguishable) and merges them.</p></li>
 <li><p><strong>Monotonicity:</strong> The algorithm incorporates a check after every merge
         to ensure the WoE trend remains monotonic, merging strictly violating bins

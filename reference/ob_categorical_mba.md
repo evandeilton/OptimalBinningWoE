@@ -177,7 +177,7 @@ where priors are proportional to overall prevalence:
 \$\$\alpha_p = \alpha\_{total} \times \frac{N\_{pos}}{N\_{pos} +
 N\_{neg}}\$\$ \$\$\alpha_n = \alpha\_{total} - \alpha_p\$\$
 
-with \\\alpha\_{total} = 1.0\\ as the prior strength parameter.
+with \\\alpha\_{total} = 0.5\\ as the prior strength parameter.
 
 **Intelligent Bin Merging:**
 
@@ -193,9 +193,7 @@ predictive information.
 
 - Time: \\O(k^2 \cdot m)\\ where \\k\\ = bins, \\m\\ = iterations
 
-- Space: \\O(k^2)\\ for IV loss cache
-
-- Cache hit rate typically \> 75% for \\k \> 10\\
+- Space: \\O(k)\\
 
 **Key Features:**
 
@@ -325,7 +323,7 @@ cat(
   "  Std WoE differences:",
   paste(round(diff(result_std_comp$woe), 4), collapse = ", "), "\n"
 )
-#>   Std WoE differences: 0.1431, 0.0695, 0.0645 
+#>   Std WoE differences: 0.1431, 0.0984 
 cat("  Std monotonic:", all(diff(result_std_comp$woe) >= -1e-10), "\n")
 #>   Std monotonic: TRUE 
 
@@ -407,7 +405,7 @@ cat(
   "  Largest merged bin contains:",
   max(sapply(strsplit(result_mba_hc$bin, "%;%"), length)), "categories\n"
 )
-#>   Largest merged bin contains: 19 categories
+#>   Largest merged bin contains: 11 categories
 
 # Verify monotonicity in high-cardinality case
 woe_monotonic <- all(diff(result_mba_hc$woe) >= -1e-10)

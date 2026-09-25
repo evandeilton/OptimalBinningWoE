@@ -13,7 +13,7 @@ observations to bins and maps them to their corresponding WoE values."><meta pro
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -133,7 +133,10 @@ that bin's WoE instead of <code>na_woe</code>.</p></dd>
 <p><strong>Numerical Features</strong>:
 Observations are assigned to bins based on cutpoints stored in the
 <code>obwoe</code> object. The <code><a href="https://rdrr.io/r/base/cut.html" class="external-link">cut()</a></code> function is used with intervals
-\((a_i, a_{i+1}]\) where \(a_0 = -\infty\) and \(a_k = +\infty\).</p>
+\((a_i, a_{i+1}]\) where \(a_0 = -\infty\) and \(a_k = +\infty\).
+When the binner reserved a trailing bin labelled <code>"NA"</code> for missing
+values (as <code><a href="ob_numerical_udt.html">ob_numerical_udt</a></code> does), missing values are
+assigned to that bin; otherwise they get <code>na_woe</code>.</p>
 <p><strong>Categorical Features</strong>:
 Categories are matched directly to bin labels. Categories not seen
 during training are assigned <code>NA</code> for bin and <code>na_woe</code> for WoE.</p>

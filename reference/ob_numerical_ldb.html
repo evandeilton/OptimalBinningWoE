@@ -13,7 +13,7 @@ and Information Value (IV) for binary classification tasks."><meta property="og:
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,12 +77,15 @@ and Information Value (IV) for binary classification tasks.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>Numeric vector of feature values to be binned. Missing values (NA)
-and infinite values are automatically filtered out during preprocessing.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit
+silently, so the bin counts sum to the number of non-missing rows. Infinite
+values are legitimate extremes: they never become cutpoints and are counted
+in the first (<code>-Inf</code>) or last (<code>+Inf</code>) bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>Integer vector of binary target values (must contain only 0 and 1).
-Must have the same length as <code>feature</code>.</p></dd>
+Must have the same length as <code>feature</code>. Missing values are not permitted (an error is raised).</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -118,7 +121,9 @@ merged until global monotonicity is achieved.</p></dd>
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
 <dd><p>Maximum number of iterations for merging operations
-(default: 1000). Prevents infinite loops in edge cases.</p></dd>
+(default: 1000). Prevents infinite loops in edge cases. The <code>max_bins</code>
+limit is enforced even beyond this cap, which is then reported through
+<code>converged = FALSE</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -189,7 +194,8 @@ prevent division by zero:</p>
 <p>where:</p>
 <p>$$\text{DistGood}_i = \frac{n_{i}^{+} + \alpha}{n^{+} + K\alpha}, \quad \text{DistBad}_i = \frac{n_{i}^{-} + \alpha}{n^{-} + K\alpha}$$</p>
 <p>and \(K\) is the total number of bins. The Information Value for bin \(i\) is:</p>
-<p>$$\text{IV}_i = (\text{DistGood}_i - \text{DistBad}_i) \times \text{WoE}_i$$</p>
+<p>$$\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i$$</p>
+<p>(the unsmoothed class distributions; smoothing enters through the WoE only).</p>
 <p>Total IV aggregates discriminatory power: \(\text{IV}_{\text{total}} = \sum_{i=1}^{K} \text{IV}_i\).</p>
 <p><strong>Phase 3: Monotonicity Enforcement</strong></p>
 <p>When <code>enforce_monotonic = TRUE</code>, the algorithm ensures WoE values are
@@ -223,12 +229,12 @@ feature values and credit risk.</p>
     within "static" supervised methods that do not require iterative feedback
     from the model, unlike dynamic methods (e.g., ChiMerge).</p></li>
 </ul><p><strong>Computational Complexity</strong></p>
-<ul><li><p>KDE computation: \(O(n^2)\) for naive implementation (each of \(n\)
-    points evaluates \(n\) kernel terms).</p></li>
+<ul><li><p>KDE computation: \(O(n + G^2)\) by linear binning on a fixed grid of
+    \(G = 512\) points (the naive estimator is \(O(n^2)\)).</p></li>
 <li><p>Binary search for bin assignment: \(O(n \log K)\) where \(K\) is
     the number of bins.</p></li>
 <li><p>Merge iterations: \(O(K^2 \times \text{max\_iterations})\) in worst case.</p></li>
-</ul><p>For large datasets (\(n &gt; 10^5\)), the KDE phase dominates runtime.</p>
+</ul><p>For large datasets the initial sort, \(O(n \log n)\), dominates runtime.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

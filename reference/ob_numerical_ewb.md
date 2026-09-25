@@ -27,8 +27,8 @@ ob_numerical_ewb(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) are excluded during the pre-binning phase but
-  should ideally be handled prior to binning.
+  Missing values (`NA`/`NaN`) are excluded from the fit; `-Inf`/`Inf`
+  fall in the first/last bin.
 
 - target:
 
@@ -178,6 +178,5 @@ target_outlier <- c(target, 0)
 # Note: The algorithm tries to recover, but the initial split is distorted
 res_outlier <- ob_numerical_ewb(feature_outlier, target_outlier, max_bins = 5)
 print(res_outlier$bin)
-#> [1] "(-Inf;500.044208]"        "(500.044208;9500.002327]"
-#> [3] "(9500.002327;+Inf]"      
+#> [1] "(-Inf;9500.002327]" "(9500.002327;+Inf]"
 ```

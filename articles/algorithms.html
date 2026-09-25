@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-09-19</h4>
+            <h4 data-toc-skip class="date">2026-09-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/algorithms.Rmd" class="external-link"><code>vignettes/algorithms.Rmd</code></a></small>
       <div class="d-none name"><code>algorithms.Rmd</code></div>
@@ -143,7 +143,7 @@ understands:</p>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">summary</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"feature"</span>, <span class="st">"type"</span>, <span class="st">"algorithm"</span>, <span class="st">"n_bins"</span>, <span class="st">"total_iv"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;    feature        type algorithm n_bins total_iv</span></span>
 <span><span class="co">#&gt; 1 duration   numerical      jedi      5   0.2474</span></span>
-<span><span class="co">#&gt; 2  purpose categorical      jedi      5   0.1653</span></span></code></pre></div>
+<span><span class="co">#&gt; 2  purpose categorical      jedi      5   0.1533</span></span></code></pre></div>
 <p><strong>Or by calling the engine directly</strong>, which returns a
 plain list for one feature:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -817,44 +817,54 @@ constraints:</p>
 <td align="right">0.4947</td>
 </tr>
 <tr class="even">
+<td align="left">udt</td>
+<td align="right">5</td>
+<td align="right">0.2781</td>
+</tr>
+<tr class="odd">
 <td align="left">ewb</td>
 <td align="right">5</td>
 <td align="right">0.2747</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">ubsd</td>
 <td align="right">5</td>
 <td align="right">0.2680</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">lpdb</td>
 <td align="right">5</td>
-<td align="right">0.2635</td>
+<td align="right">0.2626</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">dp</td>
 <td align="right">5</td>
 <td align="right">0.2568</td>
 </tr>
-<tr class="even">
-<td align="left">udt</td>
-<td align="right">5</td>
-<td align="right">0.2546</td>
-</tr>
 <tr class="odd">
+<td align="left">mblp</td>
+<td align="right">5</td>
+<td align="right">0.2537</td>
+</tr>
+<tr class="even">
 <td align="left">fetb</td>
 <td align="right">5</td>
 <td align="right">0.2531</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">mob</td>
 <td align="right">5</td>
 <td align="right">0.2531</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">mrblp</td>
 <td align="right">5</td>
 <td align="right">0.2531</td>
+</tr>
+<tr class="odd">
+<td align="left">cm</td>
+<td align="right">4</td>
+<td align="right">0.2487</td>
 </tr>
 <tr class="even">
 <td align="left">jedi</td>
@@ -887,19 +897,9 @@ constraints:</p>
 <td align="right">0.2281</td>
 </tr>
 <tr class="even">
-<td align="left">cm</td>
-<td align="right">5</td>
-<td align="right">0.2237</td>
-</tr>
-<tr class="odd">
 <td align="left">sketch</td>
 <td align="right">4</td>
 <td align="right">0.2134</td>
-</tr>
-<tr class="even">
-<td align="left">mblp</td>
-<td align="right">4</td>
-<td align="right">0.1961</td>
 </tr>
 <tr class="odd">
 <td align="left">mdlp</td>
@@ -907,14 +907,14 @@ constraints:</p>
 <td align="right">0.1910</td>
 </tr>
 <tr class="even">
+<td align="left">ldb</td>
+<td align="right">4</td>
+<td align="right">0.1807</td>
+</tr>
+<tr class="odd">
 <td align="left">fast_mdlp</td>
 <td align="right">2</td>
 <td align="right">0.1556</td>
-</tr>
-<tr class="odd">
-<td align="left">ldb</td>
-<td align="right">2</td>
-<td align="right">0.0923</td>
 </tr>
 </tbody>
 </table>
@@ -932,34 +932,34 @@ constraints:</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td align="left">mob</td>
+<td align="right">5</td>
+<td align="right">0.1656</td>
+</tr>
+<tr class="even">
 <td align="left">gmb</td>
 <td align="right">5</td>
 <td align="right">0.1656</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">mba</td>
 <td align="right">5</td>
 <td align="right">0.1656</td>
 </tr>
-<tr class="odd">
-<td align="left">jedi</td>
+<tr class="even">
+<td align="left">milp</td>
 <td align="right">5</td>
-<td align="right">0.1653</td>
+<td align="right">0.1656</td>
+</tr>
+<tr class="odd">
+<td align="left">sab</td>
+<td align="right">5</td>
+<td align="right">0.1656</td>
 </tr>
 <tr class="even">
-<td align="left">cm</td>
-<td align="right">5</td>
-<td align="right">0.1645</td>
-</tr>
-<tr class="odd">
 <td align="left">sblp</td>
 <td align="right">5</td>
 <td align="right">0.1629</td>
-</tr>
-<tr class="even">
-<td align="left">sab</td>
-<td align="right">5</td>
-<td align="right">0.1562</td>
 </tr>
 <tr class="odd">
 <td align="left">dmiv</td>
@@ -972,44 +972,44 @@ constraints:</p>
 <td align="right">0.1533</td>
 </tr>
 <tr class="odd">
+<td align="left">fetb</td>
+<td align="right">5</td>
+<td align="right">0.1533</td>
+</tr>
+<tr class="even">
+<td align="left">jedi</td>
+<td align="right">5</td>
+<td align="right">0.1533</td>
+</tr>
+<tr class="odd">
 <td align="left">ivb</td>
 <td align="right">5</td>
 <td align="right">0.1525</td>
 </tr>
 <tr class="even">
-<td align="left">fetb</td>
-<td align="right">5</td>
-<td align="right">0.1513</td>
-</tr>
-<tr class="odd">
 <td align="left">sketch</td>
 <td align="right">5</td>
 <td align="right">0.1464</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">udt</td>
 <td align="right">5</td>
 <td align="right">0.1464</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">swb</td>
 <td align="right">5</td>
 <td align="right">0.1464</td>
 </tr>
+<tr class="odd">
+<td align="left">cm</td>
+<td align="right">2</td>
+<td align="right">0.1414</td>
+</tr>
 <tr class="even">
 <td align="left">jedi_mwoe</td>
-<td align="right">2</td>
-<td align="right">0.1272</td>
-</tr>
-<tr class="odd">
-<td align="left">mob</td>
-<td align="right">4</td>
-<td align="right">0.0687</td>
-</tr>
-<tr class="even">
-<td align="left">milp</td>
-<td align="right">2</td>
-<td align="right">0.0576</td>
+<td align="right">3</td>
+<td align="right">0.1349</td>
 </tr>
 </tbody>
 </table>

@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-09-19</h4>
+            <h4 data-toc-skip class="date">2026-09-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -372,7 +372,7 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt;   credit_history: IV = 0.2908 (5 bins, jedi)</span></span>
 <span><span class="co">#&gt;   duration: IV = 0.2727 (6 bins, jedi)</span></span>
 <span><span class="co">#&gt;   savings: IV = 0.1946 (5 bins, jedi)</span></span>
-<span><span class="co">#&gt;   purpose: IV = 0.1667 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   purpose: IV = 0.1544 (6 bins, jedi)</span></span>
 <span><span class="co">#&gt;   ... and 15 more</span></span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span>
@@ -383,8 +383,8 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Aggregate Statistics:</span></span>
 <span><span class="co">#&gt;   Features: 20 total, 20 successful, 0 errors</span></span>
-<span><span class="co">#&gt;   Total IV: 2.1900</span></span>
-<span><span class="co">#&gt;   Mean IV: 0.1095 (SD: 0.1572)</span></span>
+<span><span class="co">#&gt;   Total IV: 2.1777</span></span>
+<span><span class="co">#&gt;   Mean IV: 0.1089 (SD: 0.1570)</span></span>
 <span><span class="co">#&gt;   Median IV: 0.0509</span></span>
 <span><span class="co">#&gt;   IV Range: [0.0000, 0.6640]</span></span>
 <span><span class="co">#&gt;   Mean Bins: 3.6</span></span>
@@ -401,7 +401,7 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt;           credit_history categorical      5 2.908e-01       Medium</span></span>
 <span><span class="co">#&gt;                 duration   numerical      6 2.727e-01       Medium</span></span>
 <span><span class="co">#&gt;                  savings categorical      5 1.946e-01       Medium</span></span>
-<span><span class="co">#&gt;                  purpose categorical      6 1.667e-01       Medium</span></span>
+<span><span class="co">#&gt;                  purpose categorical      6 1.544e-01       Medium</span></span>
 <span><span class="co">#&gt;                 property categorical      4 1.122e-01       Medium</span></span>
 <span><span class="co">#&gt;                      age   numerical      5 8.868e-02         Weak</span></span>
 <span><span class="co">#&gt;      employment_duration categorical      5 8.606e-02         Weak</span></span>
@@ -433,7 +433,7 @@ reason attached.</p>
 <span><span class="co">#&gt;  1:          credit_history categorical      5  0.29323   Medium 0.18048 0.25361      TRUE</span></span>
 <span><span class="co">#&gt;  2:                duration   numerical      6  0.27274   Medium 0.19000 0.26647      TRUE</span></span>
 <span><span class="co">#&gt;  3:                 savings categorical      5  0.19601   Medium 0.18667 0.19826     FALSE</span></span>
-<span><span class="co">#&gt;  4:                 purpose categorical      6  0.16760   Medium 0.17905 0.22114      TRUE</span></span>
+<span><span class="co">#&gt;  4:                 purpose categorical      6  0.15528   Medium 0.17095 0.21354      TRUE</span></span>
 <span><span class="co">#&gt;  5:                property categorical      4  0.11264   Medium 0.11714 0.17066      TRUE</span></span>
 <span><span class="co">#&gt;  6:                     age   numerical      5  0.08868     Weak 0.13143 0.16225      TRUE</span></span>
 <span><span class="co">#&gt;  7:     employment_duration categorical      5  0.08643     Weak 0.11952 0.16164      TRUE</span></span>
@@ -649,11 +649,16 @@ on next month’s file.</p>
 <code class="sourceCode R"><span><span class="va">scored</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">german</span>, <span class="va">model</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scored</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="st">"duration_bin"</span>, <span class="st">"duration_woe"</span>,</span>
 <span>                <span class="st">"purpose_bin"</span>, <span class="st">"purpose_woe"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   default          duration_bin duration_woe                      purpose_bin purpose_woe</span></span>
-<span><span class="co">#&gt; 1       0       (-Inf;7.000000]      -1.3122              domestic appliances    -0.41020</span></span>
-<span><span class="co">#&gt; 2       1      (39.000000;+Inf]       0.9939              domestic appliances    -0.41020</span></span>
-<span><span class="co">#&gt; 3       0 (10.000000;16.000000]      -0.3029 furniture/equipment%;%retraining     0.58243</span></span>
-<span><span class="co">#&gt; 4       0      (39.000000;+Inf]       0.9939                 radio/television     0.09435</span></span></code></pre></div>
+<span><span class="co">#&gt;   default          duration_bin duration_woe</span></span>
+<span><span class="co">#&gt; 1       0       (-Inf;7.000000]      -1.3122</span></span>
+<span><span class="co">#&gt; 2       1      (39.000000;+Inf]       0.9939</span></span>
+<span><span class="co">#&gt; 3       0 (10.000000;16.000000]      -0.3029</span></span>
+<span><span class="co">#&gt; 4       0      (39.000000;+Inf]       0.9939</span></span>
+<span><span class="co">#&gt;                                                   purpose_bin purpose_woe</span></span>
+<span><span class="co">#&gt; 1                                         domestic appliances    -0.41020</span></span>
+<span><span class="co">#&gt; 2                                         domestic appliances    -0.41020</span></span>
+<span><span class="co">#&gt; 3                                                  retraining     0.59956</span></span>
+<span><span class="co">#&gt; 4 business%;%furniture/equipment%;%radio/television%;%repairs     0.08206</span></span></code></pre></div>
 <p>Values outside the training range fall into the extreme bins;
 categories never seen during training and <code>NA</code> receive
 <code>na_woe</code>, which defaults to 0 — the neutral value, since
@@ -668,16 +673,11 @@ means “portfolio average”.</p>
 <span>  purpose  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"car (new)"</span>, <span class="st">"unseen category"</span>, <span class="st">"education"</span>, <span class="cn">NA</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">new_data</span>, <span class="va">two</span>, keep_original <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   duration         duration_bin duration_woe         purpose                  purpose_bin</span></span>
-<span><span class="co">#&gt; 1        4      (-Inf;7.000000]      -1.3122       car (new)                    car (new)</span></span>
-<span><span class="co">#&gt; 2       10 (7.000000;10.000000]      -0.4520 unseen category                         &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 3      200     (39.000000;+Inf]       0.9939       education others%;%repairs%;%education</span></span>
-<span><span class="co">#&gt; 4       NA                 &lt;NA&gt;       0.0000            &lt;NA&gt;                         &lt;NA&gt;</span></span>
-<span><span class="co">#&gt;   purpose_woe</span></span>
-<span><span class="co">#&gt; 1      0.3575</span></span>
-<span><span class="co">#&gt; 2      0.0000</span></span>
-<span><span class="co">#&gt; 3      0.2315</span></span>
-<span><span class="co">#&gt; 4      0.0000</span></span></code></pre></div>
+<span><span class="co">#&gt;   duration         duration_bin duration_woe         purpose        purpose_bin purpose_woe</span></span>
+<span><span class="co">#&gt; 1        4      (-Inf;7.000000]      -1.3122       car (new)          car (new)      0.3575</span></span>
+<span><span class="co">#&gt; 2       10 (7.000000;10.000000]      -0.4520 unseen category               &lt;NA&gt;      0.0000</span></span>
+<span><span class="co">#&gt; 3      200     (39.000000;+Inf]       0.9939       education others%;%education      0.2392</span></span>
+<span><span class="co">#&gt; 4       NA                 &lt;NA&gt;       0.0000            &lt;NA&gt;               &lt;NA&gt;      0.0000</span></span></code></pre></div>
 <p>A WoE-transformed frame is exactly what a logistic regression
 wants:</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
@@ -688,12 +688,12 @@ wants:</p>
 <span><span class="va">glm_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">default</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">train</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">glm_fit</span><span class="op">)</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                    Estimate Std. Error z value Pr(&gt;|z|)</span></span>
-<span><span class="co">#&gt; (Intercept)         -0.8522     0.0802 -10.630    0.000</span></span>
-<span><span class="co">#&gt; credit_history_woe   0.8408     0.1520   5.532    0.000</span></span>
-<span><span class="co">#&gt; duration_woe         0.9435     0.1661   5.682    0.000</span></span>
-<span><span class="co">#&gt; savings_woe          0.9785     0.1917   5.104    0.000</span></span>
-<span><span class="co">#&gt; purpose_woe          1.0711     0.1993   5.373    0.000</span></span>
-<span><span class="co">#&gt; property_woe         0.5125     0.2715   1.888    0.059</span></span></code></pre></div>
+<span><span class="co">#&gt; (Intercept)         -0.8534     0.0802 -10.642   0.0000</span></span>
+<span><span class="co">#&gt; credit_history_woe   0.8256     0.1513   5.455   0.0000</span></span>
+<span><span class="co">#&gt; duration_woe         0.9642     0.1666   5.789   0.0000</span></span>
+<span><span class="co">#&gt; savings_woe          0.9823     0.1916   5.128   0.0000</span></span>
+<span><span class="co">#&gt; purpose_woe          1.1243     0.2078   5.411   0.0000</span></span>
+<span><span class="co">#&gt; property_woe         0.5197     0.2716   1.914   0.0557</span></span></code></pre></div>
 <p>Coefficients on WoE predictors should all come out positive: a WoE of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">+1</annotation></semantics></math>
 means one log-odds more risk, so a negative coefficient signals a
@@ -715,7 +715,7 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; -- Weight of Evidence transformation</span></span>
-<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.13.6</span></span>
+<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.14.0</span></span>
 <span><span class="co">#&gt; -- Algorithm(s): jedi</span></span>
 <span><span class="co">#&gt; -- Dialect: postgres</span></span>
 <span><span class="co">#&gt; -- Interval convention: (lower, upper]  -- upper bound inclusive</span></span>
@@ -723,7 +723,7 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="co">#&gt; --</span></span>
 <span><span class="co">#&gt; -- Variable                 Type          Bins        IV</span></span>
 <span><span class="co">#&gt; --   duration               numerical        6   0.27274</span></span>
-<span><span class="co">#&gt; --   purpose                categorical      6   0.16671</span></span>
+<span><span class="co">#&gt; --   purpose                categorical      6   0.15442</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; SELECT</span></span>
 <span><span class="co">#&gt; application_id,</span></span>
@@ -739,12 +739,12 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="co">#&gt; END AS duration_woe,</span></span>
 <span><span class="co">#&gt; CASE</span></span>
 <span><span class="co">#&gt;     WHEN purpose IS NULL THEN 0</span></span>
-<span><span class="co">#&gt;     WHEN purpose IN ('business', 'car (used)') THEN -0.8019940993019</span></span>
+<span><span class="co">#&gt;     WHEN purpose = 'car (used)' THEN -0.7700640191789392</span></span>
 <span><span class="co">#&gt;     WHEN purpose = 'domestic appliances' THEN -0.4102018501730504</span></span>
-<span><span class="co">#&gt;     WHEN purpose = 'radio/television' THEN 0.094346647791107185</span></span>
-<span><span class="co">#&gt;     WHEN purpose IN ('others', 'repairs', 'education') THEN 0.23148312351021103</span></span>
+<span><span class="co">#&gt;     WHEN purpose IN ('business', 'furniture/equipment', 'radio/television', 'repairs') THEN 0.08205675680644628</span></span>
+<span><span class="co">#&gt;     WHEN purpose IN ('others', 'education') THEN 0.23924071923058887</span></span>
 <span><span class="co">#&gt;     WHEN purpose = 'car (new)' THEN 0.357522329106064</span></span>
-<span><span class="co">#&gt;     WHEN purpose IN ('furniture/equipment', 'retraining') THEN 0.5824252658391619</span></span>
+<span><span class="co">#&gt;     WHEN purpose = 'retraining' THEN 0.5995570781191829</span></span>
 <span><span class="co">#&gt;     ELSE 0</span></span>
 <span><span class="co">#&gt; END AS purpose_woe</span></span>
 <span><span class="co">#&gt; FROM risk.applications;</span></span></code></pre></div>
@@ -790,11 +790,11 @@ binning before it starts: missing values and extreme outliers.</p>
 <span></span>
 <span><span class="va">prep</span><span class="op">$</span><span class="va">report</span></span>
 <span><span class="co">#&gt;   variable_type missing_count outlier_count</span></span>
-<span><span class="co">#&gt; 1       numeric           100            73</span></span>
+<span><span class="co">#&gt; 1       numeric           100            84</span></span>
 <span><span class="co">#&gt;                                                                                                       original_stats</span></span>
 <span><span class="co">#&gt; 1 { min: -8995.151324, Q1: 3697.784305, median: 5113.928039, mean: 6625.179803, Q3: 6705.149551, max: 49477.654407 }</span></span>
-<span><span class="co">#&gt;                                                                                                   preprocessed_stats</span></span>
-<span><span class="co">#&gt; 1 { min: -2161.216958, Q1: 3042.732437, median: 4792.608602, mean: 4703.116058, Q3: 6517.601547, max: 11703.913644 }</span></span></code></pre></div>
+<span><span class="co">#&gt;                                                                                                  preprocessed_stats</span></span>
+<span><span class="co">#&gt; 1 { min: -999.000000, Q1: 3042.732437, median: 4792.608602, mean: 4694.288173, Q3: 6517.601547, max: 11213.709465 }</span></span></code></pre></div>
 <p>The cleaned vector is in
 <code>prep$preprocess$feature_preprocessed</code> and goes straight into
 <code><a href="../reference/obwoe.html">obwoe()</a></code>. Missing values become a sentinel that the binner
@@ -853,10 +853,10 @@ Machine Learning Repository.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] OptimalBinningWoE_1.13.6</span></span>
+<span><span class="co">#&gt; [1] OptimalBinningWoE_1.14.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] future_1.75.0       sass_0.4.10         generics_0.1.4      class_7.3-23       </span></span>
+<span><span class="co">#&gt;  [1] future_1.76.0       sass_0.4.10         generics_0.1.4      class_7.3-23       </span></span>
 <span><span class="co">#&gt;  [5] lattice_0.22-9      DiceDesign_1.10     listenv_1.0.0       digest_0.6.39      </span></span>
 <span><span class="co">#&gt;  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.1         </span></span>
 <span><span class="co">#&gt; [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-5       </span></span>

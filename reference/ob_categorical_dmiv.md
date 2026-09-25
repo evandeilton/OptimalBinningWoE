@@ -64,7 +64,9 @@ ob_categorical_dmiv(
 - bin_separator:
 
   Character string used to concatenate category names when multiple
-  categories are merged into a single bin. Defaults to "%;%".
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
 
 - convergence_threshold:
 
@@ -77,8 +79,10 @@ ob_categorical_dmiv(
 
 - max_iterations:
 
-  Integer. Maximum number of merge operations allowed. Prevents infinite
-  loops in edge cases. Must be \> 0. Defaults to 1000.
+  Integer. Iteration budget for the merge phase. Must be \> 0. Defaults
+  to 1000. When it is used up before the convergence tolerance is met,
+  `converged` is `FALSE`; merging still continues until `max_bins` is
+  satisfied, since `max_bins` is a hard constraint.
 
 - bin_method:
 
@@ -229,9 +233,11 @@ affects the binning structure:
   distributions
 
 **Pre-binning Strategy:** When the number of unique categories exceeds
-`max_n_prebins`, categories with fewer than 5 observations are
-aggregated into a special "PREBIN_OTHER" bin to control computational
-complexity.
+`max_n_prebins`, categories with fewer than 5 observations are pooled
+into one bin to control computational complexity. The pooled bin is
+labelled with the categories it contains, like any other bin, so it can
+be mapped when the binning is applied. Pre-binning is skipped when it
+would leave fewer than `min_bins` bins.
 
 ## References
 
@@ -320,9 +326,6 @@ result_prebin <- ob_categorical_dmiv(
   max_n_prebins = 15,
   max_bins = 5
 )
-#> Info: Number of unique categories (50) exceeds max_n_prebins (15). Pre-binning rare categories.
-#> Info: Pre-binning reduced categories from 50 to 50 initial bins.
-#> Info: Converged after 1 iterations (divergence change < threshold).
 
 cat("Final bins after pre-binning:", length(result_prebin$bin), "\n")
 #> Final bins after pre-binning: 5 

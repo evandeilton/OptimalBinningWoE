@@ -309,21 +309,21 @@ sc
 #> 
 #> Performance:
 #>   sample   n events     ks   gini    auc
-#>    train 699    210 0.5238 0.6244 0.8122
-#>  holdout 301     90 0.3592 0.4455 0.7227
+#>    train 699    210 0.5354 0.6257 0.8129
+#>  holdout 301     90 0.3338 0.4231 0.7115
 #> 
-#> Points      : 64 rows; max card-vs-model drift 2.82 (bound 7.5)
+#> Points      : 64 rows; max card-vs-model drift 2.60 (bound 7.5)
 #> 
 #> 1 warning(s); see $warnings.
 
 head(sc$points[, c("variable", "bin", "woe", "points")])
 #>   variable                   bin         woe points
-#> 1 duration       (-Inf;7.000000] -1.81150195     77
-#> 2 duration  (7.000000;11.000000] -0.56165869     47
+#> 1 duration       (-Inf;7.000000] -1.81150195     79
+#> 2 duration  (7.000000;11.000000] -0.56165869     48
 #> 3 duration (11.000000;16.000000] -0.25335733     40
 #> 4 duration (16.000000;27.000000]  0.08396997     32
-#> 5 duration (27.000000;36.000000]  0.61699631     20
-#> 6 duration      (36.000000;+Inf]  0.91194633     13
+#> 5 duration (27.000000;36.000000]  0.61699631     19
+#> 6 duration      (36.000000;+Inf]  0.91194633     12
 sc$samples$train$metrics
 #> $n
 #> [1] 699
@@ -335,13 +335,13 @@ sc$samples$train$metrics
 #> [1] 0.3004292
 #> 
 #> $auc
-#> [1] 0.8121823
+#> [1] 0.8128542
 #> 
 #> $gini
-#> [1] 0.6243646
+#> [1] 0.6257084
 #> 
 #> $ks
-#> [1] 0.5238095
+#> [1] 0.5353783
 #> 
 
 # write the workbook

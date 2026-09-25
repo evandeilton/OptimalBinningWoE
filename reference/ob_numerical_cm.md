@@ -29,8 +29,8 @@ ob_numerical_cm(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) are not supported and should be handled before
-  binning.
+  Missing values (`NA`/`NaN`) are excluded from the fit; `-Inf`/`Inf`
+  fall in the first/last bin.
 
 - target:
 
@@ -177,10 +177,10 @@ res_cm <- ob_numerical_cm(feature, target,
 )
 
 print(res_cm$bin)
-#> [1] "(-Inf;0.664416]"     "(0.665160;0.840540]" "(0.844904;1.253815]"
-#> [4] "(1.263185;1.675697]" "(1.684436;+Inf]"    
+#> [1] "(-Inf;-1.284716]"      "(-1.284716;-0.489870]" "(-0.489870;-0.097412]"
+#> [4] "(-0.097412;0.373241]"  "(0.373241;1.253815]"   "(1.253815;+Inf]"      
 print(res_cm$iv)
-#> [1] 0.2381152 0.1010034 0.2925531 0.3484273 0.3484273
+#> [1] 0.599764630 0.451713110 0.059311155 0.005623405 0.458128572 0.731526553
 
 # Example 2: Using the Chi2 Algorithm variant
 res_chi2 <- ob_numerical_cm(feature, target,
@@ -190,7 +190,7 @@ res_chi2 <- ob_numerical_cm(feature, target,
 )
 
 cat("Total IV (ChiMerge):", res_cm$total_iv, "\n")
-#> Total IV (ChiMerge): 1.328526 
+#> Total IV (ChiMerge): 2.306067 
 cat("Total IV (Chi2):", res_chi2$total_iv, "\n")
-#> Total IV (Chi2): 1.328526 
+#> Total IV (Chi2): 2.306067 
 ```

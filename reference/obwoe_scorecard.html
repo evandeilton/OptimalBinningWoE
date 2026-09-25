@@ -15,7 +15,7 @@ a model committee, a validation team and a deployment engineer can each read."><
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -346,21 +346,21 @@ Press</em>.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Performance:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   sample   n events     ks   gini    auc</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    train 699    210 0.5238 0.6244 0.8122</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  holdout 301     90 0.3592 0.4455 0.7227</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    train 699    210 0.5354 0.6257 0.8129</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  holdout 301     90 0.3338 0.4231 0.7115</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Points      : 64 rows; max card-vs-model drift 2.82 (bound 7.5)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Points      : 64 rows; max card-vs-model drift 2.60 (bound 7.5)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 warning(s); see $warnings.</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">sc</span><span class="op">$</span><span class="va">points</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"points"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   variable                   bin         woe points</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 duration       (-Inf;7.000000] -1.81150195     77</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 duration  (7.000000;11.000000] -0.56165869     47</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 duration       (-Inf;7.000000] -1.81150195     79</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 duration  (7.000000;11.000000] -0.56165869     48</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3 duration (11.000000;16.000000] -0.25335733     40</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 4 duration (16.000000;27.000000]  0.08396997     32</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5 duration (27.000000;36.000000]  0.61699631     20</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6 duration      (36.000000;+Inf]  0.91194633     13</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5 duration (27.000000;36.000000]  0.61699631     19</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6 duration      (36.000000;+Inf]  0.91194633     12</span>
 <span class="r-in"><span><span class="va">sc</span><span class="op">$</span><span class="va">samples</span><span class="op">$</span><span class="va">train</span><span class="op">$</span><span class="va">metrics</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 699</span>
@@ -372,13 +372,13 @@ Press</em>.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.3004292</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $auc</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8121823</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8128542</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $gini</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6243646</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.6257084</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ks</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.5238095</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.5353783</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># write the workbook</span></span></span>

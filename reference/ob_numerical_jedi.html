@@ -15,7 +15,7 @@ Information Value (IV) loss."><meta property="og:image" content="https://evandei
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,12 +79,16 @@ Information Value (IV) loss.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) should be handled prior to binning.</p></dd>
+Rows whose value is missing (<code>NA</code>/<code>NaN</code>) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+<code>-Inf</code> and <code>+Inf</code> are kept as extreme values of the first and
+last bin and never become a cutpoint.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>An integer vector of binary outcomes (0/1) corresponding to
-each observation in <code>feature</code>. Must have the same length as <code>feature</code>.</p></dd>
+each observation in <code>feature</code>. Must have the same length as <code>feature</code>.
+A missing value in <code>target</code> is an error.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -136,21 +140,23 @@ Defaults to 1000.</p></dd>
     <p>The JEDI algorithm is designed to be a robust "all-rounder" for credit scoring
 and risk modeling. Its methodology proceeds in four distinct stages:</p>
 <ol><li><p><strong>Initialization (Quantile Pre-binning):</strong> The feature space is
-  divided into <code>max_n_prebins</code> segments containing approximately equal
-  numbers of observations. This ensures the algorithm starts with a statistically
-  balanced view of the data.</p></li>
+  divided into up to <code>max_n_prebins</code> segments whose edges are equally
+  spaced over the sorted <em>distinct</em> feature values (for a continuous
+  feature without ties these are equal-frequency segments). A feature with
+  fewer distinct values than <code>min_bins</code> gets one bin per distinct value,
+  so the result can then hold fewer than <code>min_bins</code> bins; no empty bin
+  is ever created.</p></li>
 <li><p><strong>Stabilization (Rare Bin Merging):</strong> Adjacent bins with frequencies
-  below <code>bin_cutoff</code> are merged. The merge direction is chosen to minimize
-  the distortion of the event rate (similar to ChiMerge).</p></li>
+  below <code>bin_cutoff</code> are merged into the smaller of their two
+  neighbours (the outermost bins into their only neighbour).</p></li>
 <li><p><strong>Monotonicity Enforcement:</strong> The algorithm heuristically determines
   the dominant trend (increasing or decreasing) of the Weight of Evidence (WoE)
   and iteratively merges adjacent bins that violate this trend. This step effectively
   reduces the conditional entropy of the binning sequence with respect to the target.</p></li>
 <li><p><strong>IV Optimization:</strong> If the number of bins exceeds <code>max_bins</code>,
-  the algorithm merges the pair of adjacent bins that results in the smallest
-  decrease in total Information Value. This greedy approach ensures that the
-  final discretization retains the maximum possible predictive power given the
-  constraints.</p></li>
+  the algorithm repeatedly merges the pair of adjacent bins with the smallest
+  combined Information Value, a greedy proxy for the merge that loses the
+  least total IV.</p></li>
 </ol><p>This joint approach (Entropy/IV + Stability constraints) makes JEDI particularly
 effective for datasets with noise or non-monotonic initial distributions that
 require smoothing.</p>

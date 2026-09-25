@@ -27,13 +27,17 @@ ob_numerical_fast_mdlp(
 
 - feature:
 
-  A numeric vector representing the continuous predictor variable.
-  Missing values (NA) are excluded during the binning process.
+  A numeric vector representing the continuous predictor variable. Rows
+  whose value is missing (`NA`/`NaN`) are excluded from the fit
+  silently, so the bin counts sum to the number of non-missing rows;
+  `-Inf` and `+Inf` are kept as extreme values of the first and last bin
+  and never become a cutpoint.
 
 - target:
 
   An integer vector of binary outcomes (0/1) corresponding to each
-  observation in `feature`. Must have the same length as `feature`.
+  observation in `feature`. Must have the same length as `feature`. A
+  missing value in `target` is an error.
 
 - min_bins:
 
@@ -108,28 +112,39 @@ classic MDLP algorithm with modern monotonicity constraints.
 
 2.  **MDLP Discretization (Fayyad & Irani, 1993):**
 
-    - Recursively evaluates all possible binary splits of the sorted
-      data.
+    - Recursively evaluates the binary splits of the sorted data. Only
+      boundary points (cuts that do not fall between two values holding
+      observations of a single, common class) are candidates: the
+      entropy-minimising cut is always one of them (Fayyad & Irani,
+      1992).
 
-    - For each potential split, calculates the Information Gain (IG).
+    - For each candidate split, calculates the Information Gain (IG).
 
-    - Applies the MDLP stopping criterion: \$\$IG \> \frac{\log_2(N-1) +
-      \Delta}{N}\$\$ where \\N\\ is the total number of samples and
-      \\\Delta = \log_2(3^k - 2) - k \cdot E(S)\\ (for binary
-      classification, \\k=2\\).
+    - Applies the MDLP stopping criterion to the best split \\T\\ of a
+      set \\S\\ into \\S_1\\ and \\S_2\\: \$\$IG \> \frac{\log_2(N-1) +
+      \Delta}{N}\$\$ where \\N\\ is the number of samples in \\S\\ and
+      \\\Delta = \log_2(3^k - 2) - \[k E(S) - k_1 E(S_1) - k_2
+      E(S_2)\]\\, with \\k\\, \\k_1\\, \\k_2\\ the number of classes
+      present in \\S\\, \\S_1\\ and \\S_2\\.
 
     - Only accepts splits that significantly reduce entropy beyond what
       would be expected by chance, balancing model fit with complexity.
 
 3.  **Constraint Enforcement:**
 
-    - **Min/Max Bins:** Adjusts the number of bins to meet
-      `[min_bins, max_bins]` requirements through intelligent splitting
-      or merging.
+    - **Max Bins:** Accepted splits are applied best-first, in
+      decreasing order of the entropy reduction they achieve, and at
+      most `max_bins - 1` of them are kept. When `max_bins` is not
+      binding this yields exactly the MDLP partition.
+
+    - **Min Bins:** When MDLP accepts fewer splits, additional ones are
+      placed between distinct values, spread evenly over the distinct
+      values and then over the largest runs of observations.
 
     - **Monotonicity (if enabled):** Iteratively merges adjacent bins
       with the most similar WoE values until a strictly increasing or
-      decreasing trend is achieved across all bins.
+      decreasing trend is achieved across all bins, or only `min_bins`
+      bins remain.
 
 **Technical Notes:**
 
@@ -137,8 +152,11 @@ classic MDLP algorithm with modern monotonicity constraints.
   calculating WoE to prevent \\\log(0)\\ errors for bins with pure class
   distributions.
 
-- When all feature values are identical, the algorithm creates
-  artificial bins.
+- When all feature values are identical a single bin is returned, with a
+  warning. When the feature has fewer distinct values than `min_bins`,
+  each distinct value becomes its own bin and a warning reports that
+  `min_bins` could not be met: a bin boundary can only fall between two
+  different values.
 
 - The monotonicity enforcement phase is iterative and uses the
   `convergence_threshold` to determine when changes in WoE become
@@ -150,6 +168,10 @@ Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of
 continuous-valued attributes for classification learning. *Proceedings
 of the 13th International Joint Conference on Artificial Intelligence*,
 1022-1029.
+
+Fayyad, U. M., & Irani, K. B. (1992). On the handling of
+continuous-valued attributes in decision tree generation. *Machine
+Learning*, 8, 87-102.
 
 Kurgan, L. A., & Musilek, P. (2006). A survey of techniques. *IEEE
 Transactions on Knowledge and Data Engineering*, 18(5), 673-689.
@@ -179,10 +201,10 @@ result <- ob_numerical_fast_mdlp(feature, target,
 )
 
 print(result$bin)
-#> [1] "(-Inf;-1.185289]"      "(-1.185289;-0.506334]" "(-0.506334;0.299594]" 
-#> [4] "(0.299594;1.214589]"   "(1.214589;+Inf]"      
+#> [1] "(-Inf;-0.506334]"     "(-0.506334;0.299594]" "(0.299594;1.214589]" 
+#> [4] "(1.214589;+Inf]"     
 print(result$woe) # Should show a monotonic trend
-#> [1] -3.4659526 -1.6251167 -0.2908404  1.3817919  3.8181822
+#> [1] -2.1085564 -0.2907929  1.3818394  3.8182297
 
 # Example: Disabling monotonicity for exploratory analysis
 result_no_mono <- ob_numerical_fast_mdlp(feature, target,
@@ -192,5 +214,5 @@ result_no_mono <- ob_numerical_fast_mdlp(feature, target,
 )
 
 print(result_no_mono$woe) # May show non-monotonic patterns
-#> [1] -3.4659526 -1.6251167 -0.2908404  1.3817919  3.8181822
+#> [1] -2.1085564 -0.2907929  1.3818394  3.8182297
 ```

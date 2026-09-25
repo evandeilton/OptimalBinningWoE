@@ -23,7 +23,7 @@ overfitting in noisy datasets."><meta property="og:image" content="https://evand
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -92,13 +92,15 @@ overfitting in noisy datasets.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>Numeric vector of feature values to be binned. Missing values (NA)
-are automatically removed during preprocessing. Infinite values trigger a warning
-but are handled internally.</p></dd>
+Missing values (<code>NA</code>/<code>NaN</code>) are excluded from the fit
+silently, so the bin counts sum to the number of non-missing rows. Infinite
+values are legitimate extremes: they never become cutpoints and are counted
+in the first (<code>-Inf</code>) or last (<code>+Inf</code>) bin.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>Integer vector of binary target values (must contain only 0 and 1).
-Must have the same length as <code>feature</code>.</p></dd>
+Must have the same length as <code>feature</code>. Missing values are not permitted (an error is raised).</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -152,7 +154,7 @@ may dilute signal in small bins.</p></dd>
 <dd><p>Integer vector of bin identifiers (1-based indexing).</p></dd>
 
   <dt>bin</dt>
-<dd><p>Character vector of bin intervals in the format <code>"[lower;upper)"</code>.
+<dd><p>Character vector of bin intervals in the format <code>"(lower;upper]"</code>.
     The first bin starts with <code>-Inf</code> and the last bin ends with <code>+Inf</code>.</p></dd>
 
   <dt>woe</dt>
@@ -196,7 +198,8 @@ may dilute signal in small bins.</p></dd>
 <p><strong>Phase 1: Data Preparation and Validation</strong></p>
 <p>Input data is validated for:</p><ul><li><p>Binary target (only 0 and 1 values)</p></li>
 <li><p>Parameter consistency (<code>min_bins &lt;= max_bins</code>, valid ranges)</p></li>
-<li><p>Missing value detection (NaN/Inf are filtered out with a warning)</p></li>
+<li><p>Missing values: <code>NA</code>/<code>NaN</code> rows are excluded silently and
+    <code>Inf</code> values are kept in the extreme bins</p></li>
 </ul><p>Feature-target pairs are sorted by feature value in ascending order, enabling
 efficient bin assignment via linear scan.</p>
 <p><strong>Phase 2: Equal-Frequency Pre-binning</strong></p>
@@ -219,7 +222,7 @@ for bin counts 0-100, achieving 30-50% speedup compared to runtime computation.<
 <ul><li><p><strong>Model Cost</strong>: \(L_{\text{model}}(k) = \log_2(k - 1)\)</p>
 <p>Encodes the number of bins. Increases logarithmically with bin count,
     penalizing complex models.</p></li>
-<li><p><strong>Data Cost</strong>: \(L_{\text{data}}(k) = N \cdot H(S_{\text{total}}) - \sum_{i=1}^{k} n_i \cdot H(S_i)\)</p>
+<li><p><strong>Data Cost</strong>: \(L_{\text{data}}(k) = \sum_{i=1}^{k} n_i \cdot H(S_i)\)</p>
 <p>Measures unexplained uncertainty after binning. Lower values indicate better
     class separation.</p></li>
 </ul><p>The algorithm iteratively evaluates all \(k-1\) adjacent bin pairs, computing
@@ -251,7 +254,7 @@ are iteratively merged until:</p>
 <li><p>If \(n_i^{+} + \alpha = 0\): \(\text{WoE}_i = -20\) (capped)</p></li>
 <li><p>If \(n_i^{-} + \alpha = 0\): \(\text{WoE}_i = +20\) (capped)</p></li>
 </ul><p>Information Value is computed as:</p>
-<p>$$\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i$$</p>
+<p>$$\text{IV}_i = \left(\frac{n_i^{+} + \alpha}{n^{+} + k\alpha} - \frac{n_i^{-} + \alpha}{n^{-} + k\alpha}\right) \times \text{WoE}_i$$</p>
 <p><strong>Comparison with Other Methods</strong></p>
 <table class="table table"><tr><td><strong>Method</strong></td><td><strong>Stopping Criterion</strong></td><td><strong>Optimality</strong></td></tr><tr><td>MDLP</td><td>Information-theoretic (MDL cost)</td><td>Local optimum with theoretical guarantees</td></tr><tr><td>LDB</td><td>Heuristic (density minima)</td><td>No formal optimality</td></tr><tr><td>MBLP</td><td>Heuristic (IV loss threshold)</td><td>Greedy approximation</td></tr><tr><td>ChiMerge</td><td>Statistical (\(\chi^2\) test)</td><td>Dependent on significance level</td></tr></table><p><strong>Computational Complexity</strong></p>
 <ul><li><p>Sorting: \(O(N \log N)\)</p></li>

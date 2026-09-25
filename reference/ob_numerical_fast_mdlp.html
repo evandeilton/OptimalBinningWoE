@@ -15,7 +15,7 @@ models in domains like credit scoring."><meta property="og:image" content="https
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,12 +80,16 @@ models in domains like credit scoring.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) are excluded during the binning process.</p></dd>
+Rows whose value is missing (<code>NA</code>/<code>NaN</code>) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+<code>-Inf</code> and <code>+Inf</code> are kept as extreme values of the first and
+last bin and never become a cutpoint.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>An integer vector of binary outcomes (0/1) corresponding to
-each observation in <code>feature</code>. Must have the same length as <code>feature</code>.</p></dd>
+each observation in <code>feature</code>. Must have the same length as <code>feature</code>.
+A missing value in <code>target</code> is an error.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>
@@ -142,24 +146,39 @@ and their Weight of Evidence (WoE) values. Defaults to <code>TRUE</code>.</p></d
     <p>This function implements a sophisticated hybrid approach combining the classic
 MDLP algorithm with modern monotonicity constraints.</p>
 <p><strong>Algorithm Pipeline:</strong></p><ol><li><p><strong>Data Preparation:</strong> Removes NA values and sorts the data by feature value.</p></li>
-<li><p><strong>MDLP Discretization (Fayyad &amp; Irani, 1993):</strong></p><ul><li><p>Recursively evaluates all possible binary splits of the sorted data.</p></li>
-<li><p>For each potential split, calculates the Information Gain (IG).</p></li>
-<li><p>Applies the MDLP stopping criterion:
+<li><p><strong>MDLP Discretization (Fayyad &amp; Irani, 1993):</strong></p><ul><li><p>Recursively evaluates the binary splits of the sorted data. Only
+          boundary points (cuts that do not fall between two values holding
+          observations of a single, common class) are candidates: the
+          entropy-minimising cut is always one of them (Fayyad &amp; Irani, 1992).</p></li>
+<li><p>For each candidate split, calculates the Information Gain (IG).</p></li>
+<li><p>Applies the MDLP stopping criterion to the best split \(T\) of a
+          set \(S\) into \(S_1\) and \(S_2\):
           $$IG &gt; \frac{\log_2(N-1) + \Delta}{N}$$
-          where \(N\) is the total number of samples and \(\Delta = \log_2(3^k - 2) - k \cdot E(S)\)
-          (for binary classification, \(k=2\)).</p></li>
+          where \(N\) is the number of samples in \(S\) and
+          \(\Delta = \log_2(3^k - 2) - [k E(S) - k_1 E(S_1) - k_2 E(S_2)]\),
+          with \(k\), \(k_1\), \(k_2\) the number of classes present
+          in \(S\), \(S_1\) and \(S_2\).</p></li>
 <li><p>Only accepts splits that significantly reduce entropy beyond what would
           be expected by chance, balancing model fit with complexity.</p></li>
 </ul></li>
-<li><p><strong>Constraint Enforcement:</strong></p><ul><li><p><strong>Min/Max Bins:</strong> Adjusts the number of bins to meet <code>[min_bins, max_bins]</code>
-          requirements through intelligent splitting or merging.</p></li>
+<li><p><strong>Constraint Enforcement:</strong></p><ul><li><p><strong>Max Bins:</strong> Accepted splits are applied best-first, in
+          decreasing order of the entropy reduction they achieve, and at most
+          <code>max_bins - 1</code> of them are kept. When <code>max_bins</code> is not
+          binding this yields exactly the MDLP partition.</p></li>
+<li><p><strong>Min Bins:</strong> When MDLP accepts fewer splits, additional ones
+          are placed between distinct values, spread evenly over the distinct
+          values and then over the largest runs of observations.</p></li>
 <li><p><strong>Monotonicity (if enabled):</strong> Iteratively merges adjacent bins with
           the most similar WoE values until a strictly increasing or decreasing
-          trend is achieved across all bins.</p></li>
+          trend is achieved across all bins, or only <code>min_bins</code> bins remain.</p></li>
 </ul></li>
 </ol><p><strong>Technical Notes:</strong></p><ul><li><p>The algorithm uses Laplace smoothing (\(\alpha = 0.5\)) when calculating
         WoE to prevent \(\log(0)\) errors for bins with pure class distributions.</p></li>
-<li><p>When all feature values are identical, the algorithm creates artificial bins.</p></li>
+<li><p>When all feature values are identical a single bin is returned, with
+        a warning. When the feature has fewer distinct values than
+        <code>min_bins</code>, each distinct value becomes its own bin and a warning
+        reports that <code>min_bins</code> could not be met: a bin boundary can only
+        fall between two different values.</p></li>
 <li><p>The monotonicity enforcement phase is iterative and uses the
         <code>convergence_threshold</code> to determine when changes in WoE become negligible.</p></li>
 </ul></div>
@@ -168,6 +187,8 @@ MDLP algorithm with modern monotonicity constraints.</p>
     <p>Fayyad, U. M., &amp; Irani, K. B. (1993). Multi-interval discretization of continuous-valued
 attributes for classification learning. <em>Proceedings of the 13th International
 Joint Conference on Artificial Intelligence</em>, 1022-1029.</p>
+<p>Fayyad, U. M., &amp; Irani, K. B. (1992). On the handling of continuous-valued
+attributes in decision tree generation. <em>Machine Learning</em>, 8, 87-102.</p>
 <p>Kurgan, L. A., &amp; Musilek, P. (2006). A survey of techniques. <em>IEEE Transactions
 on Knowledge and Data Engineering</em>, 18(5), 673-689.</p>
 <p>Garcia, S., Luengo, J., &amp; Herrera, F. (2013). Data preprocessing in data mining.
@@ -193,10 +214,10 @@ on Knowledge and Data Engineering</em>, 18(5), 673-689.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">bin</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-1.185289]"      "(-1.185289;-0.506334]" "(-0.506334;0.299594]" </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(0.299594;1.214589]"   "(1.214589;+Inf]"      </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "(-Inf;-0.506334]"     "(-0.506334;0.299594]" "(0.299594;1.214589]" </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [4] "(1.214589;+Inf]"     </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="co"># Should show a monotonic trend</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -3.4659526 -1.6251167 -0.2908404  1.3817919  3.8181822</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -2.1085564 -0.2907929  1.3818394  3.8182297</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example: Disabling monotonicity for exploratory analysis</span></span></span>
 <span class="r-in"><span><span class="va">result_no_mono</span> <span class="op">&lt;-</span> <span class="fu">ob_numerical_fast_mdlp</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span>,</span></span>
@@ -206,7 +227,7 @@ on Knowledge and Data Engineering</em>, 18(5), 673-689.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_no_mono</span><span class="op">$</span><span class="va">woe</span><span class="op">)</span> <span class="co"># May show non-monotonic patterns</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -3.4659526 -1.6251167 -0.2908404  1.3817919  3.8181822</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] -2.1085564 -0.2907929  1.3818394  3.8182297</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

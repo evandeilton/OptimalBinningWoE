@@ -83,7 +83,11 @@ A `data.frame` containing:
 cutpoints stored in the `obwoe` object. The
 [`cut()`](https://rdrr.io/r/base/cut.html) function is used with
 intervals \\(a_i, a\_{i+1}\]\\ where \\a_0 = -\infty\\ and \\a_k =
-+\infty\\.
++\infty\\. When the binner reserved a trailing bin labelled `"NA"` for
+missing values (as
+[`ob_numerical_udt`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_udt.md)
+does), missing values are assigned to that bin; otherwise they get
+`na_woe`.
 
 **Categorical Features**: Categories are matched directly to bin labels.
 Categories not seen during training are assigned `NA` for bin and

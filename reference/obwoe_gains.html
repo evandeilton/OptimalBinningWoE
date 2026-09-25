@@ -27,7 +27,7 @@ Any data.frame with a grouping variable (e.g., score deciles)
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,7 +129,10 @@ For <code>data.frame</code> objects: can be any column name representing groups
 
 <dt id="arg-sort-by">sort_by<a class="anchor" aria-label="anchor" href="#arg-sort-by"></a></dt>
 <dd><p>Character string specifying sort order for bins:</p><dl><dt><code>"id"</code></dt>
-<dd><p>The algorithm's own internal bin order - default</p></dd>
+<dd><p>The algorithm's own internal bin order - default.
+    For a <code>data.frame</code>, the groups' natural order: factor levels,
+    ascending value for a numeric column (earlier versions sorted numeric
+    values as text), alphabetical order otherwise.</p></dd>
 
   <dt><code>"woe"</code></dt>
 <dd><p>Descending WoE (highest risk first)</p></dd>

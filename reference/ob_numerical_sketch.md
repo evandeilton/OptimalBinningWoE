@@ -42,9 +42,13 @@ ob_numerical_sketch(
 
 - feature:
 
-  Numeric vector of feature values. Missing values (NA) are **not
-  permitted** and will trigger an error. Infinite values (Inf, -Inf) and
-  NaN are also not allowed.
+  Numeric vector of feature values. Missing values (NA/NaN) are dropped
+  silently: those rows are counted in no bin and the counts add up to
+  the number of non-missing rows. `-Inf` and `+Inf` are kept as extreme
+  values in the first and last bin and never become cutpoints. A feature
+  whose values are all missing is an error. The sketch summarises the
+  finite values; with fewer than two distinct finite values a single bin
+  is returned.
 
 - target:
 
@@ -68,10 +72,9 @@ ob_numerical_sketch(
 
 - max_n_prebins:
 
-  Maximum number of pre-bins to generate from quantiles (default: 20).
-  This parameter controls the initial granularity of binning candidates.
-  Higher values provide more flexibility but increase computational
-  cost.
+  Accepted for compatibility with the other binning functions (default:
+  20; must be in \[2, 1000\]). The candidate grid is a fixed set of
+  about 40 sketch quantiles.
 
 - monotonic:
 
@@ -81,9 +84,9 @@ ob_numerical_sketch(
 
 - convergence_threshold:
 
-  Convergence threshold for IV change (default: 1e-6). Optimization
-  stops when the change in total IV between iterations falls below this
-  value.
+  Convergence threshold (default: 1e-6). Accepted for compatibility: the
+  selected cutpoints never exceed `max_bins - 1`, so no iterative
+  bin-count reduction is needed.
 
 - max_iterations:
 
@@ -94,27 +97,34 @@ ob_numerical_sketch(
 
   Integer parameter controlling sketch accuracy (default: 200). Larger
   values improve quantile precision but increase memory usage.
-  **Approximation error**: \\\epsilon \approx 1/k\\ (200 → 0.5% error).
-  **Valid range**: \[10, 1000\]. Typical values: 50 (fast), 200
-  (balanced), 500 (precise).
+  **Approximation error**: observed rank error about \\1/k\\ of the
+  sample size (200 → about 0.5%). **Valid range**: \[10, 1000\]. Typical
+  values: 50 (fast), 200 (balanced), 500 (precise).
 
 ## Value
 
-A list of class `c("OptimalBinningSketch", "OptimalBinning")`
+A list of class `c("OptimalBinningSketch", "OptimalBinning", "list")`
 containing:
 
 - id:
 
   Numeric vector of bin identifiers (1-based indexing).
 
+- bin:
+
+  Character vector of right-closed bin labels `"(lower;upper]"`; the
+  first bin is labelled from `-Inf` and the last one up to `+Inf`.
+
 - bin_lower:
 
-  Numeric vector of lower bin boundaries (inclusive).
+  Numeric vector of lower bin boundaries: the observed minimum
+  (included) for the first bin, the previous cutpoint (excluded)
+  otherwise.
 
 - bin_upper:
 
-  Numeric vector of upper bin boundaries (inclusive for last bin,
-  exclusive for others).
+  Numeric vector of upper bin boundaries (included); the observed
+  maximum for the last bin.
 
 - woe:
 
@@ -136,6 +146,10 @@ containing:
 - count_neg:
 
   Integer vector of negative class (target = 0) counts per bin.
+
+- total_iv:
+
+  Total Information Value (sum of bin IVs).
 
 - cutpoints:
 
@@ -177,6 +191,13 @@ For a quantile \\q\\ with estimated value \\\hat{q}\\:
 where \\\epsilon \approx O(1/k)\\ and space complexity is \\O(k
 \log(N/k))\\.
 
+This implementation compacts deterministically (the kept element of each
+pair alternates between levels) instead of using KLL's random coin, so
+results are reproducible without a seed. Its worst-case rank error is
+\\O(\log(N/k)/k)\\; the observed error is about \\1/k\\. The quantiles
+only propose candidate cutpoints: every bin statistic is then computed
+exactly from the data.
+
 **Phase 2: Candidate Extraction**
 
 Approximately 40 quantiles are extracted from the sketch using a
@@ -190,8 +211,8 @@ For larger datasets, a greedy IV-based selection is used.
 **Phase 4: Bin Refinement**
 
 Bins are refined through frequency constraint enforcement, monotonicity
-enforcement (if requested), and bin count optimization to minimize IV
-loss.
+enforcement (if requested). Bins that hold no observation are always
+merged.
 
 **Computational Complexity**
 

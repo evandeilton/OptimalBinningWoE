@@ -12,7 +12,7 @@ SQL so the scoring runs where the data lives.
 |  |  |
 |----|----|
 | **37 algorithms** | 21 numerical, 16 categorical — entropy, $`\chi^2`$, exact optimisation, shape-constrained and streaming methods |
-| **C++ engine** | Rcpp/RcppEigen throughout; 500 variables over 20,000 rows bin and screen in about two seconds |
+| **C++ engine** | Rcpp throughout, no linear-algebra dependency; 500 variables over 20,000 rows bin and screen in about two seconds |
 | **Automated screening** | [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_select.md) returns a verdict and a reason for every candidate, never dropping a row |
 | **In-database scoring** | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe_sql.md) emits exact `CASE` expressions for 14 SQL dialects |
 | **Regulatory fit** | monotonic binning, auditable bin-level evidence, reason codes |

@@ -24,7 +24,8 @@ ob_numerical_fetb(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) should be handled prior to binning.
+  Missing values (`NA`/`NaN`) are excluded from the fit; `-Inf`/`Inf`
+  fall in the first/last bin.
 
 - target:
 
@@ -43,14 +44,14 @@ ob_numerical_fetb(
 
 - max_n_prebins:
 
-  Integer. The number of initial quantiles to generate during the
-  pre-binning phase. Defaults to 20.
+  Integer. The maximum number of equal-frequency bins created during the
+  pre-binning phase (at least 2). Defaults to 20.
 
 - convergence_threshold:
 
-  Numeric. The threshold for the change in Information Value (IV) to
-  determine convergence during the iterative merging process. Defaults
-  to 1e-6.
+  Numeric. Accepted for backward compatibility and not used: merging
+  always continues until the number of bins reaches `max_bins` (or
+  `max_iterations` is exhausted). Defaults to 1e-6.
 
 - max_iterations:
 
@@ -94,8 +95,10 @@ statistical alternative to ChiMerge.
   between the bin index and the target.
 
 - **Merge Criterion:** In each step, the algorithm identifies the pair
-  of adjacent bins with the *highest* p-value (indicating they are the
-  most statistically indistinguishable) and merges them.
+  of adjacent bins with the *highest* two-sided Fisher p-value (defined
+  as in [`fisher.test`](https://rdrr.io/r/stats/fisher.test.html);
+  indicating they are the most statistically indistinguishable) and
+  merges them.
 
 - **Monotonicity:** The algorithm incorporates a check after every merge
   to ensure the WoE trend remains monotonic, merging strictly violating

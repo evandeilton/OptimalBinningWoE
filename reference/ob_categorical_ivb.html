@@ -17,7 +17,7 @@ features."><meta property="og:image" content="https://evandeilton.github.io/Opti
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -117,7 +117,9 @@ features. Must be &gt;= 2. Defaults to 20.</p></dd>
 
 <dt id="arg-bin-separator">bin_separator<a class="anchor" aria-label="anchor" href="#arg-bin-separator"></a></dt>
 <dd><p>Character string used to concatenate category names
-when multiple categories are merged into a single bin. Defaults to "%;%".</p></dd>
+when multiple categories are merged into a single bin. Defaults to "%;%".
+A warning is issued when a category name contains it, since such labels
+cannot be split back into categories.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
@@ -172,13 +174,14 @@ find the globally optimal binning solution that maximizes total IV subject
 to constraints on bin count and monotonicity.</p>
 <p><strong>Algorithm Workflow:</strong></p><ol><li><p>Input validation and preprocessing</p></li>
 <li><p>Single-pass category counting and statistics computation</p></li>
-<li><p>Rare category pre-merging (frequencies &lt; <code>bin_cutoff</code>)</p></li>
+<li><p>Rare category pre-merging (frequencies &lt; <code>bin_cutoff</code>); if pooling
+    all rare categories would leave fewer than <code>min_bins</code> bins, they are
+    pooled in event-rate order into groups of at least <code>bin_cutoff</code></p></li>
 <li><p>Pre-bin limitation (if categories &gt; <code>max_n_prebins</code>)</p></li>
 <li><p>Category sorting by event rate</p></li>
 <li><p>Cumulative statistics cache initialization</p></li>
 <li><p>Dynamic programming table computation:</p><ul><li><p>State: \(DP[i][k]\) = max IV using first \(i\) categories in \(k\) bins</p></li>
 <li><p>Transition: \(DP[i][k] = \max_j \{DP[j][k-1] + IV(j+1, i)\}\)</p></li>
-<li><p>Banded optimization to skip infeasible splits</p></li>
 </ul></li>
 <li><p>Backtracking to reconstruct optimal bins</p></li>
 <li><p>Adaptive monotonicity enforcement</p></li>
@@ -213,7 +216,6 @@ $$IV_i = (p'_i - n'_i) \times WoE_i$$</p>
 </ul><p><strong>Advantages over Alternative Methods:</strong></p><ul><li><p><strong>Global optimality</strong>: Guaranteed maximum IV (within constraint space)</p></li>
 <li><p><strong>Bayesian regularization</strong>: Robust to sparse bins and class imbalance</p></li>
 <li><p><strong>Efficient caching</strong>: Cumulative stats and IV memoization</p></li>
-<li><p><strong>Banded optimization</strong>: Reduced search space via feasibility pruning</p></li>
 <li><p><strong>Adaptive monotonicity</strong>: Context-aware threshold for enforcement</p></li>
 </ul><p><strong>Comparison with Related Methods:</strong></p><ul><li><p><strong>vs DP (general)</strong>: IVB specifically optimizes IV; general DP more flexible</p></li>
 <li><p><strong>vs GMB</strong>: IVB guarantees optimality; GMB is faster but approximate</p></li>

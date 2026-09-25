@@ -13,7 +13,7 @@ monotonic Weight of Evidence (WoE) while maximizing Information Value (IV)."><me
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -169,7 +169,9 @@ optimization process. Default is 1000.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The SWB algorithm follows these steps:</p><ol><li><p><strong>Initialization</strong>: Categories are initially grouped based on
         frequency thresholds (<code>bin_cutoff</code>), separating frequent
-        categories from rare ones.</p></li>
+        categories from rare ones (pooled into one bin). When that leaves
+        fewer than <code>min_bins</code> bins, the largest rare categories keep
+        their own bins.</p></li>
 <li><p><strong>Preprocessing</strong>: Initial bins are sorted by their WoE values
         to establish a baseline ordering.</p></li>
 <li><p><strong>Sliding Window Optimization</strong>: An iterative process evaluates

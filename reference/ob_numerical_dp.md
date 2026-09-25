@@ -28,8 +28,8 @@ ob_numerical_dp(
 - feature:
 
   A numeric vector representing the continuous predictor variable.
-  Missing values (NA) should be handled prior to binning, as they are
-  not supported by this algorithm.
+  Missing values (`NA`/`NaN`) are excluded from the fit; `-Inf`/`Inf`
+  fall in the first/last bin.
 
 - target:
 

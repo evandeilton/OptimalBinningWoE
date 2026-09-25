@@ -26,13 +26,17 @@ ob_numerical_ir(
 
 - feature:
 
-  A numeric vector representing the continuous predictor variable.
-  Missing values (NA) are excluded from the binning process.
+  A numeric vector representing the continuous predictor variable. Rows
+  whose value is missing (`NA`/`NaN`) are excluded from the fit
+  silently, so the bin counts sum to the number of non-missing rows;
+  `-Inf` and `+Inf` are kept as extreme values of the first and last bin
+  and never become a cutpoint.
 
 - target:
 
   An integer vector of binary outcomes (0/1) corresponding to each
-  observation in `feature`. Must have the same length as `feature`.
+  observation in `feature`. Must have the same length as `feature`. A
+  missing value in `target` is an error.
 
 - min_bins:
 

@@ -31,7 +31,7 @@ monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA)."><met
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,9 +101,13 @@ monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA).</p>
 
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
-<dd><p>Numeric vector of feature values. Missing values (NA) are <strong>not
-permitted</strong> and will trigger an error. Infinite values (Inf, -Inf) and NaN are also
-not allowed.</p></dd>
+<dd><p>Numeric vector of feature values. Missing values (NA/NaN) are
+dropped silently: those rows are counted in no bin and the counts add up to the
+number of non-missing rows. <code>-Inf</code> and <code>+Inf</code> are kept as extreme values
+in the first and last bin and never become cutpoints. A feature whose values are all
+missing is an error. The sketch
+summarises the finite values; with fewer than two distinct finite values a single
+bin is returned.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
@@ -125,9 +129,9 @@ Must be in (0, 1). Bins with fewer observations will be merged with neighbors.</
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Maximum number of pre-bins to generate from quantiles (default: 20).
-This parameter controls the initial granularity of binning candidates. Higher values
-provide more flexibility but increase computational cost.</p></dd>
+<dd><p>Accepted for compatibility with the other binning functions
+(default: 20; must be in [2, 1000]). The candidate grid is a fixed set of about 40
+sketch quantiles.</p></dd>
 
 
 <dt id="arg-monotonic">monotonic<a class="anchor" aria-label="anchor" href="#arg-monotonic"></a></dt>
@@ -137,8 +141,9 @@ decreasing) is automatically detected from the data.</p></dd>
 
 
 <dt id="arg-convergence-threshold">convergence_threshold<a class="anchor" aria-label="anchor" href="#arg-convergence-threshold"></a></dt>
-<dd><p>Convergence threshold for IV change (default: 1e-6).
-Optimization stops when the change in total IV between iterations falls below this value.</p></dd>
+<dd><p>Convergence threshold (default: 1e-6). Accepted for
+compatibility: the selected cutpoints never exceed <code>max_bins - 1</code>, so no
+iterative bin-count reduction is needed.</p></dd>
 
 
 <dt id="arg-max-iterations">max_iterations<a class="anchor" aria-label="anchor" href="#arg-max-iterations"></a></dt>
@@ -149,21 +154,27 @@ Prevents infinite loops in the optimization process.</p></dd>
 <dt id="arg-sketch-k">sketch_k<a class="anchor" aria-label="anchor" href="#arg-sketch-k"></a></dt>
 <dd><p>Integer parameter controlling sketch accuracy (default: 200).
 Larger values improve quantile precision but increase memory usage.
-<strong>Approximation error</strong>: \(\epsilon \approx 1/k\) (200 → 0.5% error).
+<strong>Approximation error</strong>: observed rank error about \(1/k\) of the sample
+size (200 → about 0.5%).
 <strong>Valid range</strong>: [10, 1000]. Typical values: 50 (fast), 200 (balanced), 500 (precise).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class <code>c("OptimalBinningSketch", "OptimalBinning")</code> containing:</p><dl><dt>id</dt>
+    <p>A list of class <code>c("OptimalBinningSketch", "OptimalBinning", "list")</code> containing:</p><dl><dt>id</dt>
 <dd><p>Numeric vector of bin identifiers (1-based indexing).</p></dd>
 
+  <dt>bin</dt>
+<dd><p>Character vector of right-closed bin labels <code>"(lower;upper]"</code>;
+    the first bin is labelled from <code>-Inf</code> and the last one up to <code>+Inf</code>.</p></dd>
+
   <dt>bin_lower</dt>
-<dd><p>Numeric vector of lower bin boundaries (inclusive).</p></dd>
+<dd><p>Numeric vector of lower bin boundaries: the observed minimum
+    (included) for the first bin, the previous cutpoint (excluded) otherwise.</p></dd>
 
   <dt>bin_upper</dt>
-<dd><p>Numeric vector of upper bin boundaries (inclusive for last bin,
-    exclusive for others).</p></dd>
+<dd><p>Numeric vector of upper bin boundaries (included); the observed
+    maximum for the last bin.</p></dd>
 
   <dt>woe</dt>
 <dd><p>Numeric vector of Weight of Evidence values. Monotonic if
@@ -180,6 +191,9 @@ Larger values improve quantile precision but increase memory usage.
 
   <dt>count_neg</dt>
 <dd><p>Integer vector of negative class (target = 0) counts per bin.</p></dd>
+
+  <dt>total_iv</dt>
+<dd><p>Total Information Value (sum of bin IVs).</p></dd>
 
   <dt>cutpoints</dt>
 <dd><p>Numeric vector of bin split points (length = number of bins - 1).
@@ -206,6 +220,11 @@ compactor exceeds capacity \(k\) (controlled by <code>sketch_k</code>), it is co
 <p>For a quantile \(q\) with estimated value \(\hat{q}\):</p>
 <p>$$|\text{rank}(\hat{q}) - q \cdot N| \le \epsilon \cdot N$$</p>
 <p>where \(\epsilon \approx O(1/k)\) and space complexity is \(O(k \log(N/k))\).</p>
+<p>This implementation compacts deterministically (the kept element of each pair
+alternates between levels) instead of using KLL's random coin, so results are
+reproducible without a seed. Its worst-case rank error is \(O(\log(N/k)/k)\);
+the observed error is about \(1/k\). The quantiles only propose candidate
+cutpoints: every bin statistic is then computed exactly from the data.</p>
 <p><strong>Phase 2: Candidate Extraction</strong></p>
 <p>Approximately 40 quantiles are extracted from the sketch using a non-uniform grid
 with higher resolution in distribution tails.</p>
@@ -214,7 +233,7 @@ with higher resolution in distribution tails.</p>
 datasets, a greedy IV-based selection is used.</p>
 <p><strong>Phase 4: Bin Refinement</strong></p>
 <p>Bins are refined through frequency constraint enforcement, monotonicity enforcement
-(if requested), and bin count optimization to minimize IV loss.</p>
+(if requested). Bins that hold no observation are always merged.</p>
 <p><strong>Computational Complexity</strong></p>
 <ul><li><p><strong>Time</strong>: \(O(N \log k + N \times C + k^2 \times I)\)</p></li>
 <li><p><strong>Space</strong>: \(O(k \log N)\) for large N</p></li>

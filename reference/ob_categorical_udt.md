@@ -128,7 +128,9 @@ The UDT algorithm follows these steps:
     own bin.
 
 2.  **Frequency Filtering**: Categories below the `bin_cutoff` frequency
-    threshold are grouped into a single "rare" bin.
+    threshold are grouped into a single "rare" bin. A rare category
+    keeps its own bin only when that is needed to reach `min_bins`, the
+    largest rare categories first.
 
 3.  **Iterative Optimization**: Bins are progressively merged based on
     statistical similarity (measured by Jensen-Shannon divergence) until
@@ -201,20 +203,19 @@ target <- rbinom(n, 1, prob = probs)
 result <- ob_categorical_udt(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "K%;%S%;%H%;%F%;%O%;%T%;%I%;%G%;%M%;%P%;%L%;%E%;%Q%;%R"
-#> [2] "N%;%J%;%D"                                            
-#> [3] "X3"                                                   
-#> [4] "X2"                                                   
-#> [5] "X1"                                                   
+#> [1] "D%;%J%;%N%;%K%;%S%;%H%;%F%;%O%;%T%;%I%;%G%;%M%;%P%;%L%;%E%;%Q%;%R"
+#> [2] "X3"                                                               
+#> [3] "X2"                                                               
+#> [4] "X1"                                                               
 #> 
 #> $woe
-#> [1] -1.3704280 -1.2269348  0.2610244  0.3379009  0.3845215
+#> [1] -1.3533321  0.2610244  0.3379009  0.3845215
 #> 
 #> $iv
-#> [1] 0.322320167 0.037475936 0.009463915 0.029143017 0.055138785
+#> [1] 0.359635966 0.009463915 0.029143017 0.055138785
 #> 
 #> $count
-#> [1]  513   73  431  802 1181
+#> [1]  586  431  802 1181
 #> 
 
 # Adjust parameters for finer control

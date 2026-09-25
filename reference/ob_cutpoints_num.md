@@ -101,9 +101,18 @@ it went through the fit or the apply side.
 
 ## Note
 
-- Target variable must contain only 0 and 1 values.
+- Target variable must contain only 0 and 1 values (no `NA`), with both
+  classes present, and have the same length as `feature`; otherwise an
+  error is raised.
 
-- Cutpoints are sorted automatically in ascending order.
+- Cutpoints are sorted automatically in ascending order (a sorted copy
+  is used: the caller's vector is left untouched). `NA` cutpoints are an
+  error.
+
+- Missing values (`NA`/`NaN`) in `feature` are not binned: they are left
+  out of the bin counts and get a `NA` WoE in `woefeature`, as in
+  [`ob_apply_woe_num`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_apply_woe_num.md)
+  (they used to be counted in the first bin).
 
 - Interval notation uses "(" for exclusive and "\]" for inclusive bounds
   – a value exactly equal to a cutpoint falls in the bin that *ends* at

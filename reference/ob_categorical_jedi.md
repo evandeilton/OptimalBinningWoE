@@ -201,7 +201,7 @@ where prior pseudocounts are proportional to overall prevalence:
 \$\$\alpha_p = \alpha\_{total} \times \frac{N\_{pos}}{N\_{pos} +
 N\_{neg}}\$\$ \$\$\alpha_n = \alpha\_{total} - \alpha_p\$\$
 
-with \\\alpha\_{total} = 1.0\\ as the prior strength parameter.
+with \\\alpha\_{total} = 0.5\\ as the prior strength parameter.
 
 **Adaptive Monotonicity Threshold:**
 
@@ -218,9 +218,8 @@ small.
 
 - Time: \\O(k^2 \cdot m)\\ where \\k\\ = bins, \\m\\ = iterations
 
-- Space: \\O(k^2)\\ for IV cache
-
-- Cache hit rate typically \> 70% for \\k \> 10\\
+- Space: \\O(k)\\; the IV loss of each candidate merge is screened from
+  per-bin IV contributions and confirmed exactly
 
 **Key Innovations:**
 
@@ -503,9 +502,9 @@ cat("  Original categories:", length(unique(cat_feature_hc)), "\n")
 cat("  Final bins:", length(result_jedi_hc$bin), "\n")
 #>   Final bins: 7 
 cat("  Execution time:", round(time_jedi_hc[3], 3), "seconds\n")
-#>   Execution time: 0.001 seconds
+#>   Execution time: 0 seconds
 cat("  Total IV:", round(result_jedi_hc$total_iv, 4), "\n")
-#>   Total IV: 0.1435 
+#>   Total IV: 0.1575 
 cat("  Converged:", result_jedi_hc$converged, "\n")
 #>   Converged: TRUE 
 
@@ -517,12 +516,12 @@ for (i in seq_along(result_jedi_hc$bin)) {
   }
 }
 #>   Bin 1: 4 categories merged
-#>   Bin 2: 6 categories merged
-#>   Bin 3: 26 categories merged
-#>   Bin 4: 5 categories merged
-#>   Bin 5: 3 categories merged
-#>   Bin 6: 3 categories merged
-#>   Bin 7: 3 categories merged
+#>   Bin 2: 3 categories merged
+#>   Bin 3: 7 categories merged
+#>   Bin 4: 23 categories merged
+#>   Bin 5: 4 categories merged
+#>   Bin 6: 7 categories merged
+#>   Bin 7: 2 categories merged
 
 # Example 6: Convergence behavior
 set.seed(555)

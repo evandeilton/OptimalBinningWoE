@@ -31,9 +31,11 @@ ob_numerical_mrblp(
 
 - feature:
 
-  Numeric vector of feature values to be binned. Missing values (NA) and
-  infinite values are **not permitted** and will trigger an error
-  (unlike other binning methods that issue warnings).
+  Numeric vector of feature values to be binned. Missing values (NA/NaN)
+  are dropped silently: those rows are counted in no bin and the counts
+  add up to the number of non-missing rows. `-Inf` and `+Inf` are kept
+  as extreme values in the first and last bin and never become
+  cutpoints. A feature whose values are all missing is an error.
 
 - target:
 
@@ -63,9 +65,9 @@ ob_numerical_mrblp(
 
 - convergence_threshold:
 
-  Convergence threshold (default: 1e-6). Currently used to check if WoE
-  range is below threshold; primary stopping criterion is
-  `max_iterations`.
+  Convergence threshold (default: 1e-6). Must be positive; accepted for
+  compatibility. Merging stops when the WoE is monotonic, `min_bins` is
+  reached or `max_iterations` is exhausted.
 
 - max_iterations:
 
@@ -87,12 +89,12 @@ A list containing:
 
 - bin:
 
-  Character vector of bin intervals in the format `"[lower;upper)"`.
+  Character vector of right-closed bin intervals `"(lower;upper]"`.
 
 - woe:
 
-  Numeric vector of Weight of Evidence values. Guaranteed to be
-  monotonic.
+  Numeric vector of Weight of Evidence values. Monotonic unless
+  `min_bins` or `max_iterations` stops the merging first.
 
 - iv:
 
@@ -124,7 +126,8 @@ A list containing:
 
 - converged:
 
-  Logical flag indicating convergence within `max_iterations`.
+  Logical flag; `FALSE` only when `max_iterations` was exhausted while
+  merges were still pending.
 
 - iterations:
 
@@ -182,9 +185,8 @@ The algorithm determines the desired monotonicity direction via
 \\\\\text{WoE}\_i \> \text{WoE}\_{i-1}\\ \ge \\\\\text{WoE}\_i \<
 \text{WoE}\_{i-1}\\ \\ \text{FALSE} & \text{otherwise} \end{cases}\$\$
 
-This differs from:
-
-- **MOB**: Uses first two bins only (`WoE[1] >= WoE[0]`)
+This is also the rule used by MOB (which in earlier versions used the
+first two bins only, `WoE[1] >= WoE[0]`). It differs from:
 
 - **MBLP**: Uses Pearson correlation between bin indices and WoE
 

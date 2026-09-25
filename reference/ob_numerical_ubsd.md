@@ -36,8 +36,12 @@ ob_numerical_ubsd(
 
 - feature:
 
-  Numeric vector of feature values. Missing values (NA) and infinite
-  values are **not permitted** and will trigger an error.
+  Numeric vector of feature values. Missing values (NA/NaN) are dropped
+  silently: those rows are counted in no bin and the counts add up to
+  the number of non-missing rows. `-Inf` and `+Inf` are kept as extreme
+  values in the first and last bin and never become cutpoints. A feature
+  whose values are all missing is an error. Mean, standard deviation,
+  minimum and maximum are computed on the finite values.
 
 - target:
 
@@ -84,7 +88,7 @@ A list containing:
 
 - bin:
 
-  Character bin intervals `"[lower;upper)"`.
+  Character right-closed bin intervals `"(lower;upper]"`.
 
 - woe:
 
@@ -157,14 +161,16 @@ k\sigma\\ cutpoints align with natural quantiles:
 - Equal-width ensures coverage of entire range
 
 **Limitation**: For skewed distributions (e.g., log-normal), \\\mu -
-2\sigma\\ may fall outside the data range, creating empty bins.
+2\sigma\\ may fall outside the data range, creating empty bins. Empty
+bins are always merged away, even below `min_bins` (which cannot be met
+with bins that hold no observation).
 
 **Special Case**: If \\\sigma \< \epsilon\\ (feature is nearly
 constant), fallback to pure equal-width binning.
 
 **Phase 2: Observation Assignment**
 
-Each observation is assigned to a bin via linear search:
+Each observation is assigned to its right-closed bin (binary search):
 \$\$\text{bin}(x_i) = \min\\j : x_i \> \text{lower}\_j \land x_i \le
 \text{upper}\_j\\\$\$
 

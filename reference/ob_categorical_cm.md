@@ -61,7 +61,9 @@ ob_categorical_cm(
 - bin_separator:
 
   String. Separator used when combining multiple categories into a
-  single bin label. Defaults to "%;%".
+  single bin label. Defaults to "%;%". A warning is issued when a
+  category name contains it, since such labels cannot be split back into
+  categories.
 
 - convergence_threshold:
 
@@ -75,9 +77,13 @@ ob_categorical_cm(
 
 - chi_merge_threshold:
 
-  Numeric. Statistical significance level (p-value) for chi-square tests
-  during merging. Higher values create fewer bins. Value must be in (0,
-  1). Defaults to 0.05.
+  Numeric. Significance level \\\alpha\\ of the chi-square test used as
+  the ChiMerge stopping rule: adjacent bins keep being merged while
+  their chi-square statistic (1 degree of freedom, Yates' continuity
+  correction) is below the critical value \\\chi^2\_{1,1-\alpha}\\
+  (3.841 for \\\alpha = 0.05\\), i.e. while they do not differ
+  significantly. Lower values merge more and create fewer bins. Value
+  must be in (0, 1). Defaults to 0.05.
 
 - use_chi2_algorithm:
 
@@ -198,21 +204,21 @@ target <- sapply(seq_along(feature), function(i) {
 result <- ob_categorical_cm(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "A"     "B"     "C%;%D" "E%;%G" "F%;%H"
+#> [1] "A%;%B"         "C%;%D"         "E%;%G%;%F%;%H"
 #> 
 #> $woe
-#> [1] -1.18847425 -0.80239061 -0.01771012  0.87051615  1.37170669
+#> [1] -1.01276387 -0.01771012  1.11336392
 #> 
 #> $iv
-#> [1] 2.801835e-01 1.052373e-01 7.275865e-05 1.299588e-01 3.041406e-01
+#> [1] 3.715884e-01 7.275865e-05 4.130731e-01
 #> 
 #> $count
-#> [1] 198 159 242 195 206
+#> [1] 357 242 401
 #> 
 
 # View metadata
 print(paste("Total IV:", round(result$metadata$total_iv, 3)))
-#> [1] "Total IV: 0.82"
+#> [1] "Total IV: 0.785"
 print(paste("Algorithm converged:", result$converged))
 #> [1] "Algorithm converged: TRUE"
 
@@ -224,7 +230,7 @@ result_chi2 <- ob_categorical_cm(feature, target,
 
 # Compare number of bins
 cat("Standard ChiMerge bins:", result$metadata$n_bins, "\n")
-#> Standard ChiMerge bins: 5 
+#> Standard ChiMerge bins: 3 
 cat("Chi2 algorithm bins:", result_chi2$metadata$n_bins, "\n")
 #> Chi2 algorithm bins: 6 
 ```

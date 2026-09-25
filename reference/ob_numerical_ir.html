@@ -15,7 +15,7 @@ constraints like credit scoring."><meta property="og:image" content="https://eva
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.13.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,12 +80,16 @@ constraints like credit scoring.</p>
 
 <dl><dt id="arg-feature">feature<a class="anchor" aria-label="anchor" href="#arg-feature"></a></dt>
 <dd><p>A numeric vector representing the continuous predictor variable.
-Missing values (NA) are excluded from the binning process.</p></dd>
+Rows whose value is missing (<code>NA</code>/<code>NaN</code>) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+<code>-Inf</code> and <code>+Inf</code> are kept as extreme values of the first and
+last bin and never become a cutpoint.</p></dd>
 
 
 <dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
 <dd><p>An integer vector of binary outcomes (0/1) corresponding to
-each observation in <code>feature</code>. Must have the same length as <code>feature</code>.</p></dd>
+each observation in <code>feature</code>. Must have the same length as <code>feature</code>.
+A missing value in <code>target</code> is an error.</p></dd>
 
 
 <dt id="arg-min-bins">min_bins<a class="anchor" aria-label="anchor" href="#arg-min-bins"></a></dt>

@@ -84,7 +84,9 @@ ob_categorical_sab(
 - convergence_threshold:
 
   Numeric. Threshold for determining algorithm convergence based on
-  changes in Information Value. Must be positive. Default is 1e-6.
+  changes in Information Value: the search stops once the best IV has
+  not improved by more than this amount for 200 consecutive iterations
+  (checked every 10 iterations). Must be positive. Default is 1e-6.
 
 - adaptive_cooling:
 
@@ -198,6 +200,10 @@ the current temperature.
 - When the number of unique categories is less than `max_bins`, each
   category will form its own bin.
 
+- Every random draw of the search comes from R's random number
+  generator, so [`set.seed()`](https://rdrr.io/r/base/Random.html) makes
+  the result reproducible, and identical on every platform.
+
 ## Examples
 
 ``` r
@@ -211,16 +217,17 @@ target <- rbinom(n, 1, prob = ifelse(feature %in% c("a", "b"), 0.7, 0.3))
 result <- ob_categorical_sab(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "b"         "a"         "g"         "d%;%e"     "c%;%f%;%h"
+#> [1] "c"             "d%;%e%;%f%;%h" "g"             "a"            
+#> [5] "b"            
 #> 
 #> $woe
-#> [1]  1.4348044  1.1317116 -0.2096304 -0.4119210 -0.5956586
+#> [1] -0.5641325 -0.5128227 -0.2096304  1.1317116  1.4348044
 #> 
 #> $iv
-#> [1] 0.256633210 0.164890413 0.005811696 0.037903254 0.122239809
+#> [1] 0.036063906 0.119644446 0.005811696 0.164890413 0.256633210
 #> 
 #> $count
-#> [1] 128 128 135 235 374
+#> [1] 122 487 135 128 128
 #> 
 
 # With custom parameters

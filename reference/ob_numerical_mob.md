@@ -32,9 +32,12 @@ ob_numerical_mob(
 
 - feature:
 
-  Numeric vector of feature values to be binned. Missing values (NA) are
-  automatically removed during preprocessing. Infinite values trigger a
-  warning but are handled internally.
+  Numeric vector of feature values to be binned. Missing values (NA/NaN)
+  are dropped silently: those rows are counted in no bin and the counts
+  add up to the number of non-missing rows. `-Inf` and `+Inf` are kept
+  as extreme values in the first and last bin and never become
+  cutpoints. A feature whose values are all missing is an error. The
+  totals used for WoE, IV and `bin_cutoff` exclude the missing rows.
 
 - target:
 
@@ -76,8 +79,8 @@ ob_numerical_mob(
 
   Maximum number of iterations for bin merging and monotonicity
   enforcement (default: 1000). Prevents infinite loops in pathological
-  cases. A warning is issued if this limit is reached without achieving
-  convergence.
+  cases. When the limit is reached with merges still pending,
+  `converged` is `FALSE`.
 
 - laplace_smoothing:
 
@@ -96,13 +99,16 @@ A list containing:
 
 - bin:
 
-  Character vector of bin intervals in the format `"[lower;upper)"`. The
-  first bin starts with `-Inf` and the last bin ends with `+Inf`.
+  Character vector of right-closed bin intervals in the format
+  `"(lower;upper]"`. The first bin starts with `-Inf` and the last bin
+  ends with `+Inf`.
 
 - woe:
 
-  Numeric vector of Weight of Evidence values for each bin. Guaranteed
-  to be monotonic (either non-decreasing or non-increasing).
+  Numeric vector of Weight of Evidence values for each bin. Monotonic
+  (either non-decreasing or non-increasing) unless `min_bins` or
+  `max_iterations` stops the merging first (no warning is issued; check
+  the returned WoE).
 
 - iv:
 
@@ -212,11 +218,15 @@ number of bins. Information Value is:
 **Phase 4: Monotonicity Enforcement**
 
 The algorithm first determines the desired monotonicity direction by
-examining the relationship between the first two bins:
+majority vote over adjacent bins (as MRBLP does):
 
 \$\$\text{should\\increase} = \begin{cases} \text{TRUE} & \text{if }
-\text{WoE}\_1 \ge \text{WoE}\_0 \\ \text{FALSE} & \text{otherwise}
-\end{cases}\$\$
+\\\\\text{WoE}\_i \> \text{WoE}\_{i-1}\\ \ge \\\\\text{WoE}\_i \<
+\text{WoE}\_{i-1}\\ \\ \text{FALSE} & \text{otherwise} \end{cases}\$\$
+
+(Earlier versions used the first two bins only, \\\text{WoE}\_1 \ge
+\text{WoE}\_0\\, which let sampling noise in the two lowest pre-bins
+reverse the direction.)
 
 For each bin \\i\\ from 1 to \\k-1\\, violations are detected as:
 
@@ -241,7 +251,7 @@ Merging continues iteratively until either:
 
 - The number of bins reaches `min_bins`
 
-- `max_iterations` is exceeded (triggers warning)
+- `max_iterations` is exceeded (`converged = FALSE`)
 
 After each merge, WoE and IV are recalculated for all bins to reflect
 updated distributions.
@@ -373,7 +383,7 @@ result <- ob_numerical_mob(
 
 # Verify monotonicity
 print(result$woe)
-#> [1]  0.77178577 -0.05402436
+#> [1]  0.76074361  0.43537076 -0.07088068 -0.54044132 -1.06483783
 stopifnot(all(diff(result$woe) <= 1e-10)) # Non-increasing WoE
 
 # Inspect binning quality
@@ -385,18 +395,21 @@ binning_table <- data.frame(
   EventRate = round(result$event_rate, 4)
 )
 print(binning_table)
-#>                 Bin     WoE     IV Count EventRate
-#> 1 (-Inf;547.248269]  0.7718 0.0388   600    0.2533
-#> 2 (547.248269;+Inf] -0.0540 0.0027 11400    0.1296
+#>                       Bin     WoE     IV Count EventRate
+#> 1       (-Inf;589.503086]  0.7607 0.1126  1800    0.2517
+#> 2 (589.503086;640.518853]  0.4354 0.0442  2400    0.1954
+#> 3 (640.518853;692.217368] -0.0709 0.0012  3000    0.1277
+#> 4 (692.217368;731.558694] -0.5404 0.0478  2400    0.0838
+#> 5       (731.558694;+Inf] -1.0648 0.1532  2400    0.0512
 
 cat(sprintf("\nTotal IV: %.4f\n", result$total_iv))
 #> 
-#> Total IV: 0.0416
+#> Total IV: 0.3591
 cat(sprintf(
   "Converged: %s (iterations: %d)\n",
   result$converged, result$iterations
 ))
-#> Converged: TRUE (iterations: 18)
+#> Converged: TRUE (iterations: 15)
 
 # Visualize monotonic pattern
 oldpar <- par(mfrow = c(1, 2))
