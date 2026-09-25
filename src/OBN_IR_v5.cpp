@@ -57,6 +57,12 @@ private:
   
   std::vector<NumericalBin> bin_info;
   bool is_simple;           // Flag for simple binning (few unique values)
+
+  // Finite feature values of each class, ascending. Every bin count is a
+  // binary search in these arrays: #positives in (lo, hi] is
+  // upper_bound(pos_sorted, hi) - upper_bound(pos_sorted, lo).
+  std::vector<double> pos_sorted;
+  std::vector<double> neg_sorted;
   
   // Small constant for numerical stability
   // Constant removed (uses shared definition)
@@ -137,6 +143,10 @@ private:
     if (feature.size() != target.size()) {
       throw std::invalid_argument("Feature and target must have the same length.");
     }
+
+    if (target.empty()) {
+      throw std::invalid_argument("Feature and target must not be empty.");
+    }
     
     if (min_bins < 2) {
       throw std::invalid_argument("min_bins must be at least 2.");
@@ -191,96 +201,87 @@ private:
    * Create initial bins based on unique values or quantiles
    */
   void createInitialBins() {
-    // Create a clean copy of feature values (excluding NaN and Inf)
-    std::vector<double> clean_feature;
-    std::vector<int> clean_target;
-    clean_feature.reserve(feature.size());
-    clean_target.reserve(target.size());
-    
+    // Split the valid (finite) feature values by class and sort each class.
+    pos_sorted.clear();
+    neg_sorted.clear();
     for (size_t i = 0; i < feature.size(); ++i) {
       if (!std::isnan(feature[i]) && !std::isinf(feature[i])) {
-        clean_feature.push_back(feature[i]);
-        clean_target.push_back(target[i]);
+        if (target[i] == 1) pos_sorted.push_back(feature[i]);
+        else neg_sorted.push_back(feature[i]);
       }
     }
-    
-    // Get unique values
-    std::vector<double> sorted_feature = clean_feature;
-    std::sort(sorted_feature.begin(), sorted_feature.end());
-    sorted_feature.erase(std::unique(sorted_feature.begin(), sorted_feature.end()), sorted_feature.end());
-    
+    std::sort(pos_sorted.begin(), pos_sorted.end());
+    std::sort(neg_sorted.begin(), neg_sorted.end());
+
+    // Sorted distinct values: merge of the two sorted class arrays.
+    std::vector<double> sorted_feature;
+    {
+      size_t i = 0, k = 0;
+      const size_t np = pos_sorted.size(), nn = neg_sorted.size();
+      while (i < np || k < nn) {
+        double v;
+        if (k >= nn || (i < np && pos_sorted[i] < neg_sorted[k])) v = pos_sorted[i];
+        else v = neg_sorted[k];
+        while (i < np && pos_sorted[i] == v) ++i;
+        while (k < nn && neg_sorted[k] == v) ++k;
+        sorted_feature.push_back(v + 0.0);  // -0.0 and +0.0 are one value
+      }
+    }
+
     int unique_vals = static_cast<int>(sorted_feature.size());
-    
+
     // Special case for few unique values
     if (unique_vals <= 2) {
-      handleFewUniqueValues(sorted_feature, clean_feature, clean_target);
+      handleFewUniqueValues(sorted_feature);
     } else {
       // Regular binning for more unique values
       createRegularBins(sorted_feature, unique_vals);
     }
   }
-  
+
+  // Number of elements of the sorted array v that are <= x.
+  static int countLE(const std::vector<double>& v, double x) {
+    return static_cast<int>(std::upper_bound(v.begin(), v.end(), x) - v.begin());
+  }
+
+  // Counts of the observations in (lower, upper]; the first bin (lower = -Inf)
+  // and the last (upper = +Inf) are unbounded on that side.
+  void countInterval(NumericalBin& bin) const {
+    const bool lo_inf = std::isinf(bin.lower_bound) && bin.lower_bound < 0;
+    const bool hi_inf = std::isinf(bin.upper_bound) && bin.upper_bound > 0;
+    const int p_hi = hi_inf ? static_cast<int>(pos_sorted.size()) : countLE(pos_sorted, bin.upper_bound);
+    const int n_hi = hi_inf ? static_cast<int>(neg_sorted.size()) : countLE(neg_sorted, bin.upper_bound);
+    const int p_lo = lo_inf ? 0 : countLE(pos_sorted, bin.lower_bound);
+    const int n_lo = lo_inf ? 0 : countLE(neg_sorted, bin.lower_bound);
+    bin.count_pos = p_hi - p_lo;
+    bin.count_neg = n_hi - n_lo;
+    bin.count = bin.count_pos + bin.count_neg;
+  }
+
   /**
-   * Handle the special case where there are few unique values
-   * 
+   * Handle the special case where there are few (<= 2) unique values
+   *
    * @param sorted_feature Vector of sorted unique feature values
-   * @param clean_feature Vector of valid feature values
-   * @param clean_target Vector of corresponding target values
    */
-  void handleFewUniqueValues(const std::vector<double>& sorted_feature,
-                             const std::vector<double>& clean_feature,
-                             const std::vector<int>& clean_target) {
+  void handleFewUniqueValues(const std::vector<double>& sorted_feature) {
     is_simple = true;
     bin_edges.clear();
     bin_info.clear();
-    
+
     int unique_vals = static_cast<int>(sorted_feature.size());
-    
+
     bin_edges.push_back(-std::numeric_limits<double>::infinity());
-    
-    if (unique_vals == 1) {
-      // Single unique value
-      bin_edges.push_back(std::numeric_limits<double>::infinity());
-      
-      NumericalBin bin;
-      bin.lower_bound = bin_edges[0];
-      bin.upper_bound = bin_edges[1];
-      bin.count = static_cast<int>(clean_feature.size());
-      bin.count_pos = std::accumulate(clean_target.begin(), clean_target.end(), 0);
-      bin.count_neg = bin.count - bin.count_pos;
-      // bin.event_rate() assignment removed (calculated dynamically)
-      
-      bin_info.push_back(bin);
-    } else { 
-      // Two unique values
+    if (unique_vals == 2) {
       bin_edges.push_back(sorted_feature[0]);
-      bin_edges.push_back(std::numeric_limits<double>::infinity());
-      
-      NumericalBin bin1, bin2;
-      bin1.lower_bound = bin_edges[0];
-      bin1.upper_bound = bin_edges[1];
-      bin2.lower_bound = bin_edges[1];
-      bin2.upper_bound = bin_edges[2];
-      
-      // Assign observations to bins
-      for (size_t j = 0; j < clean_feature.size(); ++j) {
-        if (clean_feature[j] <= bin1.upper_bound) {
-          bin1.count++;
-          bin1.count_pos += clean_target[j];
-        } else {
-          bin2.count++;
-          bin2.count_pos += clean_target[j];
-        }
-      }
-      
-      bin1.count_neg = bin1.count - bin1.count_pos;
-      bin2.count_neg = bin2.count - bin2.count_pos;
-      
-      // bin1.event_rate() assignment removed (calculated dynamically)
-      // bin2.event_rate() assignment removed (calculated dynamically)
-      
-      bin_info.push_back(bin1);
-      bin_info.push_back(bin2);
+    }
+    bin_edges.push_back(std::numeric_limits<double>::infinity());
+
+    for (size_t i = 0; i + 1 < bin_edges.size(); ++i) {
+      NumericalBin bin;
+      bin.lower_bound = bin_edges[i];
+      bin.upper_bound = bin_edges[i + 1];
+      countInterval(bin);
+      bin_info.push_back(bin);
     }
 
     // One bin per distinct value is an exact, final binning. It sets is_simple,
@@ -398,46 +399,15 @@ private:
    */
   void initializeBinsFromEdges() {
     bin_info.clear();
-    
-    // Create bins
-    for (size_t i = 0; i < bin_edges.size() - 1; ++i) {
+    for (size_t i = 0; i + 1 < bin_edges.size(); ++i) {
       NumericalBin bin;
       bin.lower_bound = bin_edges[i];
       bin.upper_bound = bin_edges[i + 1];
-      bin.count = 0;
-      bin.count_pos = 0;
-      bin.count_neg = 0;
+      countInterval(bin);
       bin_info.push_back(bin);
     }
-    
-    // Assign observations to bins
-    for (size_t j = 0; j < feature.size(); ++j) {
-      // Skip NaN values
-      if (std::isnan(feature[j]) || std::isinf(feature[j])) {
-        continue;
-      }
-      
-      // Find appropriate bin
-      for (size_t i = 0; i < bin_info.size(); ++i) {
-        bool in_bin = (i == 0) ? 
-        (feature[j] >= bin_info[i].lower_bound && feature[j] <= bin_info[i].upper_bound) :
-        (feature[j] > bin_info[i].lower_bound && feature[j] <= bin_info[i].upper_bound);
-        
-        if (in_bin) {
-          bin_info[i].count++;
-          bin_info[i].count_pos += target[j];
-          break;
-        }
-      }
-    }
-    
-    // Calculate negatives and event rates
-    for (auto& bin : bin_info) {
-      bin.count_neg = bin.count - bin.count_pos;
-      // bin.event_rate() assignment removed (calculated dynamically)
-    }
   }
-  
+
   /**
    * Merge two adjacent bins
    * 
@@ -493,96 +463,73 @@ private:
   }
   
   /**
-   * Split the bin with the largest number of observations
+   * Split the largest bin that holds at least two distinct values.
+   *
+   * The cut is placed at the distinct value of the bin's median observation, or
+   * at the next smaller distinct value when the median is the bin's largest
+   * value, so both halves are non-empty and their counts are exactly the
+   * observations between the new cutpoints. A bin holding a single distinct
+   * value cannot be split; when no bin can, this is a no-op.
    */
   void splitLargestBin() {
-    // Find largest bin
-    auto it = std::max_element(bin_info.begin(), bin_info.end(),
-                               [](const NumericalBin& a, const NumericalBin& b) {
-                                 return a.count < b.count;
-                               });
-    
-    if (it != bin_info.end() && it->count > 1) {
-      size_t idx = static_cast<size_t>(std::distance(bin_info.begin(), it));
-      
-      // Find optimal split point
-      std::vector<double> bin_values;
-      std::vector<int> bin_targets;
-      
-      for (size_t j = 0; j < feature.size(); ++j) {
-        if (std::isnan(feature[j]) || std::isinf(feature[j])) {
-          continue;
-        }
-        
-        bool in_bin = (idx == 0) ? 
-        (feature[j] >= it->lower_bound && feature[j] <= it->upper_bound) :
-          (feature[j] > it->lower_bound && feature[j] <= it->upper_bound);
-        
-        if (in_bin) {
-          bin_values.push_back(feature[j]);
-          bin_targets.push_back(target[j]);
-        }
+    size_t best = bin_info.size();
+    double best_split = 0.0;
+    for (size_t idx = 0; idx < bin_info.size(); ++idx) {
+      const NumericalBin& b = bin_info[idx];
+      if (best < bin_info.size() && b.count <= bin_info[best].count) continue;
+      double split_value;
+      if (findSplitValue(b, split_value)) {
+        best = idx;
+        best_split = split_value;
       }
-      
-      // Sort values within bin
-      std::vector<size_t> indices(bin_values.size());
-      std::iota(indices.begin(), indices.end(), 0);
-      std::sort(indices.begin(), indices.end(),
-                [&bin_values](size_t i1, size_t i2) {
-                  return bin_values[i1] < bin_values[i2];
-                });
-      
-      // Choose split point at median or optimal information gain
-      size_t split_idx = indices.size() / 2;
-      double split_value = bin_values[indices[split_idx]];
-      
-      // Ensure split value is within bin and not at boundaries
-      if (std::fabs(split_value - it->lower_bound) < EPSILON || std::fabs(split_value - it->upper_bound) < EPSILON) {
-        // Try another split point if too close to boundaries
-        if (split_idx > 0 && split_idx < indices.size() - 1) {
-          split_value = (bin_values[indices[split_idx - 1]] + bin_values[indices[split_idx + 1]]) / 2.0;
-        } else {
-          // Not enough distinct values for good split
-          return;
-        }
-      }
-      
-      // Create two new bins
-      NumericalBin bin1 = *it;
-      NumericalBin bin2 = *it;
-      
-      bin1.upper_bound = split_value;
-      bin2.lower_bound = split_value;
-      
-      bin1.count = 0;
-      bin1.count_pos = 0;
-      bin2.count = 0;
-      bin2.count_pos = 0;
-      
-      // Re-assign observations
-      for (size_t j = 0; j < bin_values.size(); ++j) {
-        if (bin_values[j] <= split_value) {
-          bin1.count++;
-          bin1.count_pos += bin_targets[j];
-        } else {
-          bin2.count++;
-          bin2.count_pos += bin_targets[j];
-        }
-      }
-      
-      // Calculate negatives and rates
-      bin1.count_neg = bin1.count - bin1.count_pos;
-      bin2.count_neg = bin2.count - bin2.count_pos;
-      
-      // bin1.event_rate() assignment removed (calculated dynamically)
-      // bin2.event_rate() assignment removed (calculated dynamically)
-      
-      // Replace original bin with two new bins
-      *it = bin1;
-      bin_info.insert(bin_info.begin() + idx + 1, bin2);
     }
+    if (best >= bin_info.size()) return;
+
+    NumericalBin bin1 = bin_info[best];
+    NumericalBin bin2 = bin_info[best];
+    bin1.upper_bound = best_split;
+    bin2.lower_bound = best_split;
+    countInterval(bin1);
+    countInterval(bin2);
+    bin_info[best] = bin1;
+    bin_info.insert(bin_info.begin() + static_cast<std::ptrdiff_t>(best) + 1, bin2);
   }
-  
+
+  // Cut value inside bin b leaving both halves non-empty; false if none exists.
+  // Prefers the value of the bin's median observation; when that is the bin's
+  // largest value, the next smaller distinct value. O(bin size).
+  bool findSplitValue(const NumericalBin& b, double& split_value) const {
+    if (b.count < 2) return false;
+    const bool lo_inf = std::isinf(b.lower_bound) && b.lower_bound < 0;
+    const bool hi_inf = std::isinf(b.upper_bound) && b.upper_bound > 0;
+    auto slice = [&](const std::vector<double>& v, size_t& from, size_t& to) {
+      from = lo_inf ? 0 : static_cast<size_t>(countLE(v, b.lower_bound));
+      to = hi_inf ? v.size() : static_cast<size_t>(countLE(v, b.upper_bound));
+    };
+    size_t p0, p1, n0, n1;
+    slice(pos_sorted, p0, p1);
+    slice(neg_sorted, n0, n1);
+
+    // Walk the merged slices in order.
+    const size_t median = static_cast<size_t>(b.count) / 2;
+    double v_med = 0.0;
+    size_t i = p0, k = n0, rank = 0;
+    std::vector<double> seen;  // distinct values, ascending
+    while (i < p1 || k < n1) {
+      double v;
+      if (k >= n1 || (i < p1 && pos_sorted[i] <= neg_sorted[k])) v = pos_sorted[i++];
+      else v = neg_sorted[k++];
+      if (rank == median) v_med = v;
+      if (seen.empty() || v > seen.back()) seen.push_back(v);
+      ++rank;
+    }
+    if (seen.size() < 2) return false;  // a single distinct value
+    const double v_max = seen.back();
+    const double below_max = seen[seen.size() - 2];
+    split_value = (v_med < v_max) ? v_med : below_max;
+    return true;
+  }
+
   /**
    * Merge the two most similar adjacent bins
    * Similarity is based on event rates
@@ -656,8 +603,8 @@ private:
     }
     
     // Calculate means
-    double mean_x = std::accumulate(x.begin(), x.end(), 0.0) / x.size();
-    double mean_y = std::accumulate(y.begin(), y.end(), 0.0) / y.size();
+    double mean_x = std::accumulate(x.begin(), x.end(), 0.0) / static_cast<double>(x.size());
+    double mean_y = std::accumulate(y.begin(), y.end(), 0.0) / static_cast<double>(y.size());
     
     // Calculate correlation coefficient
     double numerator = 0.0;
@@ -680,181 +627,87 @@ private:
   }
   
   /**
-   * Apply isotonic regression to enforce monotonicity in event rates
-   * Uses the Pool Adjacent Violators (PAV) algorithm
+   * Apply isotonic regression to enforce monotonicity in event rates, with the
+   * Pool Adjacent Violators Algorithm (PAVA; Barlow et al., 1972; Best &
+   * Chakravarti, 1990), and pool the bins accordingly.
+   *
+   * Stack-based PAVA: the bins are scanned once in the direction of the trend;
+   * each bin is pushed as a block and, while the block below the top has a
+   * strictly higher event rate than the top, the two are pooled. Every bin is
+   * pushed once and pooled at most once, so the pass is O(bins). Event rates
+   * are compared exactly on the integer counts, a/b > c/d <=> a*d > c*b, so a
+   * pooled block is never split or joined by rounding.
+   *
+   * "Pool adjacent violators" means the violating bins form one block. With
+   * the bin counts as weights, the fitted rate of a block is by construction
+   * the weighted mean of its members' event rates, that is exactly
+   *     sum(count_pos) / sum(count)
+   * over the block. Merging the block's bins therefore reproduces the isotonic
+   * fit exactly, while count, count_pos and count_neg stay equal to what is
+   * actually observed between the reported cutpoints. (Overwriting the counts
+   * with round(fitted_rate * count), as this routine once did, described a
+   * distribution that does not exist.)
    */
   void applyIsotonicRegression() {
-    int n = static_cast<int>(bin_info.size());
+    const size_t n = bin_info.size();
     if (n <= 1) {
       // A single bin is trivially monotone: nothing to pool, and the result is
       // final. That is a successful termination, not a failure to converge.
       converged = true;
       return;
     }
-    
-    // Extract event rates and counts
-    std::vector<double> y(n), w(n);
-    
-    for (int i = 0; i < n; ++i) {
-      y[i] = bin_info[i].event_rate();
-      w[i] = static_cast<double>(bin_info[i].count);
-    }
-    
-    // Apply isotonic regression with PAV algorithm, recording which bins the
-    // algorithm pooled together into each block.
-    std::vector<int> block_sizes;
 
-    if (monotone_increasing) {
-      isotonicRegressionPAV(y, w, true, &block_sizes);
-    } else {
-      // For decreasing, reverse input and apply increasing PAV; the blocks then
-      // come back in reverse order, so flip them to the original orientation.
-      std::reverse(y.begin(), y.end());
-      std::reverse(w.begin(), w.end());
-      isotonicRegressionPAV(y, w, true, &block_sizes);
-      std::reverse(block_sizes.begin(), block_sizes.end());
-    }
+    struct Block {
+      long long pos;
+      long long cnt;
+      size_t size;  // number of bins pooled into this block
+    };
+    // rate(a) > rate(b); an empty block has rate 0, as NumericalBin::event_rate().
+    auto rate_greater = [](const Block& a, const Block& b) {
+      if (a.cnt > 0 && b.cnt > 0) return a.pos * b.cnt > b.pos * a.cnt;
+      const double ra = a.cnt > 0 ? static_cast<double>(a.pos) / static_cast<double>(a.cnt) : 0.0;
+      const double rb = b.cnt > 0 ? static_cast<double>(b.pos) / static_cast<double>(b.cnt) : 0.0;
+      return ra > rb;
+    };
 
-    // Realise the pooling on the bins themselves.
-    //
-    // "Pool adjacent violators" means the violating bins form one block. With
-    // the bin counts as weights, the fitted rate of a block is by construction
-    // the weighted mean of its members' event rates, that is exactly
-    //     sum(count_pos) / sum(count)
-    // over the block. Merging the block's bins therefore reproduces the
-    // isotonic fit exactly, while count, count_pos and count_neg stay equal to
-    // what is actually observed between the reported cutpoints.
-    //
-    // Overwriting the counts with round(fitted_rate * count) instead -- as this
-    // routine used to do -- left count_pos and count_neg disagreeing with the
-    // data falling inside each interval, so every statistic derived from them
-    // (WoE, IV, KS, gains tables) described a distribution that does not exist,
-    // and the reported bins were not in fact monotonic in the observed rate.
-    // The block sizes sum to the number of bins by construction; the bounds
-    // checks keep an inconsistent list harmless rather than out of range.
-    size_t start = 0;
-    for (size_t b = 0; b < block_sizes.size() && start < bin_info.size(); ++b) {
-      size_t block = static_cast<size_t>(block_sizes[b]);
-      for (size_t k = 1; k < block && start + 1 < bin_info.size(); ++k) {
-        mergeBins(start, start + 1);
+    // For a decreasing trend, run the increasing PAVA on the reversed sequence.
+    std::vector<Block> st;
+    st.reserve(n);
+    for (size_t t = 0; t < n; ++t) {
+      const NumericalBin& b = bin_info[monotone_increasing ? t : n - 1 - t];
+      st.push_back(Block{b.count_pos, b.count, 1});
+      while (st.size() >= 2 && rate_greater(st[st.size() - 2], st.back())) {
+        Block top = st.back();
+        st.pop_back();
+        st.back().pos += top.pos;
+        st.back().cnt += top.cnt;
+        st.back().size += top.size;
       }
-      ++start;
     }
+    if (!monotone_increasing) std::reverse(st.begin(), st.end());
+
+    // Realise the pooling on the bins, in one pass.
+    std::vector<NumericalBin> pooled;
+    pooled.reserve(st.size());
+    size_t start = 0;
+    for (const Block& blk : st) {
+      NumericalBin merged = bin_info[start];
+      for (size_t k = 1; k < blk.size; ++k) {
+        const NumericalBin& nxt = bin_info[start + k];
+        merged.upper_bound = nxt.upper_bound;
+        merged.count += nxt.count;
+        merged.count_pos += nxt.count_pos;
+        merged.count_neg += nxt.count_neg;
+      }
+      pooled.push_back(merged);
+      start += blk.size;
+    }
+    bin_info.swap(pooled);
 
     converged = true;
     iterations_run += 1;
   }
-  
-  /**
-   * @brief Implement Pool Adjacent Violators Algorithm (PAVA) for isotonic regression
-   *
-   * PAVA is the standard algorithm for isotonic regression with guaranteed O(n) complexity.
-   * It processes the data in a single pass, merging violators (adjacent decreasing pairs)
-   * until no violations remain.
-   *
-   * Algorithm:
-   * 1. Initialize blocks with input values
-   * 2. Scan from left to right
-   * 3. When a violation is found (y[i] > y[i+1] for increasing), merge blocks
-   * 4. Continue until no violations exist
-   *
-   * Complexity: O(n) time, O(n) space
-   *
-   * References:
-   * - Barlow et al. (1972). "Statistical Inference Under Order Restrictions"
-   * - Best & Chakravarti (1990). "Active set algorithms for isotonic regression"
-   *
-   * @param y_input Original values to be isotonized
-   * @param w_input Weights (typically bin counts)
-   * @param increasing Whether monotonically increasing (true) or decreasing (false)
-   * @param block_sizes Optional output: how many input elements each final
-   *   block pooled, in order. The sizes sum to the input length. Callers use it
-   *   to apply the pooling to the underlying data rather than only to the
-   *   fitted values.
-   * @return std::vector<double> Isotonic regression result (same length as input)
-   */
-  std::vector<double> isotonicRegressionPAV(
-      const std::vector<double>& y_input,
-      const std::vector<double>& w_input,
-      bool increasing = true,
-      std::vector<int>* block_sizes = nullptr) const {
-    
-    int n = static_cast<int>(y_input.size());
-    std::vector<double> y = y_input;
-    std::vector<double> w = w_input;
-    
-    // Active set algorithm
-    std::vector<double> solution(n);
-    std::vector<int> active_set(n, 1);  // Size of each block
-    std::vector<int> active_sum = active_set;  // Cumulative sum of active_set
-    
-    // Initial solution
-    for (int i = 0; i < n; ++i) {
-      solution[i] = y[i];
-    }
-    
-    // Iteratively merge blocks that violate monotonicity
-    bool violation = true;
-    while (violation) {
-      violation = false;
-      
-      for (int i = 0; i < n - 1; ) {
-        // Check for violation
-        bool violates = (increasing) ? 
-        (solution[i] > solution[i + 1]) : 
-        (solution[i] < solution[i + 1]);
-        
-        if (violates) {
-          violation = true;
-          
-          // Calculate weighted average
-          double w_sum = w[i] + w[i + 1];
-          double new_value = (w[i] * solution[i] + w[i + 1] * solution[i + 1]) / w_sum;
-          
-          // Update solution with weighted average
-          solution[i] = new_value;
-          solution[i + 1] = new_value;
-          
-          // Merge blocks
-          w[i] = w_sum;
-          active_set[i] += active_set[i + 1];
-          
-          // Remove block i+1
-          for (int j = i + 1; j < n - 1; ++j) {
-            solution[j] = solution[j + 1];
-            w[j] = w[j + 1];
-            active_set[j] = active_set[j + 1];
-          }
-          
-          // Decrease n
-          n--;
-          
-          // Don't increment i, check again with new merged block
-        } else {
-          // Move to next block
-          i++;
-        }
-      }
-    }
-    
-    // Report the block structure: active_set[0..n-1] holds the number of input
-    // elements pooled into each surviving block, in order.
-    if (block_sizes != nullptr) {
-      block_sizes->assign(active_set.begin(), active_set.begin() + n);
-    }
 
-    // Expand solution to original size
-    std::vector<double> result(y_input.size());
-    int idx = 0;
-    for (int i = 0; i < n; ++i) {
-      for (int j = 0; j < active_set[i]; ++j) {
-        result[idx++] = solution[i];
-      }
-    }
-
-    return result;
-  }
-  
   /**
    * Calculate Weight of Evidence (WoE) and Information Value (IV)
    * for each bin and the total binning solution
@@ -868,8 +721,8 @@ private:
     }
     
     // Apply Laplace smoothing to handle zero counts
-    double pos_denominator = total_pos + bin_info.size() * ALPHA;
-    double neg_denominator = total_neg + bin_info.size() * ALPHA;
+    double pos_denominator = total_pos + static_cast<double>(bin_info.size()) * ALPHA;
+    double neg_denominator = total_neg + static_cast<double>(bin_info.size()) * ALPHA;
     
     if (pos_denominator < EPSILON || neg_denominator < EPSILON) {
       throw std::runtime_error("Insufficient positive or negative cases for WoE and IV calculations.");
