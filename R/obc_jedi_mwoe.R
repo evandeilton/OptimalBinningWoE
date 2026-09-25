@@ -146,8 +146,8 @@
 #' \strong{Computational Complexity:}
 #' \itemize{
 #'   \item Time: \eqn{O(k^2 \cdot C \cdot m)} where \eqn{k} = bins, \eqn{C} = classes, \eqn{m} = iterations
-#'   \item Space: \eqn{O(k^2 \cdot C)} for M-WoE cache
-#'   \item Cache hit rate typically > 60\% for \eqn{k > 10}
+#'   \item Space: \eqn{O(k \cdot C)}; during pre-binning each bin keeps its
+#'         most similar partner, so a merge rescans only the affected bins
 #' }
 #'
 #' \strong{Key Innovations:}
