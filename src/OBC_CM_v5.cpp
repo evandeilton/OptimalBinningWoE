@@ -23,10 +23,56 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
+namespace {
+
+// Category names that contain bin_separator. A bin label is its categories
+// joined with the separator, and obwoe_apply() recovers the categories by
+// splitting the label on it, so such a name is cut into pieces that are not
+// categories (and a piece equal to another category claims it too). The
+// binning itself is unaffected; the caller is warned that its labels are
+// ambiguous. Checked over the distinct categories only, so the cost is O(k).
+inline const std::string& separator_key(const std::string& s) { return s; }
+template <typename T>
+inline const std::string& separator_key(const std::pair<const std::string, T>& kv) {
+  return kv.first;
+}
+
+template <typename Container>
+std::size_t count_separator_hits(const Container& categories, const std::string& sep,
+                                 std::string& example) {
+  std::size_t hits = 0;
+  if (sep.empty()) return 0;
+  for (const auto& item : categories) {
+    const std::string& cat = separator_key(item);
+    if (cat.find(sep) != std::string::npos) {
+      if (hits == 0) example = cat;
+      ++hits;
+    }
+  }
+  return hits;
+}
+
+inline void warn_separator_hits(const std::string& sep, std::size_t hits,
+                                const std::string& example) {
+  if (hits == 0) return;
+  Rcpp::warning("bin_separator \"%s\" occurs inside %d categor%s of the feature "
+                "(e.g. \"%s\"): the bin labels are ambiguous and cannot be split "
+                "back into categories. Choose a bin_separator that does not occur "
+                "in the category names.",
+                sep, hits, (hits == 1 ? "y" : "ies"), example);
+}
+
+} // namespace
+
 
 // =============================================================================
 // NUMERICAL STABILITY UTILITIES
 // =============================================================================
+//
+// Kept in an unnamed namespace: OBN_CM_v5.cpp defines global functions with the
+// same signatures, and two external-linkage definitions that ever drift apart
+// would be an ODR violation the linker resolves silently.
+namespace {
 
 /**
  * @brief Safe logarithm with underflow protection
@@ -48,25 +94,23 @@ inline double safe_log(double x, double epsilon = EPSILON) {
  * @param num Numerator
  * @param denom Denominator
  * @param epsilon Minimum denominator magnitude (default: 1e-12)
- * @return num/denom with protection against division by zero
+ * @return num/denom, or 0 when |denom| < epsilon
  */
 inline double safe_divide(double num, double denom, double epsilon = 1e-12) {
   if (std::abs(denom) < epsilon) {
-    return 0.0; // Or could return sign(num) * large_value
+    return 0.0;
   }
   return num / denom;
 }
 
 /**
  * @brief Clamp value to range [min_val, max_val]
- * @param value Value to clamp
- * @param min_val Minimum allowed value
- * @param max_val Maximum allowed value
- * @return Clamped value
  */
 inline double clamp(double value, double min_val, double max_val) {
   return std::max(min_val, std::min(value, max_val));
 }
+
+} // namespace
 
 // =============================================================================
 // BIN STRUCTURE
@@ -124,29 +168,6 @@ private:
   // Chi-square cache
   std::unique_ptr<ChiSquareCache> chi_cache;
   
-  // Constants
-  // Constant removed (uses shared definition)
-  // Local constant removed (uses shared definition)  // Cap for numerical stability
-  // Local constant removed (uses shared definition) // Cap for numerical stability
-  
-  // Corrected chi-square critical values for DF=1
-  const std::unordered_map<double, double> CHI_SQUARE_CRITICAL_VALUES = {
-    {0.995, 7.879},   // 99.5% confidence
-    {0.99, 6.635},    // 99% confidence
-    {0.975, 5.024},   // 97.5% confidence
-    {0.95, 3.841},    // 95% confidence
-    {0.90, 2.706},    // 90% confidence
-    {0.80, 1.642},    // 80% confidence
-    {0.70, 1.074},    // 70% confidence
-    {0.50, 0.455},    // 50% confidence
-    {0.30, 0.148},    // 30% confidence
-    {0.20, 0.064},    // 20% confidence
-    {0.10, 0.016},    // 10% confidence
-    {0.05, 0.004},    // 5% confidence
-    {0.01, 0.0002},   // 1% confidence
-    {0.001, 0.00001}  // 0.1% confidence
-  };
-  
 public:
   /**
    * @brief Constructor with comprehensive parameter validation
@@ -193,6 +214,11 @@ public:
     warnings.reserve(10);
   }
   
+  /// Number of categories whose name contains bin_separator (and one of them)
+  std::size_t separator_hits(std::string& example) const {
+    return count_separator_hits(total_count_map, bin_separator, example);
+  }
+
   /**
    * @brief Main method to perform optimal binning
    * @return Rcpp::List with binning results and diagnostics
@@ -435,6 +461,10 @@ private:
         break;
       }
       
+      // merge_bins_chimerge() always merges down to max_bins before its
+      // significance loop, so the check above ends this loop after the first
+      // level and the inconsistency rule below is never reached.
+      // # nocov start
       // Check inconsistency rate (optional early stopping)
       double inconsistency = calculate_inconsistency_rate();
       if (inconsistency < 0.05) { // 5% threshold
@@ -443,6 +473,7 @@ private:
           " due to low inconsistency rate");
         break;
       }
+      // # nocov end
     }
     
     ensure_min_bins();
@@ -603,6 +634,11 @@ private:
    * @brief Ensure minimum number of bins by splitting
    */
   void ensure_min_bins() {
+    // Unreachable in practice: adjust_constraints() clamps min_bins to the
+    // number of categories, and every merge step (rare handling, pre-bin
+    // limit, ChiMerge, monotonicity) stops at min_bins, so the bin count never
+    // falls below it. Kept as a safeguard.
+    // # nocov start
     while (bins.size() < static_cast<size_t>(min_bins)) {
       // Find bin with most categories
       size_t best_idx = 0;
@@ -623,11 +659,13 @@ private:
       
       split_bin(best_idx);
     }
+    // # nocov end
   }
   
   /**
    * @brief Split a bin into two parts
    */
+  // # nocov start
   void split_bin(size_t idx) {
     CategoricalBin& bin = bins[idx];
     if (bin.categories.size() <= 1) return;
@@ -666,6 +704,7 @@ private:
     chi_cache->clear();
     chi_cache->resize(bins.size());
   }
+  // # nocov end
   
   /**
    * @brief Enforce monotonicity of WoE
@@ -804,30 +843,43 @@ private:
    * @brief Compute chi-square statistic between two bins
    */
   double compute_chi_square(const CategoricalBin& bin1, const CategoricalBin& bin2) const {
-    int o11 = bin1.count_pos, o12 = bin1.count_neg;
-    int o21 = bin2.count_pos, o22 = bin2.count_neg;
-    
-    int r1 = o11 + o12, r2 = o21 + o22;
-    int c1 = o11 + o21, c2 = o12 + o22;
-    int n = r1 + r2;
-    
+    // Counts are carried as doubles: the products r * c below overflowed a
+    // 32-bit int as soon as two margins exceeded ~46,341 (e.g. two bins of
+    // 50,000 rows), which is undefined behaviour and in practice produced a
+    // negative or garbage expected frequency and hence a wrong merge order.
+    const double o11 = bin1.count_pos, o12 = bin1.count_neg;
+    const double o21 = bin2.count_pos, o22 = bin2.count_neg;
+
+    const double r1 = o11 + o12, r2 = o21 + o22;
+    const double c1 = o11 + o21, c2 = o12 + o22;
+    const double n = r1 + r2;
+
     if (n == 0 || r1 == 0 || r2 == 0 || c1 == 0 || c2 == 0) {
       return 0.0;
     }
-    
+
     // Expected frequencies
-    double e11 = static_cast<double>(r1 * c1) / n;
-    double e12 = static_cast<double>(r1 * c2) / n;
-    double e21 = static_cast<double>(r2 * c1) / n;
-    double e22 = static_cast<double>(r2 * c2) / n;
-    
-    // Chi-square with continuity correction
+    const double e11 = (r1 * c1) / n;
+    const double e12 = (r1 * c2) / n;
+    const double e21 = (r2 * c1) / n;
+    const double e22 = (r2 * c2) / n;
+
+    // Chi-square with Yates' continuity correction. The correction is
+    // max(0, |O - E| - 1/2), as in R's chisq.test(): without the floor a pair
+    // whose observed counts were within 1/2 of their expectation -- i.e. two
+    // bins more alike than any others -- scored (1/2 - |O - E|)^2 / E > 0, so
+    // a closer pair could look *less* similar than a slightly different one.
+    auto term = [](double o, double e) {
+      if (!(e > EPSILON)) return 0.0;
+      const double d = std::max(0.0, std::abs(o - e) - 0.5);
+      return (d * d) / e;
+    };
     double chi2 = 0.0;
-    if (e11 > EPSILON) chi2 += std::pow(std::abs(o11 - e11) - 0.5, 2) / e11;
-    if (e12 > EPSILON) chi2 += std::pow(std::abs(o12 - e12) - 0.5, 2) / e12;
-    if (e21 > EPSILON) chi2 += std::pow(std::abs(o21 - e21) - 0.5, 2) / e21;
-    if (e22 > EPSILON) chi2 += std::pow(std::abs(o22 - e22) - 0.5, 2) / e22;
-    
+    chi2 += term(o11, e11);
+    chi2 += term(o12, e12);
+    chi2 += term(o21, e21);
+    chi2 += term(o22, e22);
+
     return chi2;
   }
   
@@ -892,26 +944,21 @@ private:
   /**
    * @brief Get chi-square critical value
    */
+  //
+  // ChiMerge (Kerber, 1992) keeps merging the adjacent pair with the smallest
+  // chi-square while that statistic is below the chi-square quantile at the
+  // chosen significance level: two intervals are merged unless they differ
+  // significantly at level alpha. chi_merge_threshold is documented as that
+  // significance level, so the threshold is the upper-tail quantile
+  // qchisq(1 - alpha, df = 1) -- 3.841 for the default alpha = 0.05.
+  //
+  // The previous lookup table was keyed by *confidence* level, so alpha = 0.05
+  // resolved to the 5% lower-tail quantile, 0.004: only pairs that were almost
+  // exactly identical were ever merged by the significance rule, and a larger
+  // alpha made the rule *more* permissive instead of less. Any alpha in (0, 1)
+  // is now honoured exactly instead of snapping to the nearest tabulated key.
   double get_chi_square_critical_value() const {
-    // Find in lookup table
-    auto it = CHI_SQUARE_CRITICAL_VALUES.find(chi_merge_threshold);
-    if (it != CHI_SQUARE_CRITICAL_VALUES.end()) {
-      return it->second;
-    }
-    
-    // Find closest value
-    double closest_key = 0.05;
-    double min_diff = std::abs(chi_merge_threshold - 0.05);
-    
-    for (const auto& [key, value] : CHI_SQUARE_CRITICAL_VALUES) {
-      double diff = std::abs(chi_merge_threshold - key);
-      if (diff < min_diff) {
-        min_diff = diff;
-        closest_key = key;
-      }
-    }
-    
-    return CHI_SQUARE_CRITICAL_VALUES.at(closest_key);
+    return R::qchisq(chi_merge_threshold, 1.0, /*lower_tail=*/0, /*log_p=*/0);
   }
   
   /**
@@ -924,6 +971,7 @@ private:
   /**
    * @brief Calculate inconsistency rate
    */
+  // Only reached from the Chi2 loop past its first pass (see there). # nocov start
   double calculate_inconsistency_rate() const {
     double inconsistent_count = 0;
     
@@ -934,6 +982,7 @@ private:
     
     return safe_divide(inconsistent_count, total_pos + total_neg);
   }
+  // # nocov end
   
   /**
    * @brief Join categories with separator
@@ -1056,7 +1105,10 @@ Rcpp::List optimal_binning_categorical_cm(
        chi_merge_threshold, use_chi2_algorithm
    );
    
-   return binner.perform_binning();
+   Rcpp::List res = binner.perform_binning();
+   std::string example;
+   warn_separator_hits(bin_separator, binner.separator_hits(example), example);
+   return res;
    
  } catch (const std::exception& e) {
    Rcpp::stop(std::string("OBC_ error: ") + e.what());
