@@ -13,10 +13,12 @@
 #' a deterministic greedy heuristic for computational efficiency.
 #'
 #' @param feature Numeric vector of feature values to be binned. Missing values (NA)
-#'   are removed. Infinite values never become cutpoints; they are counted in
-#'   the first (\code{-Inf}) or last (\code{+Inf}) bin.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+#'   silently, so the bin counts sum to the number of non-missing rows. Infinite
+#'   values are legitimate extremes: they never become cutpoints and are counted
+#'   in the first (\code{-Inf}) or last (\code{+Inf}) bin.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
-#'   Must have the same length as \code{feature}.
+#'   Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).
 #' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
 #' @param max_bins Maximum number of bins to generate (default: 5). Must be greater
 #'   than or equal to \code{min_bins}.
@@ -312,7 +314,13 @@ ob_numerical_mblp <- function(feature,
   target <- as.integer(target)
 
   # Validate binary target before expensive C++ call
-  unique_target <- unique(target[!is.na(target)])
+  # Missing targets are an error, as in obwoe(): silently dropping them (or,
+  # in C++, reading NA_integer_ as a class label) hid a data problem.
+  if (anyNA(target)) {
+    stop("Target contains missing values, which are not permitted.")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }

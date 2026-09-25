@@ -229,12 +229,12 @@ test_that("lpdb and ldb survive values near the double range limit", {
   }
 })
 
-test_that("lpdb warns (deliberately) about NA in the feature and drops them", {
+test_that("lpdb excludes NA feature rows silently", {
   set.seed(14)
   x <- rnorm(300)
   x[c(3, 30)] <- NA
   y <- rbinom(300, 1, .4)
-  expect_warning(r <- ob_numerical_lpdb(x, y), "NA values")
+  expect_no_warning(r <- ob_numerical_lpdb(x, y))
   expect_equal(sum(r$count), 298)
 })
 
@@ -273,12 +273,15 @@ test_that("mblp gives each distinct value a pre-bin instead of an empty top bin"
   expect_true(all(r$count > 0))
 })
 
-test_that("mblp drops rows with a missing target instead of counting them negative", {
+test_that("mblp rejects a missing target instead of counting it negative", {
+  # The engine read NA_integer_ as a negative; the wrapper now stops, as
+  # obwoe() does, and the engine itself skips such rows if called directly.
   set.seed(3)
   x <- rnorm(500)
   y <- rbinom(500, 1, plogis(x))
   y[c(5, 50, 100)] <- NA
-  r <- ob_numerical_mblp(x, y)
+  expect_error(ob_numerical_mblp(x, y), "missing values")
+  r <- OptimalBinningWoE:::optimal_binning_numerical_mblp(as.integer(y), x)
   expect_equal(sum(r$count), 497)
   expect_equal(sum(r$count_pos), sum(y, na.rm = TRUE))
 })
@@ -299,7 +302,7 @@ test_that("mblp and mdlp never emit a -Inf cutpoint", {
   r <- ob_numerical_mblp(x, y)
   expect_true(all(is.finite(r$cutpoints)))
   expect_equal(r$count, c(30L, 70L))
-  expect_warning(r <- ob_numerical_mdlp(x, y), "Inf values")
+  expect_no_warning(r <- ob_numerical_mdlp(x, y))
   expect_true(all(is.finite(r$cutpoints)))
   expect_equal(r$count, c(30L, 70L))
   expect_false(any(grepl("-inf", r$bin, fixed = TRUE)))
@@ -307,7 +310,7 @@ test_that("mblp and mdlp never emit a -Inf cutpoint", {
   set.seed(16)
   x <- c(-Inf, -Inf, rnorm(98))
   y <- rbinom(100, 1, .4)
-  expect_warning(r <- ob_numerical_mdlp(x, y), "Inf values")
+  expect_no_warning(r <- ob_numerical_mdlp(x, y))
   expect_true(all(is.finite(r$cutpoints)))
   expect_equal(sum(r$count), 100)
 })
@@ -345,18 +348,30 @@ test_that("mdlp reports non-convergence only when the cap left work undone", {
 
 test_that("mdlp explains an all-missing feature", {
   expect_error(
-    suppressWarnings(ob_numerical_mdlp(c(NaN, NaN, NA), c(0L, 1L, 0L))),
+    ob_numerical_mdlp(c(NaN, NaN, NA), c(0L, 1L, 0L)),
     "All feature values are NA"
   )
 })
 
-test_that("mdlp warns (deliberately) about NaN/Inf and bins the rest", {
+test_that("numerical NA contract: silent NA exclusion, Inf in the end bins, NA target is an error", {
   set.seed(17)
   x <- rnorm(300)
   x[c(1, 2)] <- NaN
+  x[c(3, 4)] <- NA
+  x[5] <- Inf
+  x[6] <- -Inf
   y <- rbinom(300, 1, .4)
-  expect_warning(r <- ob_numerical_mdlp(x, y), "2 NaN and 0 Inf")
-  expect_equal(sum(r$count), 298)
+  y[1:2] <- c(0L, 1L)
+  for (a in names(numc_fns)) {
+    expect_no_warning(r <- numc_fns[[a]](x, y))
+    expect_equal(sum(r$count), 296, info = a)
+    expect_true(all(is.finite(r$cutpoints)), info = a)
+    expect_true(all(is.finite(r$woe)), info = a)
+    expect_true(all(r$count > 0), info = a)
+    y_na <- y
+    y_na[10] <- NA
+    expect_error(numc_fns[[a]](x, y_na), "missing values", info = a)
+  }
 })
 
 # ---------------------------------------------------------------------------
@@ -468,7 +483,7 @@ test_that("mdlp edge paths: capped WoE, capped phases, leftmost rare bin", {
 
   # all feature values of one class are missing: one class left
   expect_error(
-    suppressWarnings(ob_numerical_mdlp(c(1, 2, 3, NaN, NaN), c(0L, 0L, 0L, 1L, 1L))),
+    ob_numerical_mdlp(c(1, 2, 3, NaN, NaN), c(0L, 0L, 0L, 1L, 1L)),
     "same"
   )
 })

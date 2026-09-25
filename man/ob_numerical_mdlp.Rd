@@ -18,12 +18,13 @@ ob_numerical_mdlp(
 }
 \arguments{
 \item{feature}{Numeric vector of feature values to be binned. Missing values (NA)
-are automatically removed during preprocessing. Infinite values trigger a warning
-but are handled internally: they are counted in the first (\code{-Inf}) or last
-(\code{+Inf}) bin and never become cutpoints.}
+Missing values (\code{NA}/\code{NaN}) are excluded from the fit
+silently, so the bin counts sum to the number of non-missing rows. Infinite
+values are legitimate extremes: they never become cutpoints and are counted
+in the first (\code{-Inf}) or last (\code{+Inf}) bin.}
 
 \item{target}{Integer vector of binary target values (must contain only 0 and 1).
-Must have the same length as \code{feature}.}
+Must have the same length as \code{feature}. Missing values are not permitted (an error is raised).}
 
 \item{min_bins}{Minimum number of bins to generate (default: 3). Must be at least 2.
 If the number of unique feature values is less than \code{min_bins}, the algorithm
@@ -101,8 +102,8 @@ Input data is validated for:
 \itemize{
   \item Binary target (only 0 and 1 values)
   \item Parameter consistency (\code{min_bins <= max_bins}, valid ranges)
-  \item Missing value detection (NaN values are removed and Inf values kept in
-    the extreme bins, with a warning)
+  \item Missing values: \code{NA}/\code{NaN} rows are excluded silently and
+    \code{Inf} values are kept in the extreme bins
 }
 
 Feature-target pairs are sorted by feature value in ascending order, enabling
