@@ -22,7 +22,6 @@ using namespace Rcpp;
 using namespace OptimalBinning;
 
 // Global constants
-static constexpr double NEG_INFINITY = -std::numeric_limits<double>::infinity();
 static constexpr double LAPLACE_ALPHA = 0.5;
 // [D8] Standardized to "NA", matching every other categorical algorithm
 // (this file and OBC_JEDIMWoE_v5.cpp were the only two using "N/A"). The

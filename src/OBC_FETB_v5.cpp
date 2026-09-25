@@ -24,7 +24,6 @@ namespace {
 // categories (and a piece equal to another category claims it too). The
 // binning itself is unaffected; the caller is warned that its labels are
 // ambiguous. Checked over the distinct categories only, so the cost is O(k).
-inline const std::string& separator_key(const std::string& s) { return s; }
 template <typename T>
 inline const std::string& separator_key(const std::pair<const std::string, T>& kv) {
   return kv.first;
@@ -119,7 +118,6 @@ private:
   const size_t  min_bins;
   size_t        max_bins;
   const double  bin_cutoff;
-  const size_t  max_n_prebins;
   const double  convergence_threshold;
   const size_t  max_iterations;
   const std::string bin_separator;
@@ -422,13 +420,13 @@ public:
            size_t  min_bins_=3,
            size_t  max_bins_=5,
            double  bin_cutoff_=0.05,
-           size_t  max_n_prebins_=20,
+           size_t  /* max_n_prebins: unused */ = 20,
            double  convergence_threshold_=1e-6,
            size_t  max_iterations_=1000,
            const std::string& bin_sep="%;%")
     : feature(feature_), target(target_),
       min_bins(min_bins_), max_bins(max_bins_),
-      bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
+      bin_cutoff(bin_cutoff_),
       convergence_threshold(convergence_threshold_),
       max_iterations(max_iterations_),
       bin_separator(bin_sep)

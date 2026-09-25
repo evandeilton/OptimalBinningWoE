@@ -26,7 +26,6 @@ namespace {
 // categories (and a piece equal to another category claims it too). The
 // binning itself is unaffected; the caller is warned that its labels are
 // ambiguous. Checked over the distinct categories only, so the cost is O(k).
-inline const std::string& separator_key(const std::string& s) { return s; }
 template <typename T>
 inline const std::string& separator_key(const std::pair<const std::string, T>& kv) {
   return kv.first;

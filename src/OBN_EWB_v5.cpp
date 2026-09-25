@@ -38,7 +38,6 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
   int max_iterations;
   bool is_monotonic;
   
@@ -556,12 +555,11 @@ public:
     double bin_cutoff_ = 0.05, 
     int max_n_prebins_ = 20,
     bool is_monotonic_ = true,
-    double convergence_threshold_ = 1e-6, 
+    double /* convergence_threshold: unused */ = 1e-6, 
     int max_iterations_ = 1000)
     : feature(feature_), target(target_), 
       min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
-      convergence_threshold(convergence_threshold_), 
       max_iterations(max_iterations_),
       is_monotonic(is_monotonic_),
       converged(true), iterations_run(0), 

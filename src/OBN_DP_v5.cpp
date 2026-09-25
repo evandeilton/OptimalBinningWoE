@@ -51,7 +51,6 @@ private:
   int max_bins;
   double bin_cutoff;
   int max_n_prebins;
-  double convergence_threshold;
   int max_iterations;
   std::string monotonic_trend;
   bool force_monotonic;
@@ -103,7 +102,7 @@ public:
     int max_bins_,
     double bin_cutoff_,
     int max_n_prebins_,
-    double convergence_threshold_,
+    double /* convergence_threshold: unused */,
     int max_iterations_,
     std::string monotonic_trend_ = "auto")
     : feature(feature_),
@@ -112,7 +111,6 @@ public:
       max_bins(max_bins_),
       bin_cutoff(bin_cutoff_),
       max_n_prebins(max_n_prebins_),
-      convergence_threshold(convergence_threshold_),
       max_iterations(max_iterations_),
       monotonic_trend(monotonic_trend_),
       converged(true),
