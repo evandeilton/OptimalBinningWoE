@@ -12,9 +12,12 @@
 #' that the final binning satisfies: \eqn{\text{WoE}_1 \le \text{WoE}_2 \le \cdots \le \text{WoE}_k}
 #' (or the reverse for decreasing patterns).
 #'
-#' @param feature Numeric vector of feature values to be binned. Missing values (NA)
-#'   are automatically removed during preprocessing. Infinite values trigger a warning
-#'   but are handled internally.
+#' @param feature Numeric vector of feature values to be binned. Missing values (NA/NaN) are
+#'   dropped silently: those rows are counted in no bin and the counts add up to the
+#'   number of non-missing rows. \code{-Inf} and \code{+Inf} are kept as extreme values
+#'   in the first and last bin and never become cutpoints. A feature whose values are all
+#'   missing is an error. The
+#'   totals used for WoE, IV and \code{bin_cutoff} exclude the missing rows.
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}.
 #' @param min_bins Minimum number of bins to generate (default: 3). Must be at least 2.
@@ -33,8 +36,8 @@
 #'   (default: 1e-6). Reserved for future extensions; current implementation uses
 #'   \code{max_iterations} as the primary stopping criterion.
 #' @param max_iterations Maximum number of iterations for bin merging and monotonicity
-#'   enforcement (default: 1000). Prevents infinite loops in pathological cases. A
-#'   warning is issued if this limit is reached without achieving convergence.
+#'   enforcement (default: 1000). Prevents infinite loops in pathological cases. When
+#'   the limit is reached with merges still pending, \code{converged} is \code{FALSE}.
 #' @param laplace_smoothing Laplace smoothing parameter for WoE calculation (default: 0.5).
 #'   Prevents division by zero and stabilizes WoE estimates in bins with zero counts
 #'   for one class. Must be non-negative. Standard values: 0.5 (Laplace), 1.0 (Jeffreys prior).
@@ -42,10 +45,13 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer vector of bin identifiers (1-based indexing).}
-#'   \item{bin}{Character vector of bin intervals in the format \code{"[lower;upper)"}.
-#'     The first bin starts with \code{-Inf} and the last bin ends with \code{+Inf}.}
-#'   \item{woe}{Numeric vector of Weight of Evidence values for each bin. Guaranteed
-#'     to be monotonic (either non-decreasing or non-increasing).}
+#'   \item{bin}{Character vector of right-closed bin intervals in the format
+#'     \code{"(lower;upper]"}. The first bin starts with \code{-Inf} and the last bin
+#'     ends with \code{+Inf}.}
+#'   \item{woe}{Numeric vector of Weight of Evidence values for each bin. Monotonic
+#'     (either non-decreasing or non-increasing) unless \code{min_bins} or
+#'     \code{max_iterations} stops the merging first (no warning is issued; check
+#'     the returned WoE).}
 #'   \item{iv}{Numeric vector of Information Value contributions for each bin.}
 #'   \item{count}{Integer vector of total observations in each bin.}
 #'   \item{count_pos}{Integer vector of positive class (target = 1) counts per bin.}
@@ -115,10 +121,13 @@
 #'
 #' \strong{Phase 4: Monotonicity Enforcement}
 #'
-#' The algorithm first determines the desired monotonicity direction by examining the
-#' relationship between the first two bins:
+#' The algorithm first determines the desired monotonicity direction by majority vote
+#' over adjacent bins (as MRBLP does):
 #'
-#' \deqn{\text{should\_increase} = \begin{cases} \text{TRUE} & \text{if } \text{WoE}_1 \ge \text{WoE}_0 \\ \text{FALSE} & \text{otherwise} \end{cases}}
+#' \deqn{\text{should\_increase} = \begin{cases} \text{TRUE} & \text{if } \#\{\text{WoE}_i > \text{WoE}_{i-1}\} \ge \#\{\text{WoE}_i < \text{WoE}_{i-1}\} \\ \text{FALSE} & \text{otherwise} \end{cases}}
+#'
+#' (Earlier versions used the first two bins only, \eqn{\text{WoE}_1 \ge \text{WoE}_0},
+#' which let sampling noise in the two lowest pre-bins reverse the direction.)
 #'
 #' For each bin \eqn{i} from 1 to \eqn{k-1}, violations are detected as:
 #'
@@ -137,7 +146,7 @@
 #' \itemize{
 #'   \item All WoE values satisfy monotonicity constraints
 #'   \item The number of bins reaches \code{min_bins}
-#'   \item \code{max_iterations} is exceeded (triggers warning)
+#'   \item \code{max_iterations} is exceeded (\code{converged = FALSE})
 #' }
 #'
 #' After each merge, WoE and IV are recalculated for all bins to reflect updated
@@ -319,7 +328,11 @@ ob_numerical_mob <- function(feature,
   feature <- as.numeric(feature)
   target <- as.integer(target)
 
-  unique_target <- unique(target[!is.na(target)])
+  if (anyNA(target)) {
+    stop("Target contains missing values (NA).")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }

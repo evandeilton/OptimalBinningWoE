@@ -3,14 +3,14 @@
 #include <Rcpp.h>
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <limits>
 #include <memory>
-#include <numeric>
 #include <queue>
-#include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Include shared headers
@@ -21,240 +21,147 @@ using namespace Rcpp;
 using namespace OptimalBinning;
 
 // ============================================================================
-// Namespace with optimized utility functions
+// Utilities
 // ============================================================================
 namespace utils {
-// Safe and optimized logarithm function
+// Safe logarithm
 inline double safe_log(double x) {
   return x > EPSILON ? std::log(x) : std::log(EPSILON);
 }
 
-// Safe comparison of doubles
-inline bool are_equal(double a, double b, double tolerance = EPSILON) {
-  return std::fabs(a - b) < tolerance;
-}
-
-// Check if value is finite
-inline bool is_finite_safe(double x) {
-  return std::isfinite(x) && !std::isnan(x);
+// A finite cut c with a <= c < b between two consecutive distinct finite values
+// a < b (right-closed bins). The midpoint is used whenever it is valid; it
+// overflows near the largest double and can round up to b for adjacent doubles.
+inline double safe_cut(double a, double b) {
+  double m = (a + b) / 2.0;
+  if (!std::isfinite(m)) m = a / 2.0 + b / 2.0;
+  if (m >= a && m < b) return m;
+  return a;
 }
 } // namespace utils
 
 // ============================================================================
-// KLL Sketch structure for approximate quantile computation in streams
+// KLL-style sketch for approximate quantiles in a stream
 // ============================================================================
+//
+// Every level holds at most k items; an overflowing level is sorted and its
+// adjacent pairs are collapsed into one item carrying the pair's weight, kept
+// at the lower element on even levels and at the upper one on odd levels (a
+// deterministic alternative to KLL's random coin, so results do not depend on
+// the RNG state). The weights are tracked explicitly, so the total weight
+// always equals the number of items seen.
+//
+// Accuracy: a compaction at a level whose items weigh w moves any rank by at
+// most w, and a level is compacted at most n / (w k / 2) times, so the rank
+// error is at most about 2 n H / k with H = log2(n / k) levels (worst case);
+// the alternating choice makes the errors largely cancel in practice. The
+// quantiles are only used to propose candidate cutpoints: every bin statistic
+// is computed exactly from the data afterwards.
 class KLLSketch {
 private:
   struct Item {
     double value;
     int weight;
-    
+
     Item(double v, int w = 1) : value(v), weight(w) {}
-    
+
     bool operator<(const Item &other) const { return value < other.value; }
   };
-  
+
   using Compactor = std::vector<Item>;
   std::vector<Compactor> compactors;
-  int k;          // Parameter controlling accuracy
+  int k;          // Capacity of every level
   int n;          // Number of items processed
-  double min_value;
-  double max_value;
-  int max_level;  // Level limit to prevent stack overflow
-  
-  // Non-recursive function to compact a sketch level
+  int max_level;  // Levels at or above this one are never compacted
+
+  // Non-recursive compaction of a level (and of the levels it overflows)
   void compact_level(size_t level) {
     std::queue<size_t> levels_to_compact;
     levels_to_compact.push(level);
-    
+
     while (!levels_to_compact.empty()) {
-      size_t current_level = levels_to_compact.front();
+      const size_t current_level = levels_to_compact.front();
       levels_to_compact.pop();
-      
-      // Check level limit to prevent infinite expansion
+
       if (current_level >= static_cast<size_t>(max_level)) {
         continue;
       }
-      
-      // If current level doesn't need compaction, continue
-      if (current_level >= compactors.size() ||
-          compactors[current_level].size() <= static_cast<size_t>(k)) {
-        continue;
-      }
-      
-      // Sort compactor
-      std::sort(compactors[current_level].begin(),
-                compactors[current_level].end());
-      
-      // CRITICAL FIX: Ensure next level exists BEFORE taking a reference
+
+      std::sort(compactors[current_level].begin(), compactors[current_level].end());
+
+      // The next level must exist BEFORE a reference into `compactors` is taken
       if (current_level + 1 >= compactors.size()) {
         compactors.push_back(Compactor());
       }
-      
-      // NOW it's safe to take a reference
+
       Compactor &compactor = compactors[current_level];
-      
-      // Guard against underflow
-      if (compactor.size() < 2) {
-        continue;
-      }
-      
-      std::vector<Item> next_level;
-      next_level.reserve(compactor.size() / 2 + 1);
-      
-      // Compaction: merge adjacent pairs
+      Compactor &next = compactors[current_level + 1];
+      const bool keep_lower = (current_level % 2 == 0);
+
       for (size_t i = 0; i + 1 < compactor.size(); i += 2) {
-        bool include = ((current_level % 2 == 0 && i % 2 == 0) ||
-                        (current_level % 2 == 1 && i % 2 == 1));
-        
-        if (include) {
-          next_level.push_back(
-            Item(compactor[i].value,
-                 compactor[i].weight + compactor[i + 1].weight));
-        } else {
-          next_level.push_back(
-            Item(compactor[i + 1].value,
-                 compactor[i].weight + compactor[i + 1].weight));
-        }
+        const int w = compactor[i].weight + compactor[i + 1].weight;
+        next.push_back(Item(keep_lower ? compactor[i].value : compactor[i + 1].value, w));
       }
-      
-      // If there's a remaining element (odd size)
+      // Odd size: the remaining (largest) item is promoted unchanged
       if (compactor.size() % 2 == 1) {
-        next_level.push_back(compactor.back());
+        next.push_back(compactor.back());
       }
-      
-      // Clear current level
       compactor.clear();
-      
-      // Add items to next level
-      for (const auto &item : next_level) {
-        compactors[current_level + 1].push_back(item);
-      }
-      
-      // Add next level to queue if needed
-      if (compactors[current_level + 1].size() > static_cast<size_t>(k)) {
+
+      if (next.size() > static_cast<size_t>(k)) {
         levels_to_compact.push(current_level + 1);
       }
     }
   }
-  
+
 public:
-  KLLSketch(int k_param = 200)
-    : k(std::max(k_param, 10)), // Ensure reasonable minimum k
+  explicit KLLSketch(int k_param = 200)
+    : k(k_param),
       n(0),
-      min_value(std::numeric_limits<double>::max()),
-      max_value(std::numeric_limits<double>::lowest()),
       max_level(20) {
-    if (k_param < 10) {
-      Rcpp::warning("sketch_k too small, using k=10");
-    }
     compactors.push_back(Compactor());
-    compactors[0].reserve(k + 1);
+    compactors[0].reserve(static_cast<size_t>(k) + 1);
   }
-  
-  // Add a value to the sketch
+
+  // Add a (finite) value to the sketch
   void update(double value) {
-    // Input validation
-    if (!utils::is_finite_safe(value)) {
-      Rcpp::warning("Non-finite value ignored in sketch");
-      return;
-    }
-    
-    // Update exact min/max
-    min_value = std::min(min_value, value);
-    max_value = std::max(max_value, value);
-    
-    // Add to first compactor
     compactors[0].push_back(Item(value));
     n++;
-    
-    // Compact if necessary
+
     if (compactors[0].size() > static_cast<size_t>(k)) {
       compact_level(0);
     }
   }
-  
-  // Estimate the q-th quantile (0 <= q <= 1)
+
+  // Estimate the q-th quantile, 0 < q < 1 (after at least one update)
   double get_quantile(double q) const {
-    if (n == 0) {
-      return 0.0;
-    }
-    
-    // Input validation with safe correction
-    if (q <= 0.0) return min_value;
-    if (q >= 1.0) return max_value;
-    
-    // Build flattened representation of sketch for query
     std::vector<Item> flattened;
-    flattened.reserve(n / 2);
-    
     for (const auto &compactor : compactors) {
       flattened.insert(flattened.end(), compactor.begin(), compactor.end());
     }
-    
-    // Safety check
-    if (flattened.empty()) {
-      return min_value;
-    }
-    
-    // Sort items
     std::sort(flattened.begin(), flattened.end());
-    
-    // Calculate total weight
+
     int total_weight = 0;
     for (const auto &item : flattened) {
       total_weight += item.weight;
     }
-    
-    // Safety check
-    if (total_weight <= 0) {
-      return min_value;
-    }
-    
-    // Find item corresponding to the quantile
-    int target_weight = static_cast<int>(q * total_weight);
+
+    const int target_weight = static_cast<int>(q * total_weight);
     int cumulative_weight = 0;
-    
     for (const auto &item : flattened) {
       cumulative_weight += item.weight;
       if (cumulative_weight >= target_weight) {
         return item.value;
       }
     }
-    
-    // Fallback to last item
     return flattened.back().value;
   }
-  
-  // Returns the number of items seen
+
   int count() const { return n; }
-  
-  // Returns the exact minimum value
-  double get_min() const { 
-    return n > 0 ? min_value : 0.0; 
-  }
-  
-  // Returns the exact maximum value
-  double get_max() const { 
-    return n > 0 ? max_value : 0.0; 
-  }
-  
-  // Returns compacted items for inspection
-  std::vector<double> get_items() const {
-    std::vector<double> result;
-    result.reserve(n);
-    for (const auto &compactor : compactors) {
-      for (const auto &item : compactor) {
-        result.push_back(item.value);
-      }
-    }
-    std::sort(result.begin(), result.end());
-    return result;
-  }
 };
 
 // ============================================================================
-// Structure to store target statistics per cutpoint
+// Target statistics per candidate cutpoint
 // ============================================================================
 struct CutpointStats {
   double cutpoint;
@@ -265,212 +172,135 @@ struct CutpointStats {
   int count_pos_above;
   int count_neg_above;
   double iv;
-  
-  CutpointStats(double cp = 0.0)
+
+  explicit CutpointStats(double cp = 0.0)
     : cutpoint(cp), count_below(0), count_pos_below(0), count_neg_below(0),
       count_above(0), count_pos_above(0), count_neg_above(0), iv(0.0) {}
 };
 
 // ============================================================================
-// Class for optimizing binning with dynamic programming
+// Exact dynamic programming for small samples
 // ============================================================================
 class DynamicProgramming {
 private:
   std::vector<double> sorted_values;
-  std::vector<int> target_values;
-  std::vector<std::vector<double>> dp_table;
-  std::vector<std::vector<int>> split_points;
+  // prefix counts: cum_pos[i] = positives among the first i sorted values
+  std::vector<int> cum_pos;
+  std::vector<int> cum_neg;
   int total_pos;  // Total events (target=1)
   int total_neg;  // Total non-events (target=0)
-  std::unordered_map<std::string, double> iv_cache;
-  
-  // Function to calculate cache key
-  std::string get_cache_key(int i, int j) const {
-    return std::to_string(i) + "_" + std::to_string(j);
-  }
-  
-  // Calculate IV of a bin between indices i and j
-  double calculate_bin_iv(int i, int j) {
-    // Use cache to avoid recalculations
-    std::string key = get_cache_key(i, j);
-    auto cache_it = iv_cache.find(key);
-    if (cache_it != iv_cache.end()) {
-      return cache_it->second;
-    }
-    
-    // CRITICAL FIX: Improved bounds checking
-    const int n = static_cast<int>(sorted_values.size());
-    if (n == 0 || i < 0 || j < i || j >= n) {
-      iv_cache[key] = 0.0;
-      return 0.0;
-    }
-    
-    int bin_count_pos = 0;
-    int bin_count_neg = 0;
-    
-    for (int k = i; k <= j; ++k) {
-      if (target_values[k] == 1) {
-        bin_count_pos++;
-      } else {
-        bin_count_neg++;
-      }
-    }
-    
-    // Check for empty bins
-    if (bin_count_pos == 0 && bin_count_neg == 0) {
-      iv_cache[key] = 0.0;
-      return 0.0;
-    }
-    
-    // Calculate proportions (events = target=1, non-events = target=0)
+
+  // |IV| of the bin made of sorted observations i..j (inclusive)
+  double calculate_bin_iv(int i, int j) const {
+    const int bin_count_pos = cum_pos[static_cast<size_t>(j) + 1] - cum_pos[static_cast<size_t>(i)];
+    const int bin_count_neg = cum_neg[static_cast<size_t>(j) + 1] - cum_neg[static_cast<size_t>(i)];
+
     double prop_event = static_cast<double>(bin_count_pos) / std::max(total_pos, 1);
     double prop_non_event = static_cast<double>(bin_count_neg) / std::max(total_neg, 1);
-    
     prop_event = std::max(prop_event, EPSILON);
     prop_non_event = std::max(prop_non_event, EPSILON);
-    
-    double woe = utils::safe_log(prop_event / prop_non_event);
-    double iv = (prop_event - prop_non_event) * woe;
-    
-    // Store in cache
-    iv_cache[key] = std::fabs(iv);
-    return iv_cache[key];
+
+    const double woe = utils::safe_log(prop_event / prop_non_event);
+    return std::fabs((prop_event - prop_non_event) * woe);
   }
-  
+
 public:
   DynamicProgramming(const std::vector<double> &values,
                      const std::vector<int> &targets)
     : total_pos(0), total_neg(0) {
-    
-    // Check for empty vectors
-    if (values.empty() || targets.empty()) {
-      return;
-    }
-    
-    if (values.size() != targets.size()) {
-      throw std::invalid_argument("values and targets must have the same size");
-    }
-    
-    // Create temporary vector of sortable pairs
     std::vector<std::pair<double, int>> paired_data;
     paired_data.reserve(values.size());
-    
     for (size_t i = 0; i < values.size(); ++i) {
       paired_data.push_back(std::make_pair(values[i], targets[i]));
     }
-    
-    // Sort pairs
     std::sort(paired_data.begin(), paired_data.end());
-    
-    // Fill sorted vectors
+
     sorted_values.reserve(paired_data.size());
-    target_values.reserve(paired_data.size());
-    
+    cum_pos.assign(1, 0);
+    cum_neg.assign(1, 0);
     for (const auto &pair : paired_data) {
       sorted_values.push_back(pair.first);
-      target_values.push_back(pair.second);
-      
       if (pair.second == 1) {
         total_pos++;
       } else {
         total_neg++;
       }
+      cum_pos.push_back(total_pos);
+      cum_neg.push_back(total_neg);
     }
   }
-  
-  // Find the k-1 optimal cutpoints for k bins
+
+  // Cutpoints of the partition into at most k bins that maximises the sum of
+  // |IV| over bins. Splits are only placed between two distinct values: a
+  // split inside a run of ties cannot be realised by any cutpoint, and the
+  // earlier version produced duplicate cutpoints and empty bins from them.
   std::vector<double> optimize(int k) {
     const int n = static_cast<int>(sorted_values.size());
-    
-    // CRITICAL FIX: Stricter safety checks
-    if (n <= 1 || k <= 1) {
-      return std::vector<double>();
+
+    // valid[l]: a split before sorted observation l separates two distinct
+    // finite values (-Inf / +Inf stay with the lowest / highest finite values
+    // and never produce a cutpoint)
+    std::vector<char> valid(static_cast<size_t>(n) + 1, 0);
+    int n_distinct = 1;  // 1 + number of valid split positions
+    for (int l = 1; l < n; ++l) {
+      const double lo = sorted_values[static_cast<size_t>(l) - 1];
+      const double hi = sorted_values[static_cast<size_t>(l)];
+      if (lo != hi && std::isfinite(lo) && std::isfinite(hi)) {
+        valid[static_cast<size_t>(l)] = 1;
+        n_distinct++;
+      }
     }
-    
-    // CRITICAL FIX: Ensure k is properly bounded
+
     k = std::max(2, std::min(k, std::min(n - 1, 50)));
-    
-    // Initialize DP table and split points
-    try {
-      dp_table.assign(n + 1, std::vector<double>(k + 1, -1.0));
-      split_points.assign(n + 1, std::vector<int>(k + 1, -1));
-    } catch (const std::bad_alloc &e) {
-      Rcpp::warning("Memory allocation issue in DP. Using fallback.");
-      return fallback_optimize(k);
-    }
-    
+    k = std::min(k, n_distinct);
+
+    const size_t rows = static_cast<size_t>(n) + 1;
+    const size_t cols = static_cast<size_t>(k) + 1;
+    std::vector<std::vector<double>> dp_table(rows, std::vector<double>(cols, -1.0));
+    std::vector<std::vector<int>> split_points(rows, std::vector<int>(cols, -1));
+
     // Base case: 1 bin
-    for (int i = 0; i <= n; ++i) {
-      dp_table[i][1] = (i > 0) ? calculate_bin_iv(0, i - 1) : 0.0;
+    dp_table[0][1] = 0.0;
+    for (int i = 1; i <= n; ++i) {
+      dp_table[static_cast<size_t>(i)][1] = calculate_bin_iv(0, i - 1);
     }
-    
-    // Fill DP table
+
     for (int j = 2; j <= k; ++j) {
       for (int i = j; i <= n; ++i) {
-        dp_table[i][j] = -1.0;
-        
+        double &best = dp_table[static_cast<size_t>(i)][static_cast<size_t>(j)];
         for (int l = j - 1; l < i; ++l) {
-          if (dp_table[l][j - 1] < 0.0) continue; // Skip invalid states
-          
-          double current_iv = dp_table[l][j - 1] + calculate_bin_iv(l, i - 1);
-          
-          if (current_iv > dp_table[i][j]) {
-            dp_table[i][j] = current_iv;
-            split_points[i][j] = l;
+          if (!valid[static_cast<size_t>(l)]) continue;
+          const double prev = dp_table[static_cast<size_t>(l)][static_cast<size_t>(j) - 1];
+          if (prev < 0.0) continue;  // infeasible state
+
+          const double current_iv = prev + calculate_bin_iv(l, i - 1);
+          if (current_iv > best) {
+            best = current_iv;
+            split_points[static_cast<size_t>(i)][static_cast<size_t>(j)] = l;
           }
         }
       }
     }
-    
-    // Recover optimal cutpoints
-    std::vector<int> optimal_splits;
+
+    // Recover the optimal split positions
+    std::vector<double> cutpoints;
     int i = n;
     int j = k;
-    
-    while (j > 1 && i > 0) {
-      if (split_points[i][j] < 0) break;
-      
-      optimal_splits.push_back(split_points[i][j]);
-      i = split_points[i][j];
+    while (j > 1) {
+      const int split = split_points[static_cast<size_t>(i)][static_cast<size_t>(j)];
+      cutpoints.push_back(utils::safe_cut(sorted_values[static_cast<size_t>(split) - 1],
+                                          sorted_values[static_cast<size_t>(split)]));
+      i = split;
       j--;
     }
-    
-    // Convert indices to actual cutpoint values
-    std::vector<double> cutpoints;
-    cutpoints.reserve(optimal_splits.size());
-    
-    for (int split : optimal_splits) {
-      if (split > 0 && split < n) {
-        cutpoints.push_back((sorted_values[split - 1] + sorted_values[split]) / 2.0);
-      }
-    }
-    
+
     std::sort(cutpoints.begin(), cutpoints.end());
-    return cutpoints;
-  }
-  
-  // Alternative fallback method when DP fails
-  std::vector<double> fallback_optimize(int k) {
-    std::vector<double> cutpoints;
-    const int n = static_cast<int>(sorted_values.size());
-    
-    if (n <= 1 || k <= 1) {
-      return cutpoints;
-    }
-    
-    k = std::min(k, n - 1);
-    const int step = std::max(1, n / k);
-    
-    for (int i = 1; i < k && (i * step) < n; ++i) {
-      cutpoints.push_back(sorted_values[i * step]);
-    }
-    
     return cutpoints;
   }
 };
 
 // ============================================================================
-// Main class for optimal numerical binning with sketch
+// Optimal numerical binning with a quantile sketch
 // ============================================================================
 class OBN_Sketch {
 private:
@@ -479,28 +309,24 @@ private:
   int min_bins;
   int max_bins;
   double bin_cutoff;
-  int max_n_prebins;
   bool monotonic;
-  double convergence_threshold;
   int max_iterations;
   int sketch_k;
   int dp_size_limit;
-  
+
   int total_pos;  // Total events (target=1)
   int total_neg;  // Total non-events (target=0)
-  
+  double obs_min;  // smallest observation (may be -Inf)
+  double obs_max;  // largest observation (may be +Inf)
+
   std::unique_ptr<KLLSketch> sketch;
   std::vector<NumericalBin> bins;
   std::vector<double> cutpoints;
-  
-  // Input validation
-  void validate_inputs() {
-    if (feature.size() != target.size()) {
-      throw std::invalid_argument("Feature and target must have the same size.");
-    }
-    if (feature.empty()) {
-      throw std::invalid_argument("Feature and target cannot be empty.");
-    }
+
+  // Sizes, missing values and 0/1 targets are handled by the exported
+  // wrapper before the class is built. One class may be absent once rows
+  // with a missing feature are dropped; WoE and IV are then 0.
+  void validate_inputs() const {
     if (min_bins < 2) {
       throw std::invalid_argument("min_bins must be >= 2.");
     }
@@ -516,454 +342,246 @@ private:
     if (max_iterations < 1) {
       throw std::invalid_argument("max_iterations must be >= 1.");
     }
-    
-    // Efficient validation of target values
-    bool has_zero = false;
-    bool has_one = false;
-    
-    for (int val : target) {
-      if (val == 0) {
-        has_zero = true;
-      } else if (val == 1) {
-        has_one = true;
-      } else {
-        throw std::invalid_argument("Target must contain only 0 and 1.");
-      }
-      
-      if (has_zero && has_one) break;
-    }
-    
-    if (!has_zero || !has_one) {
-      throw std::invalid_argument("Target must contain both 0 and 1.");
-    }
   }
-  
-  // Build KLL sketch
+
+  // The sketch summarises the finite values only, so candidate cutpoints are
+  // always finite; +/-Inf observations still count in the first / last bin.
   void build_sketch() {
-    sketch = std::make_unique<KLLSketch>(sketch_k);
-    
+    sketch.reset(new KLLSketch(sketch_k));
     total_pos = 0;
     total_neg = 0;
-    
+    obs_min = feature[0];
+    obs_max = feature[0];
     for (size_t i = 0; i < feature.size(); ++i) {
-      sketch->update(feature[i]);
-      
+      obs_min = std::min(obs_min, feature[i]);
+      obs_max = std::max(obs_max, feature[i]);
+      if (std::isfinite(feature[i])) sketch->update(feature[i]);
       if (target[i] == 1) {
         total_pos++;
       } else {
         total_neg++;
       }
     }
-    
-    if (total_pos == 0 || total_neg == 0) {
-      throw std::runtime_error("Target must contain both 0 and 1.");
-    }
   }
-  
-  // Extract cutpoint candidates from sketch
-  std::vector<double> extract_candidates() {
-    if (!sketch || sketch->count() == 0) {
-      throw std::runtime_error("Sketch not initialized or empty.");
-    }
-    
+
+  // Candidate cutpoints: sketch quantiles, finer in the tails
+  std::vector<double> extract_candidates() const {
     std::vector<double> candidates;
-    candidates.reserve(100);
-    
-    // Extract quantiles on a finer grid at the extremes
+    candidates.reserve(40);
+
     for (double q = 0.01; q <= 0.1; q += 0.01) {
       candidates.push_back(sketch->get_quantile(q));
       candidates.push_back(sketch->get_quantile(1.0 - q));
     }
-    
-    // Extract quantiles in the middle of the distribution
     for (double q = 0.1; q <= 0.9; q += 0.05) {
       candidates.push_back(sketch->get_quantile(q));
     }
-    
-    // Remove duplicates and sort
+
     std::sort(candidates.begin(), candidates.end());
     candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
-    
-    // Safety check
-    if (candidates.empty()) {
-      double min_val = sketch->get_min();
-      double max_val = sketch->get_max();
-      double range = max_val - min_val;
-      
-      if (range > EPSILON) {
-        for (int i = 1; i < 10; ++i) {
-          candidates.push_back(min_val + (range * i / 10.0));
-        }
-      }
-    }
-    
     return candidates;
   }
-  
-  // Calculate target statistics for each cutpoint candidate
-  std::vector<CutpointStats> calculate_cutpoint_stats(const std::vector<double> &candidates) {
-    std::vector<CutpointStats> stats;
-    stats.reserve(candidates.size());
-    
-    for (double cutpoint : candidates) {
-      stats.push_back(CutpointStats(cutpoint));
-    }
-    
-    // Single pass over data
+
+  // Split statistics of every candidate (sorted, distinct) in one pass:
+  // each observation is located by binary search among the candidates and
+  // the per-slot counts are accumulated, instead of testing every candidate
+  // against every observation.
+  std::vector<CutpointStats> calculate_cutpoint_stats(const std::vector<double> &candidates) const {
+    const size_t C = candidates.size();
+    std::vector<int> slot_pos(C + 1, 0);
+    std::vector<int> slot_neg(C + 1, 0);
     for (size_t i = 0; i < feature.size(); ++i) {
-      double value = feature[i];
-      int is_positive = target[i];
-      
-      for (auto &cs : stats) {
-        if (value <= cs.cutpoint) {
-          cs.count_below++;
-          if (is_positive) {
-            cs.count_pos_below++;
-          } else {
-            cs.count_neg_below++;
-          }
-        } else {
-          cs.count_above++;
-          if (is_positive) {
-            cs.count_pos_above++;
-          } else {
-            cs.count_neg_above++;
-          }
-        }
-      }
+      // first candidate >= value: the value is "below" it and every later one
+      const size_t s = static_cast<size_t>(
+        std::lower_bound(candidates.begin(), candidates.end(), feature[i]) - candidates.begin());
+      if (target[i]) slot_pos[s]++; else slot_neg[s]++;
     }
-    
-    // Calculate IV for each cutpoint
+
+    std::vector<CutpointStats> stats;
+    stats.reserve(C);
+    int below_pos = 0;
+    int below_neg = 0;
+    const int n = static_cast<int>(feature.size());
+    for (size_t c = 0; c < C; ++c) {
+      below_pos += slot_pos[c];
+      below_neg += slot_neg[c];
+      CutpointStats cs(candidates[c]);
+      cs.count_pos_below = below_pos;
+      cs.count_neg_below = below_neg;
+      cs.count_below = below_pos + below_neg;
+      cs.count_pos_above = total_pos - below_pos;
+      cs.count_neg_above = total_neg - below_neg;
+      cs.count_above = n - cs.count_below;
+      stats.push_back(cs);
+    }
+
     for (auto &cs : stats) {
       if (cs.count_below == 0 || cs.count_above == 0) {
         cs.iv = 0.0;
         continue;
       }
-      
-      // Proportions (events = target=1, non-events = target=0)
+
       double prop_event_below = static_cast<double>(cs.count_pos_below) / std::max(total_pos, 1);
       double prop_non_event_below = static_cast<double>(cs.count_neg_below) / std::max(total_neg, 1);
-      
       prop_event_below = std::max(prop_event_below, EPSILON);
       prop_non_event_below = std::max(prop_non_event_below, EPSILON);
-      
-      double woe_below = utils::safe_log(prop_event_below / prop_non_event_below);
-      double iv_below = (prop_event_below - prop_non_event_below) * woe_below;
-      
+      const double woe_below = utils::safe_log(prop_event_below / prop_non_event_below);
+      const double iv_below = (prop_event_below - prop_non_event_below) * woe_below;
+
       double prop_event_above = static_cast<double>(cs.count_pos_above) / std::max(total_pos, 1);
       double prop_non_event_above = static_cast<double>(cs.count_neg_above) / std::max(total_neg, 1);
-      
       prop_event_above = std::max(prop_event_above, EPSILON);
       prop_non_event_above = std::max(prop_non_event_above, EPSILON);
-      
-      double woe_above = utils::safe_log(prop_event_above / prop_non_event_above);
-      double iv_above = (prop_event_above - prop_non_event_above) * woe_above;
-      
+      const double woe_above = utils::safe_log(prop_event_above / prop_non_event_above);
+      const double iv_above = (prop_event_above - prop_non_event_above) * woe_above;
+
       cs.iv = std::fabs(iv_below) + std::fabs(iv_above);
     }
-    
+
     return stats;
   }
-  
-  // Select optimal cutpoints using greedy or DP
+
+  // Exact DP for small samples, greedy IV ranking of the candidates otherwise
   void select_optimal_cutpoints(const std::vector<double> &candidates) {
-    if (candidates.empty()) {
-      Rcpp::warning("No cutpoint candidates available.");
-      cutpoints.clear();
-      create_initial_bins();
-      return;
-    }
-    
-    // For small datasets, use exact dynamic programming
+    cutpoints.clear();
     if (feature.size() <= static_cast<size_t>(dp_size_limit)) {
-      try {
-        DynamicProgramming dp(feature, target);
-        cutpoints = dp.optimize(max_bins);
-      } catch (const std::exception &e) {
-        Rcpp::warning(std::string("DP error: ") + e.what() + ". Using greedy.");
-        cutpoints.clear();
-      }
-    }
-    
-    // If DP failed or dataset is large, use greedy approach
-    if (cutpoints.empty()) {
+      DynamicProgramming dp(feature, target);
+      cutpoints = dp.optimize(max_bins);
+    } else {
       std::vector<CutpointStats> stats = calculate_cutpoint_stats(candidates);
-      
-      // Sort by IV (descending)
       std::sort(stats.begin(), stats.end(),
                 [](const CutpointStats &a, const CutpointStats &b) {
                   return a.iv > b.iv;
                 });
-      
-      // Select max_bins-1 best points
-      cutpoints.clear();
-      cutpoints.reserve(max_bins - 1);
-      
-      for (size_t i = 0; i < std::min(stats.size(), static_cast<size_t>(max_bins - 1)); ++i) {
+
+      const size_t n_take = std::min(stats.size(), static_cast<size_t>(max_bins - 1));
+      for (size_t i = 0; i < n_take; ++i) {
         cutpoints.push_back(stats[i].cutpoint);
       }
-      
       std::sort(cutpoints.begin(), cutpoints.end());
     }
-    
+
     create_initial_bins();
   }
-  
-  // Create initial bins from cutpoints
+
+  // Bins [min, c1], (c1, c2], ..., (c_m, max]; each observation is located by
+  // binary search (first cutpoint >= value), which is exactly the bin the
+  // former linear scan picked.
   void create_initial_bins() {
     bins.clear();
-    
-    if (!sketch) {
-      throw std::runtime_error("Sketch not initialized.");
-    }
-    
-    double min_val = sketch->get_min();
-    double max_val = sketch->get_max();
-    
+
+    const double min_val = obs_min;
+    const double max_val = obs_max;
+
     if (cutpoints.empty()) {
-      // Single bin case
-      NumericalBin bin(min_val, max_val);
-      bins.push_back(bin);
+      bins.push_back(NumericalBin(min_val, max_val));
     } else {
-      // First bin
       bins.push_back(NumericalBin(min_val, cutpoints[0]));
-      
-      // Intermediate bins
-      for (size_t i = 0; i < cutpoints.size() - 1; ++i) {
+      for (size_t i = 0; i + 1 < cutpoints.size(); ++i) {
         bins.push_back(NumericalBin(cutpoints[i], cutpoints[i + 1]));
       }
-      
-      // Last bin
       bins.push_back(NumericalBin(cutpoints.back(), max_val));
     }
-    
-    // Fill counts for each bin
+
     for (size_t i = 0; i < feature.size(); ++i) {
-      double value = feature[i];
-      int is_positive = target[i];
-      
-      bool assigned = false;
-      
-      // Right-closed (lower, upper] bins, matching the emitted labels and the
-      // rest of the package. The first bin is additionally closed on the left
-      // so that the smallest observed value is included.
-      for (size_t b = 0; b < bins.size(); ++b) {
-        bool in_bin = false;
-
-        if (b == 0) {
-          in_bin = (value >= bins[b].lower_bound && value <= bins[b].upper_bound);
-        } else {
-          in_bin = (value > bins[b].lower_bound && value <= bins[b].upper_bound);
-        }
-
-        if (in_bin) {
-          bins[b].add_value(is_positive);
-          assigned = true;
-          break;
-        }
-      }
-      
-      // Safety fallback
-      if (!assigned && !bins.empty()) {
-        bins.back().add_value(is_positive);
-      }
+      const size_t b = static_cast<size_t>(
+        std::lower_bound(cutpoints.begin(), cutpoints.end(), feature[i]) - cutpoints.begin());
+      bins[b].add_value(target[i]);
     }
   }
-  
-  // Enforce bin_cutoff
+
+  // Merge bins below bin_cutoff into the neighbour with the closest event
+  // rate, down to min_bins. Empty bins -- a candidate equal to the maximum,
+  // or fewer distinct values than min_bins -- are merged even below
+  // min_bins: they carry no observation and used to be returned as bins
+  // with count 0 and duplicate cutpoints.
   void enforce_bin_cutoff() {
-    if (bins.empty()) {
-      return;
-    }
-    
     const int min_count = static_cast<int>(std::ceil(bin_cutoff * static_cast<double>(feature.size())));
-    
+
     bool any_change = true;
-    while (any_change && bins.size() > static_cast<size_t>(min_bins)) {
+    while (any_change) {
       any_change = false;
-      
-      for (size_t i = 0; i < bins.size(); ++i) {
-        if (bins[i].count < min_count) {
-          size_t best_neighbor = SIZE_MAX;
-          double min_diff = std::numeric_limits<double>::max();
-          
-          // Check previous neighbor
-          if (i > 0) {
-            double diff = std::fabs(bins[i].event_rate() - bins[i - 1].event_rate());
-            if (diff < min_diff) {
-              min_diff = diff;
-              best_neighbor = i - 1;
-            }
-          }
-          
-          // Check next neighbor
-          if (i + 1 < bins.size()) {
-            double diff = std::fabs(bins[i].event_rate() - bins[i + 1].event_rate());
-            if (diff < min_diff) {
-              min_diff = diff;
-              best_neighbor = i + 1;
-            }
-          }
-          
-          if (best_neighbor != SIZE_MAX) {
-            // CRITICAL FIX: Always merge into the lower index
-            if (best_neighbor < i) {
-              bins[best_neighbor].merge_with(bins[i]);
-              bins.erase(bins.begin() + i);
-            } else {
-              bins[i].merge_with(bins[best_neighbor]);
-              bins.erase(bins.begin() + best_neighbor);
-            }
-            any_change = true;
-            break;
+
+      for (size_t i = 0; i < bins.size() && bins.size() > 1; ++i) {
+        if (bins[i].count >= min_count) continue;
+        if (bins.size() <= static_cast<size_t>(min_bins) && bins[i].count > 0) continue;
+
+        size_t best_neighbor = i + 1;
+        double min_diff = std::numeric_limits<double>::max();
+        if (i > 0) {
+          min_diff = std::fabs(bins[i].event_rate() - bins[i - 1].event_rate());
+          best_neighbor = i - 1;
+        }
+        if (i + 1 < bins.size()) {
+          const double diff = std::fabs(bins[i].event_rate() - bins[i + 1].event_rate());
+          if (diff < min_diff) {
+            best_neighbor = i + 1;
           }
         }
+
+        // Always merge into the lower index
+        if (best_neighbor < i) {
+          bins[best_neighbor].merge_with(bins[i]);
+          bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i));
+        } else {
+          bins[i].merge_with(bins[best_neighbor]);
+          bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best_neighbor));
+        }
+        any_change = true;
+        break;
       }
     }
-    
+
     update_cutpoints_from_bins();
   }
-  
-  // CRITICAL FIX: calculate_metrics expects (total_pos, total_neg)
-  // where pos = events (target=1) and neg = non-events (target=0)
+
   void calculate_initial_woe() {
     for (auto &bin : bins) {
       bin.calculate_metrics(total_pos, total_neg);
     }
   }
-  
-  // Enforce monotonicity
+
+  // Pool adjacent violators until the WoE is monotonic or min_bins is reached
   void enforce_monotonicity() {
     if (!monotonic || bins.size() <= 1) {
       return;
     }
-    
-    // Determine monotonicity direction
-    bool increasing = bins.back().woe >= bins.front().woe;
-    
-    // PAVA (Pool Adjacent Violators Algorithm)
+
+    const bool increasing = bins.back().woe >= bins.front().woe;
+
     bool any_change = true;
     while (any_change && bins.size() > static_cast<size_t>(min_bins)) {
       any_change = false;
-      
       for (size_t i = 0; i + 1 < bins.size(); ++i) {
-        bool violation = (increasing && bins[i].woe > bins[i + 1].woe + EPSILON) ||
+        const bool violation = (increasing && bins[i].woe > bins[i + 1].woe + EPSILON) ||
           (!increasing && bins[i].woe < bins[i + 1].woe - EPSILON);
-        
         if (violation) {
           bins[i].merge_with(bins[i + 1]);
-          bins.erase(bins.begin() + i + 1);
+          bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i) + 1);
           bins[i].calculate_metrics(total_pos, total_neg);
           any_change = true;
           break;
         }
       }
     }
-    
+
     update_cutpoints_from_bins();
   }
-  
-  // Update cutpoints based on current bins
+
   void update_cutpoints_from_bins() {
     cutpoints.clear();
-    cutpoints.reserve(bins.size() - 1);
-    
     for (size_t i = 1; i < bins.size(); ++i) {
       cutpoints.push_back(bins[i].lower_bound);
     }
   }
-  
-  // Optimize bins
-  void optimize_bins() {
-    if (static_cast<int>(bins.size()) <= max_bins || bins.size() <= 1) {
-      return;
-    }
-    
-    int iterations = 0;
-    while (static_cast<int>(bins.size()) > max_bins && iterations < max_iterations) {
-      if (static_cast<int>(bins.size()) <= min_bins) {
-        break;
-      }
-      
-      // Find adjacent bin pair with minimum IV loss
-      double min_iv_loss = std::numeric_limits<double>::max();
-      size_t merge_idx = 0;
-      
-      for (size_t i = 0; i + 1 < bins.size(); ++i) {
-        double current_iv = std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv);
-        
-        // Simulate merge
-        NumericalBin merged = bins[i];
-        merged.merge_with(bins[i + 1]);
-        merged.calculate_metrics(total_pos, total_neg);
-        
-        double merged_iv = std::fabs(merged.iv);
-        double iv_loss = current_iv - merged_iv;
-        
-        if (iv_loss < min_iv_loss) {
-          min_iv_loss = iv_loss;
-          merge_idx = i;
-        }
-      }
-      
-      // Merge bins
-      bins[merge_idx].merge_with(bins[merge_idx + 1]);
-      bins[merge_idx].calculate_metrics(total_pos, total_neg);
-      bins.erase(bins.begin() + merge_idx + 1);
-      
-      iterations++;
-      
-      if (static_cast<int>(bins.size()) <= max_bins) {
-        break;
-      }
-    }
-    
-    update_cutpoints_from_bins();
-  }
-  
-  // Consistency check
-  void check_consistency() const {
-    if (bins.empty()) {
-      Rcpp::warning("No bins created.");
-      return;
-    }
-    
-    int total_count = 0;
-    int total_count_pos = 0;
-    int total_count_neg = 0;
-    
-    for (const auto &bin : bins) {
-      total_count += bin.count;
-      total_count_pos += bin.count_pos;
-      total_count_neg += bin.count_neg;
-    }
-    
-    const double count_tolerance = 0.05;
-    
-    double count_ratio = static_cast<double>(total_count) / static_cast<double>(feature.size());
-    if (std::fabs(count_ratio - 1.0) > count_tolerance) {
-      Rcpp::warning("Inconsistency in total count. Ratio: " + std::to_string(count_ratio));
-    }
-    
-    double pos_ratio = static_cast<double>(total_count_pos) / static_cast<double>(total_pos);
-    double neg_ratio = static_cast<double>(total_count_neg) / static_cast<double>(total_neg);
-    
-    if (std::fabs(pos_ratio - 1.0) > count_tolerance || std::fabs(neg_ratio - 1.0) > count_tolerance) {
-      Rcpp::warning("Inconsistency in pos/neg counts. Pos ratio: " + 
-        std::to_string(pos_ratio) + ", Neg ratio: " + std::to_string(neg_ratio));
-    }
-  }
-  
+
 public:
-  // Constructor
   OBN_Sketch(const std::vector<double> &feature_,
              const std::vector<int> &target_,
              int min_bins_ = 3,
              int max_bins_ = 5,
              double bin_cutoff_ = 0.05,
-             int max_n_prebins_ = 20,
              bool monotonic_ = true,
-             double convergence_threshold_ = 1e-6,
              int max_iterations_ = 1000,
              int sketch_k_ = 200)
     : feature(feature_),
@@ -971,119 +589,71 @@ public:
       min_bins(min_bins_),
       max_bins(max_bins_),
       bin_cutoff(bin_cutoff_),
-      max_n_prebins(max_n_prebins_),
       monotonic(monotonic_),
-      convergence_threshold(convergence_threshold_),
       max_iterations(max_iterations_),
       sketch_k(sketch_k_),
       dp_size_limit(50),
       total_pos(0),
-      total_neg(0) {
-    
-    bins.reserve(max_bins_);
-    cutpoints.reserve(max_bins_ - 1);
-  }
-  
-  // Fit method
+      total_neg(0),
+      obs_min(0.0),
+      obs_max(0.0) {}
+
   Rcpp::List fit() {
     try {
-      // Binning pipeline
       validate_inputs();
       build_sketch();
-      std::vector<double> candidates = extract_candidates();
-      select_optimal_cutpoints(candidates);
+      select_optimal_cutpoints(extract_candidates());
       enforce_bin_cutoff();
       calculate_initial_woe();
       enforce_monotonicity();
-      
-      // Optimization
-      bool converged_flag = false;
-      int iterations_done = 0;
-      
-      if (static_cast<int>(bins.size()) <= max_bins) {
-        converged_flag = true;
-      } else {
-        double prev_total_iv = 0.0;
-        for (const auto &bin : bins) {
-          prev_total_iv += std::fabs(bin.iv);
-        }
-        
-        for (int i = 0; i < max_iterations; ++i) {
-          size_t start_bins = bins.size();
-          
-          optimize_bins();
-          
-          if (bins.size() == start_bins || static_cast<int>(bins.size()) <= max_bins) {
-            double total_iv = 0.0;
-            for (const auto &bin : bins) {
-              total_iv += std::fabs(bin.iv);
-            }
-            
-            if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-              converged_flag = true;
-              iterations_done = i + 1;
-              break;
-            }
-            
-            prev_total_iv = total_iv;
-          }
-          
-          iterations_done = i + 1;
-          
-          if (static_cast<int>(bins.size()) <= max_bins) {
-            converged_flag = true;
-            break;
-          }
-        }
-      }
-      
-      // Final consistency check
-      check_consistency();
-      
-      if (bins.empty()) {
-        return Rcpp::List::create(Named("error") = "Failed to create bins.");
-      }
-      
-      // Prepare results
+
+      // DP and greedy selection both return at most max_bins - 1 cutpoints
+      // and every later step only merges, so bins.size() <= max_bins holds
+      // here and no further reduction is needed: the binning has converged.
+      const bool converged_flag = true;
+      const int iterations_done = 0;
+
       const size_t n_bins = bins.size();
-      
-      NumericVector bin_lower(n_bins);
-      NumericVector bin_upper(n_bins);
-      NumericVector bin_woe(n_bins);
-      NumericVector bin_iv(n_bins);
-      IntegerVector bin_count(n_bins);
-      IntegerVector bin_count_pos(n_bins);
-      IntegerVector bin_count_neg(n_bins);
-      NumericVector ids(n_bins);
-      // This algorithm was the only numerical one that returned no "bin" label
-      // field, so generic consumers (including this package's own test helper
-      // and downstream pipelines) could not handle its output. Emit the same
-      // "(lower;upper]" label every sibling algorithm produces; bin_lower and
-      // bin_upper are retained so existing callers keep working.
-      CharacterVector bin_labels(n_bins);
+      const R_xlen_t nb = static_cast<R_xlen_t>(n_bins);
+
+      NumericVector bin_lower(nb);
+      NumericVector bin_upper(nb);
+      NumericVector bin_woe(nb);
+      NumericVector bin_iv(nb);
+      IntegerVector bin_count(nb);
+      IntegerVector bin_count_pos(nb);
+      IntegerVector bin_count_neg(nb);
+      NumericVector ids(nb);
+      CharacterVector bin_labels(nb);
       double total_iv_value = 0.0;
 
-      for (size_t i = 0; i < n_bins; ++i) {
-        bin_lower[i] = bins[i].lower_bound;
-        bin_upper[i] = bins[i].upper_bound;
-        bin_woe[i] = bins[i].woe;
-        bin_iv[i] = bins[i].iv;
-        bin_count[i] = bins[i].count;
-        bin_count_pos[i] = bins[i].count_pos;
-        bin_count_neg[i] = bins[i].count_neg;
+      for (R_xlen_t i = 0; i < nb; ++i) {
+        const NumericalBin &b = bins[static_cast<size_t>(i)];
+        bin_lower[i] = b.lower_bound;
+        bin_upper[i] = b.upper_bound;
+        bin_woe[i] = b.woe;
+        bin_iv[i] = b.iv;
+        bin_count[i] = b.count;
+        bin_count_pos[i] = b.count_pos;
+        bin_count_neg[i] = b.count_neg;
         ids[i] = static_cast<double>(i + 1);
-        total_iv_value += bins[i].iv;
+        total_iv_value += b.iv;
 
+        // "(lower;upper]" like every sibling algorithm. The first bin is
+        // labelled from -Inf and the last up to +Inf: they hold everything
+        // below the first / above the last cutpoint (the observed minimum is
+        // inside the first bin, which "(min;" wrongly excluded).
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(6);
-        const double left = bins[i].lower_bound;
-        const double right = bins[i].upper_bound;
-        if (std::isinf(left) && left < 0) {
-          oss << "(-Inf;" << right << "]";
-        } else if (std::isinf(right) && right > 0) {
-          oss << "(" << left << ";+Inf]";
+        if (i == 0) {
+          oss << "(-Inf;";
         } else {
-          oss << "(" << left << ";" << right << "]";
+          oss << "(" << b.lower_bound << ";";
+        }
+        if (i == nb - 1) {
+          oss << "+Inf]";
+        } else {
+          oss << b.upper_bound << "]";
         }
         bin_labels[i] = oss.str();
       }
@@ -1102,7 +672,7 @@ public:
         Named("cutpoints") = cutpoints,
         Named("converged") = converged_flag,
         Named("iterations") = iterations_done);
-      
+
     } catch (const std::exception &e) {
       Rcpp::stop("Binning error: " + std::string(e.what()));
     }
@@ -1124,33 +694,26 @@ Rcpp::List optimal_binning_numerical_sketch(
     double convergence_threshold = 1e-6,
     int max_iterations = 1000,
     int sketch_k = 200) {
-  
-  // Preliminary checks
+  // max_n_prebins and convergence_threshold are accepted for API
+  // compatibility: the candidate grid is a fixed set of ~37 sketch quantiles
+  // and the selected cutpoints never need an iterative reduction.
+  (void)max_n_prebins;
+  (void)convergence_threshold;
+
   if (feature.size() == 0 || target.size() == 0) {
     Rcpp::stop("Feature and target cannot be empty.");
   }
-  
   if (feature.size() != target.size()) {
     Rcpp::stop("Feature and target must have the same size.");
   }
-  
-  // Conversion and validation
+
   std::vector<double> feature_vec;
   std::vector<int> target_vec;
-  
-  feature_vec.reserve(feature.size());
-  target_vec.reserve(target.size());
-  
-  for (R_xlen_t i = 0; i < feature.size(); ++i) {
-    if (NumericVector::is_na(feature[i])) {
-      Rcpp::stop("Feature cannot contain missing values (NA).");
-    }
-    if (!utils::is_finite_safe(feature[i])) {
-      Rcpp::stop("Feature contains non-finite values (Inf/NaN).");
-    }
-    feature_vec.push_back(feature[i]);
-  }
-  
+  feature_vec.reserve(static_cast<size_t>(feature.size()));
+  target_vec.reserve(static_cast<size_t>(target.size()));
+
+  bool has_zero = false;
+  bool has_one = false;
   for (R_xlen_t i = 0; i < target.size(); ++i) {
     if (IntegerVector::is_na(target[i])) {
       Rcpp::stop("Target cannot contain missing values (NA).");
@@ -1158,40 +721,49 @@ Rcpp::List optimal_binning_numerical_sketch(
     if (target[i] != 0 && target[i] != 1) {
       Rcpp::stop("Target must contain only 0 and 1.");
     }
+    if (target[i] == 0) has_zero = true; else has_one = true;
+  }
+  if (!has_zero || !has_one) {
+    Rcpp::stop("Target must contain both 0 and 1.");
+  }
+
+  // Rows with a missing feature (NA / NaN) are dropped silently; +/-Inf are
+  // kept as extreme values.
+  double fin_min = std::numeric_limits<double>::infinity();
+  double fin_max = -std::numeric_limits<double>::infinity();
+  for (R_xlen_t i = 0; i < feature.size(); ++i) {
+    const double v = feature[i];
+    if (std::isnan(v)) continue;
+    if (std::isfinite(v)) {
+      fin_min = std::min(fin_min, v);
+      fin_max = std::max(fin_max, v);
+    }
+    feature_vec.push_back(v);
     target_vec.push_back(target[i]);
   }
-  
-  // Check for constant values
-  double min_val = *std::min_element(feature_vec.begin(), feature_vec.end());
-  double max_val = *std::max_element(feature_vec.begin(), feature_vec.end());
-  
-  if (utils::are_equal(min_val, max_val)) {
-    Rcpp::warning("Feature has constant value, creating a single bin.");
-    
+  if (feature_vec.empty()) {
+    Rcpp::stop("All feature values are missing (NA/NaN); nothing to bin.");
+  }
+
+  const double min_val = *std::min_element(feature_vec.begin(), feature_vec.end());
+  const double max_val = *std::max_element(feature_vec.begin(), feature_vec.end());
+
+  // Fewer than two distinct finite values (constant feature, or only +/-Inf
+  // besides one value): a single bin. (A tolerance of 1e-10 used to collapse
+  // genuinely distinct small-scale features as well.)
+  if (!(fin_min < fin_max)) {
     int count_pos = 0;
     int count_neg = 0;
     for (int t : target_vec) {
       if (t == 1) count_pos++;
       else count_neg++;
     }
-    
     const int total_count = static_cast<int>(feature_vec.size());
-    
-    // Calculate WoE and IV
-    double prop_event = static_cast<double>(count_pos) / std::max(count_pos, 1);
-    double prop_non_event = static_cast<double>(count_neg) / std::max(count_neg, 1);
-    
-    prop_event = std::max(prop_event, EPSILON);
-    prop_non_event = std::max(prop_non_event, EPSILON);
-    
-    double woe = utils::safe_log(prop_event / prop_non_event);
-    double iv = (prop_event - prop_non_event) * woe;
-    
-    // A "bin" label is required: obwoe() derives n_bins from length(result$bin)
-    // and reported NA for this path, which returned bin_lower/bin_upper only.
-    // The single bin covers the whole line, which is exactly what every sibling
-    // algorithm labels "(-Inf;+Inf]" for a constant feature. bin_lower and
-    // bin_upper keep their existing values for backward compatibility.
+
+    // A single bin holds every observation: WoE = log(1 / 1) = 0, IV = 0.
+    const double woe = 0.0;
+    const double iv = 0.0;
+
     return Rcpp::List::create(
       Named("id") = NumericVector::create(1),
       Named("bin") = CharacterVector::create("(-Inf;+Inf]"),
@@ -1207,11 +779,8 @@ Rcpp::List optimal_binning_numerical_sketch(
       Named("converged") = true,
       Named("iterations") = 0);
   }
-  
-  // Execute algorithm
+
   OBN_Sketch sketch_binner(feature_vec, target_vec, min_bins, max_bins,
-                           bin_cutoff, max_n_prebins, monotonic,
-                           convergence_threshold, max_iterations, sketch_k);
-  
+                           bin_cutoff, monotonic, max_iterations, sketch_k);
   return sketch_binner.fit();
 }

@@ -12,8 +12,11 @@
 #' Programming (MIP) implementations (e.g., via \code{ompr} or \code{lpSolve}
 #' packages), though these scale poorly beyond N > 10,000 observations.
 #'
-#' @param feature Numeric vector of feature values. Missing values (NA) and infinite
-#'   values are \strong{not permitted} and will trigger an error.
+#' @param feature Numeric vector of feature values. Missing values (NA/NaN) are
+#'   dropped silently: those rows are counted in no bin and the counts add up to the
+#'   number of non-missing rows. \code{-Inf} and \code{+Inf} are kept as extreme values
+#'   in the first and last bin and never become cutpoints. A feature whose values are all
+#'   missing is an error.
 #' @param target Integer or numeric vector of binary target values (must contain only
 #'   0 and 1). Must have the same length as \code{feature}. Unlike other binning
 #'   methods, OSLP internally uses \code{double} for target, allowing implicit
@@ -25,7 +28,9 @@
 #'   Must be in (0, 1).
 #' @param max_n_prebins Maximum number of pre-bins (default: 20). Must be at least
 #'   equal to \code{min_bins}.
-#' @param convergence_threshold Convergence threshold for IV change (default: 1e-6).
+#' @param convergence_threshold Convergence threshold (default: 1e-6). Must be
+#'   positive; accepted for compatibility. Monotonicity enforcement merges violations
+#'   until none is left (or \code{min_bins} / \code{max_iterations} is reached).
 #' @param max_iterations Maximum iterations (default: 1000).
 #' @param laplace_smoothing Laplace smoothing parameter (default: 0.5). Must be
 #'   non-negative.
@@ -33,8 +38,9 @@
 #' @return A list containing:
 #' \describe{
 #'   \item{id}{Integer bin identifiers (1-based).}
-#'   \item{bin}{Character bin intervals \code{"[lower;upper)"}.}
-#'   \item{woe}{Numeric WoE values (guaranteed monotonic).}
+#'   \item{bin}{Character right-closed bin intervals \code{"(lower;upper]"}.}
+#'   \item{woe}{Numeric WoE values (monotonic unless \code{min_bins} or
+#'     \code{max_iterations} stops the merging first).}
 #'   \item{iv}{Numeric IV contributions per bin.}
 #'   \item{count}{Integer total observations per bin.}
 #'   \item{count_pos}{Integer positive class counts.}
@@ -42,7 +48,8 @@
 #'   \item{event_rate}{Numeric event rates.}
 #'   \item{cutpoints}{Numeric bin boundaries (excluding ±Inf).}
 #'   \item{total_iv}{Total Information Value.}
-#'   \item{converged}{Logical convergence flag.}
+#'   \item{converged}{Logical flag; \code{FALSE} only when \code{max_iterations} was
+#'     exhausted while merges were still pending.}
 #'   \item{iterations}{Integer iteration count.}
 #' }
 #'
@@ -226,7 +233,11 @@ ob_numerical_oslp <- function(feature,
   feature <- as.numeric(feature)
   target <- as.integer(target)
 
-  unique_target <- unique(target[!is.na(target)])
+  if (anyNA(target)) {
+    stop("Target contains missing values (NA).")
+  }
+
+  unique_target <- unique(target)
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {
     stop("Target must contain exactly two classes: 0 and 1.")
   }
