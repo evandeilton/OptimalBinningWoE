@@ -7,9 +7,13 @@
 #' models in domains like credit scoring.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) are excluded during the binning process.
+#'   Rows whose value is missing (\code{NA}/\code{NaN}) are excluded from the
+#'   fit silently, so the bin counts sum to the number of non-missing rows;
+#'   \code{-Inf} and \code{+Inf} are kept as extreme values of the first and
+#'   last bin and never become a cutpoint.
 #' @param target An integer vector of binary outcomes (0/1) corresponding to
 #'   each observation in \code{feature}. Must have the same length as \code{feature}.
+#'   A missing value in \code{target} is an error.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 #'   Defaults to 2.
 #' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}
@@ -49,22 +53,33 @@
 #'   \item \strong{Data Preparation:} Removes NA values and sorts the data by feature value.
 #'   \item \strong{MDLP Discretization (Fayyad & Irani, 1993):}
 #'   \itemize{
-#'     \item Recursively evaluates all possible binary splits of the sorted data.
-#'     \item For each potential split, calculates the Information Gain (IG).
-#'     \item Applies the MDLP stopping criterion:
+#'     \item Recursively evaluates the binary splits of the sorted data. Only
+#'           boundary points (cuts that do not fall between two values holding
+#'           observations of a single, common class) are candidates: the
+#'           entropy-minimising cut is always one of them (Fayyad & Irani, 1992).
+#'     \item For each candidate split, calculates the Information Gain (IG).
+#'     \item Applies the MDLP stopping criterion to the best split \eqn{T} of a
+#'           set \eqn{S} into \eqn{S_1} and \eqn{S_2}:
 #'           \deqn{IG > \frac{\log_2(N-1) + \Delta}{N}}
-#'           where \eqn{N} is the total number of samples and \eqn{\Delta = \log_2(3^k - 2) - k \cdot E(S)}
-#'           (for binary classification, \eqn{k=2}).
+#'           where \eqn{N} is the number of samples in \eqn{S} and
+#'           \eqn{\Delta = \log_2(3^k - 2) - [k E(S) - k_1 E(S_1) - k_2 E(S_2)]},
+#'           with \eqn{k}, \eqn{k_1}, \eqn{k_2} the number of classes present
+#'           in \eqn{S}, \eqn{S_1} and \eqn{S_2}.
 #'     \item Only accepts splits that significantly reduce entropy beyond what would
 #'           be expected by chance, balancing model fit with complexity.
 #'   }
 #'   \item \strong{Constraint Enforcement:}
 #'   \itemize{
-#'     \item \strong{Min/Max Bins:} Adjusts the number of bins to meet \code{[min_bins, max_bins]}
-#'           requirements through intelligent splitting or merging.
+#'     \item \strong{Max Bins:} Accepted splits are applied best-first, in
+#'           decreasing order of the entropy reduction they achieve, and at most
+#'           \code{max_bins - 1} of them are kept. When \code{max_bins} is not
+#'           binding this yields exactly the MDLP partition.
+#'     \item \strong{Min Bins:} When MDLP accepts fewer splits, additional ones
+#'           are placed between distinct values, spread evenly over the distinct
+#'           values and then over the largest runs of observations.
 #'     \item \strong{Monotonicity (if enabled):} Iteratively merges adjacent bins with
 #'           the most similar WoE values until a strictly increasing or decreasing
-#'           trend is achieved across all bins.
+#'           trend is achieved across all bins, or only \code{min_bins} bins remain.
 #'   }
 #' }
 #'
@@ -72,7 +87,11 @@
 #' \itemize{
 #'   \item The algorithm uses Laplace smoothing (\eqn{\alpha = 0.5}) when calculating
 #'         WoE to prevent \eqn{\log(0)} errors for bins with pure class distributions.
-#'   \item When all feature values are identical, the algorithm creates artificial bins.
+#'   \item When all feature values are identical a single bin is returned, with
+#'         a warning. When the feature has fewer distinct values than
+#'         \code{min_bins}, each distinct value becomes its own bin and a warning
+#'         reports that \code{min_bins} could not be met: a bin boundary can only
+#'         fall between two different values.
 #'   \item The monotonicity enforcement phase is iterative and uses the
 #'         \code{convergence_threshold} to determine when changes in WoE become negligible.
 #' }
@@ -81,6 +100,9 @@
 #' Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of continuous-valued
 #' attributes for classification learning. \emph{Proceedings of the 13th International
 #' Joint Conference on Artificial Intelligence}, 1022-1029.
+#'
+#' Fayyad, U. M., & Irani, K. B. (1992). On the handling of continuous-valued
+#' attributes in decision tree generation. \emph{Machine Learning}, 8, 87-102.
 #'
 #' Kurgan, L. A., & Musilek, P. (2006). A survey of techniques. \emph{IEEE Transactions
 #' on Knowledge and Data Engineering}, 18(5), 673-689.
@@ -135,11 +157,6 @@ ob_numerical_fast_mdlp <- function(feature, target,
   # Dimension Check
   if (length(feature) != length(target)) {
     stop("Length of 'feature' and 'target' must match.")
-  }
-
-  # NA Handling Warning
-  if (any(is.na(feature)) || any(is.na(target))) {
-    warning("NA values detected. These will be removed before binning.")
   }
 
   # Parameter Validation
