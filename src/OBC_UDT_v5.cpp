@@ -25,7 +25,10 @@ using namespace OptimalBinning;
 // Global constants for better readability and consistency
 // Constant removed (uses shared definition)
 static constexpr double LAPLACE_ALPHA = 0.5;  // Laplace smoothing parameter
-static constexpr const char* MISSING_VALUE = "N/A";  // Special category for missing values
+// Category used for NA when this entry point is called directly; the R wrapper
+// already maps NA to "NA", the token every categorical binner and
+// ob_apply_woe_cat()/obwoe_sql() use (this used to be "N/A").
+static constexpr const char* MISSING_VALUE = "NA";
 
 // Namespace for utility functions
 namespace utils {
@@ -129,6 +132,183 @@ inline std::string join_categories(const std::vector<std::string>& categories,
 }
 }
 
+// Greedy similarity merging shared by the optimisation loops.
+//
+// Repeatedly merges the pair of bins (i before j in the current order) that
+// minimises  divergence_from(i, j) * (j directly after i ? 0.95 : 1),  the
+// first such pair in (i, j) order on ties -- the rule of the former full
+// scan -- until only 'target' bins remain. The former code rescanned all
+// O(B^2) pairs (four logarithms each) after every merge, O(B^3) in total:
+// minutes to hours once a few thousand categories passed bin_cutoff. Here
+// every bin keeps its best partner among the bins after it; after a merge
+// only the merged bin, the bins whose partner or neighbour changed, and the
+// candidate pairs with the merged bin are re-evaluated. The pairs chosen are
+// exactly those of the full scan.
+//
+// keep_woe_order: after each merge the bins are re-sorted by WoE with
+// std::sort, as the former code did (same permutation, ties included).
+static void greedy_similarity_merge(std::vector<CategoricalBin>& bins, size_t target,
+                                    int total_pos, int total_neg, bool keep_woe_order) {
+  const size_t B = bins.size();
+  if (B <= target || B < 2) return;
+  const size_t NONE = static_cast<size_t>(-1);
+  const double NO_SCORE = std::numeric_limits<double>::max();
+
+  std::vector<size_t> order(B), pos(B);
+  for (size_t i = 0; i < B; ++i) { order[i] = i; pos[i] = i; }
+  std::vector<double> best_score(B, NO_SCORE);
+  std::vector<size_t> best_j(B, NONE);
+
+  auto score = [&](size_t x, size_t y) {  // requires pos[x] < pos[y]
+    double div = bins[x].divergence_from(bins[y], total_pos, total_neg);
+    if (pos[y] == pos[x] + 1) {
+      div *= 0.95;
+    }
+    return div;
+  };
+  auto rescan = [&](size_t x) {
+    best_score[x] = NO_SCORE;
+    best_j[x] = NONE;
+    for (size_t p = pos[x] + 1; p < order.size(); ++p) {
+      const size_t y = order[p];
+      const double s = score(x, y);
+      if (s < best_score[x]) {
+        best_score[x] = s;
+        best_j[x] = y;
+      }
+    }
+  };
+  for (size_t i = 0; i < B; ++i) rescan(i);
+
+  std::vector<char> dirty(B, 0);
+  while (order.size() > target && order.size() >= 2) {
+    // Global choice: first minimum in position order
+    size_t a = NONE, b = NONE;
+    double best = NO_SCORE;
+    for (size_t p = 0; p < order.size(); ++p) {
+      const size_t x = order[p];
+      if (best_j[x] != NONE && best_score[x] < best) {
+        best = best_score[x];
+        a = x;
+        b = best_j[x];
+      }
+    }
+    if (a == NONE) {  // no finite score: the full scan merged positions 0 and 1
+      a = order[0];
+      b = order[1];
+    }
+
+    const size_t pa = pos[a], pb = pos[b];
+    std::vector<size_t> touched;
+    if (pa > 0) touched.push_back(order[pa - 1]);
+    if (pb > 0) touched.push_back(order[pb - 1]);
+
+    bins[a].merge_with(bins[b]);
+    bins[a].calculate_metrics(total_pos, total_neg);
+
+    order.erase(order.begin() + static_cast<std::ptrdiff_t>(pb));
+    std::vector<size_t> permuted;
+    if (keep_woe_order) {
+      // Re-sort exactly as the former code did (std::sort on the bins in
+      // their current order): sorting the ids with the same comparator
+      // performs the same comparisons and hence the same permutation, ties
+      // included. Bins other than the merged one whose relative order
+      // changed (tied bins that std::sort permuted) are re-evaluated.
+      std::vector<size_t> before;
+      before.reserve(order.size());
+      for (size_t x : order) if (x != a) before.push_back(x);
+      std::sort(order.begin(), order.end(), [&bins](size_t x, size_t y) {
+        return bins[x].woe < bins[y].woe;
+      });
+      std::vector<size_t> after;
+      after.reserve(order.size());
+      for (size_t x : order) if (x != a) after.push_back(x);
+      size_t f = 0;
+      while (f < after.size() && after[f] == before[f]) ++f;
+      if (f < after.size()) {
+        size_t l = after.size() - 1;
+        while (l > f && after[l] == before[l]) --l;
+        // Tied bins almost always have identical class counts, and the
+        // scores depend on the counts and positions only: swapping such
+        // bins is a pure relabelling of the positions, so their partner
+        // data is carried over instead of being recomputed.
+        bool relabel = true;
+        for (size_t p = f; p <= l && relabel; ++p) {
+          const CategoricalBin& u = bins[before[p]];
+          const CategoricalBin& v = bins[after[p]];
+          relabel = (u.count_pos == v.count_pos && u.count_neg == v.count_neg);
+        }
+        if (relabel) {
+          std::vector<size_t> rel(B, NONE);
+          std::vector<double> old_score(l - f + 1);
+          std::vector<size_t> old_j(l - f + 1);
+          for (size_t p = f; p <= l; ++p) {
+            rel[before[p]] = after[p];
+            old_score[p - f] = best_score[before[p]];
+            old_j[p - f] = best_j[before[p]];
+          }
+          for (size_t p = f; p <= l; ++p) {
+            best_score[after[p]] = old_score[p - f];
+            best_j[after[p]] = old_j[p - f];
+          }
+          for (size_t x : order) {
+            if (best_j[x] != NONE && rel[best_j[x]] != NONE) best_j[x] = rel[best_j[x]];
+          }
+          for (size_t& x : touched) {
+            if (rel[x] != NONE) x = rel[x];
+          }
+        } else {
+          permuted.assign(after.begin() + static_cast<std::ptrdiff_t>(f),
+                          after.begin() + static_cast<std::ptrdiff_t>(l + 1));
+        }
+      }
+    }
+    for (size_t p = 0; p < order.size(); ++p) pos[order[p]] = p;
+    best_j[b] = NONE;
+    best_score[b] = NO_SCORE;
+
+    if (pos[a] > 0) touched.push_back(order[pos[a] - 1]);
+    touched.push_back(a);
+    for (size_t p = 0; p < order.size(); ++p) {
+      const size_t x = order[p];
+      if (best_j[x] == a || best_j[x] == b) touched.push_back(x);
+    }
+    if (!permuted.empty()) {
+      std::vector<char> in_perm(B, 0);
+      for (size_t x : permuted) {
+        in_perm[x] = 1;
+        touched.push_back(x);
+        if (pos[x] > 0) touched.push_back(order[pos[x] - 1]);
+      }
+      for (size_t p = 0; p < order.size(); ++p) {
+        const size_t x = order[p];
+        if (best_j[x] != NONE && in_perm[best_j[x]]) touched.push_back(x);
+      }
+    }
+    for (size_t x : touched) dirty[x] = 1;
+    dirty[b] = 0;
+
+    for (size_t p = 0; p < order.size(); ++p) {
+      const size_t x = order[p];
+      if (dirty[x]) {
+        rescan(x);
+        dirty[x] = 0;
+      } else if (p < pos[a]) {
+        const double s = score(x, a);
+        if (s < best_score[x] || (s == best_score[x] && best_j[x] != NONE && pos[a] < pos[best_j[x]])) {
+          best_score[x] = s;
+          best_j[x] = a;
+        }
+      }
+    }
+  }
+
+  std::vector<CategoricalBin> kept;
+  kept.reserve(order.size());
+  for (size_t x : order) kept.push_back(std::move(bins[x]));
+  bins = std::move(kept);
+}
+
 class OBC_UDT {
 private:
   // Enhanced bin structure with uniqueness guarantee
@@ -152,31 +332,23 @@ private:
   int total_neg_;
   
   // Input validation with improved error messages
-  void validate_inputs(const std::vector<std::string>& feature, const std::vector<int>& target) {
-    if (feature.size() != target.size()) {
-      throw std::invalid_argument("Feature and target vectors must have the same length.");
-    }
-    if (feature.empty()) {
+  void validate_inputs(const std::vector<std::string>& categories,
+                       const std::vector<int>& pos,
+                       const std::vector<int>& neg,
+                       size_t n_obs) {
+    if (n_obs == 0 || categories.empty()) {
       throw std::invalid_argument("Input vectors cannot be empty.");
     }
-    
-    // Check target values and count positives/negatives
-    bool has_zero = false;
-    bool has_one = false;
-    
-    for (int t : target) {
-      if (t == 0) has_zero = true;
-      else if (t == 1) has_one = true;
-      else throw std::invalid_argument("Target vector must contain only 0 and 1.");
-      
-      // Early termination
-      if (has_zero && has_one) break;
+
+    int all_pos = 0, all_neg = 0;
+    for (size_t c = 0; c < categories.size(); ++c) {
+      all_pos += pos[c];
+      all_neg += neg[c];
     }
-    
-    if (!has_zero || !has_one) {
+    if (all_pos == 0 || all_neg == 0) {
       throw std::invalid_argument("Target must contain both 0 and 1 values.");
     }
-    
+
     // Validate parameter ranges
     if (min_bins_ < 1) {
       throw std::invalid_argument("min_bins must be at least 1.");
@@ -191,70 +363,82 @@ private:
       throw std::invalid_argument("max_n_prebins must be at least min_bins.");
     }
   }
-  
-  // Initial binning with one bin per unique category
-  void initial_binning(const std::vector<std::string>& feature, const std::vector<int>& target) {
+
+  // Initial binning with one bin per unique category. Keys are inserted in
+  // order of first appearance, exactly as the former per-observation loop
+  // did, so the map iteration order (and the resulting bin order) is kept.
+  void initial_binning(const std::vector<std::string>& categories,
+                       const std::vector<int>& pos,
+                       const std::vector<int>& neg) {
     std::unordered_map<std::string, CategoricalBin> bin_map;
     total_pos_ = 0;
     total_neg_ = 0;
-    
-    // Process each observation
-    for (size_t i = 0; i < feature.size(); ++i) {
-      auto& bin = bin_map[feature[i]];
-      if (bin.categories.empty()) {
-        bin.categories.push_back(feature[i]);
-      }
-      bin.count++;
-      if (target[i] == 1) {
-        bin.count_pos++;
-      } else {
-        bin.count_neg++;
-      }
-      total_pos_ += target[i];
-      total_neg_ += (1 - target[i]);
+
+    for (size_t c = 0; c < categories.size(); ++c) {
+      auto& bin = bin_map[categories[c]];
+      bin.categories.push_back(categories[c]);
+      bin.count_pos = pos[c];
+      bin.count_neg = neg[c];
+      bin.count = pos[c] + neg[c];
+      total_pos_ += pos[c];
+      total_neg_ += neg[c];
     }
-    
-    // Transfer to bins vector
+
     bins_.clear();
     bins_.reserve(bin_map.size());
     for (auto& pair : bin_map) {
       bins_.push_back(std::move(pair.second));
     }
   }
-  
-  // Merge low-frequency bins with improved strategy
+
+  // Pool the categories below bin_cutoff into a single "rare" bin.
+  //
+  // A rare category is kept as its own bin only when that is needed to reach
+  // min_bins, and then the largest rare categories are kept. The old loop
+  // walked the bins in ascending count order and kept every bin while fewer
+  // than min_bins had been kept, i.e. it always kept the min_bins RAREST
+  // categories as separate bins (even when there were plenty of frequent
+  // ones), contradicting the documented pooling.
   void merge_low_frequency_bins() {
-    // Calculate cutoff threshold
     int total_count = std::accumulate(bins_.begin(), bins_.end(), 0,
                                       [](int sum, const CategoricalBin& bin) { return sum + bin.count; });
     double cutoff_count = total_count * bin_cutoff_;
-    
-    // Sort bins by count (ascending)
+
+    // Sort bins by count (ascending): the rare bins form a prefix
     std::sort(bins_.begin(), bins_.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
       return a.count < b.count;
     });
-    
-    // Process bins, keeping those above threshold
+
+    size_t n_rare = 0;
+    while (n_rare < bins_.size() && bins_[n_rare].count < cutoff_count) ++n_rare;
+    const size_t n_freq = bins_.size() - n_rare;
+    const size_t target_bins = static_cast<size_t>(std::max(min_bins_, 0));
+    size_t keep_rare = 0;
+    while (keep_rare < n_rare &&
+           n_freq + keep_rare + (n_rare > keep_rare ? 1 : 0) < target_bins) {
+      ++keep_rare;
+    }
+    const size_t first_kept = n_rare - keep_rare;
+
     std::vector<CategoricalBin> new_bins;
+    new_bins.reserve(bins_.size());
     CategoricalBin low_freq_bin;
-    
-    for (auto& bin : bins_) {
-      if (bin.count >= cutoff_count || (int)new_bins.size() < min_bins_) {
-        new_bins.push_back(bin);
+
+    for (size_t i = 0; i < bins_.size(); ++i) {
+      if (i >= first_kept) {
+        new_bins.push_back(std::move(bins_[i]));
       } else {
-        // Merge into low frequency bin
-        low_freq_bin.merge_with(bin);
+        low_freq_bin.merge_with(bins_[i]);
       }
     }
-    
-    // Add low frequency bin if not empty
+
     if (low_freq_bin.count > 0) {
-      new_bins.push_back(low_freq_bin);
+      new_bins.push_back(std::move(low_freq_bin));
     }
-    
+
     bins_ = std::move(new_bins);
   }
-  
+
   // Calculate WoE and IV for all bins with Laplace smoothing
   void calculate_woe_iv() {
     for (auto& bin : bins_) {
@@ -275,47 +459,11 @@ private:
     });
   }
   
-  // Find the most similar bins for merging based on statistical divergence
-  std::pair<size_t, size_t> find_most_similar_bins() const {
-    double min_divergence = std::numeric_limits<double>::max();
-    size_t idx1 = 0, idx2 = 1;
-    
-    for (size_t i = 0; i < bins_.size(); ++i) {
-      for (size_t j = i + 1; j < bins_.size(); ++j) {
-        double div = bins_[i].divergence_from(bins_[j], total_pos_, total_neg_);
-        
-        // Prefer adjacent bins if divergence is similar
-        if (j == i + 1) {
-          div *= 0.95;  // Slight bias towards adjacent bins
-        }
-        
-        if (div < min_divergence) {
-          min_divergence = div;
-          idx1 = i;
-          idx2 = j;
-        }
-      }
-    }
-    
-    return {idx1, idx2};
-  }
-  
   // Merge bins with improved strategy using statistical similarity
   void merge_bins() {
-    while ((int)bins_.size() > max_bins_) {
-      // Find most statistically similar bins
-      auto [idx1, idx2] = find_most_similar_bins();
-      
-      // Ensure lower index first
-      if (idx2 < idx1) std::swap(idx1, idx2);
-      
-      // Merge bins
-      bins_[idx1].merge_with(bins_[idx2]);
-      bins_[idx1].calculate_metrics(total_pos_, total_neg_);
-      bins_.erase(bins_.begin() + idx2);
-      
-      // Recalculate WoE/IV after merge
-      calculate_woe_iv();
+    if ((int)bins_.size() > max_bins_) {
+      greedy_similarity_merge(bins_, static_cast<size_t>(std::max(max_bins_, 1)),
+                              total_pos_, total_neg_, false);
     }
   }
   
@@ -334,23 +482,31 @@ public:
   convergence_threshold_(convergence_threshold), max_iterations_(max_iterations),
   converged_(false), iterations_(0), total_pos_(0), total_neg_(0) {}
   
-  // Main fitting method with improved logic
-  void fit(const std::vector<std::string>& feature, const std::vector<int>& target) {
-    validate_inputs(feature, target);
-    
-    // Count unique categories
-    std::unordered_set<std::string> unique_cats(feature.begin(), feature.end());
-    int ncat = static_cast<int>(unique_cats.size());
-    
+  // Main fitting method. 'categories' holds the distinct categories in order
+  // of first appearance, 'pos'/'neg' their class counts.
+  void fit(const std::vector<std::string>& categories,
+           const std::vector<int>& pos,
+           const std::vector<int>& neg,
+           size_t n_obs) {
+    validate_inputs(categories, pos, neg, n_obs);
+
+    const int ncat = static_cast<int>(categories.size());
+
     // Adjust min_bins and max_bins based on unique categories
     max_bins_ = std::min(max_bins_, ncat);
     min_bins_ = std::min(min_bins_, max_bins_);
-    
+
     // Initial binning (one bin per category)
-    initial_binning(feature, target);
-    
+    initial_binning(categories, pos, neg);
+
     // Special case: 1 or 2 unique levels
     if (ncat <= 2) {
+      // max_bins = 1 with two categories: a single bin (it used to return
+      // two bins, above max_bins)
+      while (static_cast<int>(bins_.size()) > max_bins_ && bins_.size() > 1) {
+        bins_[0].merge_with(bins_[1]);
+        bins_.erase(bins_.begin() + 1);
+      }
       calculate_woe_iv();
       converged_ = true;
       iterations_ = 0;
@@ -404,29 +560,29 @@ public:
   
   // Get results as Rcpp List with improved structure
   Rcpp::List get_woe_bin() const {
-    // Prepare result vectors
-    Rcpp::CharacterVector bin_names;
-    Rcpp::NumericVector woe_values, iv_values, event_rates;
-    Rcpp::IntegerVector counts, counts_pos, counts_neg;
-    
-    // Fill result vectors
-    for (const auto& bin : bins_) {
-      bin_names.push_back(utils::join_categories(bin.categories, bin_separator_));
-      woe_values.push_back(bin.woe);
-      iv_values.push_back(bin.iv);
-      counts.push_back(bin.count);
-      counts_pos.push_back(bin.count_pos);
-      counts_neg.push_back(bin.count_neg);
-      event_rates.push_back(bin.event_rate());
+    const R_xlen_t nb = static_cast<R_xlen_t>(bins_.size());
+    Rcpp::CharacterVector bin_names(nb);
+    Rcpp::NumericVector woe_values(nb), iv_values(nb), event_rates(nb);
+    Rcpp::IntegerVector counts(nb), counts_pos(nb), counts_neg(nb);
+
+    for (R_xlen_t i = 0; i < nb; ++i) {
+      const CategoricalBin& bin = bins_[static_cast<size_t>(i)];
+      bin_names[i] = utils::join_categories(bin.categories, bin_separator_);
+      woe_values[i] = bin.woe;
+      iv_values[i] = bin.iv;
+      counts[i] = bin.count;
+      counts_pos[i] = bin.count_pos;
+      counts_neg[i] = bin.count_neg;
+      event_rates[i] = bin.event_rate();
     }
-    
+
     // Calculate total IV
     double total_iv = calculate_total_iv();
     
     // Create sequential IDs
-    Rcpp::NumericVector ids(bin_names.size());
-    for (int i = 0; i < bin_names.size(); i++) {
-      ids[i] = i + 1;
+    Rcpp::NumericVector ids(nb);
+    for (R_xlen_t i = 0; i < nb; i++) {
+      ids[i] = static_cast<double>(i + 1);
     }
     
     // Return results
@@ -459,35 +615,53 @@ Rcpp::List optimal_binning_categorical_udt(
    int max_iterations = 1000
 ) {
  try {
-   // Handle missing values in feature
-   std::vector<std::string> feature_vec;
-   feature_vec.reserve(feature.size());
-   
-   for (R_xlen_t i = 0; i < feature.size(); ++i) {
-     if (feature[i] == NA_STRING) {
-       feature_vec.push_back(MISSING_VALUE);
-     } else {
-       feature_vec.push_back(Rcpp::as<std::string>(feature[i]));
-     }
+   const R_xlen_t n = feature.size();
+   if (n != target.size()) {
+     throw std::invalid_argument("Feature and target vectors must have the same length.");
    }
-   
-   // Check for missing values in target
-   std::vector<int> target_vec;
-   target_vec.reserve(target.size());
-   
-   for (R_xlen_t i = 0; i < target.size(); ++i) {
-     if (IntegerVector::is_na(target[i])) {
+
+   // Aggregate per distinct category (first-appearance order). Each distinct
+   // CHARSXP is resolved once; the string map merges equal byte strings
+   // stored under different encodings.
+   std::vector<std::string> categories;
+   std::vector<int> pos, neg;
+   std::unordered_map<std::string, size_t> str_index;
+   std::unordered_map<SEXP, size_t> ptr_index;
+   const int* tg = INTEGER(target);
+
+   for (R_xlen_t i = 0; i < n; ++i) {
+     const int t = tg[i];
+     if (t == NA_INTEGER) {
        Rcpp::stop("Target cannot contain missing values");
      }
-     target_vec.push_back(target[i]);
+     if (t != 0 && t != 1) {
+       throw std::invalid_argument("Target vector must contain only 0 and 1.");
+     }
+     SEXP cs = STRING_ELT(feature, i);
+     size_t idx;
+     auto pit = ptr_index.find(cs);
+     if (pit != ptr_index.end()) {
+       idx = pit->second;
+     } else {
+       std::string cat = (cs == NA_STRING) ? std::string(MISSING_VALUE) : std::string(CHAR(cs));
+       auto ins = str_index.emplace(cat, categories.size());
+       if (ins.second) {
+         categories.push_back(std::move(cat));
+         pos.push_back(0);
+         neg.push_back(0);
+       }
+       idx = ins.first->second;
+       ptr_index.emplace(cs, idx);
+     }
+     if (t == 1) pos[idx]++; else neg[idx]++;
    }
-   
+
    OBC_UDT binning(
        min_bins, max_bins, bin_cutoff, max_n_prebins,
        bin_separator, convergence_threshold, max_iterations
    );
-   
-   binning.fit(feature_vec, target_vec);
+
+   binning.fit(categories, pos, neg, static_cast<size_t>(n));
    return binning.get_woe_bin();
  } catch (const std::exception& e) {
    Rcpp::stop("Error in optimal binning: " + std::string(e.what()));

@@ -10,7 +10,9 @@
 #'   \item \strong{Initialization}: Each unique category is initially placed in
 #'         its own bin.
 #'   \item \strong{Frequency Filtering}: Categories below the \code{bin_cutoff}
-#'         frequency threshold are grouped into a single "rare" bin.
+#'         frequency threshold are grouped into a single "rare" bin. A rare
+#'         category keeps its own bin only when that is needed to reach
+#'         \code{min_bins}, the largest rare categories first.
 #'   \item \strong{Iterative Optimization}: Bins are progressively merged based
 #'         on statistical similarity (measured by Jensen-Shannon divergence)
 #'         until the desired number of bins (\code{max_bins}) is achieved.

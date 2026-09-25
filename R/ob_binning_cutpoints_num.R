@@ -46,8 +46,16 @@
 #'
 #' @note
 #' \itemize{
-#'   \item Target variable must contain only 0 and 1 values.
-#'   \item Cutpoints are sorted automatically in ascending order.
+#'   \item Target variable must contain only 0 and 1 values (no \code{NA}),
+#'         with both classes present, and have the same length as
+#'         \code{feature}; otherwise an error is raised.
+#'   \item Cutpoints are sorted automatically in ascending order (a sorted copy
+#'         is used: the caller's vector is left untouched). \code{NA} cutpoints
+#'         are an error.
+#'   \item Missing values (\code{NA}/\code{NaN}) in \code{feature} are not
+#'         binned: they are left out of the bin counts and get a \code{NA}
+#'         WoE in \code{woefeature}, as in \code{\link{ob_apply_woe_num}}
+#'         (they used to be counted in the first bin).
 #'   \item Interval notation uses "(" for exclusive and "]" for inclusive
 #'         bounds -- a value exactly equal to a cutpoint falls in the bin that
 #'         \emph{ends} at that cutpoint.
@@ -96,6 +104,13 @@
 #'
 #' @export
 ob_cutpoints_num <- function(feature, target, cutpoints) {
+  if (length(feature) != length(target)) {
+    stop("'feature' and 'target' must have the same length.")
+  }
+  if (!(is.numeric(target) || is.logical(target)) || anyNA(target) ||
+    !all(target %in% c(0, 1))) {
+    stop("'target' must contain only 0 and 1 (no missing values).")
+  }
   .Call("_OptimalBinningWoE_binning_numerical_cutpoints",
     as.numeric(feature),
     as.integer(target),

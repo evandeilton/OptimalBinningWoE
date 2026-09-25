@@ -14,7 +14,10 @@
 #'         categories (above a threshold defined by \code{bin_cutoff}) using
 #'         sketch estimates.
 #'   \item \strong{Pre-binning}: Creates initial bins from detected heavy
-#'         categories, grouping rare categories separately.
+#'         categories, grouping rare categories separately. The sketch only
+#'         decides which categories are heavy hitters; the bin counts, WoE and
+#'         IV are computed from the exact category counts, so \code{count}
+#'         always sums to the number of observations.
 #'   \item \strong{Optimization}: Applies iterative merging based on
 #'         statistical divergence measures to optimize Information Value (IV)
 #'         while respecting bin count constraints (\code{min_bins},

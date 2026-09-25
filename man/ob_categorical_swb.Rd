@@ -79,7 +79,9 @@ The SWB algorithm follows these steps:
 \enumerate{
   \item \strong{Initialization}: Categories are initially grouped based on
         frequency thresholds (\code{bin_cutoff}), separating frequent
-        categories from rare ones.
+        categories from rare ones (pooled into one bin). When that leaves
+        fewer than \code{min_bins} bins, the largest rare categories keep
+        their own bins.
   \item \strong{Preprocessing}: Initial bins are sorted by their WoE values
         to establish a baseline ordering.
   \item \strong{Sliding Window Optimization}: An iterative process evaluates

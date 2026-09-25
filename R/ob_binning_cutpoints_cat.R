@@ -43,11 +43,16 @@
 #'
 #' @note
 #' \itemize{
-#'   \item Target variable must contain only 0 and 1 values.
+#'   \item Target variable must contain only 0 and 1 values (no \code{NA}),
+#'         with both classes present, and have the same length as
+#'         \code{feature}; otherwise an error is raised.
 #'   \item Every unique category in \code{feature} must be included in exactly
-#'         one bin definition in \code{cutpoints}.
-#'   \item Categories not mentioned in \code{cutpoints} will be assigned to bin 0
-#'         (which may lead to unexpected results).
+#'         one bin definition in \code{cutpoints}. A category of
+#'         \code{feature} that no bin lists, or a category listed in two bins,
+#'         is an error (unlisted categories used to be counted silently in the
+#'         first bin). \code{NA} values of \code{feature} are matched as the
+#'         category \code{"NA"}, the token the \code{ob_categorical_*()}
+#'         wrappers use for missing values.
 #' }
 #'
 #' @details
@@ -84,6 +89,13 @@
 #'
 #' @export
 ob_cutpoints_cat <- function(feature, target, cutpoints) {
+  if (length(feature) != length(target)) {
+    stop("'feature' and 'target' must have the same length.")
+  }
+  if (!(is.numeric(target) || is.logical(target)) || anyNA(target) ||
+    !all(target %in% c(0, 1))) {
+    stop("'target' must contain only 0 and 1 (no missing values).")
+  }
   .Call("_OptimalBinningWoE_binning_categorical_cutpoints",
     as.character(feature),
     as.integer(target),
