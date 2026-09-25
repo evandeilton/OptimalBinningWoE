@@ -56,7 +56,7 @@
       }
     ),
 
-    # The package's own C++ L-BFGS logistic regression: no extra dependency,
+    # The package's own C++ Newton-IRLS logistic regression: no extra dependency,
     # and it returns standard errors directly.
     obwoe = list(
       pkgs = character(0),

@@ -300,8 +300,10 @@ test_that("every algorithm conserves observations and returns finite WoE/IV", {
     function(ws) any(!grepl(benign, ws, ignore.case = TRUE)),
     seen
   )
-  expect_equal(
-    names(unexpected), character(0),
+  # A length test, not names(): when no algorithm warns at all, `seen` is an
+  # empty list and Filter() returns an unnamed list whose names() is NULL.
+  expect_true(
+    length(unexpected) == 0L,
     info = paste(
       "unexpected warning(s) from:",
       paste(names(unexpected), collapse = ", ")

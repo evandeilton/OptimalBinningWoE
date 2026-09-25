@@ -1,5 +1,5 @@
 # Regression and invariant tests for the "core" audit: gains tables
-# (OB_Utils.cpp), obcorr() (OB_Correlation.cpp), the internal L-BFGS logistic
+# (OB_Utils.cpp), obcorr() (OB_Correlation.cpp), the internal Newton-IRLS logistic
 # regression (OB_LogisticRegression.cpp), ob_numerical_udt() (OBN_UDT_v5.cpp)
 # and the shared header src/common/optimal_binning_common.h.
 
