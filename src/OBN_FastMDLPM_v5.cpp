@@ -13,6 +13,8 @@ using namespace OptimalBinning;
 #include <string>
 #include <limits>
 #include <stdexcept>
+#include <queue>
+#include <cstddef>
 
 /**
  * @title Optimal Binning using Minimum Description Length Principle with Monotonicity
@@ -130,52 +132,27 @@ bool is_strictly_decreasing(const std::vector<double> &x) {
 }
 
 /**
- * Binary entropy (bits): E = -p log2 p - q log2 q, with 0 log 0 = 0.
+ * Table of c * log2(c) for c = 0..n (0 log 0 = 0).
+ *
+ * With it, t * E(S) for a set with p positives and n negatives, t = p + n, is
+ *   A(p, n) = t log2 t - p log2 p - n log2 n
+ * -- three lookups and no logarithm. The candidate scan of every MDLP
+ * partition needs this quantity on both sides of every cut, so the table
+ * removes all transcendental calls from the O(candidates) inner loop.
  */
-double entropy(int count_pos, int count_neg) {
-  int total = count_pos + count_neg;
-  if (total == 0) return 0.0;
-
-  double p_pos = static_cast<double>(count_pos) / static_cast<double>(total);
-  double p_neg = static_cast<double>(count_neg) / static_cast<double>(total);
-
-  double E = 0.0;
-  if (p_pos > 0) E -= p_pos * std::log2(p_pos);
-  if (p_neg > 0) E -= p_neg * std::log2(p_neg);
-  return E;
-}
-
-/**
- * Class-weighted entropy of a binary split:
- * E(T; S) = |S1|/|S| E(S1) + |S2|/|S| E(S2).
- */
-double conditional_entropy(int pos_left, int neg_left, int pos_right, int neg_right) {
-  int total_left = pos_left + neg_left;
-  int total_right = pos_right + neg_right;
-  int total = total_left + total_right;
-  if (total == 0) return 0.0;
-
-  double E_left = entropy(pos_left, neg_left);
-  double E_right = entropy(pos_right, neg_right);
-
-  double weight_left = static_cast<double>(total_left) / static_cast<double>(total);
-  double weight_right = static_cast<double>(total_right) / static_cast<double>(total);
-  return weight_left * E_left + weight_right * E_right;
-}
-
-/**
- * MDLP stopping criterion. Returns true when the split must NOT be made.
- */
-bool mdlp_stop_criterion(int pos_left, int neg_left, int pos_right, int neg_right,
-                         int total_pos, int total_neg) {
-  double E_parent = entropy(total_pos, total_neg);
-  double E_child = conditional_entropy(pos_left, neg_left, pos_right, neg_right);
-  double IG = E_parent - E_child;
-  double Delta = std::log2(7.0) - 2.0 * E_parent;
-  int N = total_pos + total_neg;
-  double threshold = (std::log2(static_cast<double>(N - 1)) / N) + (Delta / N);
-  return (IG <= threshold);
-}
+struct XLogX {
+  std::vector<double> tab;
+  explicit XLogX(int n) : tab(static_cast<size_t>(n) + 1, 0.0) {
+    for (int c = 2; c <= n; ++c) {
+      const double x = static_cast<double>(c);
+      tab[static_cast<size_t>(c)] = x * std::log2(x);
+    }
+  }
+  // t * E(S): the entropy of the set times its size, in bits.
+  double A(int p, int n) const {
+    return tab[static_cast<size_t>(p + n)] - tab[static_cast<size_t>(p)] - tab[static_cast<size_t>(n)];
+  }
+};
 
 /**
  * A cut after block j is a boundary point in the sense of Fayyad & Irani
@@ -191,47 +168,122 @@ inline bool is_boundary(const Blocks& b, int j) {
   return !(pure_pos || pure_neg);
 }
 
+/** An MDL-accepted cut of the block range [bstart, bend). */
+struct Cut {
+  double gain_bits;  // N * Gain(A, T; S): entropy reduction in bits
+  int bstart;
+  int bend;
+  int cut;           // cut after this block
+};
+
+struct CutOrder {
+  // Max-heap on the entropy reduction; ties go to the leftmost cut.
+  bool operator()(const Cut& a, const Cut& b) const {
+    if (a.gain_bits != b.gain_bits) return a.gain_bits < b.gain_bits;
+    return a.cut > b.cut;
+  }
+};
+
 /**
- * Recursive MDLP on blocks [bstart, bend). Accepted cuts are appended to
- * `splits` as block indices (cut after that block).
+ * Best cut of the block range [bstart, bend) and the MDLP acceptance test of
+ * Fayyad & Irani (1993). Returns false when the range has no candidate cut or
+ * the best one is rejected.
+ *
+ * The best cut maximises Gain(A, T; S) = E(S) - E(A, T; S), i.e. minimises
+ * t1 E(S1) + t2 E(S2); only boundary points are evaluated. It is accepted iff
+ *
+ *   Gain(A, T; S) > log2(N - 1) / N + Delta(A, T; S) / N,
+ *   Delta(A, T; S) = log2(3^k - 2) - [k E(S) - k1 E(S1) - k2 E(S2)],
+ *
+ * with k, k1, k2 the number of classes present in S, S1 and S2.
  */
-void mdlp_recursion(const Blocks& b, int bstart, int bend, std::vector<int>& splits) {
-  const int start = b.cend[static_cast<size_t>(bstart)];
-  const int end = b.cend[static_cast<size_t>(bend)];
-  if ((end - start) <= 1) return;
+bool best_mdlp_cut(const Blocks& b, const XLogX& xl, int bstart, int bend, Cut& out) {
+  const size_t s = static_cast<size_t>(bstart);
+  const size_t e = static_cast<size_t>(bend);
+  const int N = b.cend[e] - b.cend[s];
+  if (N <= 1) return false;
 
-  const int pos_total = b.cpos[static_cast<size_t>(bend)] - b.cpos[static_cast<size_t>(bstart)];
-  const int neg_total = b.cneg[static_cast<size_t>(bend)] - b.cneg[static_cast<size_t>(bstart)];
-  if (pos_total == 0 || neg_total == 0) return;
+  const int pos_total = b.cpos[e] - b.cpos[s];
+  const int neg_total = b.cneg[e] - b.cneg[s];
+  if (pos_total == 0 || neg_total == 0) return false;  // pure: nothing to gain
 
-  double best_IG = -std::numeric_limits<double>::infinity();
-  int best_split = -1;
-  const double E_parent = entropy(pos_total, neg_total);
-
-  for (int j = bstart; j < bend - 1; j++) {
+  double best = std::numeric_limits<double>::infinity();
+  int best_cut = -1;
+  for (int j = bstart; j < bend - 1; ++j) {
     if (!is_boundary(b, j)) continue;
-    const int pos_left = b.cpos[static_cast<size_t>(j) + 1] - b.cpos[static_cast<size_t>(bstart)];
-    const int neg_left = b.cneg[static_cast<size_t>(j) + 1] - b.cneg[static_cast<size_t>(bstart)];
-    const double E_child = conditional_entropy(pos_left, neg_left,
-                                               pos_total - pos_left, neg_total - neg_left);
-    const double IG = E_parent - E_child;
-    if (IG > best_IG) {
-      best_IG = IG;
-      best_split = j;
+    const int pl = b.cpos[static_cast<size_t>(j) + 1] - b.cpos[s];
+    const int nl = b.cneg[static_cast<size_t>(j) + 1] - b.cneg[s];
+    const double child = xl.A(pl, nl) + xl.A(pos_total - pl, neg_total - nl);
+    if (child < best) {
+      best = child;
+      best_cut = j;
     }
   }
-  if (best_split == -1) return;
+  if (best_cut < 0) return false;
 
-  const int pos_left = b.cpos[static_cast<size_t>(best_split) + 1] - b.cpos[static_cast<size_t>(bstart)];
-  const int neg_left = b.cneg[static_cast<size_t>(best_split) + 1] - b.cneg[static_cast<size_t>(bstart)];
-  if (mdlp_stop_criterion(pos_left, neg_left, pos_total - pos_left, neg_total - neg_left,
-                          pos_total, neg_total)) {
-    return;
+  const int pl = b.cpos[static_cast<size_t>(best_cut) + 1] - b.cpos[s];
+  const int nl = b.cneg[static_cast<size_t>(best_cut) + 1] - b.cneg[s];
+  const int pr = pos_total - pl;
+  const int nr = neg_total - nl;
+  const int n1 = pl + nl;
+  const int n2 = pr + nr;
+
+  const double A_S = xl.A(pos_total, neg_total);
+  const double A_1 = xl.A(pl, nl);
+  const double A_2 = xl.A(pr, nr);
+  const double Nd = static_cast<double>(N);
+
+  const double E_S = A_S / Nd;
+  const double E_1 = A_1 / static_cast<double>(n1);
+  const double E_2 = A_2 / static_cast<double>(n2);
+  const double gain = (A_S - A_1 - A_2) / Nd;
+
+  const int k = 2;  // S holds both classes (pure sets returned above)
+  const int k1 = (pl > 0 ? 1 : 0) + (nl > 0 ? 1 : 0);
+  const int k2 = (pr > 0 ? 1 : 0) + (nr > 0 ? 1 : 0);
+  const double delta = std::log2(std::pow(3.0, k) - 2.0) -
+    (k * E_S - k1 * E_1 - k2 * E_2);
+  const double threshold = (std::log2(Nd - 1.0) + delta) / Nd;
+
+  if (!(gain > threshold)) return false;
+
+  out.gain_bits = A_S - A_1 - A_2;
+  out.bstart = bstart;
+  out.bend = bend;
+  out.cut = best_cut;
+  return true;
+}
+
+/**
+ * Multi-interval MDLP (Fayyad & Irani, 1993), best-first.
+ *
+ * Every accepted cut splits its interval in two, and each half is examined in
+ * turn, exactly as in the recursive formulation; the set of cuts is the same
+ * whenever it fits into max_bins. Expanding the intervals in order of the
+ * entropy reduction their cut achieves (a priority queue instead of depth-first
+ * recursion) makes the truncation to max_bins keep the most informative cuts
+ * instead of whichever ones happened to be found first, and needs no call
+ * stack proportional to the number of cuts.
+ */
+std::vector<int> mdlp_cuts(const Blocks& b, int max_splits) {
+  std::vector<int> splits;
+  if (max_splits <= 0 || b.m() < 2) return splits;
+
+  const XLogX xl(b.n());
+  std::priority_queue<Cut, std::vector<Cut>, CutOrder> heap;
+  Cut c;
+  if (best_mdlp_cut(b, xl, 0, b.m(), c)) heap.push(c);
+
+  while (!heap.empty() && static_cast<int>(splits.size()) < max_splits) {
+    const Cut top = heap.top();
+    heap.pop();
+    splits.push_back(top.cut);
+    Cut child;
+    if (best_mdlp_cut(b, xl, top.bstart, top.cut + 1, child)) heap.push(child);
+    if (best_mdlp_cut(b, xl, top.cut + 1, top.bend, child)) heap.push(child);
   }
-
-  splits.push_back(best_split);
-  mdlp_recursion(b, bstart, best_split + 1, splits);
-  mdlp_recursion(b, best_split + 1, bend, splits);
+  std::sort(splits.begin(), splits.end());
+  return splits;
 }
 
 /**
@@ -358,16 +410,38 @@ void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
 }
 
 /**
- * Reduce to max_bins by dropping the rightmost splits.
+ * Smoothed WoE / IV of every bin from its class counts. The smoothing adds
+ * ALPHA to each bin count and ALPHA * (n_bins + 1) to each class total, the
+ * convention calc_bins_metrics() uses.
  */
-void enforce_max_bins(int max_bins, std::vector<int>& splits) {
-  if (static_cast<int>(splits.size()) + 1 <= max_bins) return;
-  std::sort(splits.begin(), splits.end());
-  while (splits.size() + 1 > static_cast<size_t>(max_bins) && !splits.empty()) {
-    splits.pop_back();
+void recompute_woe_iv(const std::vector<int>& pos_counts,
+                      const std::vector<int>& neg_counts,
+                      std::vector<double>& woe,
+                      std::vector<double>& iv) {
+  const double ALPHA = 0.5;
+  int total_pos = 0, total_neg = 0;
+  for (size_t i = 0; i < pos_counts.size(); ++i) {
+    total_pos += pos_counts[i];
+    total_neg += neg_counts[i];
+  }
+  const double n_bnd = static_cast<double>(pos_counts.size() + 1);
+  woe.resize(pos_counts.size());
+  iv.resize(pos_counts.size());
+  for (size_t i = 0; i < pos_counts.size(); ++i) {
+    const double pct_pos = (pos_counts[i] + ALPHA) / (total_pos + ALPHA * n_bnd);
+    const double pct_neg = (neg_counts[i] + ALPHA) / (total_neg + ALPHA * n_bnd);
+    woe[i] = std::log(pct_pos / pct_neg);
+    iv[i] = (pct_pos - pct_neg) * woe[i];
   }
 }
 
+/**
+ * Merge adjacent bins until the WoE is strictly monotone (or min_bins bins
+ * remain), always merging the adjacent pair with the closest WoE.
+ *
+ * The bins are merged in place: counts are added, the cutpoint between the two
+ * bins is removed and every WoE / IV is recomputed from the merged counts.
+ */
 bool enforce_monotonicity(
     std::vector<int> &counts,
     std::vector<int> &pos_counts,
@@ -378,84 +452,33 @@ bool enforce_monotonicity(
     bool force_monotonicity,
     int min_bins
 ) {
-  if (woe.size() <= 1) return true;
-  if (is_strictly_increasing(woe) || is_strictly_decreasing(woe)) return true;
   if (!force_monotonicity) return true;
 
-  auto recompute_metrics = [&](const std::vector<int> &boundaries) {
-    std::vector<int> new_counts;
-    std::vector<int> new_pos_counts;
-    std::vector<int> new_neg_counts;
-    std::vector<double> new_woe;
-    std::vector<double> new_iv;
-    std::vector<double> new_cutpoints;
-    const double ALPHA = 0.5;
-    int total_pos = 0;
-    int total_neg = 0;
-    for (size_t i = 0; i < pos_counts.size(); i++) {
-      total_pos += pos_counts[i];
-      total_neg += neg_counts[i];
-    }
-    for (size_t i = 0; i < boundaries.size() - 1; i++) {
-      int c_pos = 0;
-      int c_neg = 0;
-      for (int bb = boundaries[i]; bb < boundaries[i + 1]; bb++) {
-        c_pos += pos_counts[bb];
-        c_neg += neg_counts[bb];
-      }
-      new_counts.push_back(c_pos + c_neg);
-      new_pos_counts.push_back(c_pos);
-      new_neg_counts.push_back(c_neg);
-      double pct_pos = (c_pos + ALPHA) / (total_pos + ALPHA * boundaries.size());
-      double pct_neg = (c_neg + ALPHA) / (total_neg + ALPHA * boundaries.size());
-      double w = std::log(pct_pos / pct_neg);
-      new_woe.push_back(w);
-      new_iv.push_back((pct_pos - pct_neg) * w);
-      if (i < boundaries.size() - 2) {
-        int last_bin_idx = boundaries[i + 1] - 1;
-        if (last_bin_idx >= 0 && last_bin_idx < static_cast<int>(cutpoints.size())) {
-          new_cutpoints.push_back(cutpoints[last_bin_idx]);
-        } else if (!cutpoints.empty()) {
-          new_cutpoints.push_back(cutpoints.back());
-        }
-      }
-    }
-    counts = new_counts;
-    pos_counts = new_pos_counts;
-    neg_counts = new_neg_counts;
-    woe = new_woe;
-    iv = new_iv;
-    cutpoints = new_cutpoints;
-  };
-
-  int n_bins = static_cast<int>(woe.size());
-  std::vector<int> boundaries;
-  for (int i = 0; i <= n_bins; i++) boundaries.push_back(i);
-
-  const int MAX_ITERATIONS = 1000;
-  for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    if (woe.size() <= 1) return true;
+  while (woe.size() > 1) {
     if (is_strictly_increasing(woe) || is_strictly_decreasing(woe)) return true;
-    int current_bins = static_cast<int>(woe.size());
-    if (current_bins <= min_bins) return true;
+    if (static_cast<int>(woe.size()) <= min_bins) return true;
+
+    size_t merge_pos = 0;
     double min_diff = std::numeric_limits<double>::infinity();
-    int merge_pos = -1;
-    for (int i = 0; i < current_bins - 1; i++) {
-      double diff = std::fabs(woe[i + 1] - woe[i]);
+    for (size_t i = 0; i + 1 < woe.size(); ++i) {
+      const double diff = std::fabs(woe[i + 1] - woe[i]);
       if (diff < min_diff) {
         min_diff = diff;
         merge_pos = i;
       }
     }
-    if (merge_pos >= 0) {
-      boundaries.erase(boundaries.begin() + merge_pos + 1);
-      recompute_metrics(boundaries);
-    } else {
-      return false;
-    }
-    if (static_cast<int>(woe.size()) < min_bins) return true;
+
+    const auto nxt = static_cast<std::ptrdiff_t>(merge_pos) + 1;
+    counts[merge_pos] += counts[merge_pos + 1];
+    pos_counts[merge_pos] += pos_counts[merge_pos + 1];
+    neg_counts[merge_pos] += neg_counts[merge_pos + 1];
+    counts.erase(counts.begin() + nxt);
+    pos_counts.erase(pos_counts.begin() + nxt);
+    neg_counts.erase(neg_counts.begin() + nxt);
+    cutpoints.erase(cutpoints.begin() + static_cast<std::ptrdiff_t>(merge_pos));
+    recompute_woe_iv(pos_counts, neg_counts, woe, iv);
   }
-  return false;
+  return true;
 }
 
 Rcpp::CharacterVector make_bin_names(const std::vector<double>& cutpoints, size_t nb) {
@@ -502,15 +525,10 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
  }
 
  const R_xlen_t n_in = target.size();
- bool is_binary = true;
  for (R_xlen_t i = 0; i < n_in; i++) {
    if (!Rcpp::IntegerVector::is_na(target[i]) && target[i] != 0 && target[i] != 1) {
-     is_binary = false;
-     break;
+     Rcpp::stop("Target must be binary (0/1).");
    }
- }
- if (!is_binary) {
-   Rcpp::warning("Target variable should be binary (0/1). Non-binary values detected.");
  }
 
  // Drop NA / NaN, split the remaining feature values by class.
@@ -553,14 +571,13 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
    calc_bins_metrics(b, splits, counts, pos_counts, neg_counts, woe, iv, cutpoints);
    converged = true;
  } else {
-   mdlp_recursion(b, 0, b.m(), splits);
-   std::sort(splits.begin(), splits.end());
-
+   splits = mdlp_cuts(b, max_bins - 1);
    if (static_cast<int>(splits.size()) + 1 < min_bins) force_min_bins(b, min_bins, splits);
-   if (static_cast<int>(splits.size()) + 1 > max_bins) enforce_max_bins(max_bins, splits);
 
    calc_bins_metrics(b, splits, counts, pos_counts, neg_counts, woe, iv, cutpoints);
 
+   // enforce_monotonicity() finishes in one call; the loop and the WoE-change
+   // test are kept so that `iterations` / `converged` keep their meaning.
    std::vector<double> old_woe = woe;
    for (iterations = 0; iterations < max_iterations; iterations++) {
      bool mono_res = enforce_monotonicity(counts, pos_counts, neg_counts, woe, iv, cutpoints,
@@ -576,17 +593,6 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
        break;
      }
      old_woe = woe;
-   }
-
-   if (static_cast<int>(woe.size()) < min_bins) {
-     splits.clear();
-     for (int j = 0; j + 1 < b.m() && static_cast<int>(splits.size()) < min_bins - 1; j++) {
-       splits.push_back(j);
-     }
-     if (splits.size() + 1 < static_cast<size_t>(min_bins)) {
-       force_min_bins(b, min_bins, splits);
-     }
-     calc_bins_metrics(b, splits, counts, pos_counts, neg_counts, woe, iv, cutpoints);
    }
  }
 
