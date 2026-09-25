@@ -7,7 +7,10 @@
 #include <limits>
 #include <stdexcept>
 #include <sstream>
-#include <unordered_set>
+#include <iomanip>
+#include <cstdint>
+#include <cstring>
+#include <cstddef>
 
 
 // Include shared headers
@@ -21,17 +24,71 @@ using namespace OptimalBinning;
 static constexpr double EPS = 1e-10;
 
 // ----------------------------------------------------------------------
+// Sort finite doubles ascending (LSD radix sort for large inputs).
+//
+// Sorting is the dominant cost of the engine: everything after it is O(n) or
+// O(bins * classes * log n). Large inputs are sorted on the order-preserving
+// integer image of each double (6 passes of 11 bits, histograms gathered in
+// one read, constant-digit passes skipped). The order is that of operator< on
+// finite values, except that -0.0 precedes +0.0; the two compare equal and are
+// merged into one distinct value downstream.
+// ----------------------------------------------------------------------
+static void sort_doubles(std::vector<double>& v) {
+  const size_t n = v.size();
+  if (n < 4096) {
+    std::sort(v.begin(), v.end());
+    return;
+  }
+  const int BITS = 11;
+  const int PASSES = 6;
+  const size_t RADIX = static_cast<size_t>(1) << BITS;
+  const std::uint64_t MASK = RADIX - 1;
+
+  std::vector<std::uint64_t> key(n), tmp(n);
+  std::vector<size_t> hist(RADIX * PASSES, 0);
+  for (size_t i = 0; i < n; ++i) {
+    std::uint64_t u;
+    std::memcpy(&u, &v[i], sizeof u);
+    u = (u >> 63) ? ~u : (u | (static_cast<std::uint64_t>(1) << 63));
+    key[i] = u;
+    for (int p = 0; p < PASSES; ++p) {
+      ++hist[static_cast<size_t>(p) * RADIX + static_cast<size_t>((u >> (p * BITS)) & MASK)];
+    }
+  }
+  for (int p = 0; p < PASSES; ++p) {
+    size_t* h = &hist[static_cast<size_t>(p) * RADIX];
+    const size_t first = static_cast<size_t>((key[0] >> (p * BITS)) & MASK);
+    if (h[first] == n) continue;
+    size_t sum = 0;
+    for (size_t d = 0; d < RADIX; ++d) {
+      const size_t c = h[d];
+      h[d] = sum;
+      sum += c;
+    }
+    for (size_t i = 0; i < n; ++i) {
+      tmp[h[static_cast<size_t>((key[i] >> (p * BITS)) & MASK)]++] = key[i];
+    }
+    key.swap(tmp);
+  }
+  for (size_t i = 0; i < n; ++i) {
+    std::uint64_t u = key[i];
+    u = (u >> 63) ? (u & ~(static_cast<std::uint64_t>(1) << 63)) : ~u;
+    std::memcpy(&v[i], &u, sizeof u);
+  }
+}
+
+// ----------------------------------------------------------------------
 // Estrutura para armazenar informações de um bin (intervalo) em M classes
 // ----------------------------------------------------------------------
 struct NumBinMulti {
   double lower_bound;                // Limite inferior do bin
   double upper_bound;                // Limite superior do bin
   int total_count;             // Contagem total de observações no bin
-  
+
   std::vector<int> class_counts;   // Contagem de observações por classe
   std::vector<double> woes;        // M-WOE por classe
   std::vector<double> ivs;         // Contribuição de IV por classe
-  
+
   NumBinMulti(double l, double u, size_t n_classes)
     : lower_bound(l), upper_bound(u),
       total_count(0),
@@ -42,16 +99,21 @@ struct NumBinMulti {
 
 // ----------------------------------------------------------------------
 // Classe principal para Binning Numérico com M-WOE (multinomial)
+//
+// Layout: the feature values are split by class and each class is sorted once.
+// The number of observations of class k in a bin (lower, upper] is then
+//   upper_bound(vals[k], upper) - upper_bound(vals[k], lower),
+// so no step after the sort touches individual observations again.
 // ----------------------------------------------------------------------
 class OBN_JEDIMWoE {
 private:
-  // Dados de entrada
-  std::vector<double> feature_;
-  std::vector<int> target_;
-  
+  // Valores da feature por classe (ordenados)
+  std::vector<std::vector<double>> class_vals_;
+  size_t n_obs_;
+
   // Número de classes (0,1,2,...,n_classes_-1)
   size_t n_classes_;
-  
+
   // Parâmetros
   int min_bins_;
   int max_bins_;
@@ -59,30 +121,31 @@ private:
   int max_n_prebins_;
   double convergence_threshold_;
   int max_iterations_;
-  
+
   // Bins resultantes
   std::vector<NumBinMulti> bins_;
-  
+
   // Convergência e iterações
   bool converged_;
   int iterations_run_;
-  
+
   // Contagem total por classe (para cálculo de M-WOE)
   std::vector<int> total_class_counts_;
-  
+
 public:
   // --------------------------------------------------------------------
   // Construtor
+  //   class_vals: the feature values of each class 0..K-1 (unsorted; moved in).
   // --------------------------------------------------------------------
-  OBN_JEDIMWoE(const std::vector<double>& feature,
-                                  const std::vector<int>& target,
-                                  int min_b, int max_b,
-                                  double cutoff,
-                                  int max_pre,
-                                  double conv_thr,
-                                  int max_iter)
-    : feature_(feature),
-      target_(target),
+  OBN_JEDIMWoE(std::vector<std::vector<double>>&& class_vals,
+               int min_b, int max_b,
+               double cutoff,
+               int max_pre,
+               double conv_thr,
+               int max_iter)
+    : class_vals_(std::move(class_vals)),
+      n_obs_(0),
+      n_classes_(0),
       min_bins_(std::max(min_b, 2)),
       max_bins_(std::max(max_b, min_b)),
       bin_cutoff_(cutoff),
@@ -92,56 +155,33 @@ public:
       converged_(false),
       iterations_run_(0)
   {
-    // 1) Validar tamanho
-    if(feature_.size() != target_.size()) {
-      throw std::invalid_argument("feature and target must have the same length.");
-    }
-    
-    // 2) Identificar classes existentes
-    std::unordered_set<int> unique_targets(target_.begin(), target_.end());
-    n_classes_ = unique_targets.size();
+    n_classes_ = class_vals_.size();
     if(n_classes_ < 2) {
       throw std::invalid_argument("You must have at least 2 distinct classes in the target.");
     }
-    
-    // 3) Validar range
+
     if(cutoff <= 0.0 || cutoff >= 1.0)
       throw std::invalid_argument("bin_cutoff must be in (0,1).");
     if(convergence_threshold_ <= 0.0)
       throw std::invalid_argument("convergence_threshold must be positive.");
     if(max_iterations_ <= 0)
       throw std::invalid_argument("max_iterations must be positive.");
-    
-    // 4) Checar se target tem valores válidos (0..n_classes_-1)
-    //    Obs.: Se estiverem fora desse range, não funciona.
-    for(int t : target_) {
-      if(t < 0 || t >= (int)n_classes_)
-        throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
-    }
-    
-    // 5) Checar se feature possui algum NaN/Inf
-    for(double val : feature_) {
-      if(std::isnan(val) || std::isinf(val)) {
-        throw std::invalid_argument("Feature contains NaN/Inf.");
-      }
-    }
-    
-    // 6) Calcular total por classe
+
     total_class_counts_.resize(n_classes_, 0);
-    for(size_t i = 0; i < target_.size(); i++) {
-      total_class_counts_[ target_[i] ]++;
+    for(size_t k = 0; k < n_classes_; k++) {
+      total_class_counts_[k] = static_cast<int>(class_vals_[k].size());
+      n_obs_ += class_vals_[k].size();
+      sort_doubles(class_vals_[k]);
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Método principal de ajuste
   // --------------------------------------------------------------------
   void fit() {
     // 1) Preparar vetor único de valores
-    std::vector<double> unique_vals = feature_;
-    std::sort(unique_vals.begin(), unique_vals.end());
-    unique_vals.erase(std::unique(unique_vals.begin(), unique_vals.end()), unique_vals.end());
-    
+    const std::vector<double> unique_vals = distinct_values();
+
     // 2) Se poucas ou nenhuma variação, trata caso trivial
     if(unique_vals.size() <= 1) {
       handle_single_bin();
@@ -155,23 +195,20 @@ public:
       iterations_run_ = 0;
       return;
     }
-    
+
     // 3) Caso geral: criar pre-bins (quantis) + merges
     initial_prebin(unique_vals);
     assign_bins();
     merge_small_bins();
     compute_mwoe_iv();
-    
+
     // 4) Loop de otimização
     double prev_iv = total_iv();
     for(int iter = 0; iter < max_iterations_; iter++) {
-      // - garantir monotonicidade simultânea nas classes
       enforce_monotonicity();
-      // - garantir limites de bins
       merge_until_max_bins();
-      // - recalcular M-WOE/IV
       compute_mwoe_iv();
-      
+
       double current_iv = total_iv();
       if(std::fabs(current_iv - prev_iv) < convergence_threshold_) {
         converged_ = true;
@@ -181,53 +218,56 @@ public:
       prev_iv = current_iv;
       iterations_run_ = iter + 1;
     }
-    
+
     if(!converged_) {
       iterations_run_ = max_iterations_;
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Cria saída no formato Rcpp::List
   // --------------------------------------------------------------------
   Rcpp::List create_output() const {
-    size_t n_bins = bins_.size();
+    const int n_bins = static_cast<int>(bins_.size());
+    const int n_cls = static_cast<int>(n_classes_);
     CharacterVector bin_names(n_bins);
     // woes e ivs em formato (n_bins x n_classes)
-    NumericMatrix woes(n_bins, n_classes_);
-    NumericMatrix ivs(n_bins, n_classes_);
-    
+    NumericMatrix woes(n_bins, n_cls);
+    NumericMatrix ivs(n_bins, n_cls);
+
     IntegerVector counts(n_bins);
-    IntegerMatrix class_counts(n_bins, n_classes_);
-    
+    IntegerMatrix class_counts(n_bins, n_cls);
+
     NumericVector cutpoints;  // se houver mais de 1 bin, armazenar cutpoints
-    
+
     if(n_bins > 1) {
-      cutpoints = NumericVector((int)n_bins - 1);
+      cutpoints = NumericVector(n_bins - 1);
     }
-    
-    for(size_t i = 0; i < n_bins; i++) {
-      bin_names[i] = interval_to_string(bins_[i].lower_bound, bins_[i].upper_bound);
-      counts[i]    = bins_[i].total_count;
-      
+
+    for(int i = 0; i < n_bins; i++) {
+      const NumBinMulti& b = bins_[static_cast<size_t>(i)];
+      bin_names[i] = interval_to_string(b.lower_bound, b.upper_bound);
+      counts[i]    = b.total_count;
+
       // Guardar WOE e IV por classe
-      for(size_t k = 0; k < n_classes_; k++) {
-        woes(i, k) = bins_[i].woes[k];
-        ivs(i, k)  = bins_[i].ivs[k];
-        class_counts(i, k) = bins_[i].class_counts[k];
+      for(int k = 0; k < n_cls; k++) {
+        const size_t kk = static_cast<size_t>(k);
+        woes(i, k) = b.woes[kk];
+        ivs(i, k)  = b.ivs[kk];
+        class_counts(i, k) = b.class_counts[kk];
       }
       // Gerar cutpoints (exclui último bin, pois é +Inf)
       if(i < n_bins - 1) {
-        cutpoints[i] = bins_[i].upper_bound;
+        cutpoints[i] = b.upper_bound;
       }
     }
-    
+
     // IDs sequenciais
     NumericVector ids(n_bins);
-    for(size_t i = 0; i < n_bins; i++) {
-      ids[i] = i + 1;
+    for(int i = 0; i < n_bins; i++) {
+      ids[i] = static_cast<double>(i + 1);
     }
-    
+
     return Rcpp::List::create(
       Named("id")           = ids,
       Named("bin")          = bin_names,
@@ -238,11 +278,48 @@ public:
       Named("cutpoints")    = cutpoints,
       Named("converged")    = converged_,
       Named("iterations")   = iterations_run_,
-      Named("n_classes")    = (int)n_classes_
+      Named("n_classes")    = n_cls
     );
   }
-  
+
 private:
+  // Valores distintos ordenados: fusão (merge) dos vetores ordenados por classe.
+  std::vector<double> distinct_values() const {
+    std::vector<double> u;
+    std::vector<size_t> pos(n_classes_, 0);
+    for (;;) {
+      bool any = false;
+      double v = 0.0;
+      for (size_t k = 0; k < n_classes_; k++) {
+        if (pos[k] < class_vals_[k].size()) {
+          const double c = class_vals_[k][pos[k]];
+          if (!any || c < v) v = c;
+          any = true;
+        }
+      }
+      if (!any) break;
+      for (size_t k = 0; k < n_classes_; k++) {
+        while (pos[k] < class_vals_[k].size() && class_vals_[k][pos[k]] == v) ++pos[k];
+      }
+      u.push_back(v + 0.0);  // -0.0 and +0.0 are one value; report it unsigned
+    }
+    return u;
+  }
+
+  // Contagens de um bin a partir do intervalo (lower, upper].
+  void count_interval(NumBinMulti& b) const {
+    const bool lo_inf = std::isinf(b.lower_bound) && b.lower_bound < 0;
+    const bool hi_inf = std::isinf(b.upper_bound) && b.upper_bound > 0;
+    b.total_count = 0;
+    for (size_t k = 0; k < n_classes_; k++) {
+      const std::vector<double>& v = class_vals_[k];
+      const auto hi = hi_inf ? v.end() : std::upper_bound(v.begin(), v.end(), b.upper_bound);
+      const auto lo = lo_inf ? v.begin() : std::upper_bound(v.begin(), v.end(), b.lower_bound);
+      b.class_counts[k] = static_cast<int>(hi - lo);
+      b.total_count += b.class_counts[k];
+    }
+  }
+
   // --------------------------------------------------------------------
   // Cria um único bin se todos os valores são idênticos
   // --------------------------------------------------------------------
@@ -251,131 +328,73 @@ private:
     bins_.emplace_back(-std::numeric_limits<double>::infinity(),
                        std::numeric_limits<double>::infinity(),
                        n_classes_);
-    
-    // Preenche contagens
-    for(size_t i = 0; i < feature_.size(); i++) {
-      bins_[0].total_count++;
-      bins_[0].class_counts[target_[i]]++;
-    }
+    count_interval(bins_[0]);
     compute_mwoe_iv();
   }
-  
+
   // --------------------------------------------------------------------
   // Cria dois bins se só existem 2 valores distintos
   // --------------------------------------------------------------------
   void handle_two_bins(const std::vector<double>& unique_vals) {
     bins_.clear();
     double cut = unique_vals[0];
-    
+
     bins_.emplace_back(-std::numeric_limits<double>::infinity(), cut, n_classes_);
     bins_.emplace_back(cut, std::numeric_limits<double>::infinity(), n_classes_);
-    
-    for(size_t i = 0; i < feature_.size(); i++) {
-      if(feature_[i] <= cut) {
-        bins_[0].total_count++;
-        bins_[0].class_counts[target_[i]]++;
-      } else {
-        bins_[1].total_count++;
-        bins_[1].class_counts[target_[i]]++;
-      }
-    }
+    for (auto& b : bins_) count_interval(b);
     compute_mwoe_iv();
   }
-  
+
   // --------------------------------------------------------------------
-  // Pré-binning usando quantis
+  // Pré-binning usando quantis dos valores distintos.
+  //
+  // With at least min_bins_ distinct values the positions below are all
+  // different and give exactly n_pre bins. With fewer, they collide and the
+  // edges reduce to every distinct value but the largest: one bin per distinct
+  // value, the finest binning the data allow. (Halving intervals further, as
+  // this routine used to do, could only create bins with no observation.)
   // --------------------------------------------------------------------
   void initial_prebin(const std::vector<double>& unique_vals) {
     bins_.clear();
     int n_unique = (int)unique_vals.size();
     int n_pre = std::min(max_n_prebins_, n_unique);
     n_pre = std::max(n_pre, min_bins_);
-    
+
     // Edges iniciais
     std::vector<double> edges;
     edges.push_back(-std::numeric_limits<double>::infinity());
-    
+
     // Gera pontos de corte baseado em quantil
     for(int i = 1; i < n_pre; i++) {
       double p = (double)i / n_pre;
       int idx  = (int)std::floor(p * (n_unique - 1));
-      double edge = unique_vals[idx];
+      double edge = unique_vals[static_cast<size_t>(idx)];
       // Evitar duplicação de edges
       if(edge > edges.back()) {
         edges.push_back(edge);
       }
     }
     edges.push_back(std::numeric_limits<double>::infinity());
-    
+
     // Constrói bins
-    for(size_t i = 0; i < edges.size() - 1; i++) {
+    for(size_t i = 0; i + 1 < edges.size(); i++) {
       bins_.emplace_back(edges[i], edges[i+1], n_classes_);
     }
-    
-    // Se (int)bins_.size() < min_bins_, tentar split extra.
-    // split_bin() desiste silenciosamente de dividir um intervalo cujo ponto
-    // medio nao e finito, e este trecho roda antes de assign_bins(), com todas
-    // as contagens ainda em 0 -- find_largest_bin() retornava sempre o indice 0,
-    // o intervalo (-Inf, e1], que nunca pode ser dividido. Isso fazia o laco
-    // girar indefinidamente, sem checagem de interrupcao, sempre que min_bins_
-    // excedia o numero de valores distintos da feature. Considera apenas bins
-    // realmente divisiveis e para assim que nao houver progresso possivel.
-    while((int)bins_.size() < min_bins_) {
-      size_t idx = find_largest_splittable_bin();
-      if(idx >= bins_.size()) break;
-      size_t before = bins_.size();
-      split_bin(idx);
-      if(bins_.size() == before) break;
-    }
   }
-  
+
   // --------------------------------------------------------------------
-  // Atribuir cada valor ao seu bin
+  // Atribuir contagens a cada bin
   // --------------------------------------------------------------------
   void assign_bins() {
-    // Zerar contagens
-    for(auto &b : bins_) {
-      b.total_count = 0;
-      std::fill(b.class_counts.begin(), b.class_counts.end(), 0);
-    }
-    
-    // Fazer atribuição
-    for(size_t i = 0; i < feature_.size(); i++) {
-      double val = feature_[i];
-      int idx = find_bin_index(val);
-      if(idx < 0) {
-        idx = (int)bins_.size() - 1;
-      }
-      bins_[idx].total_count++;
-      bins_[idx].class_counts[target_[i]]++;
-    }
+    for (auto& b : bins_) count_interval(b);
   }
-  
-  // --------------------------------------------------------------------
-  // Localizar bin via busca binária
-  // --------------------------------------------------------------------
-  int find_bin_index(double val) const {
-    int left = 0;
-    int right = (int)bins_.size() - 1;
-    while(left <= right) {
-      int mid = left + (right - left)/2;
-      if(val > bins_[mid].lower_bound && val <= bins_[mid].upper_bound) {
-        return mid;
-      } else if(val <= bins_[mid].lower_bound) {
-        right = mid - 1;
-      } else {
-        left = mid + 1;
-      }
-    }
-    return (int)bins_.size() - 1;
-  }
-  
+
   // --------------------------------------------------------------------
   // Mesclar bins de baixa frequência (bin_cutoff)
   // --------------------------------------------------------------------
   void merge_small_bins() {
     bool merged = true;
-    double total = (double)feature_.size();
+    double total = (double)n_obs_;
     while(merged && (int)bins_.size() > min_bins_ && iterations_run_ < max_iterations_) {
       merged = false;
       for(size_t i = 0; i < bins_.size(); i++) {
@@ -401,23 +420,20 @@ private:
       iterations_run_++;
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Cálculo de M-WOE e IV
+  //
+  //   class_rate_k  = bin.class_counts[k] / total_class_counts[k]
+  //   others_rate_k = (bin.total - bin.class_counts[k]) / (N - total_class_counts[k])
+  //   mwoe_k = ln( class_rate_k / others_rate_k )   (rates floored at EPS)
+  //   iv_k   = (class_rate_k - others_rate_k) * mwoe_k
+  //
+  // Every class 0..K-1 is present (the interface guarantees it), so both
+  // denominators are positive.
   // --------------------------------------------------------------------
   void compute_mwoe_iv() {
-    // Precisamos das contagens totais para cada classe
-    // (já calculadas no construtor e armazenadas em total_class_counts_)
-    
-    // Para cada bin e classe, calcular:
-    //   class_rate_k = bin.class_counts[k] / total_class_counts[k]
-    //   others_rate_k = (sum(bin.class_counts[j], j!=k)) / (sum(total_class_counts[j], j!=k))
-    //   mwoe_k = ln( class_rate_k / others_rate_k )
-    //   iv_k   = (class_rate_k - others_rate_k) * mwoe_k
-    //
-    // O IV total do bin é a soma (ou o bin carrega esse vetor).
-    
-    // Evitar zeros e divisões
+    const int n_all = static_cast<int>(n_obs_);
     for(auto &b : bins_) {
       for(size_t k = 0; k < n_classes_; k++) {
         b.woes[k] = 0.0;
@@ -427,49 +443,23 @@ private:
         continue;
       }
       for(size_t k = 0; k < n_classes_; k++) {
-        double numerator   = (double)b.class_counts[k];
-        double denominator = (double)total_class_counts_[k];
-        
-        // Evitar classes inexistentes
-        if(denominator < 1) {
-          // Ex: se target_ = {1,2} mas k=0 => classe 0 não existe
-          b.woes[k] = 0.0;
-          b.ivs[k]  = 0.0;
-          continue;
-        }
-        
-        double class_rate  = numerator / denominator; // p_k
-        // soma dos outros no bin
-        int sum_others_bin = 0;
-        int sum_others_all = 0;
-        for(size_t j = 0; j < n_classes_; j++) {
-          if(j != k) {
-            sum_others_bin += b.class_counts[j];
-            sum_others_all += total_class_counts_[j];
-          }
-        }
-        
-        if(sum_others_all < 1) {
-          // Significa que não há "outras classes" no dataset?
-          // Então M-WOE fica indefinido. Vamos forçar 0:
-          b.woes[k] = 0.0;
-          b.ivs[k]  = 0.0;
-          continue;
-        }
-        
-        double others_rate = (double)sum_others_bin / (double)sum_others_all; // q_k
+        const int sum_others_bin = b.total_count - b.class_counts[k];
+        const int sum_others_all = n_all - total_class_counts_[k];
+
+        double class_rate  = (double)b.class_counts[k] / (double)total_class_counts_[k];
+        double others_rate = (double)sum_others_bin / (double)sum_others_all;
         double safe_p  = std::max(class_rate, EPS);
         double safe_q  = std::max(others_rate, EPS);
-        
+
         double woe_k = std::log(safe_p / safe_q);
         double iv_k  = (class_rate - others_rate) * woe_k;
-        
+
         b.woes[k] = woe_k;
         b.ivs[k]  = iv_k;
       }
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Soma total do IV (across all classes e bins)
   // --------------------------------------------------------------------
@@ -482,31 +472,21 @@ private:
     }
     return sum_iv;
   }
-  
+
   // --------------------------------------------------------------------
   // Força monotonicidade para cada classe
   // --------------------------------------------------------------------
   void enforce_monotonicity() {
     bool changed = true;
     int local_iterations = 0;
-    
-    // Precisamos decidir se, para cada classe, é monotonicamente crescente ou decrescente
-    // Aqui, faremos algo simples: detectamos a "tendência" da classe e, se violar, merge.
-    // Repetimos até não haver mais merges ou chegar em min_bins_
+
     while(changed && (int)bins_.size() > min_bins_ && local_iterations < max_iterations_) {
       changed = false;
-      // Checar cada classe
       for(size_t k = 0; k < n_classes_; k++) {
         bool increasing = guess_trend_for_class(k);
-        // Detectar violações
         for(size_t i = 1; i < bins_.size(); i++) {
-          if(increasing && (bins_[i].woes[k] < bins_[i-1].woes[k])) {
-            // viola monotonicidade => mescla
-            merge_two_bins(i-1, i);
-            compute_mwoe_iv();
-            changed = true;
-            break; 
-          } else if(!increasing && (bins_[i].woes[k] > bins_[i-1].woes[k])) {
+          if((increasing && (bins_[i].woes[k] < bins_[i-1].woes[k])) ||
+             (!increasing && (bins_[i].woes[k] > bins_[i-1].woes[k]))) {
             // viola monotonicidade => mescla
             merge_two_bins(i-1, i);
             compute_mwoe_iv();
@@ -519,7 +499,7 @@ private:
       local_iterations++;
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Descobre se a classe k parece ter WOE crescente ou decrescente
   // --------------------------------------------------------------------
@@ -532,9 +512,9 @@ private:
         dec++;
       }
     }
-    return (inc >= dec); 
+    return (inc >= dec);
   }
-  
+
   // --------------------------------------------------------------------
   // Respeitar max_bins: se houver bins demais, mesclar gradualmente
   // --------------------------------------------------------------------
@@ -547,17 +527,16 @@ private:
       iterations_run_++;
     }
   }
-  
+
   // --------------------------------------------------------------------
   // Identifica o par de bins adjacentes cuja soma de IV seja menor
-  // para minimizar a perda de IV
   // --------------------------------------------------------------------
   size_t find_min_iv_merge() const {
     if(bins_.size() < 2) return bins_.size();
-    
+
     double min_iv_sum = std::numeric_limits<double>::max();
     size_t best_idx = bins_.size();
-    
+
     for(size_t i = 0; i < bins_.size() - 1; i++) {
       double local_sum = 0.0;
       for(size_t k = 0; k < n_classes_; k++) {
@@ -571,86 +550,22 @@ private:
     }
     return best_idx;
   }
-  
+
   // --------------------------------------------------------------------
   // Mescla efetivamente dois bins i e j
   // --------------------------------------------------------------------
   void merge_two_bins(size_t i, size_t j) {
     if(i > j) std::swap(i, j);
     if(j >= bins_.size()) return;
-    
+
     bins_[i].upper_bound = bins_[j].upper_bound;
     bins_[i].total_count += bins_[j].total_count;
     for(size_t k = 0; k < n_classes_; k++) {
       bins_[i].class_counts[k] += bins_[j].class_counts[k];
     }
-    bins_.erase(bins_.begin() + j);
-  }
-  
-  // --------------------------------------------------------------------
-  // Localiza bin com maior contagem (para split)
-  // --------------------------------------------------------------------
-  size_t find_largest_bin() const {
-    size_t idx = 0;
-    int max_count = bins_[0].total_count;
-    for(size_t i = 1; i < bins_.size(); i++) {
-      if(bins_[i].total_count > max_count) {
-        idx = i;
-        max_count = bins_[i].total_count;
-      }
-    }
-    return idx;
+    bins_.erase(bins_.begin() + static_cast<std::ptrdiff_t>(j));
   }
 
-  // Maior bin que split_bin() consegue de fato dividir, isto é, cujo ponto
-  // medio e finito. Os dois intervalos externos sao ilimitados e portanto nunca
-  // sao divisiveis; retorna bins_.size() quando nenhum bin se qualifica.
-  size_t find_largest_splittable_bin() const {
-    size_t idx = bins_.size();
-    int max_count = -1;
-    for(size_t i = 0; i < bins_.size(); i++) {
-      double mid = (bins_[i].lower_bound + bins_[i].upper_bound) / 2.0;
-      if(!std::isfinite(mid)) continue;
-      if(mid <= bins_[i].lower_bound || mid >= bins_[i].upper_bound) continue;
-      if(bins_[i].total_count > max_count) {
-        max_count = bins_[i].total_count;
-        idx = i;
-      }
-    }
-    return idx;
-  }
-  
-  // --------------------------------------------------------------------
-  // Split de bin (usado apenas se bins_ < min_bins_)
-  // --------------------------------------------------------------------
-  void split_bin(size_t idx) {
-    if(idx >= bins_.size()) return;
-    
-    NumBinMulti &b = bins_[idx];
-    double mid = (b.lower_bound + b.upper_bound) / 2.0;
-    if(!std::isfinite(mid)) return; 
-    
-    // Cria um bin novo e realoca ~ metade das contagens
-    NumBinMulti new_bin(mid, b.upper_bound, n_classes_);
-    for(size_t k = 0; k < n_classes_; k++) {
-      new_bin.class_counts[k] = b.class_counts[k]/2;
-      b.class_counts[k]       = b.class_counts[k] - new_bin.class_counts[k];
-    }
-    
-    new_bin.total_count = 0;
-    for(size_t k = 0; k < n_classes_; k++) {
-      new_bin.total_count += new_bin.class_counts[k];
-    }
-    
-    b.upper_bound = mid;
-    b.total_count = 0;
-    for(size_t k = 0; k < n_classes_; k++) {
-      b.total_count += b.class_counts[k];
-    }
-    
-    bins_.insert(bins_.begin() + idx + 1, new_bin);
-  }
-  
   // --------------------------------------------------------------------
   // Gera string do tipo (lower; upper]
   // --------------------------------------------------------------------
@@ -659,7 +574,7 @@ private:
     oss << "(" << edge_to_str(l) << "; " << edge_to_str(u) << "]";
     return oss.str();
   }
-  
+
   std::string edge_to_str(double val) const {
     if(std::isinf(val)) {
       return (val < 0) ? "-Inf" : "+Inf";
@@ -686,17 +601,51 @@ Rcpp::List optimal_binning_numerical_jedi_mwoe(
    double convergence_threshold = 1e-6,
    int max_iterations = 1000
 ) {
- // Conversão de R para std::vector
- std::vector<double> feat(feature.begin(), feature.end());
- std::vector<int>    targ(target.begin(), target.end());
- 
  try {
-   // Instancia a classe e faz o fit
-   OBN_JEDIMWoE model(feat, targ,
-                                         min_bins, max_bins,
-                                         bin_cutoff, max_n_prebins,
-                                         convergence_threshold,
-                                         max_iterations);
+   if(feature.size() != target.size()) {
+     throw std::invalid_argument("feature and target must have the same length.");
+   }
+   const R_xlen_t n = feature.size();
+
+   // Missing feature values (NA / NaN) are excluded. The classes are the
+   // distinct target values of the remaining rows and must be exactly
+   // 0..K-1, K >= 2.
+   int max_t = -1;
+   size_t n_used = 0;
+   bool has_inf = false;
+   for (R_xlen_t i = 0; i < n; ++i) {
+     if (std::isnan(feature[i])) continue;
+     const int t = target[i];
+     if (t == NA_INTEGER || t < 0)
+       throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
+     if (std::isinf(feature[i])) has_inf = true;
+     if (t > max_t) max_t = t;
+     ++n_used;
+   }
+   if (n_used == 0)
+     throw std::invalid_argument("Feature has no non-missing values.");
+   if (static_cast<size_t>(max_t) >= n_used + 1)
+     throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
+
+   std::vector<std::vector<double>> class_vals(static_cast<size_t>(max_t) + 1);
+   for (R_xlen_t i = 0; i < n; ++i) {
+     if (std::isnan(feature[i])) continue;
+     class_vals[static_cast<size_t>(target[i])].push_back(feature[i]);
+   }
+   size_t n_present = 0;
+   for (const auto& cv : class_vals) if (!cv.empty()) ++n_present;
+   if (n_present < 2)
+     throw std::invalid_argument("You must have at least 2 distinct classes in the target.");
+   if (n_present != class_vals.size())
+     throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
+   if (has_inf)
+     throw std::invalid_argument("Feature contains Inf.");
+
+   OBN_JEDIMWoE model(std::move(class_vals),
+                      min_bins, max_bins,
+                      bin_cutoff, max_n_prebins,
+                      convergence_threshold,
+                      max_iterations);
    model.fit();
    return model.create_output();
  } catch(const std::exception &ex) {

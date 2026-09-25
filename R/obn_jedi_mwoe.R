@@ -6,7 +6,8 @@
 #' the Multinomial Weight of Evidence (M-WOE) for each class simultaneously.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (NA) should be excluded prior to execution.
+#'   Missing values (\code{NA}/\code{NaN}) are excluded before binning;
+#'   infinite values are rejected with an error.
 #' @param target An integer vector of multiclass outcomes (0, 1, ..., K-1)
 #'   corresponding to each observation in \code{feature}. Must have at least 2 distinct classes.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
@@ -52,9 +53,10 @@
 #'         it may be merged. This ensures the variable is predictive across the entire
 #'         spectrum of outcomes.
 #'   \item \strong{Global IV Optimization:} When reducing the number of bins to \code{max_bins},
-#'         the algorithm merges the pair of bins that minimizes the loss of the
-#'         \emph{Sum of IVs} across all classes:
-#'         \deqn{Loss = \sum_{k=0}^{K-1} \Delta IV_k}
+#'         the algorithm repeatedly merges the adjacent pair of bins with the
+#'         smallest combined IV summed over all classes,
+#'         \eqn{\sum_{k=0}^{K-1} (IV_{i,k} + IV_{i+1,k})}, a greedy proxy for the
+#'         merge that loses the least total IV.
 #' }
 #'
 #' This method is ideal for use cases like:
