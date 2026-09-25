@@ -715,8 +715,10 @@ DataFrame obcorr(DataFrame df, std::string method = "all", int threads = 0) {
   n_threads = std::max(1, std::min(n_threads, omp_get_num_procs()));
   const int max_threads = n_threads;
 #else
+  // Without OpenMP (e.g. Apple clang) the request is ignored silently, as
+  // the documentation of `threads` states: it never changes the results.
   const int max_threads = 1;
-  if (threads > 1) Rcpp::warning("OpenMP not available; running on 1 thread.");
+  (void)threads;
 #endif
 
   if (df.nrows() == 0) stop("Empty data frame provided");
