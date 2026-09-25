@@ -135,7 +135,7 @@ public:
 
   void fit() {
     const std::vector<double> unique_vals = distinct_values();
-    size_t n_unique = unique_vals.size();
+    size_t n_unique = unique_vals.size();  // finite distinct values
 
     if(n_unique<=2) {
       handle_low_unique(unique_vals);
@@ -238,7 +238,9 @@ private:
   // Convergence:
   // Convergence is reached when |IV_current - IV_previous| < convergence_threshold or max_iterations is hit.
 
-  // Sorted distinct feature values: a merge of the two sorted class arrays.
+  // Sorted distinct FINITE feature values: a merge of the two sorted class
+  // arrays. -Inf / +Inf observations are kept in the class arrays -- they are
+  // counted in the first / last bin -- but never become a quantile edge.
   std::vector<double> distinct_values() const {
     std::vector<double> u;
     u.reserve(std::min<size_t>(n_obs, 1024));
@@ -250,7 +252,7 @@ private:
       else v = neg_vals[k];
       while (i < np && pos_vals[i] == v) ++i;
       while (k < nn && neg_vals[k] == v) ++k;
-      u.push_back(v + 0.0);  // -0.0 and +0.0 are one value; report it unsigned
+      if (std::isfinite(v)) u.push_back(v + 0.0);  // -0.0 == +0.0: report it unsigned
     }
     return u;
   }
@@ -260,8 +262,8 @@ private:
     return static_cast<int>(std::upper_bound(v.begin(), v.end(), x) - v.begin());
   }
 
-  // Fill a bin's counts from its interval (lower, upper] (the first bin also
-  // holds -Inf..upper; every value is finite).
+  // Fill a bin's counts from its interval (lower, upper]. Every interior edge
+  // is finite, so -Inf values land in the first bin and +Inf in the last.
   void count_interval(NumericalBin& b) const {
     const int p_hi = std::isinf(b.upper_bound) && b.upper_bound > 0
       ? static_cast<int>(pos_vals.size()) : count_le(pos_vals, b.upper_bound);
@@ -278,8 +280,8 @@ private:
 
   void handle_low_unique(const std::vector<double>& unique_vals) {
     bins.clear();
-    if(unique_vals.size()==1) {
-      // All identical
+    if(unique_vals.size()<=1) {
+      // All finite values identical (or none: only -Inf / +Inf)
       bins.emplace_back(-std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity());
     } else {
       // Two unique values
@@ -471,24 +473,24 @@ List optimal_binning_numerical_jedi(NumericVector target,
    stop("Feature and target must have the same length.");
  }
 
- // Missing feature values (NA / NaN) are excluded, as the R wrapper documents;
- // the remaining values are split by class.
+ // Numerical NA contract: rows whose feature is NA / NaN are excluded; -Inf and
+ // +Inf are ordinary extreme values (first / last bin, never a cutpoint); a
+ // missing target is an error. The remaining values are split by class.
  const R_xlen_t n = feature.size();
  const double* fp = feature.begin();
  const double* tp = target.begin();
  size_t n_pos = 0, n_neg = 0;
- bool has_inf = false, bad_target = false;
+ bool na_target = false, bad_target = false;
  for (R_xlen_t i = 0; i < n; ++i) {
-   const double f = fp[i];
-   if (std::isnan(f)) continue;
    const double t = tp[i];
+   if (std::isnan(t)) { na_target = true; break; }
+   if (t != 1.0 && t != 0.0) { bad_target = true; continue; }
+   if (std::isnan(fp[i])) continue;
    if (t == 1.0) ++n_pos;
-   else if (t == 0.0) ++n_neg;
-   else { bad_target = true; break; }
-   if (std::isinf(f)) has_inf = true;
+   else ++n_neg;
  }
  std::vector<double> pos, neg;
- if (!bad_target && !has_inf) {
+ if (!na_target && !bad_target) {
    pos.reserve(n_pos);
    neg.reserve(n_neg);
    for (R_xlen_t i = 0; i < n; ++i) {
@@ -500,10 +502,10 @@ List optimal_binning_numerical_jedi(NumericVector target,
  }
 
  try {
+   if (na_target)
+     throw std::invalid_argument("Target contains missing values (NA).");
    if (bad_target)
      throw std::invalid_argument("Target must contain only 0 and 1.");
-   if (has_inf)
-     throw std::invalid_argument("Feature contains Inf.");
    if (pos.empty() && neg.empty())
      throw std::invalid_argument("Feature has no non-missing values.");
    OBN_Jedi model(std::move(pos), std::move(neg), min_bins, max_bins,

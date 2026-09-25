@@ -301,7 +301,9 @@ private:
       for (size_t k = 0; k < n_classes_; k++) {
         while (pos[k] < class_vals_[k].size() && class_vals_[k][pos[k]] == v) ++pos[k];
       }
-      u.push_back(v + 0.0);  // -0.0 and +0.0 are one value; report it unsigned
+      // -Inf / +Inf stay in the class arrays (first / last bin) but are never
+      // a quantile edge; -0.0 == +0.0 is reported unsigned.
+      if (std::isfinite(v)) u.push_back(v + 0.0);
     }
     return u;
   }
@@ -607,20 +609,23 @@ Rcpp::List optimal_binning_numerical_jedi_mwoe(
    }
    const R_xlen_t n = feature.size();
 
-   // Missing feature values (NA / NaN) are excluded. The classes are the
-   // distinct target values of the remaining rows and must be exactly
-   // 0..K-1, K >= 2.
+   // Numerical NA contract: rows whose feature is NA / NaN are excluded;
+   // -Inf / +Inf are ordinary extreme values (first / last bin, never a
+   // cutpoint); a missing target is an error. The classes are the distinct
+   // target values of the remaining rows and must be exactly 0..K-1, K >= 2.
    const double* fp = feature.begin();
    const int* tp = target.begin();
+   for (R_xlen_t i = 0; i < n; ++i) {
+     if (tp[i] == NA_INTEGER)
+       throw std::invalid_argument("Target contains missing values (NA).");
+   }
    int max_t = -1;
    size_t n_used = 0;
-   bool has_inf = false;
    for (R_xlen_t i = 0; i < n; ++i) {
      if (std::isnan(fp[i])) continue;
      const int t = tp[i];
-     if (t == NA_INTEGER || t < 0)
+     if (t < 0)
        throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
-     if (std::isinf(fp[i])) has_inf = true;
      if (t > max_t) max_t = t;
      ++n_used;
    }
@@ -646,8 +651,6 @@ Rcpp::List optimal_binning_numerical_jedi_mwoe(
      throw std::invalid_argument("You must have at least 2 distinct classes in the target.");
    if (n_present != class_vals.size())
      throw std::invalid_argument("Target values must be in [0..(n_classes-1)].");
-   if (has_inf)
-     throw std::invalid_argument("Feature contains Inf.");
 
    OBN_JEDIMWoE model(std::move(class_vals),
                       min_bins, max_bins,

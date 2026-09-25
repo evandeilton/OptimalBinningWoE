@@ -18,10 +18,14 @@ ob_numerical_ir(
 }
 \arguments{
 \item{feature}{A numeric vector representing the continuous predictor variable.
-Missing values (NA) are excluded from the binning process.}
+Rows whose value is missing (\code{NA}/\code{NaN}) are excluded from the
+fit silently, so the bin counts sum to the number of non-missing rows;
+\code{-Inf} and \code{+Inf} are kept as extreme values of the first and
+last bin and never become a cutpoint.}
 
 \item{target}{An integer vector of binary outcomes (0/1) corresponding to
-each observation in \code{feature}. Must have the same length as \code{feature}.}
+each observation in \code{feature}. Must have the same length as \code{feature}.
+A missing value in \code{target} is an error.}
 
 \item{min_bins}{Integer. The target minimum number of bins. Must be
 \eqn{\ge} 2. Defaults to 3. Enforcing monotonicity can require pooling bins

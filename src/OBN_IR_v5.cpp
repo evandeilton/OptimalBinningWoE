@@ -41,20 +41,20 @@ private:
   double convergence_threshold;
   int max_iterations;
   bool auto_monotonicity;  // Automatically determine monotonicity direction
-  
+
   const std::vector<double>& feature;
   const std::vector<int>& target;
-  
+
   std::vector<double> bin_edges;
   double total_iv;
   bool converged;
   int iterations_run;
   bool monotone_increasing;  // Direction of monotonicity
-  
+
   // Structure to represent a bin and its statistics
   // Local NumericalBin definition removed
 
-  
+
   std::vector<NumericalBin> bin_info;
   bool is_simple;           // Flag for simple binning (few unique values)
 
@@ -63,12 +63,12 @@ private:
   // upper_bound(pos_sorted, hi) - upper_bound(pos_sorted, lo).
   std::vector<double> pos_sorted;
   std::vector<double> neg_sorted;
-  
+
   // Small constant for numerical stability
   // Constant removed (uses shared definition)
   // Laplace smoothing factor
   static constexpr double ALPHA = 0.5;
-  
+
 public:
   /**
    * Constructor for the OBN_IR class
@@ -97,34 +97,34 @@ public:
       converged(false), iterations_run(0), monotone_increasing(true), is_simple(false) {
     validateInputs();
   }
-  
+
   /**
    * Execute the binning algorithm
    */
   void fit() {
     // Step 1: Create initial bins
     createInitialBins();
-    
+
     if (!is_simple) {
       // Step 2: Merge low frequency bins
       mergeLowFrequencyBins();
-      
+
       // Step 3: Ensure min and max bin constraints
       ensureMinMaxBins();
-      
+
       // Step 4: Determine monotonicity direction if auto_monotonicity is enabled
       if (auto_monotonicity) {
         determineMonotonicityDirection();
       }
-      
+
       // Step 5: Apply isotonic regression to enforce monotonicity
       applyIsotonicRegression();
     }
-    
+
     // Step 6: Calculate final WOE and IV
     calculateWOEandIV();
   }
-  
+
   /**
    * Get the results of the binning process
    * 
@@ -133,7 +133,7 @@ public:
   Rcpp::List getResults() const {
     return createWOEBinList();
   }
-  
+
 private:
   /**
    * Validate input parameters and data
@@ -147,65 +147,74 @@ private:
     if (target.empty()) {
       throw std::invalid_argument("Feature and target must not be empty.");
     }
-    
+
     if (min_bins < 2) {
       throw std::invalid_argument("min_bins must be at least 2.");
     }
-    
+
     if (max_bins < min_bins) {
       throw std::invalid_argument("max_bins must be greater than or equal to min_bins.");
     }
-    
+
     if (bin_cutoff <= 0.0 || bin_cutoff >= 1.0) {
       throw std::invalid_argument("bin_cutoff must be between 0 and 1.");
     }
-    
+
     if (max_n_prebins < min_bins) {
       throw std::invalid_argument("max_n_prebins must be at least min_bins.");
     }
-    
+
     if (max_iterations <= 0) {
       throw std::invalid_argument("max_iterations must be positive.");
     }
-    
+
     if (convergence_threshold <= 0.0) {
       throw std::invalid_argument("convergence_threshold must be positive.");
     }
-    
+
+    // A missing target is an error (numerical NA contract)
+    for (int t : target) {
+      if (t == NA_INTEGER) {
+        throw std::invalid_argument("Target contains missing values (NA).");
+      }
+    }
+
     // Check that target is binary (0 or 1)
     auto [min_it, max_it] = std::minmax_element(target.begin(), target.end());
     if (*min_it < 0 || *max_it > 1) {
       throw std::invalid_argument("Target must be binary (0 or 1).");
     }
-    
+
     // Check that both classes are present
     int sum_target = std::accumulate(target.begin(), target.end(), 0);
     if (sum_target == 0 || sum_target == static_cast<int>(target.size())) {
       throw std::invalid_argument("Target must contain both classes (0 and 1).");
     }
-    
-    // Count valid values (not NaN or Inf)
+
+    // Count non-missing values (NA / NaN rows are excluded from the fit)
     int valid_count = 0;
     for (const auto& value : feature) {
-      if (!std::isnan(value) && !std::isinf(value)) {
+      if (!std::isnan(value)) {
         valid_count++;
       }
     }
-    
+
     if (valid_count == 0) {
-      throw std::invalid_argument("Feature contains only NaN or Inf values.");
+      throw std::invalid_argument("Feature has no non-missing values.");
     }
   }
-  
+
   /**
    * Create initial bins based on unique values or quantiles
    */
   void createInitialBins() {
-    // Split the valid (finite) feature values by class and sort each class.
+    // Split the non-missing feature values by class and sort each class.
+    // -Inf / +Inf are kept: they are counted in the first / last bin, but only
+    // finite values ever become a cutpoint.
     pos_sorted.clear();
     neg_sorted.clear();
     for (size_t i = 0; i < feature.size(); ++i) {
-      if (!std::isnan(feature[i]) && !std::isinf(feature[i])) {
+      if (!std::isnan(feature[i])) {
         if (target[i] == 1) pos_sorted.push_back(feature[i]);
         else neg_sorted.push_back(feature[i]);
       }
@@ -224,7 +233,7 @@ private:
         else v = neg_sorted[k];
         while (i < np && pos_sorted[i] == v) ++i;
         while (k < nn && neg_sorted[k] == v) ++k;
-        sorted_feature.push_back(v + 0.0);  // -0.0 and +0.0 are one value
+        if (std::isfinite(v)) sorted_feature.push_back(v + 0.0);  // -0.0 == +0.0
       }
     }
 
@@ -299,16 +308,16 @@ private:
    */
   void createRegularBins(const std::vector<double>& sorted_feature, int unique_vals) {
     is_simple = false;
-    
+
     // Determine number of pre-bins
     int n_prebins = std::min({max_n_prebins, unique_vals, max_bins});
     n_prebins = std::max(n_prebins, min_bins);
-    
+
     // Create bin edges
     bin_edges.resize(static_cast<size_t>(n_prebins + 1));
     bin_edges[0] = -std::numeric_limits<double>::infinity();
     bin_edges[n_prebins] = std::numeric_limits<double>::infinity();
-    
+
     // Use quantiles for bin edges
     for (int i = 1; i < n_prebins; ++i) {
       // Calculate index for quantile
@@ -317,26 +326,26 @@ private:
       idx = std::max(1, std::min(idx, unique_vals - 1));
       bin_edges[i] = sorted_feature[static_cast<size_t>(idx - 1)];
     }
-    
+
     // Ensure uniqueness of bin edges (can happen with skewed distributions)
     std::sort(bin_edges.begin(), bin_edges.end());
     bin_edges.erase(std::unique(bin_edges.begin(), bin_edges.end()), bin_edges.end());
-    
+
     // If we lost some bin edges due to duplicates, adjust
     if (bin_edges.size() < 3) {
       // Fall back to min/max approach
       bin_edges.clear();
       bin_edges.push_back(-std::numeric_limits<double>::infinity());
-      
+
       double min_val = sorted_feature.front();
       double max_val = sorted_feature.back();
       double middle = (min_val + max_val) / 2.0;
-      
+
       bin_edges.push_back(middle);
       bin_edges.push_back(std::numeric_limits<double>::infinity());
     }
   }
-  
+
   /**
    * Merge bins with frequency below the cutoff threshold
    * This ensures statistical reliability of each bin
@@ -344,21 +353,21 @@ private:
   void mergeLowFrequencyBins() {
     // Initialize bin_info from bin_edges
     initializeBinsFromEdges();
-    
+
     int total_count = 0;
     for (const auto& bin : bin_info) {
       total_count += bin.count;
     }
-    
+
     double min_count = bin_cutoff * total_count;
-    
+
     // Iteratively merge small bins
     bool merged = true;
     int iterations = 0;
-    
+
     while (merged && iterations < max_iterations && bin_info.size() > static_cast<size_t>(min_bins)) {
       merged = false;
-      
+
       for (size_t i = 0; i < bin_info.size(); ++i) {
         if (bin_info[i].count < min_count) {
           // Find optimal merge direction
@@ -372,7 +381,7 @@ private:
             // Middle bin - compare event rates
             double rate_diff_prev = std::fabs(bin_info[i].event_rate() - bin_info[i-1].event_rate());
             double rate_diff_next = std::fabs(bin_info[i].event_rate() - bin_info[i+1].event_rate());
-            
+
             if (rate_diff_prev <= rate_diff_next) {
               // Merge with previous
               mergeBins(i - 1, i);
@@ -381,18 +390,18 @@ private:
               mergeBins(i, i + 1);
             }
           }
-          
+
           merged = true;
           break;
         }
       }
-      
+
       iterations++;
     }
-    
+
     iterations_run += iterations;
   }
-  
+
   /**
    * Initialize bin information from bin edges
    * Assigns observations to bins and calculates initial statistics
@@ -418,24 +427,24 @@ private:
     if (idx1 > idx2) {
       std::swap(idx1, idx2);
     }
-    
+
     if (idx2 != idx1 + 1) {
       throw std::invalid_argument("Can only merge adjacent bins");
     }
-    
+
     // Merge statistics
     bin_info[idx1].upper_bound = bin_info[idx2].upper_bound;
     bin_info[idx1].count += bin_info[idx2].count;
     bin_info[idx1].count_pos += bin_info[idx2].count_pos;
     bin_info[idx1].count_neg += bin_info[idx2].count_neg;
-    
+
     // Recalculate event rate
     // bin_info[idx1].event_rate() assignment removed (calculated dynamically)
-    
+
     // Remove second bin
     bin_info.erase(bin_info.begin() + idx2);
   }
-  
+
   /**
    * Ensure number of bins is within [min_bins, max_bins]
    * Either split large bins or merge similar bins
@@ -461,7 +470,7 @@ private:
       if (bin_info.size() == before) break;
     }
   }
-  
+
   /**
    * Split the largest bin that holds at least two distinct values.
    *
@@ -510,23 +519,26 @@ private:
     slice(pos_sorted, p0, p1);
     slice(neg_sorted, n0, n1);
 
-    // Walk the merged slices in order.
-    const size_t median = static_cast<size_t>(b.count) / 2;
-    double v_med = 0.0;
-    size_t i = p0, k = n0, rank = 0;
-    std::vector<double> seen;  // distinct values, ascending
+    // The bin's finite values in ascending order (a cutpoint is always finite;
+    // -Inf / +Inf stay with the outer halves).
+    std::vector<double> vals;
+    vals.reserve(static_cast<size_t>(b.count));
+    size_t i = p0, k = n0;
     while (i < p1 || k < n1) {
       double v;
       if (k >= n1 || (i < p1 && pos_sorted[i] <= neg_sorted[k])) v = pos_sorted[i++];
       else v = neg_sorted[k++];
-      if (rank == median) v_med = v;
-      if (seen.empty() || v > seen.back()) seen.push_back(v);
-      ++rank;
+      if (std::isfinite(v)) vals.push_back(v);
     }
-    if (seen.size() < 2) return false;  // a single distinct value
-    const double v_max = seen.back();
-    const double below_max = seen[seen.size() - 2];
-    split_value = (v_med < v_max) ? v_med : below_max;
+    if (vals.size() < 2 || !(vals.front() < vals.back())) return false;  // one distinct value
+    const double v_max = vals.back();
+    const double v_med = vals[vals.size() / 2];
+    if (v_med < v_max) {
+      split_value = v_med;
+    } else {
+      // largest value below the maximum
+      split_value = *(std::lower_bound(vals.begin(), vals.end(), v_max) - 1);
+    }
     return true;
   }
 
@@ -536,10 +548,10 @@ private:
    */
   void mergeSimilarBins() {
     if (bin_info.size() <= 2) return;
-    
+
     double min_diff = std::numeric_limits<double>::max();
     size_t merge_idx = 0;
-    
+
     // Find most similar adjacent bins
     for (size_t i = 0; i < bin_info.size() - 1; ++i) {
       double diff = std::fabs(bin_info[i].event_rate() - bin_info[i+1].event_rate());
@@ -548,48 +560,48 @@ private:
         merge_idx = i;
       }
     }
-    
+
     // Merge bins
     mergeBins(merge_idx, merge_idx + 1);
   }
-  
+
   /**
    * Determine the optimal monotonicity direction (increasing or decreasing)
    * based on correlation between bin midpoints and event rates
    */
   void determineMonotonicityDirection() {
     if (bin_info.size() <= 1) return;
-    
+
     // Calculate bin midpoints
     std::vector<double> midpoints;
     std::vector<double> rates;
-    
+
     for (const auto& bin : bin_info) {
       // For infinite bounds, use the next/previous finite bound
       double lower = bin.lower_bound;
       double upper = bin.upper_bound;
-      
+
       if (std::isinf(lower) && bin_info.size() > 1) {
         lower = bin_info[1].lower_bound - 1.0;
       }
-      
+
       if (std::isinf(upper) && bin_info.size() > 1) {
         upper = bin_info[bin_info.size() - 2].upper_bound + 1.0;
       }
-      
+
       double midpoint = (lower + upper) / 2.0;
-      
+
       midpoints.push_back(midpoint);
       rates.push_back(bin.event_rate());
     }
-    
+
     // Calculate correlation
     double correlation = calculateCorrelation(midpoints, rates);
-    
+
     // Determine direction based on correlation
     monotone_increasing = (correlation >= 0.0);
   }
-  
+
   /**
    * Calculate Pearson correlation coefficient between two vectors
    * 
@@ -601,16 +613,16 @@ private:
     if (x.size() != y.size() || x.size() < 2) {
       return 0.0;
     }
-    
+
     // Calculate means
     double mean_x = std::accumulate(x.begin(), x.end(), 0.0) / static_cast<double>(x.size());
     double mean_y = std::accumulate(y.begin(), y.end(), 0.0) / static_cast<double>(y.size());
-    
+
     // Calculate correlation coefficient
     double numerator = 0.0;
     double sum_sq_x = 0.0;
     double sum_sq_y = 0.0;
-    
+
     for (size_t i = 0; i < x.size(); ++i) {
       double x_diff = x[i] - mean_x;
       double y_diff = y[i] - mean_y;
@@ -618,14 +630,14 @@ private:
       sum_sq_x += x_diff * x_diff;
       sum_sq_y += y_diff * y_diff;
     }
-    
+
     if (sum_sq_x < EPSILON || sum_sq_y < EPSILON) {
       return 0.0;
     }
-    
+
     return numerator / std::sqrt(sum_sq_x * sum_sq_y);
   }
-  
+
   /**
    * Apply isotonic regression to enforce monotonicity in event rates, with the
    * Pool Adjacent Violators Algorithm (PAVA; Barlow et al., 1972; Best &
@@ -719,30 +731,30 @@ private:
       total_pos += bin.count_pos;
       total_neg += bin.count_neg;
     }
-    
+
     // Apply Laplace smoothing to handle zero counts
     double pos_denominator = total_pos + static_cast<double>(bin_info.size()) * ALPHA;
     double neg_denominator = total_neg + static_cast<double>(bin_info.size()) * ALPHA;
-    
+
     if (pos_denominator < EPSILON || neg_denominator < EPSILON) {
       throw std::runtime_error("Insufficient positive or negative cases for WoE and IV calculations.");
     }
-    
+
     total_iv = 0.0;
     for (auto& bin : bin_info) {
       // Calculate rates with smoothing
       double pos_rate = (bin.count_pos + ALPHA) / pos_denominator;
       double neg_rate = (bin.count_neg + ALPHA) / neg_denominator;
-      
+
       // Calculate WoE
       bin.woe = std::log(pos_rate / neg_rate);
-      
+
       // Calculate IV contribution
       bin.iv = (pos_rate - neg_rate) * bin.woe;
       total_iv += bin.iv;
     }
   }
-  
+
   /**
    * Create bin labels for output
    * 
@@ -755,7 +767,7 @@ private:
     std::ostringstream oss;
     oss.precision(6);
     oss << std::fixed;
-    
+
     if (is_first) {
       oss << "(-Inf;" << bin.upper_bound << "]";
     } else if (is_last) {
@@ -763,10 +775,10 @@ private:
     } else {
       oss << "(" << bin.lower_bound << ";" << bin.upper_bound << "]";
     }
-    
+
     return oss.str();
   }
-  
+
   /**
    * Create final WOE bin list for output
    * 
@@ -778,29 +790,29 @@ private:
     Rcpp::NumericVector woe_vec(n_bins), iv_vec(n_bins);
     Rcpp::IntegerVector count_vec(n_bins), count_pos_vec(n_bins), count_neg_vec(n_bins);
     Rcpp::NumericVector cutpoints(std::max(n_bins - 1, 0));
-    
+
     for (int i = 0; i < n_bins; ++i) {
       const auto& b = bin_info[static_cast<size_t>(i)];
       std::string label = createBinLabel(b, i == 0, i == n_bins - 1);
-      
+
       bin_labels[i] = label;
       woe_vec[i] = b.woe;
       iv_vec[i] = b.iv;
       count_vec[i] = b.count;
       count_pos_vec[i] = b.count_pos;
       count_neg_vec[i] = b.count_neg;
-      
+
       if (i < n_bins - 1) {
         cutpoints[i] = b.upper_bound;
       }
     }
-    
+
     // Create bin IDs (1-based indexing for R)
     Rcpp::NumericVector ids(bin_labels.size());
     for(int i = 0; i < bin_labels.size(); i++) {
       ids[i] = i + 1;
     }
-    
+
     return Rcpp::List::create(
       Named("id") = ids,
       Rcpp::Named("bin") = bin_labels,
@@ -829,12 +841,12 @@ Rcpp::List optimal_binning_numerical_ir(
    bool auto_monotonicity = true,
    double convergence_threshold = 1e-6,
    int max_iterations = 1000) {
- 
+
  try {
    // Convert R vectors to STL containers
    std::vector<int> target_std = Rcpp::as<std::vector<int>>(target);
    std::vector<double> feature_std = Rcpp::as<std::vector<double>>(feature);
-   
+
    // Create and execute binning algorithm
    OBN_IR binner(
        min_bins, max_bins, 
@@ -843,7 +855,7 @@ Rcpp::List optimal_binning_numerical_ir(
        feature_std, target_std,
        auto_monotonicity
    );
-   
+
    binner.fit();
    return binner.getResults();
  } catch (const std::exception& e) {

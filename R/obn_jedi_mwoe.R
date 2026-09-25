@@ -6,10 +6,13 @@
 #' the Multinomial Weight of Evidence (M-WOE) for each class simultaneously.
 #'
 #' @param feature A numeric vector representing the continuous predictor variable.
-#'   Missing values (\code{NA}/\code{NaN}) are excluded before binning;
-#'   infinite values are rejected with an error.
+#'   Rows whose value is missing (\code{NA}/\code{NaN}) are excluded from the
+#'   fit silently, so the bin counts sum to the number of non-missing rows;
+#'   \code{-Inf} and \code{+Inf} are kept as extreme values of the first and
+#'   last bin and never become a cutpoint.
 #' @param target An integer vector of multiclass outcomes (0, 1, ..., K-1)
 #'   corresponding to each observation in \code{feature}. Must have at least 2 distinct classes.
+#'   A missing value in \code{target} is an error.
 #' @param min_bins Integer. The minimum number of bins to produce. Must be \eqn{\ge} 2.
 #'   Defaults to 3.
 #' @param max_bins Integer. The maximum number of bins to produce. Must be \eqn{\ge}

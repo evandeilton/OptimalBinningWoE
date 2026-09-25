@@ -110,6 +110,23 @@ Blocks build_blocks(std::vector<double>& pos_vals, std::vector<double>& neg_vals
     b.cneg.push_back(b.cneg.back() + cn);
     b.cend.push_back(b.cend.back() + cp + cn);
   }
+
+  // -Inf and +Inf are ordinary extreme values: they belong to the first and
+  // last bin, and a cut must never isolate them (its cutpoint would be -Inf,
+  // or the interval above the last finite value would be (x, +Inf] anyway).
+  // Fold them into the adjacent finite block.
+  if (b.value.size() >= 2 && std::isinf(b.value.front()) && b.value.front() < 0) {
+    b.value.erase(b.value.begin());
+    b.cpos.erase(b.cpos.begin() + 1);
+    b.cneg.erase(b.cneg.begin() + 1);
+    b.cend.erase(b.cend.begin() + 1);
+  }
+  if (b.value.size() >= 2 && std::isinf(b.value.back()) && b.value.back() > 0) {
+    b.value.pop_back();
+    b.cpos.erase(b.cpos.end() - 2);
+    b.cneg.erase(b.cneg.end() - 2);
+    b.cend.erase(b.cend.end() - 2);
+  }
   return b;
 }
 
@@ -534,17 +551,22 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
    Rcpp::stop("max_bins must be >= min_bins.");
  }
 
+ // Numerical NA contract: a missing target is an error; rows whose feature is
+ // NA / NaN are excluded; -Inf / +Inf are extreme values of the first / last
+ // bin (see build_blocks()).
  const R_xlen_t n_in = target.size();
  for (R_xlen_t i = 0; i < n_in; i++) {
-   if (!Rcpp::IntegerVector::is_na(target[i]) && target[i] != 0 && target[i] != 1) {
+   if (Rcpp::IntegerVector::is_na(target[i])) {
+     Rcpp::stop("Target contains missing values (NA).");
+   }
+   if (target[i] != 0 && target[i] != 1) {
      Rcpp::stop("Target must be binary (0/1).");
    }
  }
 
- // Drop NA / NaN, split the remaining feature values by class.
  std::vector<double> pos_vals, neg_vals;
  for (R_xlen_t i = 0; i < n_in; i++) {
-   if (Rcpp::NumericVector::is_na(feature[i]) || Rcpp::IntegerVector::is_na(target[i])) continue;
+   if (Rcpp::NumericVector::is_na(feature[i])) continue;
    if (target[i] == 1) pos_vals.push_back(feature[i]);
    else if (target[i] == 0) neg_vals.push_back(feature[i]);
  }
@@ -552,19 +574,7 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
  const Blocks b = build_blocks(pos_vals, neg_vals);
  const int N = b.n();
  if (N == 0) {
-   Rcpp::warning("No valid data after removing NA values.");
-   return Rcpp::List::create(
-     Rcpp::Named("id") = Rcpp::NumericVector(),
-     Rcpp::Named("bin") = Rcpp::CharacterVector(),
-     Rcpp::Named("woe") = Rcpp::NumericVector(),
-     Rcpp::Named("iv") = Rcpp::NumericVector(),
-     Rcpp::Named("count") = Rcpp::IntegerVector(),
-     Rcpp::Named("count_pos") = Rcpp::IntegerVector(),
-     Rcpp::Named("count_neg") = Rcpp::IntegerVector(),
-     Rcpp::Named("cutpoints") = Rcpp::NumericVector(),
-     Rcpp::Named("converged") = false,
-     Rcpp::Named("iterations") = 0
-   );
+   Rcpp::stop("Feature has no non-missing values.");
  }
 
  std::vector<int> splits;

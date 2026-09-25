@@ -13,7 +13,7 @@
 /**
  * @file OBN_KMB.cpp
  * @brief Implementation of K-means Binning (KMB) algorithm for optimal binning of numerical variables
- * 
+ *
  * This implementation provides methods for supervised discretization of numerical variables
  * using a hybrid approach inspired by K-means clustering and information theory metrics.
  */
@@ -28,7 +28,7 @@ using namespace OptimalBinning;
 
 /**
  * Class for Optimal Binning using K-means Binning (KMB)
- * 
+ *
  * This class implements a numerical binning algorithm that partitions a continuous
  * feature into optimal bins based on its relationship with a binary target variable.
  * The approach combines elements of clustering (like K-means) with information theory
@@ -44,30 +44,30 @@ private:
   int max_n_prebins;
   int max_iterations;
   bool enforce_monotonic;
-  
+
   bool converged;
   int iterations_run;
   double total_iv;
-  
+
   // Flag to indicate special handling for few unique values
   bool is_unique_two_or_less;
-  
+
   // Constant for floating point comparison
   // Constant removed (uses shared definition)
-  
+
   /**
    * Structure representing a bin and its statistics
    */
   // Local NumericalBin definition removed
-  
-  
+
+
   std::vector<NumericalBin> bins;
-  
+
   /**
    * Calculate Weight of Evidence (WoE) with Laplace smoothing
-   * 
+   *
    * WoE = ln((% positive + smoothing) / (% negative + smoothing))
-   * 
+   *
    * @param pos Count of positive cases in bin
    * @param neg Count of negative cases in bin
    * @param total_pos Total positive cases across all bins
@@ -78,18 +78,18 @@ private:
     // Apply Laplace smoothing to handle zero counts
     double alpha = 0.5;  // Smoothing parameter
     double num_bins = static_cast<double>(bins.size());
-    
+
     double pos_rate = (static_cast<double>(pos) + alpha) / (static_cast<double>(total_pos) + num_bins * alpha);
     double neg_rate = (static_cast<double>(neg) + alpha) / (static_cast<double>(total_neg) + num_bins * alpha);
-    
+
     return std::log(pos_rate / neg_rate);
   }
-  
+
   /**
    * Calculate Information Value (IV) contribution for a bin
-   * 
+   *
    * IV = (% positive - % negative) * WoE
-   * 
+   *
    * @param woe Weight of Evidence value
    * @param pos Count of positive cases in bin
    * @param neg Count of negative cases in bin
@@ -101,13 +101,13 @@ private:
     if (total_pos <= 0 || total_neg <= 0) {
       return 0.0;
     }
-    
+
     double pos_dist = static_cast<double>(pos) / static_cast<double>(total_pos);
     double neg_dist = static_cast<double>(neg) / static_cast<double>(total_neg);
-    
+
     return (pos_dist - neg_dist) * woe;
   }
-  
+
   /**
    * Validate input data and parameters
    * Throws exception if validation fails
@@ -116,26 +116,30 @@ private:
     if (feature.empty() || target.empty()) {
       Rcpp::stop("Feature and target vectors must not be empty.");
     }
-    
+
     if (feature.size() != target.size()) {
       Rcpp::stop("Feature and target vectors must have the same length.");
     }
-    
-    // Count valid (non-NaN, non-Inf) values
+
+    // Count non-missing values (NA / NaN rows are excluded from the fit;
+    // -Inf / +Inf are ordinary extreme values of the outer bins)
     int valid_count = 0;
     for (const auto& val : feature) {
-      if (!std::isnan(val) && !std::isinf(val)) {
+      if (!std::isnan(val)) {
         valid_count++;
       }
     }
-    
+
     if (valid_count == 0) {
-      Rcpp::stop("Feature vector must contain at least one valid (non-NaN, non-Inf) value.");
+      Rcpp::stop("Feature has no non-missing values.");
     }
-    
-    // Check that target contains only 0 and 1 (NA is "anything else")
+
+    // Check that target contains only 0 and 1; a missing target is an error
     int pos_count = 0;
     for (const auto& t : target) {
+      if (t == NA_INTEGER) {
+        Rcpp::stop("Target contains missing values (NA).");
+      }
       if (t != 0 && t != 1) {
         Rcpp::stop("Target vector must contain only binary values 0 and 1.");
       }
@@ -150,24 +154,24 @@ private:
     if (min_bins < 2) {
       Rcpp::stop("min_bins must be at least 2.");
     }
-    
+
     if (max_bins < min_bins) {
       Rcpp::stop("max_bins must be greater than or equal to min_bins.");
     }
-    
+
     if (bin_cutoff <= 0 || bin_cutoff >= 1) {
       Rcpp::stop("bin_cutoff must be between 0 and 1.");
     }
-    
+
     if (max_n_prebins <= 0) {
       Rcpp::stop("max_n_prebins must be positive.");
     }
-    
+
     if (max_iterations <= 0) {
       Rcpp::stop("max_iterations must be positive.");
     }
   }
-  
+
   /**
    * Perform initial binning based on unique values or quantiles
    */
@@ -236,15 +240,13 @@ private:
 
     const int num_unique_values = static_cast<int>(unique_values.size());
 
-    if (num_unique_values == 0) {
-      // No valid values - shouldn't happen due to validation, but handle anyway
-      Rcpp::stop("No valid feature values to bin.");
-    } else if (num_unique_values == 1) {
-      // Single unique value - create one bin
+    if (num_unique_values <= 1) {
+      // At most one finite value (the rest, if any, is -Inf / +Inf): one bin.
+      // Its centroid is the mean of its finite values, NA when there are none.
       NumericalBin bin;
       bin.lower_bound = -std::numeric_limits<double>::infinity();
       bin.upper_bound = std::numeric_limits<double>::infinity();
-      bin.centroid = unique_values[0];
+      bin.centroid = num_unique_values == 1 ? unique_values[0] : NA_REAL;
       bins.push_back(bin);
     } else { // num_unique_values == 2
       // Two unique values - create two bins split at the smaller one
@@ -397,15 +399,15 @@ private:
     for (const auto& bin : bins) {
       total_count += bin.count;
     }
-    
+
     double cutoff_count = bin_cutoff * total_count;
-    
+
     int iterations = 0;
     bool merged = true;
-    
+
     while (merged && iterations < max_iterations && static_cast<int>(bins.size()) > min_bins) {
       merged = false;
-      
+
       for (size_t i = 0; i < bins.size(); ++i) {
         if (bins[i].count < cutoff_count) {
           // Determine optimal merge direction
@@ -419,7 +421,7 @@ private:
             // Middle bin - choose based on event rate similarity
             double diff_prev = std::fabs(bins[i].event_rate() - bins[i-1].event_rate());
             double diff_next = std::fabs(bins[i].event_rate() - bins[i+1].event_rate());
-            
+
             if (diff_prev <= diff_next) {
               // Merge with previous
               mergeBins(i - 1, i);
@@ -428,21 +430,21 @@ private:
               mergeBins(i, i + 1);
             }
           }
-          
+
           merged = true;
           break;
         }
       }
-      
+
       iterations++;
     }
-    
+
     iterations_run += iterations;
     if (iterations >= max_iterations) {
       converged = false;
     }
   }
-  
+
   /**
    * Remove the bins that hold no observation, then restore min_bins.
    *
@@ -506,7 +508,7 @@ private:
 
   /**
    * Merge two adjacent bins
-   * 
+   *
    * @param idx1 Index of first bin to merge
    * @param idx2 Index of second bin to merge (must be adjacent to idx1)
    */
@@ -514,33 +516,33 @@ private:
     if (idx1 > idx2) {
       std::swap(idx1, idx2);
     }
-    
+
     if (idx2 != idx1 + 1) {
       Rcpp::stop("Can only merge adjacent bins");
     }
-    
+
     NumericalBin& bin1 = bins[idx1];
     NumericalBin& bin2 = bins[idx2];
-    
+
     // Calculate weighted centroid
     if (bin1.count + bin2.count > 0) {
-      bin1.centroid = (bin1.centroid * bin1.count + bin2.centroid * bin2.count) / 
+      bin1.centroid = (bin1.centroid * bin1.count + bin2.centroid * bin2.count) /
         (bin1.count + bin2.count);
     }
-    
+
     // Merge boundaries and counts
     bin1.upper_bound = bin2.upper_bound;
     bin1.count += bin2.count;
     bin1.count_pos += bin2.count_pos;
     bin1.count_neg += bin2.count_neg;
-    
+
     // Recalculate event rate
     // bin1.event_rate() assignment removed (calculated dynamically)
-    
+
     // Remove second bin
     bins.erase(bins.begin() + idx2);
   }
-  
+
   /**
    * Enforce monotonicity in WoE values by merging violating bins
    * This improves interpretability and model stability
@@ -550,70 +552,70 @@ private:
       // Skip monotonicity enforcement if disabled or too few bins
       return;
     }
-    
+
     // Calculate initial WoE values
     calculateBinStatistics();
-    
+
     int iterations = 0;
     bool is_monotonic = false;
-    
+
     // Determine monotonicity direction (increasing or decreasing)
     // based on the first two bins
     bool increasing = true;
     if (bins.size() >= 2) {
       increasing = (bins[1].woe >= bins[0].woe);
     }
-    
+
     // Iteratively merge bins until monotonicity is achieved
     while (!is_monotonic && static_cast<int>(bins.size()) > min_bins && iterations < max_iterations) {
       is_monotonic = true;
-      
+
       for (size_t i = 1; i < bins.size(); ++i) {
         // Check for monotonicity violation
         if ((increasing && bins[i].woe < bins[i - 1].woe) ||
             (!increasing && bins[i].woe > bins[i - 1].woe)) {
-          
+
           // Merge bins to fix violation
           mergeBins(i - 1, i);
-          
+
           // Recalculate WoE values
           calculateBinStatistics();
-          
+
           is_monotonic = false;
           break;
         }
       }
-      
+
       iterations++;
-      
+
       // Stop if minimum bins reached
       if (static_cast<int>(bins.size()) <= min_bins) {
         break;
       }
     }
-    
+
     iterations_run += iterations;
     if (iterations >= max_iterations) {
       converged = false;
     }
   }
-  
+
   /**
    * Adjust number of bins to be within [min_bins, max_bins]
    * Uses optimal merge strategy to minimize information loss
    */
   void adjustBinCount() {
     int iterations = 0;
-    
+
     // Calculate current WoE and IV values
     calculateBinStatistics();
-    
+
     // If too many bins, merge until max_bins reached
     while (static_cast<int>(bins.size()) > max_bins && iterations < max_iterations) {
       // Find pair of adjacent bins with the smallest IV difference
       double min_iv_diff = std::numeric_limits<double>::max();
       int merge_index = -1;
-      
+
       for (size_t i = 0; i < bins.size() - 1; ++i) {
         double diff = std::fabs(bins[i].iv - bins[i + 1].iv);
         if (diff < min_iv_diff) {
@@ -621,21 +623,21 @@ private:
           merge_index = static_cast<int>(i);
         }
       }
-      
+
       if (merge_index != -1) {
         // Merge bins at merge_index and merge_index + 1
         mergeBins(merge_index, merge_index + 1);
-        
+
         // Recalculate statistics
         calculateBinStatistics();
       } else {
         // No more bins can be merged
         break;
       }
-      
+
       iterations++;
     }
-    
+
     // If too few bins, split largest bins until min_bins reached
     while (static_cast<int>(bins.size()) < min_bins && iterations < max_iterations) {
       // For now, we'll just error out since splitting is complex
@@ -643,13 +645,13 @@ private:
       Rcpp::warning("Could not achieve minimum number of bins. Consider reducing min_bins parameter.");
       break;
     }
-    
+
     iterations_run += iterations;
     if (iterations >= max_iterations) {
       converged = false;
     }
   }
-  
+
   /**
    * Calculate WoE and IV for each bin
    * Updates the bin.woe and bin.iv properties
@@ -658,17 +660,17 @@ private:
     // Calculate total positives and negatives
     int total_pos = 0;
     int total_neg = 0;
-    
+
     for (const auto& bin : bins) {
       total_pos += bin.count_pos;
       total_neg += bin.count_neg;
     }
-    
+
     // Handle cases where total_pos or total_neg is zero
     if (total_pos == 0 || total_neg == 0) {
       Rcpp::stop("Target vector must contain both positive and negative cases.");
     }
-    
+
     // Calculate WoE and IV for each bin
     total_iv = 0.0;
     for (auto& bin : bins) {
@@ -677,10 +679,10 @@ private:
       total_iv += bin.iv;
     }
   }
-  
+
   /**
    * Format bin interval as a string
-   * 
+   *
    * @param lower Lower bound of bin
    * @param upper Upper bound of bin
    * @return Formatted string representation of bin interval
@@ -689,30 +691,30 @@ private:
     std::ostringstream oss;
     oss.precision(6);
     oss << std::fixed;
-    
+
     oss << "(";
     if (std::isinf(lower) && lower < 0) {
       oss << "-Inf";
     } else {
       oss << lower;
     }
-    
+
     oss << ";";
-    
+
     if (std::isinf(upper) && upper > 0) {
       oss << "+Inf";
     } else {
       oss << upper;
     }
-    
+
     oss << "]";
     return oss.str();
   }
-  
+
 public:
   /**
    * Constructor for OBN_KMB
-   * 
+   *
    * @param feature_ Feature vector to be binned
    * @param target_ Binary target vector (0/1)
    * @param min_bins_ Minimum number of bins
@@ -724,16 +726,16 @@ public:
    * @param max_iterations_ Maximum iterations allowed
    */
   OBN_KMB(
-    const std::vector<double>& feature_, 
+    const std::vector<double>& feature_,
     const std::vector<int>& target_,
-    int min_bins_, 
-    int max_bins_, 
-    double bin_cutoff_, 
+    int min_bins_,
+    int max_bins_,
+    double bin_cutoff_,
     int max_n_prebins_,
     bool enforce_monotonic_ = true,
-    double convergence_threshold_ = 1e-6, 
+    double convergence_threshold_ = 1e-6,
     int max_iterations_ = 1000)
-    : feature(feature_), target(target_), 
+    : feature(feature_), target(target_),
       min_bins(min_bins_), max_bins(max_bins_),
       bin_cutoff(bin_cutoff_), max_n_prebins(max_n_prebins_),
       max_iterations(max_iterations_),
@@ -744,22 +746,22 @@ public:
     // stopping rule (every loop ends on a bin-count or monotonicity condition).
     (void) convergence_threshold_;
   }
-  
+
   /**
    * Execute the binning algorithm and return results
-   * 
+   *
    * @return List containing bin information and metrics
    */
   Rcpp::List fit() {
     // Step 1: Validate inputs
     validateInputs();
-    
+
     // Step 2: Perform initial binning
     initialBinning();
-    
+
     // Step 3: Assign data to bins
     assignDataToBins();
-    
+
     // Step 4: Continue with optimization steps if not simple case
     if (!is_unique_two_or_less) {
       // Step 4a: Merge low frequency bins
@@ -767,27 +769,27 @@ public:
 
       // Step 4a': equal-width intervals holding no observation at all
       removeEmptyBins();
-      
+
       // Step 4b: Enforce monotonicity if requested
       if (enforce_monotonic) {
         enforceMonotonicity();
       }
-      
+
       // Step 4c: Adjust bin count to be within [min_bins, max_bins]
       adjustBinCount();
     }
-    
+
     // Step 5: Final calculation of WoE and IV, and of the bin means
     calculateBinStatistics();
     computeCentroids();
-    
+
     // Step 6: Prepare output
     return createResultList();
   }
-  
+
   /**
    * Create the final result list
-   * 
+   *
    * @return List with bin information and metrics
    */
   Rcpp::List createResultList() const {
@@ -800,7 +802,7 @@ public:
     std::vector<int> counts_neg;
     std::vector<double> cutpoints;
     std::vector<double> centroids;
-    
+
     bin_labels.reserve(bins.size());
     woe_values.reserve(bins.size());
     iv_values.reserve(bins.size());
@@ -809,7 +811,7 @@ public:
     counts_neg.reserve(bins.size());
     cutpoints.reserve(bins.size() > 0 ? bins.size() - 1 : 0);
     centroids.reserve(bins.size());
-    
+
     // Populate output vectors
     for (size_t i = 0; i < bins.size(); ++i) {
       const auto& bin = bins[i];
@@ -820,19 +822,19 @@ public:
       counts_pos.push_back(bin.count_pos);
       counts_neg.push_back(bin.count_neg);
       centroids.push_back(bin.centroid);
-      
+
       // Add cutpoints (exclude the last bin's upper bound)
       if (i < bins.size() - 1) {
         cutpoints.push_back(bin.upper_bound);
       }
     }
-    
+
     // Create bin IDs (1-based indexing for R)
     Rcpp::NumericVector ids(bin_labels.size());
     for (int i = 0; i < static_cast<int>(bin_labels.size()); i++) {
       ids[i] = i + 1;
     }
-    
+
     // Create and return final list
     return Rcpp::List::create(
       Rcpp::Named("id") = ids,
@@ -855,27 +857,27 @@ public:
 List optimal_binning_numerical_kmb(
     IntegerVector target,
     NumericVector feature,
-    int min_bins = 3, 
+    int min_bins = 3,
     int max_bins = 5,
-    double bin_cutoff = 0.05, 
+    double bin_cutoff = 0.05,
     int max_n_prebins = 20,
     bool enforce_monotonic = true,
-    double convergence_threshold = 1e-6, 
+    double convergence_threshold = 1e-6,
     int max_iterations = 1000) {
-  
+
   try {
     // Convert R vectors to C++ vectors
     std::vector<double> feature_vec = Rcpp::as<std::vector<double>>(feature);
     std::vector<int> target_vec = Rcpp::as<std::vector<int>>(target);
-    
+
     // Initialize binning class
     OBN_KMB binner(
-        feature_vec, target_vec, 
-        min_bins, max_bins, 
+        feature_vec, target_vec,
+        min_bins, max_bins,
         bin_cutoff, max_n_prebins,
         enforce_monotonic,
         convergence_threshold, max_iterations);
-    
+
     // Perform binning and return results
     return binner.fit();
   } catch(std::exception &e) {
@@ -883,7 +885,7 @@ List optimal_binning_numerical_kmb(
   } catch(...) {
     Rcpp::stop("Unknown C++ exception in optimal_binning_numerical_kmb");
   }
-  
+
   // Should never reach here
   return R_NilValue;
 }
