@@ -193,9 +193,9 @@ inline double information_gain(
  * @return MDL cost
  */
 inline double calculate_mdl_cost(
-    int total_count,
-    int total_pos,
-    int total_neg,
+    int /*total_count*/,
+    int /*total_pos*/,
+    int /*total_neg*/,
     const std::vector<int>& bin_pos_counts,
     const std::vector<int>& bin_neg_counts
 ) {

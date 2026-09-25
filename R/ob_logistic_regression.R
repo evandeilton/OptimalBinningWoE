@@ -35,8 +35,11 @@
 #'   \item{\code{loglikelihood}}{Scalar. The maximized log-likelihood value.}
 #'   \item{\code{gradient}}{Numeric vector. The gradient at the solution.}
 #'   \item{\code{hessian}}{Matrix. The Hessian matrix evaluated at the solution.}
-#'   \item{\code{convergence}}{Logical. Whether the algorithm converged successfully.}
-#'   \item{\code{iterations}}{Integer. Number of iterations performed.}
+#'   \item{\code{convergence}}{Logical. Whether the algorithm converged
+#'     successfully (\code{FALSE} if the line search failed, or if \code{maxit}
+#'     was exhausted without meeting the gradient criterion).}
+#'   \item{\code{iterations}}{Integer. Number of L-BFGS iterations performed
+#'     (\code{NA} if the line search failed).}
 #'   \item{\code{message}}{Character. Convergence message.}
 #' }
 #'
@@ -44,7 +47,8 @@
 #' \itemize{
 #'   \item An intercept term is not automatically included. Users should add a column
 #'         of ones to \code{X_r} if an intercept is desired.
-#'   \item If the Hessian matrix is singular (determinant is zero), standard errors,
+#'   \item If the Hessian matrix is singular or numerically ill-conditioned
+#'         (reciprocal condition number below 1e-12), standard errors,
 #'         z-scores, and p-values will be returned as \code{NA}.
 #'   \item The function uses the L-BFGS quasi-Newton optimization method.
 #' }
@@ -106,6 +110,18 @@
   if (!all(y_r %in% c(0, 1))) {
     stop("y_r must contain only 0 and 1 values.")
   }
+
+  # The C++ side maps the storage directly: it needs doubles (an integer or
+  # logical matrix used to fail with "Wrong R type for mapped matrix"), and a
+  # missing value would silently turn every estimate into NaN.
+  if (inherits(X_r, "dgCMatrix")) {
+    if (anyNA(X_r@x)) stop("X_r must not contain missing values.")
+  } else {
+    if (!is.numeric(X_r) && !is.logical(X_r)) stop("X_r must be numeric.")
+    if (anyNA(X_r)) stop("X_r must not contain missing values.")
+    if (!is.double(X_r)) storage.mode(X_r) <- "double"
+  }
+  y_r <- as.double(y_r)
 
   # Ensure integer types for parameters
   maxit <- as.integer(maxit)

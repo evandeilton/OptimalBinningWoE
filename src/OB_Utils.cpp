@@ -3,7 +3,10 @@
 #include <vector>
 #include <cmath>
 #include <map>
-#include <set>
+#include <limits>
+#include <string>
+#include <unordered_map>
+#include <cstdio>
 
 using namespace Rcpp;
 
@@ -25,28 +28,52 @@ inline double kl_divergence(double p, double q) {
 // [[Rcpp::export]]
 DataFrame OBGainsTable(List binning_result) {
  // Extract
- NumericVector bin_ids   = binning_result["id"];
- CharacterVector bins    = binning_result["bin"];
- NumericVector counts    = binning_result["count"];
- NumericVector count_pos = binning_result["count_pos"];
- NumericVector count_neg = binning_result["count_neg"];
+ NumericVector bin_ids_in   = binning_result["id"];
+ CharacterVector bins_in    = binning_result["bin"];
+ NumericVector counts_in    = binning_result["count"];
+ NumericVector count_pos_in = binning_result["count_pos"];
+ NumericVector count_neg_in = binning_result["count_neg"];
  
- int n0 = bin_ids.size();
- if (bins.size() != n0 || counts.size() != n0 ||
-     count_pos.size() != n0 || count_neg.size() != n0) {
+ const R_xlen_t n0x = bin_ids_in.size();
+ if (bins_in.size() != n0x || counts_in.size() != n0x ||
+     count_pos_in.size() != n0x || count_neg_in.size() != n0x) {
    stop("All vectors (id, bin, count, count_pos, count_neg) must have the same length.");
  }
+ if (n0x > static_cast<R_xlen_t>(std::numeric_limits<int>::max())) {
+   stop("Too many bins.");
+ }
+ const int n0 = static_cast<int>(n0x);
  
- // Sort by id (bin order governs cumulatives and KS)
- IntegerVector idx = seq_len(n0) - 1;
- std::sort(idx.begin(), idx.end(),
-           [&bin_ids](int i, int j){ return bin_ids[i] < bin_ids[j]; });
- 
- bin_ids   = bin_ids[idx];
- bins      = bins[idx];
- counts    = counts[idx];
- count_pos = count_pos[idx];
- count_neg = count_neg[idx];
+ // Sort by id (bin order governs cumulatives and KS).
+ //
+ // The permuted columns are built explicitly from an index vector instead of
+ // the self-assigning Rcpp subset `v = v[idx]`. A stable sort keeps rows that
+ // share an id in input order (std::sort left that order unspecified), and a
+ // missing id (NA/NaN) sorts last: a raw `<` on NaN is not a strict weak
+ // ordering, which is undefined behaviour for std::sort and can walk off the
+ // end of the index range.
+ std::vector<int> ord(static_cast<size_t>(n0));
+ for (int i = 0; i < n0; ++i) ord[static_cast<size_t>(i)] = i;
+ {
+   const double* id_ptr = REAL(bin_ids_in);
+   std::stable_sort(ord.begin(), ord.end(), [id_ptr](int i, int j) {
+     const double a = id_ptr[i], b = id_ptr[j];
+     const bool na = std::isnan(a), nb = std::isnan(b);
+     if (na || nb) return !na && nb;   // non-missing before missing
+     return a < b;
+   });
+ }
+
+ NumericVector bin_ids(n0), counts(n0), count_pos(n0), count_neg(n0);
+ CharacterVector bins(n0);
+ for (int i = 0; i < n0; ++i) {
+   const int k = ord[static_cast<size_t>(i)];
+   bin_ids[i]   = bin_ids_in[k];
+   bins[i]      = bins_in[k];
+   counts[i]    = counts_in[k];
+   count_pos[i] = count_pos_in[k];
+   count_neg[i] = count_neg_in[k];
+ }
  
  // Totals as double (avoid truncation on large samples)
  const double total_count = sum(counts);
@@ -55,7 +82,9 @@ DataFrame OBGainsTable(List binning_result) {
  
  const double overall_pos_rate = (total_count > 0.0) ? (total_pos / total_count) : NA_REAL;
  
- const int n = bins.size();
+ const int n = n0;
+ // Loop invariant, hoisted out of the per-bin loop.
+ const double total_odds = (total_neg == 0.0) ? NA_REAL : (total_pos / total_neg);
  
  NumericVector count_perc(n), cum_count_perc(n);
  NumericVector pos_rate(n), neg_rate(n);
@@ -118,7 +147,6 @@ DataFrame OBGainsTable(List binning_result) {
    
    // Odds, OR, Lift
    odds_pos[i] = (count_neg[i] == 0.0) ? R_PosInf : (count_pos[i] / count_neg[i]);
-   double total_odds = (total_neg == 0.0) ? NA_REAL : (total_pos / total_neg);
    odds_ratio[i] = (R_finite(total_odds) && total_odds > 0.0) ? (odds_pos[i] / total_odds) : NA_REAL;
    
    lift[i] = (R_finite(overall_pos_rate) && overall_pos_rate > 0.0 && R_finite(pos_rate[i]))
@@ -212,18 +240,22 @@ DataFrame OBGainsTable(List binning_result) {
 DataFrame OBGainsTableFeature(DataFrame binned_df,
                              NumericVector target,
                              std::string group_var = "bin") {
- if ((int)target.size() != binned_df.nrows()) {
+ if (target.size() != static_cast<R_xlen_t>(binned_df.nrows())) {
    stop("binned_df and target must have the same length.");
  }
  
  // Check binary target (0/1) and absence of NA
- std::set<double> uniq;
- for (int i = 0; i < target.size(); ++i) {
-   if (NumericVector::is_na(target[i]))
+ // (Same checks and messages as before, without a std::set insert per row.)
+ bool has0 = false, has1 = false, other = false;
+ for (R_xlen_t i = 0; i < target.size(); ++i) {
+   const double t = target[i];
+   if (NumericVector::is_na(t))
      stop("target contains NA; please remove or impute first.");
-   uniq.insert(target[i]);
+   if (t == 0.0) has0 = true;
+   else if (t == 1.0) has1 = true;
+   else other = true;
  }
- if (uniq.size() != 2 || !uniq.count(0.0) || !uniq.count(1.0)) {
+ if (other || !has0 || !has1) {
    stop("target must contain only 0 and 1.");
  }
  
@@ -242,38 +274,125 @@ DataFrame OBGainsTableFeature(DataFrame binned_df,
  NumericVector   feature_woe  = binned_df["woe"];
  NumericVector   feature_id   = binned_df["idbin"];
  
- // Aggregate by key (string) and retain idbin for stable ordering
- std::map<std::string, std::pair<int,int>> grp_counts; // pos,neg
- std::map<std::string, double> grp_id;
- 
- for (int i = 0; i < binned_df.nrows(); ++i) {
-   std::string key;
-   if (group_var == "bin") {
-     key = Rcpp::as<std::string>(feature_bins[i]);
-   } else if (group_var == "woe") {
-     key = std::to_string((double)feature_woe[i]);
-   } else { // idbin
-     key = std::to_string((double)feature_id[i]);
+ // Aggregate by key and retain, per group, the idbin of its LAST row (that is
+ // what orders the groups).
+ //
+ // Grouping used to build a std::string key for every row and look it up in a
+ // std::map, i.e. one allocation plus O(log k) string compares per row. It now
+ // hashes one scalar per row and only materialises strings once per group.
+ //
+ // For group_var = "woe"/"idbin" the key used to be std::to_string(value),
+ // which keeps just 6 decimals: two different WoE values agreeing to 1e-6
+ // (routine for bins with close event rates) were silently pooled into one
+ // group, corrupting every count and metric of the table. Groups are now
+ // formed on the exact value; the label keeps the std::to_string() text unless
+ // two distinct values would share it, in which case both are printed with 17
+ // significant digits so the rows stay distinguishable.
+ const int nrow = static_cast<int>(binned_df.nrows());
+ const double* tgt = REAL(target);
+ const double* idv = REAL(feature_id);
+
+ struct Group { std::string label; double value; int last_row; int pos; int neg; };
+ std::vector<Group> groups;
+
+ if (group_var == "bin") {
+   // Equal CHARSXPs are equal strings; distinct CHARSXPs can still hold the
+   // same bytes (different declared encodings), so pointer groups are merged
+   // on their text afterwards, exactly like the old string-keyed map.
+   std::unordered_map<SEXP, int> by_ptr;
+   std::vector<SEXP> ptr_of;
+   std::vector<int> last_row, npos, nneg;
+   for (int i = 0; i < nrow; ++i) {
+     SEXP key = STRING_ELT(feature_bins, i);
+     auto it = by_ptr.find(key);
+     size_t g;
+     if (it == by_ptr.end()) {
+       g = ptr_of.size();
+       by_ptr.emplace(key, static_cast<int>(g));
+       ptr_of.push_back(key);
+       last_row.push_back(i); npos.push_back(0); nneg.push_back(0);
+     } else {
+       g = static_cast<size_t>(it->second);
+     }
+     last_row[g] = i;
+     if (tgt[i] == 1.0) ++npos[g];
+     else               ++nneg[g];
    }
-   grp_id[key] = (double)feature_id[i];
-   
-   if (target[i] == 1.0) grp_counts[key].first += 1;
-   else                  grp_counts[key].second += 1;
+   std::map<std::string, size_t> by_text;   // text -> index into groups
+   for (size_t g = 0; g < ptr_of.size(); ++g) {
+     std::string txt = (ptr_of[g] == NA_STRING) ? std::string("NA")
+                                                : std::string(CHAR(ptr_of[g]));
+     auto it = by_text.find(txt);
+     if (it == by_text.end()) {
+       by_text.emplace(txt, groups.size());
+       groups.push_back({txt, 0.0, last_row[g], npos[g], nneg[g]});
+     } else {
+       Group& G = groups[it->second];
+       G.last_row = std::max(G.last_row, last_row[g]);
+       G.pos += npos[g];
+       G.neg += nneg[g];
+     }
+   }
+ } else {
+   const double* val = (group_var == "woe") ? REAL(feature_woe) : idv;
+   // Exact-value key. All NaNs of one sign form one group (to_string gave
+   // "nan"/"-nan"); +0 and -0 stay apart as they did.
+   struct KeyHash {
+     size_t operator()(const std::pair<int, double>& k) const {
+       return std::hash<double>()(k.second) ^ (static_cast<size_t>(k.first) << 1);
+     }
+   };
+   std::unordered_map<std::pair<int, double>, size_t, KeyHash> by_val;
+   for (int i = 0; i < nrow; ++i) {
+     const double v = val[i];
+     std::pair<int, double> key;
+     if (std::isnan(v))       key = {std::signbit(v) ? 1 : 2, 0.0};
+     else if (v == 0.0)       key = {std::signbit(v) ? 3 : 4, 0.0};
+     else                     key = {0, v};
+     auto it = by_val.find(key);
+     size_t g;
+     if (it == by_val.end()) {
+       g = groups.size();
+       by_val.emplace(key, g);
+       groups.push_back({std::to_string(v), v, i, 0, 0});
+     } else {
+       g = it->second;
+     }
+     Group& G = groups[g];
+     G.last_row = i;
+     if (tgt[i] == 1.0) ++G.pos;
+     else               ++G.neg;
+   }
+   // Disambiguate labels that std::to_string() collapsed.
+   std::map<std::string, std::vector<size_t>> by_label;
+   for (size_t g = 0; g < groups.size(); ++g) by_label[groups[g].label].push_back(g);
+   for (const auto& e : by_label) {
+     if (e.second.size() < 2) continue;
+     for (size_t g : e.second) {
+       char buf[64];
+       std::snprintf(buf, sizeof(buf), "%.17g", groups[g].value);
+       groups[g].label = buf;
+     }
+   }
  }
- 
- // Order by idbin (common practice in scorecards)
- std::vector<std::pair<double,std::string>> ordered;
- ordered.reserve(grp_counts.size());
- for (const auto& e : grp_counts) {
-   ordered.push_back({grp_id[e.first], e.first});
- }
- std::sort(ordered.begin(), ordered.end(),
-           [](const std::pair<double,std::string>& a,
-              const std::pair<double,std::string>& b){
-             return a.first < b.first;
-           });
- 
- const int m = (int)ordered.size();
+
+ // Order: label (the old std::map iteration order), then a STABLE sort on the
+ // group's idbin. Missing idbin sorts last (a raw `<` on NaN is not a strict
+ // weak ordering, which is undefined behaviour for std::sort).
+ std::vector<size_t> ordered(groups.size());
+ for (size_t g = 0; g < groups.size(); ++g) ordered[g] = g;
+ std::sort(ordered.begin(), ordered.end(), [&groups](size_t a, size_t b) {
+   if (groups[a].label != groups[b].label) return groups[a].label < groups[b].label;
+   return groups[a].value < groups[b].value;
+ });
+ std::stable_sort(ordered.begin(), ordered.end(), [&groups, idv](size_t a, size_t b) {
+   const double ia = idv[groups[a].last_row], ib = idv[groups[b].last_row];
+   const bool na = std::isnan(ia), nb = std::isnan(ib);
+   if (na || nb) return !na && nb;
+   return ia < ib;
+ });
+
+ const int m = static_cast<int>(ordered.size());
  
  CharacterVector bin_labels(m);
  NumericVector   group_ids(m), counts(m), count_pos(m), count_neg(m);
@@ -293,12 +412,12 @@ DataFrame OBGainsTableFeature(DataFrame binned_df,
  double total_count = 0.0, total_pos = 0.0, total_neg = 0.0;
  
  for (int i = 0; i < m; ++i) {
-   const std::string& key = ordered[i].second;
-   bin_labels[i] = key;
-   group_ids[i]  = ordered[i].first;
-   
-   count_pos[i] = grp_counts[key].first;
-   count_neg[i] = grp_counts[key].second;
+   const Group& G = groups[ordered[static_cast<size_t>(i)]];
+   bin_labels[i] = G.label;
+   group_ids[i]  = idv[G.last_row];
+
+   count_pos[i] = G.pos;
+   count_neg[i] = G.neg;
    counts[i]    = count_pos[i] + count_neg[i];
    
    total_pos += count_pos[i];
@@ -308,6 +427,7 @@ DataFrame OBGainsTableFeature(DataFrame binned_df,
  
  const double overall_pos_rate = (total_count > 0.0) ? (total_pos / total_count) : NA_REAL;
  
+ const double total_odds = (total_neg == 0.0) ? NA_REAL : (total_pos / total_neg);
  double cpos = 0.0, cneg = 0.0;
  double total_iv = 0.0;
  
@@ -351,7 +471,6 @@ DataFrame OBGainsTableFeature(DataFrame binned_df,
    total_iv += iv[i];
    
    odds_pos[i] = (count_neg[i] == 0.0) ? R_PosInf : (count_pos[i] / count_neg[i]);
-   double total_odds = (total_neg == 0.0) ? NA_REAL : (total_pos / total_neg);
    odds_ratio[i] = (R_finite(total_odds) && total_odds > 0.0) ? (odds_pos[i] / total_odds) : NA_REAL;
    
    lift[i] = (R_finite(overall_pos_rate) && overall_pos_rate > 0.0 && R_finite(pos_rate[i]))

@@ -135,6 +135,14 @@ inline KdeGrid gaussian_kde_grid(const std::vector<double>& sorted_x,
   const double hi = sorted_x.back();
   const double span = hi - lo;
 
+  // An infinite span (an infinite endpoint, or finite endpoints whose
+  // difference overflows, e.g. -1.5e308 and 1.5e308) leaves no usable grid:
+  // dx would be Inf, (x - lo) / dx NaN, and the size_t conversion of a NaN
+  // below is undefined behaviour. Return the empty grid, as for n == 0.
+  if (std::isinf(span)) {
+    return out;
+  }
+
   // A degenerate range collapses the grid to a single point; the kernel then
   // contributes its peak there, which is what the double loop also produced.
   if (!(span > EPSILON)) {
@@ -151,7 +159,7 @@ inline KdeGrid gaussian_kde_grid(const std::vector<double>& sorted_x,
   std::vector<double> mass(G, 0.0);
   for (std::size_t i = 0; i < n; ++i) {
     double pos = (sorted_x[i] - lo) / dx;
-    if (pos < 0.0) pos = 0.0;
+    if (!(pos >= 0.0)) pos = 0.0;   // also catches NaN (a NaN input value)
     if (pos > static_cast<double>(G - 1)) pos = static_cast<double>(G - 1);
     const std::size_t g0 = static_cast<std::size_t>(pos);
     const double frac = pos - static_cast<double>(g0);
@@ -234,7 +242,7 @@ inline std::vector<double> gaussian_kde_sorted(const std::vector<double>& sorted
   const std::size_t G = grid.x.size();
   for (std::size_t i = 0; i < n; ++i) {
     double pos = (sorted_x[i] - lo) / dx;
-    if (pos < 0.0) pos = 0.0;
+    if (!(pos >= 0.0)) pos = 0.0;   // also catches NaN (a NaN input value)
     if (pos > static_cast<double>(G - 1)) pos = static_cast<double>(G - 1);
     const std::size_t g0 = static_cast<std::size_t>(pos);
     const double frac = pos - static_cast<double>(g0);
