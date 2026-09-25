@@ -528,6 +528,19 @@ test_that("numB algorithms validate their arguments with clear errors", {
   expect_warning(ob_numerical_kmb(xc, y), "converted to numeric")
 })
 
+test_that("ir merges low-frequency pre-bins into valid bins", {
+  set.seed(52)
+  x <- c(rep(1, 950), as.numeric(2:51), 0.5, 0.25)
+  y <- rbinom(length(x), 1, plogis((x - 20) / 10))
+  if (length(unique(y)) < 2) y[1:2] <- 0:1
+  for (auto in c(TRUE, FALSE)) {
+    res <- NULL
+    expect_no_warning(res <- ob_numerical_ir(x, y, min_bins = 2, max_bins = 5,
+                                             auto_monotonicity = auto))
+    numB_check_binning(res, x, max_bins = 5)
+  }
+})
+
 test_that("kmb gives valid bins on the large max_n_prebins path", {
   set.seed(51)
   x <- round(rnorm(3000), 2)
