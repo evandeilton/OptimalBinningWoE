@@ -98,7 +98,7 @@ ob_cutpoints_cat <- function(feature, target, cutpoints) {
   }
   .Call("_OptimalBinningWoE_binning_categorical_cutpoints",
     as.character(feature),
-    as.integer(target),
+    .ob_integer_target(target),
     as.character(cutpoints),
     PACKAGE = "OptimalBinningWoE"
   )

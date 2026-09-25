@@ -342,7 +342,7 @@ ob_numerical_mdlp <- function(feature,
   }
 
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Missing targets are an error, as in obwoe(): silently dropping them (or,
   # in C++, reading NA_integer_ as a class label) hid a data problem.

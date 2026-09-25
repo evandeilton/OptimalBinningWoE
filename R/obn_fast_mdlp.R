@@ -151,7 +151,7 @@ ob_numerical_fast_mdlp <- function(feature, target,
   }
 
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Dimension Check

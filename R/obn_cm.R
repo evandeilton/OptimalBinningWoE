@@ -129,7 +129,7 @@ ob_numerical_cm <- function(feature, target, min_bins = 3, max_bins = 5,
   }
 
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Input Dimension Check

@@ -242,7 +242,7 @@ ob_numerical_ldb <- function(feature,
 
   # Type coercion for C++ safety
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Validate binary target before expensive C++ call
   # Missing targets are an error, as in obwoe(): silently dropping them (or,

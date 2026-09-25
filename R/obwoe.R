@@ -426,7 +426,8 @@ obwoe <- function(data,
   if (is.factor(raw_target)) {
     target_vec <- as.integer(raw_target) - 1L
   } else {
-    target_vec <- as.integer(raw_target)
+    # Not as.integer(): it truncated a target of 0.7 to class 0 silently.
+    target_vec <- .ob_integer_target(raw_target)
   }
 
   # [D2] The roxygen documentation states "Missing values in the target are
@@ -1964,11 +1965,12 @@ obwoe_apply <- function(data,
 
       # Category -> bin lookup table, resolved with one vectorised match()
       # instead of an R closure called once per row. A category listed in
-      # more than one bin resolves to the LAST such bin, which is what the
-      # previous name-keyed list produced by overwriting earlier entries.
+      # more than one bin resolves to the FIRST such bin, as the CASE
+      # expression of obwoe_sql() and ob_apply_woe_cat() do, so R and SQL
+      # score it identically (the old name-keyed list took the last one).
       keys <- unlist(parts, use.names = FALSE)
       owner <- rep.int(seq_along(bin_labels), lengths(parts))
-      keep <- !duplicated(keys, fromLast = TRUE)
+      keep <- !duplicated(keys)
       keys <- keys[keep]
       owner <- owner[keep]
 
@@ -2304,9 +2306,9 @@ obwoe_gains <- function(obj,
 
     # Resolve target vector
     if (is.character(target) && length(target) == 1 && target %in% names(obj)) {
-      target_vec <- as.integer(obj[[target]])
+      target_vec <- .ob_integer_target(obj[[target]])
     } else {
-      target_vec <- as.integer(target)
+      target_vec <- .ob_integer_target(target)
     }
 
     if (length(target_vec) != nrow(obj)) {

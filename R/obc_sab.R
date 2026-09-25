@@ -154,7 +154,7 @@ ob_categorical_sab <- function(feature,
 
   # Convert NA values to "NA" string
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_sab",

@@ -113,7 +113,7 @@ ob_cutpoints_num <- function(feature, target, cutpoints) {
   }
   .Call("_OptimalBinningWoE_binning_numerical_cutpoints",
     as.numeric(feature),
-    as.integer(target),
+    .ob_integer_target(target),
     as.numeric(cutpoints),
     PACKAGE = "OptimalBinningWoE"
   )

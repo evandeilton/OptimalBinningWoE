@@ -459,7 +459,7 @@ ob_categorical_jedi_mwoe <- function(feature, target,
   # [D8] Standardized to "NA", matching the other 14 categorical wrappers
   # (this one and ob_categorical_sketch() were the only two using "N/A").
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Validate target classes are consecutive integers starting from 0
   unique_targets <- sort(unique(target))

@@ -225,7 +225,7 @@ ob_numerical_sketch <- function(feature,
 
   # Convert to appropriate types
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Missing feature values (NA/NaN) are dropped silently and +/-Inf are kept
   # as extreme values; both are handled in C++ so obwoe() agrees.

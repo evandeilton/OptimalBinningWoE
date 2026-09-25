@@ -135,7 +135,7 @@ ob_numerical_udt <- function(feature,
   }
 
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   unique_target <- unique(target[!is.na(target)])
   if (!all(unique_target %in% c(0L, 1L)) || length(unique_target) != 2L) {

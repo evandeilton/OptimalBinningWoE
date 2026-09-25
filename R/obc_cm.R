@@ -154,7 +154,7 @@ ob_categorical_cm <- function(feature, target, min_bins = 3, max_bins = 5,
   feature[is.na(feature)] <- "NA"
 
   # Convert target to integer and validate
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_cm",

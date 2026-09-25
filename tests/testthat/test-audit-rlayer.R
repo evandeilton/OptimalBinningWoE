@@ -3,7 +3,8 @@
 # scorecard pipeline.
 
 # A per-row reference for the categorical lookup of obwoe_apply(): every
-# category of every bin is a key, a key listed twice resolves to the LAST bin,
+# category of every bin is a key, a key listed twice resolves to the FIRST bin
+# (as the SQL CASE expression does),
 # NA goes to the first bin holding a missing-value token, else to na_woe.
 ref_apply_cat <- function(x, bins, woe, sep = "%;%", na_woe = 0) {
   parts <- OptimalBinningWoE:::.ob_split_categories(bins, sep)
@@ -22,6 +23,7 @@ ref_apply_cat <- function(x, bins, woe, sep = "%;%", na_woe = 0) {
       if (x[r] %in% parts[[i]]) {
         out_bin[r] <- bins[i]
         out_woe[r] <- woe[i]
+        break
       }
     }
   }
@@ -61,7 +63,7 @@ test_that("obwoe_apply categorical lookup matches the per-row reference", {
   expect_true(is.character(out$v_bin) && is.double(out$v_woe))
 })
 
-test_that("a category listed in two bins resolves to the last bin", {
+test_that("a category listed in two bins resolves to the first bin, as in SQL", {
   df <- cat_data(seed = 2)
   fit <- obwoe(df, "target", algorithm = "cm", max_bins = 3)
   r <- fit$results$v
@@ -70,8 +72,12 @@ test_that("a category listed in two bins resolves to the last bin", {
   dup <- strsplit(r$bin[1], "%;%", fixed = TRUE)[[1]][1]
   fit$results$v$bin[k] <- paste0(r$bin[k], "%;%", dup)
   out <- obwoe_apply(data.frame(v = dup), fit)
-  expect_identical(out$v_bin, fit$results$v$bin[k])
-  expect_identical(out$v_woe, as.numeric(r$woe[k]))
+  expect_identical(out$v_bin, fit$results$v$bin[1])
+  expect_identical(out$v_woe, as.numeric(r$woe[1]))
+  expect_identical(
+    out$v_woe,
+    as.numeric(ob_apply_woe_cat(fit$results$v, dup)$woe)
+  )
 })
 
 test_that("the empty-string category is scored with its fitted bin", {
@@ -962,4 +968,22 @@ test_that("the points SQL scores NULL at the missing-value bin, as the card does
   bins <- obwoe_apply(nd, sc$binning, keep_original = FALSE)
   expect_true(all(bins[[paste0(cat_col, "_bin")]] == pts$bin[na_row]))
   expect_identical(card, OptimalBinningWoE:::.ob_card_score(bins, sc$points, sc$final))
+})
+
+test_that("targets that are not integer class labels are rejected, not truncated", {
+  set.seed(11)
+  x <- rnorm(200)
+  y <- rbinom(200, 1, 0.4)
+  # as.integer() used to turn 0.7 into class 0 without a word.
+  expect_error(ob_numerical_ewb(x, y * 0.7), "whole-number")
+  expect_error(ob_categorical_cm(sample(letters[1:4], 200, TRUE), y + 0.5), "whole-number")
+  expect_error(ob_numerical_jedi(x, ifelse(y == 1, "yes", "no")), "numeric class labels")
+  df <- data.frame(x = x, target = y * 0.7)
+  expect_error(obwoe(df, "target"), "whole-number")
+  # Unambiguous encodings keep working and give the same fit.
+  ref <- ob_numerical_ewb(x, y)
+  expect_identical(ob_numerical_ewb(x, as.numeric(y))$cutpoints, ref$cutpoints)
+  expect_identical(ob_numerical_ewb(x, y == 1)$cutpoints, ref$cutpoints)
+  expect_identical(ob_numerical_ewb(x, as.character(y))$cutpoints, ref$cutpoints)
+  expect_identical(ob_numerical_ewb(x, factor(y))$cutpoints, ref$cutpoints)
 })

@@ -156,7 +156,7 @@ ob_categorical_udt <- function(feature,
   feature[is.na(feature)] <- "NA"
 
   # Ensure target is integer
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Call the C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_udt",

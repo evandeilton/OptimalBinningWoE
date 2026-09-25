@@ -248,7 +248,7 @@ ob_numerical_mrblp <- function(feature,
   }
 
   feature <- as.numeric(feature)
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   if (anyNA(target)) {
     stop("Target contains missing values (NA).")

@@ -88,7 +88,12 @@ test_that("[B1/C-01] the gains table KS reconciles with the rank-based KS", {
   gains_ks <- max(sc$samples$train$gains$ks)
   rank_ks <- sc$samples$train$metrics$ks
 
-  expect_equal(gains_ks, rank_ks, tolerance = 0.02)
+  # The banded KS evaluates the ECDF gap only at band boundaries, a subset of
+  # the thresholds the rank KS takes the supremum over, so it is a lower bound;
+  # with ten bands it sits within a few points of it. The ordering bug this
+  # guards against produced a gap many times larger.
+  expect_lte(gains_ks, rank_ks + 1e-12)
+  expect_gt(gains_ks, rank_ks - 0.05)
 
   # The first row of the gains table must be the lowest-score bin.
   first_bin <- as.character(sc$samples$train$gains$bin[1])

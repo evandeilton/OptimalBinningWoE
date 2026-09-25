@@ -74,7 +74,7 @@ ob_check_distincts <- function(x, target) {
     stop("x and target must have the same length.")
   }
 
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   unique_target <- unique(target[!is.na(target)])
   if (!all(unique_target %in% c(0L, 1L))) {

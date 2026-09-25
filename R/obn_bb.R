@@ -125,7 +125,7 @@ ob_numerical_bb <- function(feature, target, min_bins = 3, max_bins = 5,
 
   # Ensure target is integer
   if (!is.integer(target)) {
-    target <- as.integer(target)
+    target <- .ob_integer_target(target)
   }
 
   # Basic dimension check before C++ call

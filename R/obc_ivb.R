@@ -243,7 +243,7 @@ ob_categorical_ivb <- function(feature, target,
     feature <- as.character(feature)
   }
   feature[is.na(feature)] <- "NA"
-  target <- as.integer(target)
+  target <- .ob_integer_target(target)
 
   # Invoke C++ implementation
   .Call("_OptimalBinningWoE_optimal_binning_categorical_ivb",
