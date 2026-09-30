@@ -21,3 +21,4 @@
 ^inst/paper$
 ^.*\.tar\.gz$
 ^.*\.Rcheck$
+^CRAN-SUBMISSION$
