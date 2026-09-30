@@ -1,13 +1,9 @@
 # OptimalBinningWoE 1.14.0
 
-## Full audit of the C++ engines and the R layer (2026-09-25)
+## Correctness, robustness and speed of the C++ engines and the R layer
 
-Every algorithm file in `src/` was read end to end and checked against the
-method it implements, then against a battery of adversarial inputs (ties,
-two-value and constant features, NA/NaN/±Inf, ±1e308, tiny scales, heavy
-tails, 500 to 5000 categories, separators inside category names, n from 1 to
-10^6). Each fix below has a regression test that fails on 1.13.6. Pure
-refactors were proved bit-identical to 1.13.6 on the same battery. **Many
+Crashes, hangs and out-of-bounds reads fixed; one NA/Inf rule for all
+numerical binners; several algorithms now do what they document. **Many
 fitted bins change**: in every such case the old result broke the documented
 algorithm or contract. No argument was added or removed and every returned
 list keeps its names, types and order.
@@ -26,7 +22,7 @@ list keeps its names, types and order.
     indexed merged vectors with pre-merge positions; `sum(count)` could exceed
     n threefold), `ob_categorical_ivb()` (feature shorter than target),
     `ob_cutpoints_num()` (short target), `ob_preprocess()` (IQR with n <= 2),
-    and undefined behaviour in `ob_apply_woe_cat()` (`trim("")`), in
+    and undefined behavior in `ob_apply_woe_cat()` (`trim("")`), in
     `std::sort` over NaN (fetb, mdlp), in the KDE grid on an infinite span
     (ldb, lpdb) and in `int` overflow of count products (cm numerical and
     categorical, shared chi-square helper) once bins exceed ~46k rows.
@@ -64,19 +60,18 @@ accepted; anything else is an error.
     (Kerber, 1992). The Yates correction is clamped at zero as in
     `chisq.test()`. The numerical chi-square cache returned stale values
     after merges (its invalidation was a no-op); it is replaced by an
-    incrementally updated vector of adjacent-pair statistics, which matches
-    an independent `chisq.test()`-based ChiMerge on 30/30 samples (0/30
-    before). The categorical default now merges more.
+    incrementally updated vector of adjacent-pair statistics, so merges now
+    match a `chisq.test()`-based ChiMerge. The categorical default now merges
+    more.
 *   **Fisher exact test** (`fetb`, both types): the merge criterion was the
     point probability of the observed table, not a p-value. It is now the
     two-sided Fisher p-value, matching `fisher.test()`. The numerical loop
     could stop on IV convergence with more than `max_bins` bins.
 *   **MDLP**: `fast_mdlp`'s acceptance test omitted the
-    `k1 E(S1) + k2 E(S2)` term of Fayyad & Irani (1993) and now agrees with a
-    reference implementation on 292/292 datasets (265 before); when `max_bins`
-    binds, splits are kept best-first by gain instead of dropping the
-    rightmost ones. `mdlp`'s documentation of its merge cost and bin format
-    was corrected.
+    `k1 E(S1) + k2 E(S2)` term of Fayyad & Irani (1993); it is now included.
+    When `max_bins` binds, splits are kept best-first by gain instead of
+    dropping the rightmost ones. `mdlp`'s documentation of its merge cost and
+    bin format was corrected.
 *   **IV-optimal DP** (`ivb`): a banded search excluded valid partitions, so
     the result was not optimal; the monotonic repair could drop the last bin's
     categories. **DP** (`dp`, categorical): recovered counts by splitting
@@ -88,7 +83,7 @@ accepted; anything else is an error.
     `ldb`, `lpdb`, `mblp`, `mdlp`, `mob`, `mrblp`, `oslp` (numerical) and
     `milp`, `sblp` (categorical), mostly by refreshing WoE after merges and
     re-checking after the `max_bins` reduction.
-*   **`max_bins` / `min_bins` not honoured**: `ldb`, `lpdb`, `dmiv`
+*   **`max_bins` / `min_bins` not honored**: `ldb`, `lpdb`, `dmiv`
     (categorical: 2000 bins for `max_bins = 5`), `fetb`, `sketch`, `sblp`,
     `mba`, `sab`, `swb`, `udt` and `fetb`/`gmb`/`ivb` on high-cardinality
     features, which collapsed to a single bin with IV 0.
@@ -98,7 +93,7 @@ accepted; anything else is an error.
     `ob_categorical_mob()` gave every initial bin a count of 1;
     `ob_categorical_sketch()` returned count-min estimates as bin counts;
     `ldb`/`lpdb` WoE used the pre-bin count in its Laplace denominator.
-*   **Labels**: `oslp` and `ubsd` labelled bins `[a;b)` while assigning
+*   **Labels**: `oslp` and `ubsd` labeled bins `[a;b)` while assigning
     `(a;b]`; `ewb`, numerical `sketch` and `ubsd` produced empty bins or
     labels that excluded the minimum.
 *   `ob_categorical_sab()` stopped after one iteration whenever the first
@@ -108,12 +103,12 @@ accepted; anything else is an error.
     phase now combines WoE-adjacent bins with the least IV loss.
 *   Rare-category pooling kept the `min_bins` *rarest* categories in `jedi`,
     `jedi_mwoe` and categorical `udt`; it keeps the most frequent ones.
-*   The categorical `dmiv` pooled bin was labelled `"PREBIN_OTHER"`, so its
+*   The categorical `dmiv` pooled bin was labeled `"PREBIN_OTHER"`, so its
     categories could not be scored; it now lists them.
 
 ### R interface
 
-*   `obwoe_apply()` is vectorised (`match()` instead of two closures per
+*   `obwoe_apply()` is vectorized (`match()` instead of two closures per
     row): 25 to 50 times faster on wide or long data. The scorecard applies
     the binning once, to the model variables only (`predict()` about 40 times
     faster).
@@ -155,20 +150,19 @@ Median speed-ups at n = 10^6 unless stated: `mdlp` 11x, `mob` 24x, `oslp`
 `fast_mdlp` 2.6x (24x on alternating classes); categorical with 2000 levels:
 `milp` 190x, `mob` 21x, `jedi` 19x, `jedi_mwoe` 14x; `dmiv` with 3000 levels
 160x; `swb`/`sketch`/`udt` with 5000 levels 175-600x; `ob_apply_woe_cat()`
-270x; `ob_preprocess(method = "grubbs")` 65x. The test suite runs in under a
-minute (about five before).
+270x; `ob_preprocess(method = "grubbs")` 65x.
 
 ### Build
 
 *   `RcppEigen` and `RcppNumerical` are no longer needed (`LinkingTo: Rcpp`
-    only) and the unused BLAS/LAPACK link flags are gone. Their headers
+    only), so the package keeps building when `RcppEigen` moves to Eigen 5
+    (1.13.x uses `MappedSparseMatrix`, which Eigen 5 removed). Their headers
     emitted several hundred `-Wignored-attributes` warnings on every source
     install; the package now compiles without a single warning under gcc
     (`-Wall -Wextra -Wpedantic -Wshadow -Wconversion`) and clang (`-Wall
-    -Wextra -Wpedantic -Wshadow`).
+    -Wextra -Wpedantic -Wshadow`). The unused BLAS/LAPACK link flags are gone
+    too.
 *   No algorithm prints to the console any more (`dmiv`, `bb`).
-*   The full test suite passes with zero warnings, and under AddressSanitizer
-    and UndefinedBehaviorSanitizer.
 
 # OptimalBinningWoE 1.13.6
 
