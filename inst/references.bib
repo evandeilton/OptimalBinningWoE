@@ -5,8 +5,8 @@
   booktitle = {Proceedings of the Tenth National Conference on Artificial Intelligence (AAAI-92)},
   year      = {1992},
   publisher = {AAAI Press / The MIT Press},
-  address   = {San Jose, CA},
-  pages     = {123--128} % Page numbers commonly cited for this paper
+  pages     = {123--128},
+  note      = {The statistic printed in the paper is the plain Pearson chi-square, without a continuity correction.}
 }
 
 @inproceedings{Liu1995Chi2,
@@ -16,44 +16,55 @@
   year      = {1995},
   pages     = {388--391},
   publisher = {IEEE Computer Society},
-  address   = {Herndon, VA, USA} 
+  address   = {Herndon, VA, USA},
+  doi       = {10.1109/TAI.1995.479783}
 }
 
+% The method paper behind the mathematical programming formulations of optimal binning (mixed-integer and constraint programming). It is a preprint: it has not been published in a journal.
+@misc{NavasPalencia2020OptimalBinning,
+  author        = {Navas-Palencia, Guillermo},
+  title         = {Optimal binning: mathematical programming formulation},
+  year          = {2020},
+  eprint        = {2001.08025},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.LG},
+  doi           = {10.48550/arXiv.2001.08025},
+  note          = {Preprint; latest version v3, 2022-12-08. Not published in a journal.}
+}
 
-
-% Dynamic Programming with Linear Constraints combines dynamic programming with linear constraints to find the optimal sequence of bins while respecting monotonicity and other binning rules.
-@article{NavasPalencia2022OptBinning,
-  author    = {Guillermo Navas-Palencia},
-  title     = {OptBinning: Mathematical Optimization for Optimal Binning},
-  journal   = {Journal of Open Source Software},
-  volume    = {7},
-  number    = {74},
-  pages     = {4101},
-  year      = {2022},
-  doi       = {10.21105/joss.04101},
-  url       = {https://doi.org/10.21105/joss.04101},
-  note      = {Descreve a biblioteca OptBinning, que implementa algoritmos de otimiza{\c c}{\~a}o para binning {\'o}timo, incluindo tratamento de restri{\c c}{\~o}es como monotonicidade.}
+@book{Siddiqi2006,
+  author    = {Siddiqi, Naeem},
+  title     = {Credit Risk Scorecards: Developing and Implementing Intelligent Credit Scoring},
+  publisher = {Wiley},
+  address   = {Hoboken, NJ},
+  year      = {2006},
+  edition   = {1},
+  isbn      = {978-0-471-75451-0},
+  doi       = {10.1002/9781119201731},
+  note      = {First edition. Crossref dates the DOI record 2012; the printed imprint is 2006.}
 }
 
 @book{Siddiqi2017,
-  author    = {Naeem Siddiqi},
+  author    = {Siddiqi, Naeem},
   title     = {Intelligent Credit Scoring: Building and Implementing Better Credit Risk Scorecards},
-  publisher = {John Wiley \& Sons},
+  publisher = {Wiley},
   year      = {2017},
-  edition   = {2nd},
-  isbn      = {978-1119278288},
-  note      = {Um guia pr{\'a}tico padr{\~a}o em scorecards de cr{\'e}dito, abordando extensivamente a import{\^a}ncia do binning, Weight of Evidence (WoE), Information Value (IV) e a necessidade de tend{\^e}ncias monot{\^o}nicas.}
+  edition   = {2},
+  isbn      = {978-1-119-27915-0},
+  doi       = {10.1002/9781119282396},
+  note      = {Second edition of Siddiqi (2006). Standard practical guide to credit scorecards: binning, Weight of Evidence (WoE), Information Value (IV) and monotonic trends.}
 }
 
 @book{Thomas2017,
-  author    = {Lyn C. Thomas and David B. Edelman and Jonathan N. Crook},
+  author    = {Thomas, Lyn C. and Crook, Jonathan N. and Edelman, David B.},
   title     = {Credit Scoring and Its Applications},
   publisher = {SIAM},
+  address   = {Philadelphia, PA},
   year      = {2017},
-  edition   = {2nd},
-  series    = {SIAM Monographs on Mathematical Modeling and Computation},
-  isbn      = {978-1611974564},
-  note      = {Refer{\^e}ncia acad{\^e}mica sobre modelagem de risco de cr{\'e}dito, cobrindo m{\'e}todos estat{\'i}sticos e de machine learning, incluindo a discretiza{\c c}{\~a}o de vari{\'a}veis (binning).}
+  edition   = {2},
+  isbn      = {978-1-61197-455-3},
+  doi       = {10.1137/1.9781611974560},
+  note      = {Academic reference on credit risk modeling, including the discretization (binning) of variables.}
 }
 
 @article{Kotsiantis2006,
@@ -64,13 +75,22 @@
   number  = {1},
   pages   = {47--58},
   year    = {2006},
-  note    = {Oferece uma vis{\~a}o geral de v{\'a}rias t{\'e}cnicas de discretiza{\c c}{\~a}o usadas em prepara{\c c}{\~a}o de dados para machine learning, fornecendo contexto onde algoritmos como DP para binning se encaixam.}
+  note    = {Survey of discretization techniques used to prepare data for machine learning.}
 }
 
-@misc{OptBinningDocumentation,
-  author       = {Guillermo Navas-Palencia},
-  title        = {OptBinning Documentation},
-  howpublished = {\url{https://optbinning.readthedocs.io/}},
-  year         = {Accessed 2025-04-08},
-  note         = {A documenta{\c c}{\~a}o oficial da biblioteca OptBinning detalha os m{\'e}todos e op{\c c}{\~o}es dispon{\'i}veis, incluindo algoritmos para binning {\'o}timo com restri{\c c}{\~o}es.}
+% Working paper cited by the monotone binning engines (mob, mrblp, mblp, oslp, gmb, mba). No DOI, SSRN record or journal version was found.
+@unpublished{Mironchyk2017MOB,
+  author = {Mironchyk, Pavel and Tchistiakov, Viktor},
+  title  = {Monotone optimal binning algorithm for credit risk modeling},
+  year   = {2017},
+  note   = {Unpublished manuscript (2017).}
+}
+
+@manual{OptBinningDocumentation,
+  author  = {Navas-Palencia, Guillermo},
+  title   = {{OptBinning}: The Python Optimal Binning library},
+  year    = {2026},
+  note    = {Version 1.0.0. Documentation of the methods and options for optimal binning with constraints.},
+  url     = {https://gnpalencia.org/optbinning/},
+  urldate = {2026-10-10}
 }
