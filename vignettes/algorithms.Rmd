@@ -186,7 +186,7 @@ matter on continuous variables with a long tail.
 | A statistical stopping rule | `cm` (categorical) | The significance level decides the bin count. In numerical `cm` it does not: `max_bins` does (see below) |
 | IV-optimal bins given the ordering | `ivb`, `dp` (categorical), `sblp` | Dynamic programming over the ordered levels. Categorical `dp` scores a bin with no events or no non-events as WoE = IV = 0; `sblp` optimizes its own smoothing, not the IV it reports, and may merge bins afterwards |
 | The bin count decided by theory | `fast_mdlp` | The only Fayyad–Irani criterion here; `max_bins`, `min_bins` and the default `force_monotonicity = TRUE` can still override it |
-| Monotone event rates by construction | `ir` | Isotonic regression pools the violating bins, so event rates are monotone; the smoothed WoE can still break that order when a bin is tiny, which `bin_cutoff` normally prevents |
+| Monotone event rates by construction | `ir` | Isotonic regression pools the violating bins, so event rates are monotone; the smoothed WoE can still break that order when adjacent bins tie in event rate (two bins with no events, for example) or when a bin is tiny; `bin_cutoff` only guards against the second case |
 | Very high cardinality | `sketch` (categorical) | Heavy hitters are found with fixed-size Count-Min sketches; exact counts are still kept for every level |
 | An equal-width start | `ewb` | Equal-width initialization, then supervised merging, honestly labeled hybrid |
 
@@ -218,7 +218,7 @@ members, so every contiguous partition has monotone event rates by construction
 (the code comment at `:545-557` records that an earlier test only fired on an
 artifact). A bin without events or without non-events is still reported with
 WoE = IV = 0 (`:75-82`, `:662`), which can break the order of the reported WoE.
-When more than `max_bins` pre-bins remain, `monotonic_trend` therefore only
+When there are more than `max_bins` levels, `monotonic_trend` therefore only
 orders the list: `"descending"` reverses it, and `"auto"` runs a Welford-stable
 online correlation (Welford, 1962) on rates that are already sorted ascending,
 so it always resolves to ascending. With at most `max_bins` levels the DP is
@@ -278,7 +278,7 @@ result is the best-first prefix of the Fayyad–Irani tree. That is not a global
 top-\((K-1)\) selection, because a child interval can offer a larger gain than its
 parent. (3) When the criterion accepts fewer than `min_bins - 1` cuts,
 `force_min_bins()` (`:361`) discards them and places `min_bins - 1` cuts spread
-evenly over the distinct values. (4) The default `force_monotonicity = TRUE` then
+approximately evenly over the distinct values. (4) The default `force_monotonicity = TRUE` then
 merges the adjacent pair with the closest WoE, until WoE is strictly monotone or
 `min_bins` bins remain (`enforce_monotonicity()`, `:472`), which can drop cuts the
 criterion accepted; with `force_monotonicity = FALSE` this step is skipped.
@@ -307,9 +307,11 @@ sign: the model cost, and the bits needed to encode the classes given the bins
 (the comment at `src/OBN_MDLP_v5.cpp:107-112`; the merge delta in
 `apply_mdl_merging()`, `:755-814`). A merge never lowers the data term (entropy
 is concave) and always lowers the model term, so the loop stops at the first
-local optimum, where no merge lowers the cost. It also stops as soon as
-`max_bins` is met (`:798-801`) or `min_bins` is reached; only a stop at the local
-optimum can leave more than `max_bins` bins. Three more passes then run, none of
+local optimum, where no merge lowers the cost. It also stops once a merge brings
+the count to `max_bins` or below (`:798-801`), when `min_bins` is reached, or when
+`max_iterations` runs out (with a warning); a stop at the local optimum or on the
+iteration cap is what can leave more than `max_bins` bins. Three more passes
+then run, none of
 them MDL-optimal: `enforce_max_bins()` (`:832-867`) keeps merging the cheapest
 pair — every remaining delta is positive by now — until `max_bins` is met;
 `bin_cutoff` merges rare bins (`merge_rare_bins()`, `:299`); and, unless the WoE
@@ -355,7 +357,7 @@ correction, so the Yates form is this package's choice, and the unclamped
 
 And, in the numerical engine, **`chi_merge_threshold` does not change the
 result.** The initial bins are merged, smallest \(\chi^2\) first, down to
-`max_bins` before the significance test is first evaluated
+`max_bins` before the significance test could be reached
 (`enforce_bin_limits()`, `:597-615`, is called right after pre-binning at
 `:1099-1102` and again at the end), so `chi_merge()` (`:622-687`) has no merge
 left to decide; the Chi2 schedule (`chi2_algorithm()`, `:694-767`) behaves the
@@ -395,7 +397,7 @@ and each pooling removes one block, so there are at most \(k-1\) poolings and
 PAVA is \(O(k)\) in the number of pre-bins, as the code comment at `:641-662`
 says. The pre-bins themselves are capped: `createRegularBins()` uses
 `min(max_n_prebins, distinct values, max_bins)` bins at evenly spaced ranks of
-the distinct values (quantiles when all values are distinct; `:313-314`), raised
+the distinct values (quantiles when all values are distinct; `:313-327`), raised
 to `min_bins`, so with the default `max_bins = 5` the isotonic fit sees at most
 five pre-bins and `max_n_prebins` changes nothing above `max_bins`. And `R/obn_ir.R:63` credits PAVA to Best and
 Chakravarti (1990) — a real paper about active-set methods for isotonic
@@ -415,7 +417,7 @@ narrower than 1/511 of the feature's range is not resolved.
 
 **`ldb`** (`ob_numerical_ldb()`) — cuts at local minima of the density.
 Bandwidth `0.9 * min(sd, IQR/1.34) * n^(-1/5)`, floored at `range / 1000`
-(`src/OBN_LDB_v5.cpp:388-410`). That is Silverman's rule of thumb (1986, p. 48,
+(`src/OBN_LDB_v5.cpp:379-410`). That is Silverman's rule of thumb (1986, p. 48,
 eq. 3.31) with at least two differences: `sd` is the population standard
 deviation (divisor \(n\), computed as \(E[x^2]-\bar x^2\), which loses precision
 when the feature has a large offset), and the floor applies whenever the rule
@@ -638,14 +640,15 @@ scaled quadratically and took 10.7s, 10.7s and 7.4s at only 50,000 rows.
 
 Collected so they are findable.
 
-**Parameters accepted and never read.** `polynomial_degree` in `lpdb`;
+**Parameters accepted and never used.** `polynomial_degree` in `lpdb`;
 `max_n_prebins` in `fast_mdlp`, numerical `sketch`, and categorical `fetb`,
-`sab` and `udt` (`sab` and `udt` only validate it); `max_iterations` in
-numerical `sketch` and categorical `dp`; `bin_cutoff` in `fast_mdlp` and
-categorical `dmiv`, whose rare-level pre-binning (only when there are more
-levels than `max_n_prebins`) uses a hardcoded threshold of 5 observations
-instead (`min_prebin_count`, `src/OBC_DMIV_v5.cpp:87, 245`). In numerical `cm`,
-`chi_merge_threshold` is read but cannot change the result (see `cm` above).
+`sab` and `udt`; `max_iterations` in numerical `sketch` and categorical `dp`;
+`bin_cutoff` in `fast_mdlp` and categorical `dmiv`, whose rare-level pre-binning
+(only when there are more levels than `max_n_prebins`) uses a hardcoded
+threshold of 5 observations instead (`min_prebin_count`,
+`src/OBC_DMIV_v5.cpp:87, 245`). Some of these are validated and then ignored. In
+numerical `cm`, `chi_merge_threshold` is read but cannot change the result (see
+`cm` above).
 
 **`convergence_threshold` rarely acts.** Among the numerical engines only
 `jedi`, `jedi_mwoe`, `ubsd` and `udt` stop an outer loop on a change in IV;
@@ -670,10 +673,10 @@ avoids it.
 
 **`min_bins` against `bin_cutoff`.** In `ldb`, the rare-bin merge never goes
 below `min_bins` (`merge_bins()`, `src/OBN_LDB_v5.cpp:843-940`), so bins below
-`bin_cutoff` survive when the pre-binning already yields `min_bins` bins: with
-`set.seed(20260930)` and `rnorm(1e5)` the only density minima found lie in the
-sparse tails, so the default `min_bins = 3` gives bins of 5, 99,988 and 7
-observations. The numerical `cm` rare-bin pass goes the other way: it does not
+`bin_cutoff` survive once only `min_bins` bins are left, as when the pre-binning
+already yields `min_bins` bins: with `set.seed(20260930)` and `rnorm(1e5)` the
+only density minima found lie in the sparse tails, so the default
+`min_bins = 3` gives bins of 5, 99,988 and 7 observations. The numerical `cm` rare-bin pass goes the other way: it does not
 re-check `min_bins` between merges and can end below it (`merge_rare_bins()`,
 `src/OBN_CM_v5.cpp:811-868`).
 
@@ -692,13 +695,13 @@ reintroduce a violation in an earlier one.
 **Citation errors in the shipped documentation.** Some help pages and source
 comments cite a work with details that do not match the published record:
 
-- `R/obwoe.R`, `R/step_obwoe.R` and the help pages of the categorical `gmb`,
-  `ivb`, `jedi` and `jedi_mwoe` cite Navas-Palencia (2020) as *Expert Systems with
-  Applications* 158, 113508 (doi 10.1016/j.eswa.2020.113508). That DOI belongs to
-  an unrelated paper; the work is an arXiv preprint (arXiv:2001.08025) with no
-  journal version. `src/OBC_DP_v5.cpp:123` cites it under a title
-  (*OptBinning: Mathematical Optimization for Optimal Binning*) that could not be
-  found anywhere.
+- `R/step_obwoe.R` and the help pages of the categorical `gmb`, `ivb`, `jedi` and
+  `jedi_mwoe` cite Navas-Palencia (2020) as *Expert Systems with Applications*
+  158, 113508 (doi 10.1016/j.eswa.2020.113508). That DOI belongs to an unrelated
+  paper; the work is an arXiv preprint (arXiv:2001.08025) with no journal
+  version. `src/OBC_DP_v5.cpp:123` cites it under a title and year
+  (*OptBinning: Mathematical Optimization for Optimal Binning*, 2022) that match
+  no record in Crossref, DataCite or arXiv.
 - Mironchyk and Tchistiakov (2017) are given an SSRN DOI that belongs to an
   unrelated paper (`R/obc_gmb.R:139`, `R/obc_mba.R:121`) and the venue *Frontiers
   in Applied Mathematics and Statistics* 3, 2 (`R/obn_mob.R:210`,
@@ -818,13 +821,15 @@ the sources supports a stronger claim such as "almost always leakage".
 
 **The content of Mironchyk and Tchistiakov (2017)**, cited by `mob`, `mrblp`,
 `mblp`, `oslp`, `gmb` and `mba`. It is an unpublished working paper (2017). No
-DOI, SSRN record or journal version was found, and the SSRN and journal records
-that the help pages give for it belong to other papers (see the known
-limitations above). The paper itself could not be retrieved. Two independent
-descriptions of it (SESUG 2022 paper 188 and excerpts of the PDF) describe a
-merge of adjacent bins driven by a p-value, followed by a monotonicity merge,
-and nothing in either mentions PAVA. None of the six engines that cite it merges
-by p-value; `ir` is the only engine that applies PAVA to weighted event rates.
+SSRN record or journal version was found; its only DOI is a ResearchGate preprint
+DOI (10.13140/RG.2.2.31885.44003, publisher listed as "Unpublished"), and the
+SSRN and journal records that the help pages give for it belong to other papers
+(see the known limitations above). The paper itself could not be retrieved. Two
+independent descriptions of it (SESUG 2022 paper 188 and excerpts of the PDF)
+describe a merge of adjacent bins driven by a p-value, followed by a monotonicity
+merge, and nothing in either mentions PAVA. None of the six engines that cite it
+merges by p-value; `ir` is the only engine that applies PAVA to weighted event
+rates.
 
 **The error bound of this package's compactor sketch.** What it does
 differently from Karnin, Lang and Liberty (2016) is documented above; deriving

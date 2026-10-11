@@ -217,8 +217,9 @@ Time complexity varies by algorithm:
 
 For large datasets (\eqn{n > 10^6}), consider:
 \enumerate{
-  \item Using \code{algorithm = "sketch"}, which proposes cut points from a
-    quantile sketch (the data still have to fit in memory)
+  \item Using \code{algorithm = "sketch"}, which for numerical features
+    proposes cut points from a quantile sketch (the data still have to fit in
+    memory)
   \item Reducing \code{max_n_prebins} via \code{control.obwoe()}
   \item Sampling the data before binning
 }
@@ -373,8 +374,8 @@ and Its Applications. \emph{SIAM Monographs on Mathematical Modeling
 and Computation}. \doi{10.1137/1.9780898718317}
 
 Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming
-Formulation and Solution Approach. \emph{Expert Systems with Applications},
-158, 113508. \doi{10.1016/j.eswa.2020.113508}
+Formulation. \emph{arXiv preprint arXiv:2001.08025}.
+\doi{10.48550/arXiv.2001.08025}
 
 Zeng, G. (2014). A Necessary Condition for a Good Binning Algorithm
 in Credit Scoring. \emph{Applied Mathematical Sciences}, 8(65), 3229-3242.

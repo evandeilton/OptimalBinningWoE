@@ -22,9 +22,12 @@ Documentation only: no algorithm, argument or fitted result changes.
     `bin_cutoff = 0.05` can cost IV on categorical features with many levels,
     because the rare levels share one bin. The vignette shows how to compare
     lower cutoffs on held-out data. The default is unchanged.
-*   **`inst/references.bib`:** entries corrected. The optimal binning method is
-    an arXiv preprint, and the DOI given before belongs to an unrelated paper.
-    The IV bands are described as a rule of thumb.
+*   **IV bands (`?obwoe`, `?summary.obwoe`, `vignette("introduction")`):**
+    described as a rule of thumb; the 0.50 band is no longer credited to
+    Siddiqi or called "almost always leakage".
+*   **References:** `inst/references.bib` corrected, and `?obwoe` cites the
+    optimal binning method as the arXiv preprint it is. The DOI given before
+    belongs to an unrelated paper.
 
 # OptimalBinningWoE 1.14.0
 

@@ -149,8 +149,8 @@ Two merging criteria are applied sequentially:
     at \code{min_bins}, which takes precedence over \code{bin_cutoff}. On a
     smooth, unimodal sample the only density minima are bumps between isolated
     tail observations; they have the lowest density and are chosen first, so
-    the \code{min_bins} cuts can fall in the sparse tails and leave bins of a
-    handful of observations. With no minimum at all the engine uses quantile
+    the cuts can fall in the sparse tails and leave bins of a handful of
+    observations. With no minimum at all the engine uses quantile
     cuts. Lower \code{min_bins} or choose another algorithm in that case.
   \item \strong{Cardinality reduction}: If the number of bins exceeds \code{max_bins},
     the pair of adjacent bins minimizing IV loss when merged is identified via:

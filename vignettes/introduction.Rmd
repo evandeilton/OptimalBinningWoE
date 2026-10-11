@@ -79,10 +79,11 @@ $$
 \left(\frac{n_{i,1}}{N_1} - \frac{n_{i,0}}{N_0}\right) \mathrm{WoE}_i
 $$
 
-This is the symmetrised Kullback–Leibler divergence (Jeffreys divergence)
+This is the symmetrized Kullback–Leibler divergence (Jeffreys divergence)
 between the event and non-event distributions across bins. It is the standard
 single-number summary of predictive strength, and the package grades it with
-the bands from Siddiqi (2006):
+the usual rule-of-thumb bands (the 0.02, 0.10 and 0.30 cut-offs are usually
+credited to Siddiqi, 2006):
 
 | IV | Band | Reading |
 |---|---|---|
@@ -90,7 +91,7 @@ the bands from Siddiqi (2006):
 | $[0.02,\ 0.10)$ | Weak | keep only if it adds diversity |
 | $[0.10,\ 0.30)$ | Medium | the workhorses of a scorecard |
 | $[0.30,\ 0.50)$ | Strong | strong, verify it is not a proxy |
-| $\ge 0.50$ | Suspicious | almost always leakage |
+| $\ge 0.50$ | Suspicious | check for leakage or overfitting |
 
 IV never decreases when you split a bin, so it cannot be used on its own to
 choose the number of bins — that is what the optimisation algorithms are for.
@@ -245,8 +246,8 @@ sel[!sel$selected, c("feature", "total_iv", "iv_class", "reason")]
 
 `status` — the checking-account balance — is the strongest variable in the file
 and is rejected for it. An IV of 0.67 sits in the *Suspicious* band, where
-single-variable strength is far more often a symptom of target leakage than of
-a genuinely dominant predictor. Raise `iv_max` to admit it deliberately:
+single-variable strength deserves a check for target leakage before it is
+trusted. Raise `iv_max` to admit it deliberately:
 
 ```{r select-admit}
 admitted <- obwoe_select(model, iv_max = Inf)
