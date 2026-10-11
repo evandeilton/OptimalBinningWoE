@@ -52,13 +52,21 @@ iterations. Defaults to 1000.}
 Options are \code{"equal_frequency"} (quantile-based) or \code{"equal_width"}.
 Defaults to \code{"equal_frequency"}.}
 
-\item{chi_merge_threshold}{Numeric. The significance level (\eqn{\alpha}) for
-the Chi-square test. Pairs of bins with a p-value > \code{chi_merge_threshold}
-are candidates for merging. Defaults to 0.05.}
+\item{chi_merge_threshold}{Numeric in (0, 1). The significance level
+(\eqn{\alpha}) of the Chi-square test; the critical value is
+\code{qchisq(1 - chi_merge_threshold, 1)}. \strong{It does not change the
+result of this function}: the initial bins are merged, smallest chi-square
+first, until at most \code{max_bins} remain, before the significance test
+is ever reached, so the test never has a merge left to decide (see
+Details). Control the number of bins with \code{max_bins}. The categorical
+\code{\link{ob_categorical_cm}} does use the level as its stopping rule.
+Defaults to 0.05.}
 
-\item{use_chi2_algorithm}{Logical. If \code{TRUE}, uses the Chi2 algorithm
-variant which performs multi-phase merging with decreasing significance levels
-(0.5, 0.1, 0.05, 0.01, ...). This is often more robust for noisy data.
+\item{use_chi2_algorithm}{Logical. If \code{TRUE}, runs the Chi2 variant, a
+schedule of decreasing significance levels (0.5, 0.1, 0.05, 0.01, 0.005,
+0.001). For the reason given for \code{chi_merge_threshold} the schedule
+merges nothing beyond \code{max_bins}; the bins match the default path
+except that the \code{bin_cutoff} rare-bin pass is skipped.
 Defaults to \code{FALSE}.}
 }
 \value{
@@ -93,25 +101,40 @@ The function implements two major discretization strategies:
   \item \strong{Standard ChiMerge:}
   \itemize{
     \item Initializes bins using \code{init_method}.
-    \item Iteratively merges adjacent bins with the lowest \eqn{\chi^2} statistic.
-    \item Merging continues until all adjacent pairs have a p-value less than
-          \code{chi_merge_threshold} or the number of bins reaches \code{max_bins}.
+    \item Iteratively merges the adjacent pair with the lowest \eqn{\chi^2}
+          statistic (2x2 table, Yates continuity correction clamped at zero).
+    \item Merging continues until the number of bins reaches \code{max_bins}.
+          The significance test of Kerber (1992) is never reached: merging
+          stops at \code{max_bins} first (see below).
   }
   \item \strong{Chi2 Algorithm:}
   \itemize{
     \item Activated when \code{use_chi2_algorithm = TRUE}.
-    \item Performs multiple passes with decreasing significance levels
-          (0.5 \eqn{\to} 0.001) to automatically select the optimal significance threshold.
-    \item Checks for inconsistency rates in the data during the process.
+    \item Loops over a schedule of decreasing significance levels
+          (0.5 \eqn{\to}{->} 0.001) and checks the inconsistency rate of the data.
   }
 }
 
-Both methods include post-processing steps to enforce:
+\strong{The significance level does not decide the bin count.} Before either
+method starts, the initial bins are merged, smallest \eqn{\chi^2} first,
+until at most \code{max_bins} remain. The significance tests never run,
+because no merge is left to decide once \code{max_bins} is met, so the number
+of bins is set by \code{max_bins} (and by \code{min_bins}, \code{bin_cutoff}
+and monotonicity), not by \code{chi_merge_threshold}. The categorical
+\code{\link{ob_categorical_cm}} differs: it merges down to \code{max_bins} and
+then keeps merging while pairs are not significantly different at the chosen
+level.
+
+Post-processing steps enforce:
 \itemize{
-  \item \strong{Minimum Bin Size:} Merging rare bins smaller than \code{bin_cutoff}.
+  \item \strong{Minimum Bin Size:} Merging rare bins smaller than
+        \code{bin_cutoff} (standard ChiMerge path only).
   \item \strong{Monotonicity:} Ensuring WoE trend is strictly increasing or decreasing
         to improve model interpretability.
 }
+Monotonicity merging stops at \code{min_bins}; the rare-bin pass does not
+check it again between merges, so a large \code{bin_cutoff} (for example 0.3)
+can leave fewer than \code{min_bins} bins.
 }
 \examples{
 # Example 1: Standard ChiMerge

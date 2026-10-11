@@ -38,8 +38,12 @@ together, so the result may hold fewer bins than requested; see Details.}
 for a bin to be considered valid. Bins with frequency < \code{bin_cutoff}
 will be merged with neighbors. Value must be in (0, 1). Defaults to 0.05.}
 
-\item{max_n_prebins}{Integer. The number of initial quantiles to generate
-during the pre-binning phase. Defaults to 20.}
+\item{max_n_prebins}{Integer. Upper limit on the number of initial quantile
+bins. The number used is \code{min(max_n_prebins, number of distinct values,
+max_bins)}, raised to \code{min_bins} if needed, so values above
+\code{max_bins} change nothing: with the defaults the isotonic fit sees at
+most 5 pre-bins, which PAVA can only pool. Raise \code{max_bins} to give it
+more resolution. Defaults to 20.}
 
 \item{auto_monotonicity}{Logical. If \code{TRUE}, the algorithm automatically
 determines the optimal monotonicity direction (increasing or decreasing)
@@ -91,7 +95,8 @@ a perfect fit is achieved. This guarantees an optimal solution in \eqn{O(n)} tim
 
 \strong{Process Flow:}
 \enumerate{
-  \item \strong{Pre-binning:} Creates initial bins using quantiles.
+  \item \strong{Pre-binning:} Creates initial quantile bins, at most
+        \code{max_bins} of them (see \code{max_n_prebins}).
   \item \strong{Stabilization:} Merges bins below \code{bin_cutoff}.
   \item \strong{Trend Detection:} If \code{auto_monotonicity = TRUE}, calculates
         the correlation between feature midpoints and bin event rates to determine
