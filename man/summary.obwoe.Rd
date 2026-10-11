@@ -47,7 +47,9 @@ including predictive power classification based on established IV thresholds
 \details{
 \subsection{IV Classification Thresholds}{
 
-Following Siddiqi (2006), features are classified by predictive power:
+Features are classified with the usual rule-of-thumb IV bands. The cut-offs
+0.02, 0.10 and 0.30 are usually credited to Siddiqi (2006); the top band is a
+common extension:
 
 \tabular{ll}{
   \strong{Classification} \tab \strong{IV Range} \cr
@@ -55,11 +57,11 @@ Following Siddiqi (2006), features are classified by predictive power:
   Weak \tab 0.02 - 0.10 \cr
   Medium \tab 0.10 - 0.30 \cr
   Strong \tab 0.30 - 0.50 \cr
-  Suspicious \tab > 0.50
+  Suspicious \tab >= 0.50
 }
 
-Features with IV > 0.50 should be examined for data leakage or
-overfitting, as such high values are rarely observed in practice.
+Features with an IV of 0.50 or more should be examined for data leakage or
+overfitting.
 }
 }
 \examples{

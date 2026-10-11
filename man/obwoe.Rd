@@ -50,7 +50,8 @@ Default is 7.}
 
 \item{algorithm}{Character string specifying the binning algorithm.
 Use \code{"auto"} (default) for automatic selection based on target type:
-\code{"jedi"} for binary targets, \code{"jedi_mwoe"} for multinomial.
+\code{"jedi"} for binary targets, \code{"jedi_mwoe"} for multinomial. This is
+a fixed rule, not a search: no algorithm is compared or chosen by IV.
 See Details for the complete algorithm taxonomy.}
 
 \item{control}{A list of algorithm-specific control parameters created by
@@ -88,9 +89,9 @@ An S3 object of class \code{"obwoe"} containing:
 Master interface for optimal discretization and Weight of Evidence (WoE)
 computation across numerical and categorical predictors. This function serves
 as the primary entry point for the \strong{OptimalBinningWoE} package, providing
-automatic feature type detection, intelligent algorithm selection, and unified
-output structures for seamless integration into credit scoring and predictive
-modeling workflows.
+automatic feature type detection, a default algorithm chosen from the target
+type (\code{"auto"}), and unified output structures for seamless integration
+into credit scoring and predictive modeling workflows.
 }
 \details{
 \subsection{Theoretical Foundation}{
@@ -120,7 +121,11 @@ divergence between the event and non-event distributions.
 
 \subsection{Algorithm Taxonomy}{
 
-The package provides 28 algorithms organized by supported feature types:
+The package provides 28 algorithms (37 implementations: 21 numerical and 16
+categorical) organized by supported feature types. The last column says what
+the code does, which is not always what the name suggests; the algorithm
+reference vignette (\code{vignette("algorithms", package = "OptimalBinningWoE")})
+gives the mechanism of each engine.
 
 \strong{Universal Algorithms} (both numerical and categorical):
 \tabular{lll}{
@@ -128,41 +133,41 @@ The package provides 28 algorithms organized by supported feature types:
   \code{jedi} \tab Joint Entropy-Driven Information \tab Heuristic + IV optimization \cr
   \code{jedi_mwoe} \tab JEDI Multinomial WoE \tab Extension for K>2 classes \cr
   \code{cm} \tab ChiMerge \tab Bottom-up chi-squared merging \cr
-  \code{dp} \tab Dynamic Programming \tab Exact optimal IV partitioning \cr
-  \code{dmiv} \tab Decision Tree MIV \tab Recursive partitioning \cr
+  \code{dp} \tab Dynamic Programming \tab Exact DP over event-rate-ordered levels (categorical); greedy merging, no DP table (numerical) \cr
+  \code{dmiv} \tab Metric Divergence Measures \tab Divergence-based merging (nine measures) \cr
   \code{fetb} \tab Fisher's Exact Test \tab Statistical significance-based \cr
-  \code{mob} \tab Monotonic Optimal Binning \tab IV-optimal with monotonicity \cr
+  \code{mob} \tab Monotonic Optimal Binning \tab Greedy IV-loss merging with monotonicity \cr
   \code{sketch} \tab Sketching \tab Probabilistic data structures \cr
-  \code{udt} \tab Unsupervised Decision Tree \tab Entropy-based without target
+  \code{udt} \tab Unsupervised Decision Tree (misnomer) \tab Supervised: entropy-ranked cuts, then bottom-up merging; no tree
 }
 
 \strong{Numerical-Only Algorithms}:
 \tabular{ll}{
   \strong{ID} \tab \strong{Description} \cr
-  \code{bb} \tab Branch and Bound (exact search) \cr
-  \code{ewb} \tab Equal Width Binning (unsupervised) \cr
-  \code{fast_mdlp} \tab Fast MDLP with pruning \cr
+  \code{bb} \tab Branch and Bound (greedy: merges the lowest-IV bin repeatedly; no search tree) \cr
+  \code{ewb} \tab Equal Width Binning (equal-width start, supervised merging) \cr
+  \code{fast_mdlp} \tab Fayyad-Irani MDLP (recursive entropy partitioning) \cr
   \code{ir} \tab Isotonic Regression \cr
-  \code{kmb} \tab K-Means Binning \cr
+  \code{kmb} \tab K-Means inspired Binning (evenly spaced centroids; no k-means iteration) \cr
   \code{ldb} \tab Local Density Binning \cr
-  \code{lpdb} \tab Local Polynomial Density \cr
-  \code{mblp} \tab Monotonic Binning LP \cr
-  \code{mdlp} \tab Minimum Description Length \cr
-  \code{mrblp} \tab Monotonic Regression LP \cr
-  \code{oslp} \tab Optimal Supervised LP \cr
-  \code{ubsd} \tab Unsupervised Std-Dev Based
+  \code{lpdb} \tab Local Polynomial Density (Gaussian KDE; no polynomial is fitted) \cr
+  \code{mblp} \tab Monotonic Binning LP (greedy; no linear program is solved) \cr
+  \code{mdlp} \tab Minimum Description Length (greedy bottom-up merging by MDL cost) \cr
+  \code{mrblp} \tab Monotonic Risk Binning (greedy; no LP, no likelihood-ratio pre-binning) \cr
+  \code{oslp} \tab Optimal Supervised LP (greedy; no linear program is solved) \cr
+  \code{ubsd} \tab Unsupervised Std-Dev Based (unsupervised start, supervised refinement)
 }
 
 \strong{Categorical-Only Algorithms}:
 \tabular{ll}{
   \strong{ID} \tab \strong{Description} \cr
   \code{gmb} \tab Greedy Monotonic Binning \cr
-  \code{ivb} \tab Information Value DP (exact) \cr
+  \code{ivb} \tab Information Value DP (exact over levels ordered by event rate) \cr
   \code{mba} \tab Modified Binning Algorithm \cr
-  \code{milp} \tab Mixed Integer LP \cr
+  \code{milp} \tab Mixed Integer LP (greedy merging; no integer program is solved) \cr
   \code{sab} \tab Simulated Annealing \cr
-  \code{sblp} \tab Similarity-Based LP \cr
-  \code{swb} \tab Sliding Window Binning
+  \code{sblp} \tab Similarity-Based LP (exact DP over levels ordered by event rate) \cr
+  \code{swb} \tab Sliding Window Binning (greedy Jensen-Shannon merging)
 }
 }
 
@@ -183,14 +188,17 @@ When \code{algorithm = "auto"}, the function selects:
 
 \subsection{IV Interpretation Guidelines}{
 
-Siddiqi (2006) provides the following IV thresholds for variable selection:
+The package grades IV with the usual rule-of-thumb bands. The cut-offs 0.02,
+0.10 and 0.30 are usually credited to Siddiqi (2006); the top band is a common
+extension that Navas-Palencia (2020, Table 3) labels "over-prediction". The
+bands are conventions, not statistical tests.
 \tabular{ll}{
   \strong{IV Range} \tab \strong{Predictive Power} \cr
   < 0.02 \tab Unpredictive \cr
   0.02 - 0.10 \tab Weak \cr
   0.10 - 0.30 \tab Medium \cr
   0.30 - 0.50 \tab Strong \cr
-  > 0.50 \tab Suspicious (likely overfitting)
+  >= 0.50 \tab Suspicious (look for leakage or overfitting)
 }
 }
 
@@ -199,14 +207,18 @@ Siddiqi (2006) provides the following IV thresholds for variable selection:
 Time complexity varies by algorithm:
 \itemize{
   \item \strong{JEDI, ChiMerge, MOB}: \eqn{O(n \log n + k^2 m)} where \eqn{n} = observations, \eqn{k} = bins, \eqn{m} = iterations
-  \item \strong{Dynamic Programming}: \eqn{O(n \cdot k^2)} for exact solution
-  \item \strong{Equal Width}: \eqn{O(n)} (fastest, but unsupervised)
-  \item \strong{MILP, SBLP}: Potentially exponential (NP-hard problems)
+  \item \strong{Dynamic programming over ordered levels} (\code{ivb},
+    categorical \code{dp}, \code{sblp}): \eqn{O(K L^2)} where \eqn{K} =
+    \code{max_bins} and \eqn{L} = levels left after pre-binning
+  \item \strong{Equal Width}: \eqn{O(n)} (fastest, but unsupervised start)
+  \item \strong{MILP, numerical DP}: greedy merging; no integer program is
+    solved and no DP table is built
 }
 
 For large datasets (\eqn{n > 10^6}), consider:
 \enumerate{
-  \item Using \code{algorithm = "sketch"} for approximate streaming
+  \item Using \code{algorithm = "sketch"}, which proposes cut points from a
+    quantile sketch (the data still have to fit in memory)
   \item Reducing \code{max_n_prebins} via \code{control.obwoe()}
   \item Sampling the data before binning
 }
