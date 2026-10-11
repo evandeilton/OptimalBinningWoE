@@ -159,6 +159,8 @@ td:first-child{color:var(--ink)}
 tr:last-child td{border-bottom:0}
 .num{font-variant-numeric:tabular-nums; white-space:nowrap}
 .mono{font-family:"IBM Plex Mono",monospace; font-size:.94em; color:var(--ink)}
+table.algs{table-layout:fixed}
+table.algs td{overflow-wrap:anywhere; padding-top:.07em; padding-bottom:.07em}
 
 /* IV band ramp */
 .ramp{display:grid; grid-template-columns:repeat(5,1fr); gap:.18em; margin:.45em 0 .25em}
@@ -265,7 +267,7 @@ ul.tight li::marker{color:var(--accent)}
       <div class="wordmark">OptimalBinningWoE</div>
       <div class="kicker">Cheat sheet &middot; sheet 1 of 2 &middot; bin, screen, transform</div>
       <p class="mast-lede">Optimal binning and Weight of Evidence for credit scoring and risk
-        modelling: 37 C++ binning implementations behind one R interface, from a raw feature
+        modeling: 37 C++ binning implementations behind one R interface, from a raw feature
         store to a deployed scorecard.</p>
     </div>
     <div class="mast-side">
@@ -337,9 +339,10 @@ ul.tight li::marker{color:var(--accent)}
           <dt>data</dt><dd>Data frame holding the target and the candidates.</dd>
           <dt>target</dt><dd>Column name. Binary 0/1, or multinomial 0,1,2,&hellip;</dd>
           <dt>feature</dt><dd><code>NULL</code> bins every column but the target.</dd>
-          <dt>min_bins<br>max_bins</dt><dd>Bin-count envelope the optimiser must respect.</dd>
+          <dt>min_bins<br>max_bins</dt><dd>Target range for the number of bins.</dd>
           <dt>algorithm</dt><dd>One of the 28 names, or <code>"auto"</code>: <code>jedi</code>
-            for a binary target, <code>jedi_mwoe</code> for a multinomial one.</dd>
+            for a binary target, <code>jedi_mwoe</code> for a multinomial one. A fixed rule,
+            not a search for the highest IV.</dd>
           <dt>control</dt><dd>See <code>control.obwoe()</code> on sheet 2.</dd>
         </dl>
         <h3>What comes back: an <span class="mono">obwoe</span> object</h3>
@@ -403,7 +406,7 @@ m$target_type  <i># "binary" or "multinomial"</i></pre>
             suffix_bin = "_bin", suffix_woe = "_woe",
             keep_original = TRUE, na_woe = 0)</pre>
         <p>Adds <code>&lt;feature&gt;_bin</code> and <code>&lt;feature&gt;_woe</code> per binned
-          column. <code>na_woe</code> is the fallback for an unseen category or an unmodelled
+          column. <code>na_woe</code> is the fallback for an unseen category or an unmodeled
           missing value. Numerical intervals are half-open on the right, <code>(a, b]</code>.</p>
         <h3>The manual path, one column at a time</h3>
         <dl class="args">
@@ -504,13 +507,13 @@ out <span class="op">&lt;-</span> <b>obwoe_apply</b>(german, m)</pre>
       <div class="wordmark">Choose, score, deploy</div>
       <div class="kicker">Cheat sheet &middot; sheet 2 of 2 &middot; algorithms, scorecard, SQL</div>
       <p class="mast-lede">28 algorithm names cover 37 implementations &mdash; 21 accept a
-        numerical feature, 16 a categorical one, 9 both. Every one is callable on its own, and
-        the whole pipeline is callable as a single function.</p>
+        numerical feature, 16 a categorical one, 9 both. The last column says what the code
+        does, which is not always what the name suggests.</p>
     </div>
     <div class="mast-side">
       <span class="chip">C++ via Rcpp</span>
       <code>obwoe_algorithms()</code>
-      <code>vignette("introduction")</code>
+      <code>vignette("algorithms")</code>
     </div>
   </header>
 
@@ -521,48 +524,59 @@ out <span class="op">&lt;-</span> <b>obwoe_apply</b>(german, m)</pre>
 
       <section class="blk">
         <h2>The 28 algorithms <small><span class="t tn">N</span>umerical &middot; <span class="t tc">C</span>ategorical</small></h2>
-        <table>
-          <thead><tr><th>Family</th><th>Name</th><th class="tt">N&nbsp;C</th><th>Optimises</th></tr></thead>
+        <table class="algs">
+          <colgroup><col style="width:25%"><col style="width:5.6em"><col style="width:2.6em"><col></colgroup>
+          <thead><tr><th>Family</th><th>Name</th><th class="tt">N&nbsp;C</th><th>What the code does</th></tr></thead>
           <tbody>
-            <tr><td rowspan="6" style="border-bottom:1px solid var(--line)">Information-<br>theoretic</td>
-                <td class="mono">jedi</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Joint entropy-driven intervals <i>(default)</i></td></tr>
-            <tr><td class="mono">jedi_mwoe</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>JEDI for a multinomial target</td></tr>
-            <tr><td class="mono">mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Fayyad&ndash;Irani MDL stopping rule</td></tr>
-            <tr><td class="mono">fast_mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>MDLP with a monotonicity constraint</td></tr>
-            <tr><td class="mono">dmiv</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Divergence measures (Zeng, 2013)</td></tr>
-            <tr style="border-bottom:1px solid var(--line)"><td class="mono">ivb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>IV by dynamic programming</td></tr>
+            <tr><td rowspan="12" style="border-bottom:1px solid var(--line)">Greedy merging under an IV or WoE criterion</td>
+                <td class="mono">jedi</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>IV-driven merging, monotone WoE <i>(default)</i></td></tr>
+            <tr><td class="mono">jedi_mwoe</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>JEDI for a multinomial target; one-vs-rest WoE</td></tr>
+            <tr><td class="mono">mob</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Greedy merging that enforces monotone WoE</td></tr>
+            <tr><td class="mono">mrblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>No linear program, no likelihood-ratio pre-bins</td></tr>
+            <tr><td class="mono">mblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Greedy merging; no linear program is solved</td></tr>
+            <tr><td class="mono">oslp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Greedy merging; no linear program is solved</td></tr>
+            <tr><td class="mono">bb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Merges the lowest-IV bin; no search tree</td></tr>
+            <tr><td class="mono">gmb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Merges the adjacent pair that keeps most IV</td></tr>
+            <tr><td class="mono">mba</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Merges by rate similarity, then least IV loss</td></tr>
+            <tr><td class="mono">milp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Greedy merging; no integer program is solved</td></tr>
+            <tr><td class="mono">swb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Greedy Jensen&ndash;Shannon merging; no window</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">udt</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Entropy-ranked cuts (N), JS merging (C)</td></tr>
 
-            <tr><td rowspan="3" style="border-bottom:1px solid var(--line)">Statistical<br>merging</td>
-                <td class="mono">cm</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Enhanced ChiMerge, &chi;&sup2; on neighbours</td></tr>
-            <tr><td class="mono">fetb</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Fisher's exact test on neighbours</td></tr>
-            <tr style="border-bottom:1px solid var(--line)"><td class="mono">mob</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Monotonic optimal binning</td></tr>
+            <tr><td rowspan="3" style="border-bottom:1px solid var(--line)">Exact dynamic programming</td>
+                <td class="mono">ivb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Exact DP over rate-sorted pre-bins</td></tr>
+            <tr><td class="mono">dp</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Same DP (C); greedy merging (N)</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">sblp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Same DP; rare levels pooled by event rate</td></tr>
 
-            <tr><td rowspan="7" style="border-bottom:1px solid var(--line)">Shape-<br>constrained</td>
-                <td class="mono">ir</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Isotonic regression (PAVA)</td></tr>
-            <tr><td class="mono">mrblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Monotonic risk + likelihood-ratio pre-bins</td></tr>
-            <tr><td class="mono">mblp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Monotonic binning by linear programming</td></tr>
-            <tr><td class="mono">oslp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Optimal supervised partitioning</td></tr>
-            <tr><td class="mono">ldb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Local density binning</td></tr>
-            <tr><td class="mono">lpdb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Local polynomial density binning</td></tr>
-            <tr style="border-bottom:1px solid var(--line)"><td class="mono">gmb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Greedy merge under monotonicity</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td style="border-bottom:1px solid var(--line)">Recursive entropy partitioning</td>
+                <td class="mono">fast_mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Fayyad&ndash;Irani criterion; monotone by default</td></tr>
 
-            <tr><td rowspan="4" style="border-bottom:1px solid var(--line)">Exact<br>optimisation</td>
-                <td class="mono">dp</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Dynamic programming, global optimum</td></tr>
-            <tr><td class="mono">bb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Branch and bound</td></tr>
-            <tr><td class="mono">milp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Mixed-integer formulation</td></tr>
-            <tr style="border-bottom:1px solid var(--line)"><td class="mono">sblp</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Sequential bounded partitioning</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td style="border-bottom:1px solid var(--line)">Bottom-up MDL cost</td>
+                <td class="mono">mdlp</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Merges by MDL cost; not Fayyad&ndash;Irani</td></tr>
 
-            <tr><td rowspan="4" style="border-bottom:1px solid var(--line)">Search &amp;<br>metaheuristic</td>
-                <td class="mono">udt</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Entropy-based tree partitioning</td></tr>
-            <tr><td class="mono">sab</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Simulated annealing</td></tr>
-            <tr><td class="mono">mba</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Agglomerative monotonic merging</td></tr>
-            <tr style="border-bottom:1px solid var(--line)"><td class="mono">swb</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Sliding window over ordered levels</td></tr>
+            <tr><td rowspan="2" style="border-bottom:1px solid var(--line)">Statistical merging</td>
+                <td class="mono">cm</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>ChiMerge: smallest-&chi;&sup2; merges; &alpha; stops C only</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">fetb</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Merges the highest Fisher p-value pair; no &alpha;</td></tr>
 
-            <tr><td rowspan="4">Unsupervised<br>&amp; streaming</td>
-                <td class="mono">sketch</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Streaming quantile sketch, <code>sketch_k</code></td></tr>
-            <tr><td class="mono">ewb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Equal width, then IV refinement</td></tr>
-            <tr><td class="mono">kmb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>K-means initialisation</td></tr>
-            <tr><td class="mono">ubsd</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Standard-deviation cut points</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td style="border-bottom:1px solid var(--line)">Isotonic regression</td>
+                <td class="mono">ir</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>PAVA pools adjacent violating bins</td></tr>
+
+            <tr><td rowspan="2" style="border-bottom:1px solid var(--line)">Density-based</td>
+                <td class="mono">ldb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Gaussian-KDE minima; quantiles fill to min_bins</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">lpdb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>KDE extrema and inflections; no polynomial</td></tr>
+
+            <tr><td rowspan="3" style="border-bottom:1px solid var(--line)">Distribution-based initialization</td>
+                <td class="mono">ewb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Equal-width start, then supervised merging</td></tr>
+            <tr><td class="mono">kmb</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Evenly spaced centroids; no k-means step</td></tr>
+            <tr style="border-bottom:1px solid var(--line)"><td class="mono">ubsd</td><td class="tt"><span class="t tn">N</span><span class="t to">&middot;</span></td><td>Mean &plusmn; 1&ndash;2 SD, equal-width edges, then merging</td></tr>
+
+            <tr style="border-bottom:1px solid var(--line)"><td style="border-bottom:1px solid var(--line)">Divergence-driven</td>
+                <td class="mono">dmiv</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Nine divergence options; WoE defaults to log-odds</td></tr>
+
+            <tr style="border-bottom:1px solid var(--line)"><td style="border-bottom:1px solid var(--line)">Streaming</td>
+                <td class="mono">sketch</td><td class="tt"><span class="t tn">N</span><span class="t tc">C</span></td><td>Sketch-based cuts (N), heavy levels (C); in memory</td></tr>
+
+            <tr><td>Metaheuristic</td>
+                <td class="mono">sab</td><td class="tt"><span class="t to">&middot;</span><span class="t tc">C</span></td><td>Simulated annealing over level assignments</td></tr>
           </tbody>
         </table>
       </section>
@@ -570,16 +584,15 @@ out <span class="op">&lt;-</span> <b>obwoe_apply</b>(german, m)</pre>
       <section class="blk">
         <h2>Picking one</h2>
         <ul class="tight">
-          <li><b>Must the WoE be monotone?</b> Numerical: <code>ir</code>, <code>mrblp</code>,
-            <code>mblp</code>, <code>mob</code>. Categorical: <code>gmb</code>,
-            <code>mob</code>, <code>mba</code>.</li>
-          <li><b>Millions of rows, or a stream?</b> <code>sketch</code>, then <code>ewb</code>
-            or <code>kmb</code>.</li>
-          <li><b>Need the provable optimum?</b> <code>dp</code> and <code>bb</code> for numerical,
-            <code>milp</code> and <code>sblp</code> for categorical.</li>
-          <li><b>High cardinality with rare levels?</b> <code>sketch</code>, <code>mba</code>,
-            <code>swb</code>.</li>
-          <li><b>None of the above:</b> keep <code>algorithm = "auto"</code>.</li>
+          <li><b>The default:</b> <code>jedi</code> (<code>jedi_mwoe</code> if multinomial);
+            <code>"auto"</code> is a fixed rule, not a search.</li>
+          <li><b>Exact DP over rate-sorted pre-bins:</b> <code>ivb</code>, <code>sblp</code>,
+            categorical <code>dp</code>.</li>
+          <li><b>A stopping rule can lower the bin count:</b> <code>fast_mdlp</code>,
+            categorical <code>cm</code>.</li>
+          <li><b>Monotone event rates by construction:</b> <code>ir</code>.</li>
+          <li><b>Very large n or many levels:</b> <code>sketch</code>; the data must still fit
+            in memory.</li>
         </ul>
       </section>
 
@@ -613,8 +626,8 @@ s  <span class="op">&lt;-</span> <b>obwoe_score</b>(link, sc, round = TRUE)</pre
    max_iterations = 1000,
    bin_separator = "%;%",        <i># joins merged levels</i>
    verbose = FALSE)</pre>
-        <p class="note"><b>max_n_prebins is a modelling decision, not a detail.</b> Pre-binning
-          runs before the optimiser sees the data, so a heavy tail can be smeared into one
+        <p class="note"><b>max_n_prebins is a modeling decision, not a detail.</b> Pre-binning
+          runs before the algorithm merges anything, so a heavy tail can be smeared into one
           quantile cell and lost with no warning. Leave the default, and tune it against
           <i>held-out</i> IV for long-tailed continuous predictors only.</p>
       </section>

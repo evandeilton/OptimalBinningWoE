@@ -759,7 +759,7 @@ sessionInfo()
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] future_1.76.0       sass_0.4.10         generics_0.1.4      class_7.3-23       
-#>  [5] lattice_0.22-9      DiceDesign_1.10     listenv_1.0.0       digest_0.6.39      
+#>  [5] lattice_0.22-9      DiceDesign_1.10     listenv_1.1.0       digest_0.6.39      
 #>  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.1         
 #> [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-5       
 #> [17] nnet_7.3-20         survival_3.8-6      purrr_1.2.2         scales_1.4.0       

@@ -2,6 +2,8 @@
 
 ## OptimalBinningWoE 1.14.0
 
+CRAN release: 2026-09-30
+
 ### Correctness, robustness and speed of the C++ engines and the R layer
 
 Crashes, hangs and out-of-bounds reads fixed; one NA/Inf rule for all

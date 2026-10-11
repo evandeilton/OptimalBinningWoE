@@ -882,7 +882,7 @@ sessionInfo()
 #> [25] pillar_1.11.1       pkgdown_2.2.1       jquerylib_0.1.4     MASS_7.3-65        
 #> [29] cachem_1.1.0        gower_1.0.2         rpart_4.1.27        parallelly_1.48.0  
 #> [33] lava_1.9.3          dials_1.4.4         tidyselect_1.2.1    digest_0.6.39      
-#> [37] future_1.76.0       purrr_1.2.2         listenv_1.0.0       splines_4.6.1      
+#> [37] future_1.76.0       purrr_1.2.2         listenv_1.1.0       splines_4.6.1      
 #> [41] fastmap_1.2.0       grid_4.6.1          cli_3.6.6           magrittr_2.0.5     
 #> [45] survival_3.8-6      utf8_1.2.6          future.apply_1.20.2 withr_3.0.3        
 #> [49] scales_1.4.0        lubridate_1.9.5     timechange_0.4.0    rmarkdown_2.32     
