@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-10-11</h4>
+            <h4 data-toc-skip class="date">2026-10-15</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/algorithms.Rmd" class="external-link"><code>vignettes/algorithms.Rmd</code></a></small>
       <div class="d-none name"><code>algorithms.Rmd</code></div>
@@ -110,11 +110,14 @@ it.</li>
 </ol>
 <p>That second rule is not a criticism of the package so much as a
 description of it: much of the documentation already says the same
-thing. <code>R/obn_mblp.R</code>, <code>R/obn_mrblp.R</code> and
-<code>R/obn_dp.R</code> disclaim their own names in detail, and
+thing. <code>R/obn_mblp.R</code> and <code>R/obn_mrblp.R</code> disclaim
+their own names in detail, <code>R/obn_dp.R</code> in a sentence, and
 <code>R/obn_oslp.R</code> goes as far as recommending against its own
 algorithm. This vignette collects those disclosures in one place and
 adds the ones that had not been made.</p>
+<p>Source citations are <code>file:line</code> ranges in the 1.14.x
+sources. Lines drift as the code changes, so each citation also names
+the function or comment it points at.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_algorithms.html">obwoe_algorithms</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>algorithms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">alg</span><span class="op">)</span>,</span>
@@ -227,46 +230,64 @@ directly.</strong></p>
 <span><span class="co">#&gt; 28      ubsd     numerical               binary</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="the-quantity-being-optimised">The quantity being optimised<a class="anchor" aria-label="anchor" href="#the-quantity-being-optimised"></a>
+<h2 id="the-quantity-being-optimized">The quantity being optimized<a class="anchor" aria-label="anchor" href="#the-quantity-being-optimized"></a>
 </h2>
-<p>Nearly every engine here optimises Information Value, so it is worth
-stating what that is. For bins
+<p>Most engines here optimize Information Value, and all of them report
+it, so it is worth stating what that is. For bins
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-with good/bad counts
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>i</mi></msub><mo>,</mo><msub><mi>b</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">g_i, b_i</annotation></semantics></math>
-and totals
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>,</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">g, b</annotation></semantics></math>:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mfrac><mrow><msub><mi>g</mi><mi>i</mi></msub><mi>/</mi><mi>g</mi></mrow><mrow><msub><mi>b</mi><mi>i</mi></msub><mi>/</mi><mi>b</mi></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">V</mi></mrow><mo>=</mo><munder><mo>∑</mo><mi>i</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mi>g</mi><mi>i</mi></msub><mi>g</mi></mfrac><mo>−</mo><mfrac><msub><mi>b</mi><mi>i</mi></msub><mi>b</mi></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><msub><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">
-\mathrm{WoE}_i = \ln\frac{g_i/g}{b_i/b}, \qquad
-\mathrm{IV} = \sum_i \left(\frac{g_i}{g} - \frac{b_i}{b}\right)\mathrm{WoE}_i
+with event counts
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>e</mi><mi>i</mi></msub><annotation encoding="application/x-tex">e_i</annotation></semantics></math>
+(target = 1) and non-event counts
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>i</mi></msub><annotation encoding="application/x-tex">n_i</annotation></semantics></math>
+(target = 0), and totals
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo>,</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">E, N</annotation></semantics></math>:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mfrac><mrow><msub><mi>e</mi><mi>i</mi></msub><mi>/</mi><mi>E</mi></mrow><mrow><msub><mi>n</mi><mi>i</mi></msub><mi>/</mi><mi>N</mi></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">V</mi></mrow><mo>=</mo><munder><mo>∑</mo><mi>i</mi></munder><mrow><mo stretchy="true" form="prefix">(</mo><mfrac><msub><mi>e</mi><mi>i</mi></msub><mi>E</mi></mfrac><mo>−</mo><mfrac><msub><mi>n</mi><mi>i</mi></msub><mi>N</mi></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><msub><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">
+\mathrm{WoE}_i = \ln\frac{e_i/E}{n_i/N}, \qquad
+\mathrm{IV} = \sum_i \left(\frac{e_i}{E} - \frac{n_i}{N}\right)\mathrm{WoE}_i
 </annotation></semantics></math></p>
-<p>IV is the symmetrised Kullback–Leibler divergence between the good
-and bad distributions — the Jeffreys divergence. Zeng (2013, §3.2)
+<p>Events are the numerator in every engine, so WoE is positive where
+the event share exceeds the non-event share. (Texts that put the “good”
+class in the numerator flip the sign; <code>target = 1</code> is the
+event, which in credit scoring is usually the bad outcome.)</p>
+<p>IV is the symmetrized Kullback–Leibler divergence between the event
+and non-event distributions — the Jeffreys divergence. Zeng (2013, §3.2)
 states this identity explicitly, which is what makes the
-divergence-based engine <code>dmiv</code> a generalisation rather than a
+divergence-based engine <code>dmiv</code> a generalization rather than a
 different idea.</p>
 <p>The <strong>weight of evidence</strong> itself long predates credit
 scoring. Good (1985, p. 249) records that the log-likelihood-ratio form
 was first published by Wrinch and Jeffreys (1921); that Turing named the
 quantity informally in classified work at Bletchley Park in 1941; and
-that Good (1950) published and popularised the term. Kullback–Leibler
+that Good (1950) published and popularized the term. Kullback–Leibler
 divergence is its expectation.</p>
 <p><strong>Smoothing is not uniform across the package.</strong> Most
 engines add a pseudo-count before taking the logarithm, but the
 constant, its scaling, and whether IV uses the same smoothed proportions
-as WoE all vary. Four engines — <code>ldb</code>, <code>lpdb</code>,
-<code>kmb</code> and numerical <code>dp</code> — compute WoE from
-<em>smoothed</em> proportions but IV from <em>raw</em> ones. In
-<code>ldb</code> this is visible at
-<code>src/OBN_LDB_v5.cpp:117-150</code>: <code>calculateWOE()</code>
+as WoE all vary. Five engine variants — <code>ldb</code>,
+<code>lpdb</code>, <code>kmb</code>, numerical <code>dp</code> and
+categorical <code>cm</code> — compute WoE from <em>smoothed</em>
+proportions but weight it by the <em>raw</em> share difference, so their
+IV is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>i</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>e</mi><mi>i</mi></msub><mi>/</mi><mi>E</mi><mo>−</mo><msub><mi>n</mi><mi>i</mi></msub><mi>/</mi><mi>N</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><msubsup><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mi>i</mi><mtext mathvariant="normal">smoothed</mtext></msubsup></mrow><annotation encoding="application/x-tex">\sum_i (e_i/E - n_i/N)\,\mathrm{WoE}_i^{\text{smoothed}}</annotation></semantics></math>.
+In <code>ldb</code> this is visible at
+<code>src/OBN_LDB_v5.cpp:125-158</code>: <code>calculateWOE()</code>
 divides by <code>total_pos + num_bins * ALPHA</code>, while
-<code>calculateIV()</code> divides by <code>total_pos</code>. The effect
-is small at
+<code>calculateIV()</code> takes the raw difference
+<code>pos / total_pos - neg / total_neg</code> and multiplies it by that
+WoE. Categorical <code>cm</code> does the same
+(<code>calculate_woe_iv()</code> and <code>calculate_woe()</code>,
+<code>src/OBC_CM_v5.cpp:778-799, 832-839</code>). Numerical
+<code>jedi</code> does not smooth at all: WoE and IV use raw shares,
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><annotation encoding="application/x-tex">10^{-10}</annotation></semantics></math>
+standing in for an empty cell (<code>calculate_woe_iv()</code>,
+<code>src/OBN_JEDI_v5.cpp:362-381</code>). The effect is small at
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>α</mi><mo>=</mo><mn>0.5</mn></mrow><annotation encoding="application/x-tex">\alpha = 0.5</annotation></semantics></math>
 and moderate
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>,
 but it is real, and it means reported IV is not exactly the IV of the
-model whose WoE is reported.</p>
+model whose WoE is reported, and that IVs of different engines are not
+comparable to the third decimal.</p>
 </div>
 <div class="section level2">
 <h2 id="choosing-an-algorithm">Choosing an algorithm<a class="anchor" aria-label="anchor" href="#choosing-an-algorithm"></a>
@@ -302,44 +323,57 @@ with a long tail.</p>
 <td>The only engine that accepts one</td>
 </tr>
 <tr class="odd">
-<td>A genuine statistical stopping rule</td>
-<td><code>cm</code></td>
-<td>ChiMerge with a significance threshold</td>
+<td>A statistical stopping rule</td>
+<td>
+<code>cm</code> (categorical)</td>
+<td>The significance level decides the bin count. In numerical
+<code>cm</code> it does not: <code>max_bins</code> does (see below)</td>
 </tr>
 <tr class="even">
-<td>Provably IV-optimal bins given the ordering</td>
+<td>IV-optimal bins given the ordering</td>
 <td>
 <code>ivb</code>, <code>dp</code> (categorical),
 <code>sblp</code>
 </td>
-<td>Real dynamic programming over the ordered levels</td>
+<td>Dynamic programming over the ordered levels. Categorical
+<code>dp</code> scores a bin with no events or no non-events as WoE = IV
+= 0; <code>sblp</code> optimizes its own smoothing, not the IV it
+reports, and may merge bins afterwards</td>
 </tr>
 <tr class="odd">
 <td>The bin count decided by theory</td>
 <td><code>fast_mdlp</code></td>
-<td>The only faithful Fayyad–Irani implementation here</td>
+<td>The only Fayyad–Irani criterion here; <code>max_bins</code>,
+<code>min_bins</code> and the default
+<code>force_monotonicity = TRUE</code> can still override it</td>
 </tr>
 <tr class="even">
-<td>Guaranteed monotone WoE</td>
+<td>Monotone event rates by construction</td>
 <td><code>ir</code></td>
-<td>Isotonic regression, not a merge heuristic</td>
+<td>Isotonic regression pools the violating bins, so event rates are
+monotone; the smoothed WoE can still break that order when adjacent bins
+tie in event rate (two bins with no events, for example) or when a bin
+is tiny; <code>bin_cutoff</code> only guards against the second
+case</td>
 </tr>
 <tr class="odd">
 <td>Very high cardinality</td>
 <td>
 <code>sketch</code> (categorical)</td>
-<td>Memory independent of the number of levels</td>
+<td>Heavy hitters are found with fixed-size Count-Min sketches; exact
+counts are still kept for every level</td>
 </tr>
 <tr class="even">
-<td>An unsupervised baseline</td>
+<td>An equal-width start</td>
 <td><code>ewb</code></td>
-<td>Equal-width initialisation, honestly labelled</td>
+<td>Equal-width initialization, then supervised merging, honestly
+labeled hybrid</td>
 </tr>
 </tbody>
 </table>
 </div>
 <div class="section level2">
-<h2 id="reference-organised-by-mechanism">Reference, organised by mechanism<a class="anchor" aria-label="anchor" href="#reference-organised-by-mechanism"></a>
+<h2 id="reference-organized-by-mechanism">Reference, organized by mechanism<a class="anchor" aria-label="anchor" href="#reference-organized-by-mechanism"></a>
 </h2>
 <p>Grouping engines by what they <em>do</em> rather than by what they
 are called produces a different and more useful taxonomy than the names
@@ -348,93 +382,187 @@ suggest.</p>
 <h3 id="exact-dynamic-programming">Exact dynamic programming<a class="anchor" aria-label="anchor" href="#exact-dynamic-programming"></a>
 </h3>
 <p>Three engines genuinely solve an optimal-partition problem: having
-fixed an ordering of the levels, they find the contiguous partition
-maximising total IV by Bellman recursion, not by greedy merging.</p>
+sorted the levels by event rate, they find the contiguous partition
+maximizing total IV by Bellman recursion, not by greedy merging. All
+three are
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><msup><mi>L</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(K L^2)</annotation></semantics></math>
+for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>
+pre-bins (the levels left after rare-level pooling, at most
+<code>max_n_prebins</code>) and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>K</mi><mo>=</mo><mtext mathvariant="monospace">𝚖𝚊𝚡_𝚋𝚒𝚗𝚜</mtext></mrow><annotation encoding="application/x-tex">K = \texttt{max\_bins}</annotation></semantics></math>,
+and all three work on categorical features (<code>dp</code> is a dynamic
+program only in its categorical form).</p>
 <p><strong><code>ivb</code></strong> (<code><a href="../reference/ob_categorical_ivb.html">ob_categorical_ivb()</a></code>)
-— sorts levels by event rate, then runs an interval DP with
-cumulative-sum caching, so each DP cell is
+— sorts levels by event rate, then runs an interval DP over cumulative
+counts with a segment-IV cache, so each DP cell is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>
-(<code>src/OBC_IVB_v5.cpp:34-158, 369-442</code>).
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>L</mi><mn>2</mn></msup><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(L^2 k)</annotation></semantics></math>.
-No own parameters.</p>
+(<code>CumulativeStatsCache</code> and <code>IVCache</code>,
+<code>src/OBC_IVB_v5.cpp:68-192</code>; recurrence in
+<code>perform_dynamic_programming()</code>, <code>:463-493</code>). No
+own parameters.</p>
 <p><strong><code>dp</code>, categorical</strong>
-(<code><a href="../reference/ob_categorical_dp.html">ob_categorical_dp()</a></code>) — the same DP, but with the
-monotonicity constraint built into the transition rather than repaired
-afterwards (<code>src/OBC_DP_v5.cpp:666-717</code>): transitions that
-would violate the requested trend are simply never considered. Own
-parameter: <code>monotonic_trend</code> (<code>"auto"</code>,
-<code>"ascending"</code>, <code>"descending"</code>,
-<code>"none"</code>). The <code>"auto"</code> direction is detected by a
-Welford-stable online correlation (Welford, 1962).</p>
+(<code><a href="../reference/ob_categorical_dp.html">ob_categorical_dp()</a></code>) — the same DP over the levels sorted
+by event rate (<code>compute_and_sort_event_rates()</code>,
+<code>src/OBC_DP_v5.cpp:477-513</code>; recurrence in
+<code>perform_dynamic_programming()</code>, <code>:539-585</code>).
+There is <strong>no trend test in the recurrence</strong>: the pooled
+event rate of a run of consecutive sorted levels lies between those of
+its first and last members, so every contiguous partition has monotone
+event rates by construction (the code comment at <code>:545-557</code>
+records that an earlier test only fired on an artifact). A bin without
+events or without non-events is still reported with WoE = IV = 0
+(<code>:75-82</code>, <code>:662</code>), which can break the order of
+the reported WoE. When there are more than <code>max_bins</code> levels,
+<code>monotonic_trend</code> therefore only orders the list:
+<code>"descending"</code> reverses it, and <code>"auto"</code> runs a
+Welford-stable online correlation (Welford, 1962) on rates that are
+already sorted ascending, so it always resolves to ascending. With at
+most <code>max_bins</code> levels the DP is skipped
+(<code>compute_bins_no_optimization()</code>, <code>:346-368</code>) and
+the levels come out in ascending event-rate order, so
+<code>"descending"</code> is ignored (<code>"none"</code> leaves them in
+hash order). Own parameter: <code>monotonic_trend</code>
+(<code>"auto"</code>, <code>"ascending"</code>,
+<code>"descending"</code>, <code>"none"</code>).</p>
 <p><strong><code>sblp</code></strong>
 (<code><a href="../reference/ob_categorical_sblp.html">ob_categorical_sblp()</a></code>) — event-rate ordering, a
-rate-similarity pre-merge for rare levels, then interval DP. Its DP
-re-sums each candidate segment instead of using cumulative sums
-(<code>src/OBC_SBLP_v5.cpp:485-505</code>), making it
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>L</mi><mn>3</mn></msup><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(L^3 k)</annotation></semantics></math>
-where <code>ivb</code> and <code>dp</code> are
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>L</mi><mn>2</mn></msup><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(L^2 k)</annotation></semantics></math>.
-Own parameter: <code>alpha</code> (Laplace constant). <em>Name
-note:</em> no logistic regression is fitted anywhere; the R
-documentation’s analogy to Jenks natural breaks has no counterpart in
-the code.</p>
+rate-similarity pre-merge for rare levels
+(<code>handle_rare_categories()</code>,
+<code>src/OBC_SBLP_v5.cpp:289-376</code>), then interval DP over prefix
+sums (<code>perform_binning()</code>, <code>:441-502</code>). The IV of
+a segment is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>,
+so it is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><msup><mi>L</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(K L^2)</annotation></semantics></math>
+like <code>ivb</code> and <code>dp</code>; the comment above
+<code>perform_binning()</code> records that an earlier version re-summed
+every candidate segment and was
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><msup><mi>L</mi><mn>3</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(K L^3)</annotation></semantics></math>.
+Own parameter: <code>alpha</code> (Laplace constant). <em>Two
+cautions.</em> The DP adds <code>alpha</code> once per level in a
+segment (<code>iv_from_counts()</code>, <code>:506-521</code>), while
+the reported WoE and IV add it once per bin
+(<code>prepare_output()</code>, <code>:592-605</code>), so the partition
+is optimal for a slightly different objective than the IV it reports.
+And, as a name note, no logistic regression is fitted anywhere; the R
+documentation’s analogy to Jenks natural breaks is structural only —
+both are exact dynamic programs over a sorted sequence, but
+<code>sblp</code> maximizes IV, not within-class variance.</p>
 <p>There is a fourth, hidden DP: <strong><code>sketch</code>,
-numerical</strong> contains a correct Bellman DP over “best IV splitting
-the first <em>i</em> points into <em>j</em> bins”
-(<code>src/OBN_Sketch_v5.cpp:277-470</code>) — but it runs only when
+numerical</strong> contains a correct Bellman DP over “best sum of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">V</mi></mrow><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">|\mathrm{IV}|</annotation></semantics></math>
+splitting the first <em>i</em> sorted points into <em>j</em> bins”
+(<code>DynamicProgramming::optimize()</code>,
+<code>src/OBN_Sketch_v5.cpp:237-299</code>) — but it runs only when
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>≤</mo><mn>50</mn></mrow><annotation encoding="application/x-tex">n \le 50</annotation></semantics></math>,
-a threshold hardcoded at <code>src/OBN_Sketch_v5.cpp:979</code> and not
-exposed. For any real dataset, <code>sketch</code> takes its greedy
-branch.</p>
+a threshold hardcoded as <code>dp_size_limit(50)</code>
+(<code>:595</code>), tested in <code>select_optimal_cutpoints()</code>
+(<code>:447</code>) and not exposed. For any real dataset,
+<code>sketch</code> takes its greedy branch.</p>
 </div>
 <div class="section level3">
 <h3 id="recursive-entropy-partitioning">Recursive entropy partitioning<a class="anchor" aria-label="anchor" href="#recursive-entropy-partitioning"></a>
 </h3>
 <p><strong><code>fast_mdlp</code></strong>
 (<code><a href="../reference/ob_numerical_fast_mdlp.html">ob_numerical_fast_mdlp()</a></code>) — the only engine implementing
-the Fayyad–Irani (1993) criterion as published. It recursively splits
-top-down, accepting a cut when the information gain exceeds</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>N</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><mi>N</mi></mfrac><mo>+</mo><mfrac><mi mathvariant="normal">Δ</mi><mi>N</mi></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mi mathvariant="normal">Δ</mi><mo>=</mo><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><msup><mn>3</mn><mi>k</mi></msup><mo>−</mo><mn>2</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">[</mo><mi>k</mi><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>k</mi><mn>1</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>k</mi><mn>2</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">
-\frac{\log_2(N-1)}{N} + \frac{\Delta}{N},
+the Fayyad–Irani (1993) criterion as published. It splits top-down,
+accepting a cut when the information gain exceeds</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>N</mi><mi>S</mi></msub><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><msub><mi>N</mi><mi>S</mi></msub></mfrac><mo>+</mo><mfrac><mi mathvariant="normal">Δ</mi><msub><mi>N</mi><mi>S</mi></msub></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mi mathvariant="normal">Δ</mi><mo>=</mo><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><msup><mn>3</mn><mi>k</mi></msup><mo>−</mo><mn>2</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">[</mo><mi>k</mi><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>k</mi><mn>1</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>k</mi><mn>2</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">
+\frac{\log_2(N_S-1)}{N_S} + \frac{\Delta}{N_S},
 \qquad \Delta = \log_2(3^k - 2) - \bigl[k\,\mathrm{Ent}(S) - k_1\mathrm{Ent}(S_1) - k_2\mathrm{Ent}(S_2)\bigr]
 </annotation></semantics></math></p>
-<p>which for binary targets reduces to the
-<code>log2(7) - 2*E_parent</code> at
-<code>src/OBN_FastMDLPM_v5.cpp:176</code>. Own parameter:
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>N</mi><mi>S</mi></msub><annotation encoding="application/x-tex">N_S</annotation></semantics></math>
+is the number of observations in the interval
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>,</mo><msub><mi>k</mi><mn>1</mn></msub><mo>,</mo><msub><mi>k</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">k, k_1, k_2</annotation></semantics></math>
+count the classes present in the interval and in its two parts. For a
+binary target
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">k = 2</annotation></semantics></math>,
+so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mo>=</mo><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mn>7</mn><mo>−</mo><mn>2</mn><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>k</mi><mn>1</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>1</mn></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>k</mi><mn>2</mn></msub><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mn>2</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Delta = \log_2 7 - 2\,\mathrm{Ent}(S) + k_1\mathrm{Ent}(S_1) + k_2\mathrm{Ent}(S_2)</annotation></semantics></math>;
+the child terms stay in (<code>best_mdlp_cut()</code>,
+<code>src/OBN_FastMDLPM_v5.cpp:217-272</code>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Δ</mi><annotation encoding="application/x-tex">\Delta</annotation></semantics></math>
+at <code>:261-262</code>). Own parameter:
 <code>force_monotonicity</code>.</p>
-<p><em>Two caveats.</em> <code>max_n_prebins</code> and
-<code>bin_cutoff</code> appear exactly once each in the file — in the
-signature — and have no effect. And <code>max_bins</code> is enforced by
-discarding the <strong>last-discovered</strong> splits
-(<code>src/OBN_FastMDLPM_v5.cpp:548-575</code>), by recursion order
-rather than by information content; the source comment admits this is
-“for simplicity”.</p>
+<p><em>Four caveats.</em> (1) <code>max_n_prebins</code> and
+<code>bin_cutoff</code> are accepted and then discarded:
+<code>(void) bin_cutoff; (void) max_n_prebins;</code> at
+<code>src/OBN_FastMDLPM_v5.cpp:541-542</code>. (2) <code>max_bins</code>
+truncates by <strong>best-first expansion</strong>, not by recursion
+order: <code>mdlp_cuts()</code> (<code>:285-304</code>) keeps a priority
+queue of the accepted cut of every open interval, ordered by entropy
+reduction, pops the largest, splits that interval, and stops after
+<code>max_bins - 1</code> cuts. The result is the best-first prefix of
+the Fayyad–Irani tree. That is not a global
+top-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>K</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(K-1)</annotation></semantics></math>
+selection, because a child interval can offer a larger gain than its
+parent. (3) When the criterion accepts fewer than
+<code>min_bins - 1</code> cuts, <code>force_min_bins()</code>
+(<code>:361</code>) discards them and places <code>min_bins - 1</code>
+cuts spread approximately evenly over the distinct values. (4) The
+default <code>force_monotonicity = TRUE</code> then merges the adjacent
+pair with the closest WoE, until WoE is strictly monotone or
+<code>min_bins</code> bins remain (<code>enforce_monotonicity()</code>,
+<code>:472</code>), which can drop cuts the criterion accepted; with
+<code>force_monotonicity = FALSE</code> this step is skipped.</p>
 <p><strong><code>udt</code>, numerical</strong>
 (<code><a href="../reference/ob_numerical_udt.html">ob_numerical_udt()</a></code>) — scores every candidate midpoint by
-information gain in a single prefix-sum sweep, keeps the top
+information gain in a single prefix-sum sweep
+(<code>get_entropy_based_cutpoints()</code>,
+<code>src/OBN_UDT_v5.cpp:425-522</code>), keeps the top
 <code>max_n_prebins</code> by gain, then merges bottom-up. Own
 parameters: <code>laplace_smoothing</code>,
-<code>monotonicity_direction</code>. Its split phase rescans the full
-feature vector per bin (<code>src/OBN_UDT_v5.cpp:778-880</code>), which
-the R documentation correctly warns is expensive. <em>Name note:</em>
-the package’s own roxygen states it plainly — the method is supervised
-and builds no tree.</p>
+<code>monotonicity_direction</code>. A split phase
+(<code>split_optimal_bin()</code>, <code>:794-876</code>) runs only when
+fewer than <code>min_bins</code> bins remain, and it rescans the full
+feature vector once per bin it examines. <em>Name note:</em> the
+package’s own roxygen states it plainly — the method is supervised and
+builds no tree.</p>
 </div>
 <div class="section level3">
 <h3 id="bottom-up-mdl-cost">Bottom-up MDL cost<a class="anchor" aria-label="anchor" href="#bottom-up-mdl-cost"></a>
 </h3>
 <p><strong><code>mdlp</code></strong> (<code><a href="../reference/ob_numerical_mdlp.html">ob_numerical_mdlp()</a></code>)
-— merges the adjacent pair that most reduces a global cost
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>N</mi><mi>H</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mo>∑</mo><mi>i</mi></msub><msub><mi>n</mi><mi>i</mi></msub><mi>H</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log_2(k-1) + N H(S) - \sum_i n_i H(S_i)</annotation></semantics></math>
-(<code>src/OBN_MDLP_v5.cpp:915-966</code>), then enforces
-<code>max_bins</code> as a hard post-condition. Own parameter:
-<code>laplace_smoothing</code>.</p>
-<p><em>Name note.</em> This is an MDL-flavoured cost, but it is
+— merges, one at a time, the adjacent pair whose merge lowers the
+description-length cost</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">M</mi><mi mathvariant="normal">D</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>+</mo><munder><mo>∑</mo><mi>i</mi></munder><msub><mi>m</mi><mi>i</mi></msub><mspace width="0.167em"></mspace><mrow><mi mathvariant="normal">E</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>S</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">
+\mathrm{MDL}(k) = \log_2(k-1) + \sum_i m_i\,\mathrm{Ent}(S_i)
+</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>m</mi><mi>i</mi></msub><annotation encoding="application/x-tex">m_i</annotation></semantics></math>
+is the number of observations in bin
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.
+Both terms carry a plus sign: the model cost, and the bits needed to
+encode the classes given the bins (the comment at
+<code>src/OBN_MDLP_v5.cpp:107-112</code>; the merge delta in
+<code>apply_mdl_merging()</code>, <code>:755-814</code>). A merge never
+lowers the data term (entropy is concave) and always lowers the model
+term, so the loop stops at the first local optimum, where no merge
+lowers the cost. It also stops once a merge brings the count to
+<code>max_bins</code> or below (<code>:798-801</code>), when
+<code>min_bins</code> is reached, or when <code>max_iterations</code>
+runs out (with a warning); a stop at the local optimum or on the
+iteration cap is what can leave more than <code>max_bins</code> bins.
+Three more passes then run, none of them MDL-optimal:
+<code>enforce_max_bins()</code> (<code>:832-867</code>) keeps merging
+the cheapest pair — every remaining delta is positive by now — until
+<code>max_bins</code> is met; <code>bin_cutoff</code> merges rare bins
+(<code>merge_rare_bins()</code>, <code>:299</code>); and, unless the WoE
+is already monotone, <code>enforce_monotonicity()</code>
+(<code>:215-291</code>) merges WoE-violating pairs, choosing the side by
+an IV-loss comparison rather than by MDL cost. The bins that come back
+can therefore still contain adjacent pairs whose merge would lower the
+MDL cost. Own parameter: <code>laplace_smoothing</code>.</p>
+<p><em>Name note.</em> This is an MDL-flavored cost, but it is
 <strong>not</strong> the Fayyad–Irani criterion: the term
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><msup><mn>3</mn><mi>k</mi></msup><mo>−</mo><mn>2</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log_2(3^k-2)</annotation></semantics></math>
 appears nowhere in the file, and the algorithm is agglomerative
 bottom-up where the cited paper is recursive top-down.
-<code>R/obn_mdlp.R:134</code> nonetheless claims a “Theoretical
+<code>R/obn_mdlp.R:137</code> nonetheless claims a “Theoretical
 Guarantee (Fayyad &amp; Irani, 1993)”. The guarantee does not transfer.
 Confusingly, the engine that <em>does</em> implement the paper is the
 one named <code>fast_mdlp</code>, whose name suggests it is merely a
@@ -450,114 +578,179 @@ merge the adjacent pair with the smallest
 stop when the smallest exceeds a critical value. Own parameters:
 <code>chi_merge_threshold</code>, <code>use_chi2_algorithm</code>, and
 <code>init_method</code> on the numerical side. Setting
-<code>use_chi2_algorithm = TRUE</code> gives the genuine Chi2 extension
-of Liu and Setiono (1995): the same merge swept over a decreasing
-schedule of significance levels, stopping on an inconsistency-rate
-criterion.</p>
-<p>Two implementation notes. The statistic includes a <strong>Yates
-continuity correction</strong>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∑</mo><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">|</mo><mi>O</mi><mo>−</mo><mi>E</mi><mo stretchy="false" form="prefix">|</mo><mi>−</mi><mn>0.5</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mi>/</mi><mi>E</mi></mrow><annotation encoding="application/x-tex">\sum(|O-E| - 0.5)^2/E</annotation></semantics></math>
-(<code>src/OBN_CM_v5.cpp:266-310</code>), which is not the form usually
-attributed to Kerber; the primary source could not be consulted directly
-to confirm whether Kerber’s own text includes it. And critical values
-come from a hard-coded 14-entry table for one degree of freedom, with
-the nearest tabulated level substituted for an untabulated
-<code>chi_merge_threshold</code>.</p>
+<code>use_chi2_algorithm = TRUE</code> defines the Chi2 extension of Liu
+and Setiono (1995): the same merge swept over a decreasing schedule of
+significance levels (0.5 down to 0.001), with an inconsistency-rate
+check. Because <code>max_bins</code> is enforced first, the schedule
+ends after its first level: numerical <code>cm</code> returns the
+ChiMerge bins (without the rare-bin pass), and categorical
+<code>cm</code> returns one ChiMerge pass at
+<code>chi_merge_threshold = 0.5</code>, whatever threshold was passed.
+Unlike the ChiMerge path, the Chi2 path skips the
+<code>bin_cutoff</code> rare-level pass and the
+<code>max_n_prebins</code> limit (<code>perform_chi2_binning()</code>,
+<code>src/OBC_CM_v5.cpp:450-480</code>; compare
+<code>perform_chimerge_binning()</code>, <code>:430-445</code>), so the
+two can differ.</p>
+<p><em>Three implementation notes.</em> The statistic includes a
+<strong>Yates continuity correction</strong> with the deviation clamped
+at zero,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∑</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">|</mo><mi>O</mi><mo>−</mo><mi>E</mi><mo stretchy="false" form="prefix">|</mo><mi>−</mi><mn>0.5</mn><mo>,</mo><mspace width="0.222em"></mspace><mn>0</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mi>/</mi><mi>E</mi></mrow><annotation encoding="application/x-tex">\sum \max(|O-E| - 0.5,\ 0)^2/E</annotation></semantics></math>,
+as in <code>chisq.test(correct = TRUE)</code>
+(<code>calculate_chi_square()</code>,
+<code>src/OBN_CM_v5.cpp:138-172</code>). Kerber (1992, p. 124) prints
+the plain Pearson sum
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∑</mo><mo stretchy="false" form="prefix">(</mo><mi>O</mi><mo>−</mo><mi>E</mi><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mi>/</mi><mi>E</mi></mrow><annotation encoding="application/x-tex">\sum (O-E)^2/E</annotation></semantics></math>
+without a continuity correction, so the Yates form is this package’s
+choice, and the unclamped
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">|</mo><mi>O</mi><mo>−</mo><mi>E</mi><mo stretchy="false" form="prefix">|</mo><mi>−</mi><mn>0.5</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mi>/</mi><mi>E</mi></mrow><annotation encoding="application/x-tex">(|O-E|-0.5)^2/E</annotation></semantics></math>
+is not what the code computes. The critical value is
+<code>qchisq(1 - alpha, 1)</code>
+(<code>chi_square_critical_value()</code>, <code>:965-967</code>; 3.841
+for <code>alpha = 0.05</code>), not a lookup table.</p>
+<p>And, in the numerical engine,
+<strong><code>chi_merge_threshold</code> does not change the
+result.</strong> The initial bins are merged, smallest
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>
+first, down to <code>max_bins</code> before the significance test could
+be reached (<code>enforce_bin_limits()</code>, <code>:597-615</code>, is
+called right after pre-binning at <code>:1099-1102</code> and again at
+the end), so <code>chi_merge()</code> (<code>:622-687</code>) has no
+merge left to decide; the Chi2 schedule (<code>chi2_algorithm()</code>,
+<code>:694-767</code>) behaves the same way. <code>max_bins</code> sets
+the bin count, and <code>bin_cutoff</code> and monotonicity can only
+merge further. The categorical engine differs: it merges down to
+<code>max_bins</code> and then keeps merging while the smallest
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>
+is below the critical value (<code>merge_bins_chimerge()</code>,
+<code>src/OBC_CM_v5.cpp:582-630</code>), so there the significance level
+does decide the bin count.</p>
 <p><strong><code>fetb</code></strong> (<code><a href="../reference/ob_numerical_fetb.html">ob_numerical_fetb()</a></code>,
 <code><a href="../reference/ob_categorical_fetb.html">ob_categorical_fetb()</a></code>) — merges the adjacent pair whose 2×2
-table is least distinguishable. No own parameters.</p>
-<p><em>What it computes.</em> <code>fisherProb()</code> returns the
-<strong>hypergeometric point probability of the single observed
-table</strong> (<code>src/OBN_FETB_v5.cpp:58-65</code>), which is one
-term of a Fisher exact-test p-value, not the summed tail. The package is
-internally inconsistent about this: the function’s own comment says
-“point probability” and the roxygen says “the exact hypergeometric
-probability of independence” — both accurate — while the file header at
-<code>src/OBN_FETB_v5.cpp:23</code> calls it a “two‑tail Fisher
-p‑value”, which it is not. As a similarity criterion the statistic is
-defensible; as a significance test it is not, and there is no α-based
-stopping rule. On the categorical side, <code>max_n_prebins</code> is
-accepted and never read.</p>
+table is least distinguishable: the pair with the highest
+<strong>two-sided Fisher p-value</strong>, computed in C++ with the same
+tolerance for “as extreme” tables as <code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test()</a></code>
+(<code>fisher_two_sided_log_p()</code>,
+<code>src/OBN_FETB_v5.cpp:91-154</code>; categorical
+<code>fisherLogPValue()</code>, <code>src/OBC_FETB_v5.cpp:172</code>).
+No own parameters.</p>
+<p><em>What it computes.</em> The p-value ranks the merges; it does not
+stop them. There is no α: merging continues until <code>max_bins</code>
+is met (<code>fisher_merge_loop()</code>,
+<code>src/OBN_FETB_v5.cpp:325-342</code>). Releases before 1.14.0 ranked
+merges by the hypergeometric <em>point probability</em> of the observed
+table, which is not a p-value. On the categorical side,
+<code>max_n_prebins</code> is accepted and never read
+(<code>src/OBC_FETB_v5.cpp:423</code>).</p>
 </div>
 <div class="section level3">
 <h3 id="isotonic-regression">Isotonic regression<a class="anchor" aria-label="anchor" href="#isotonic-regression"></a>
 </h3>
 <p><strong><code>ir</code></strong> (<code><a href="../reference/ob_numerical_ir.html">ob_numerical_ir()</a></code>) —
-the one engine whose name fully survives inspection. Weighted Pool
-Adjacent Violators on bin event rates, correctly implemented
-(<code>src/OBN_IR_v5.cpp:776-856</code>), and — importantly — the bins
+an engine whose name survives inspection. Weighted Pool Adjacent
+Violators on bin event rates, correctly implemented
+(<code>applyIsotonicRegression()</code>,
+<code>src/OBN_IR_v5.cpp:663-721</code>), and — importantly — the bins
 that PAVA pools are then genuinely merged rather than having fitted
 values written over them, so the reported counts and the isotonic fit
 stay consistent. Own parameter: <code>auto_monotonicity</code>.
 <code>min_bins</code> is a target, not a guarantee: pooling can
 legitimately end below it, and the roxygen says so.</p>
-<p><em>Two notes.</em> The source comment at
-<code>src/OBN_IR_v5.cpp:761</code> claims
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(n)</annotation></semantics></math>,
-but the block merge shifts the whole vector (<code>:822-827</code>),
-making it
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>k</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(k^2)</annotation></semantics></math>.
-And <code>R/obn_ir.R:55</code> credits PAVA to Best and Chakravarti
-(1990) — a real paper about active-set methods for isotonic regression,
-but not the algorithm’s origin, which is Ayer, Brunk, Ewing, Reid and
-Silverman (1955).</p>
+<p><em>Three notes.</em> The pass is a single stack scan in which every
+bin is pushed once and each pooling removes one block, so there are at
+most
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">k-1</annotation></semantics></math>
+poolings and PAVA is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(k)</annotation></semantics></math>
+in the number of pre-bins, as the code comment at <code>:641-662</code>
+says. The pre-bins themselves are capped:
+<code>createRegularBins()</code> uses
+<code>min(max_n_prebins, distinct values, max_bins)</code> bins at
+evenly spaced ranks of the distinct values (quantiles when all values
+are distinct; <code>:313-327</code>), raised to <code>min_bins</code>,
+so with the default <code>max_bins = 5</code> the isotonic fit sees at
+most five pre-bins and <code>max_n_prebins</code> changes nothing above
+<code>max_bins</code>. And <code>R/obn_ir.R:63</code> credits PAVA to
+Best and Chakravarti (1990) — a real paper about active-set methods for
+isotonic regression, but not the algorithm’s origin, which is Ayer,
+Brunk, Ewing, Reid and Silverman (1955).</p>
 </div>
 <div class="section level3">
 <h3 id="density-based">Density-based<a class="anchor" aria-label="anchor" href="#density-based"></a>
 </h3>
 <p>Both engines locate cut points from a Gaussian kernel density
-estimate, computed by linear binning on a grid and convolution — the
-technique of Silverman (1982), with linear binning as formalised by Wand
-(1994) — in the shared helper <code>gaussian_kde_grid()</code>. The grid
-is 512 points and is not user-adjustable, so structure narrower than
-1/511 of the feature’s range is not resolved.</p>
+estimate, computed by linear binning onto a grid followed by a direct
+convolution (not an FFT), in the shared helper
+<code>gaussian_kde_grid()</code>
+(<code>src/common/optimal_binning_common.h:125-195</code>;
+<code>ldb</code> reads the grid back at the observations through
+<code>gaussian_kde_sorted()</code>, <code>:222-255</code>). It is a
+binned estimator in the family of Silverman (1982) and Wand (1994), with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>G</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(G^2)</annotation></semantics></math>
+cost for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>G</mi><annotation encoding="application/x-tex">G</annotation></semantics></math>
+grid points. The grid has 512 points and is not user-adjustable, so
+structure narrower than 1/511 of the feature’s range is not
+resolved.</p>
 <p><strong><code>ldb</code></strong> (<code><a href="../reference/ob_numerical_ldb.html">ob_numerical_ldb()</a></code>) —
 cuts at local minima of the density. Bandwidth
-<code>0.9 * min(sd, IQR/1.34) * n^(-1/5)</code>
-(<code>src/OBN_LDB_v5.cpp:383</code>), an exact match to Silverman’s
-rule of thumb (1986, p. 48, eq. 3.31). Own parameter:
+<code>0.9 * min(sd, IQR/1.34) * n^(-1/5)</code>, floored at
+<code>range / 1000</code> (<code>src/OBN_LDB_v5.cpp:379-410</code>).
+That is Silverman’s rule of thumb (1986, p. 48, eq. 3.31) with at least
+two differences: <code>sd</code> is the population standard deviation
+(divisor
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>,
+computed as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo stretchy="false" form="prefix">[</mo><msup><mi>x</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">]</mo><mo>−</mo><msup><mover><mi>x</mi><mo accent="true">‾</mo></mover><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E[x^2]-\bar x^2</annotation></semantics></math>,
+which loses precision when the feature has a large offset), and the
+floor applies whenever the rule gives a smaller value. It therefore
+differs from <code><a href="https://rdrr.io/r/stats/bandwidth.html" class="external-link">bw.nrd0()</a></code> in both (and the IQR is taken from
+order statistics without interpolation). Own parameter:
 <code>enforce_monotonic</code>.</p>
 <p><strong><code>lpdb</code></strong> (<code><a href="../reference/ob_numerical_lpdb.html">ob_numerical_lpdb()</a></code>)
 — cuts at extrema <em>and inflection points</em>, found by finite
 differences of the gridded density. Own parameters:
 <code>polynomial_degree</code>, <code>enforce_monotonic</code>.</p>
 <p><em>Name note.</em> No polynomial is fitted.
-<code>polynomial_degree</code> is validated and never read — setting it
-changes nothing. The R documentation already says the density is
-“currently approximated via KDE”. Its bandwidth also drops the
-robustness term, using <code>0.9 * sd * n^(-1/5)</code>
-(<code>src/OBN_LPDB_v5.cpp:784</code>), which makes it more
+<code>polynomial_degree</code> is validated (1 to 10) and never read —
+setting it changes nothing; the R documentation now says so. Its
+bandwidth also drops the robustness term and the floor, using
+<code>0.9 * sd * n^(-1/5)</code> with the population standard deviation
+(<code>src/OBN_LPDB_v5.cpp:820-836</code>), which makes it more
 outlier-sensitive than <code>ldb</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="distribution-based-initialisation">Distribution-based initialisation<a class="anchor" aria-label="anchor" href="#distribution-based-initialisation"></a>
+<h3 id="distribution-based-initialization">Distribution-based initialization<a class="anchor" aria-label="anchor" href="#distribution-based-initialization"></a>
 </h3>
 <p><strong><code>ewb</code></strong> (<code><a href="../reference/ob_numerical_ewb.html">ob_numerical_ewb()</a></code>) —
-equal-width intervals, then supervised merging. Honestly labelled as
+equal-width intervals, then supervised merging. Honestly labeled as
 hybrid. Own parameter: <code>is_monotonic</code>. Its WoE and IV use the
 <em>same</em> smoothed proportions, unlike
 <code>ldb</code>/<code>lpdb</code>/<code>kmb</code>/<code>dp</code>.</p>
 <p><strong><code>kmb</code></strong> (<code><a href="../reference/ob_numerical_kmb.html">ob_numerical_kmb()</a></code>) —
 centroids placed at <code>min + (i+0.5)·range/n_bins</code> and
-boundaries at their midpoints (<code>src/OBN_KMB_v5.cpp:279-332</code>).
-<em>Name note:</em> there is no assignment/update iteration, so this is
-not Lloyd’s algorithm (1982) — evenly spaced centroids with midpoint
-boundaries is equal-width binning under another name. The roxygen is
-careful and says “k-means <strong>inspired</strong>”. Two further
-quirks: bin assignment is a linear scan per observation,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(nk)</annotation></semantics></math>,
-the only engine not using binary search; and the initial bin count is
-capped at <code>max_bins</code>, so raising <code>max_n_prebins</code>
-above <code>max_bins</code> does nothing.</p>
+boundaries at their midpoints (<code>createRegularBins()</code>,
+<code>src/OBN_KMB_v5.cpp:273-323</code>). <em>Name note:</em> there is
+no assignment/update iteration, so this is not Lloyd’s algorithm (1982)
+— evenly spaced centroids with midpoint boundaries is equal-width
+binning under another name. The roxygen is careful and says “k-means
+<strong>inspired</strong>”. The initial bin count is also capped at
+<code>max_bins</code>, so raising <code>max_n_prebins</code> above
+<code>max_bins</code> does nothing.</p>
 <p><strong><code>ubsd</code></strong> (<code><a href="../reference/ob_numerical_ubsd.html">ob_numerical_ubsd()</a></code>)
 — edges at
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>μ</mi><mo>±</mo><mi>σ</mi><mo>,</mo><mi>μ</mi><mo>±</mo><mn>2</mn><mi>σ</mi></mrow><annotation encoding="application/x-tex">\mu \pm \sigma, \mu \pm 2\sigma</annotation></semantics></math>
-unioned with equal-width points, then supervised refinement. Own
-parameter: <code>laplace_smoothing</code>. <em>Note:</em> alone among
-the numerical engines it offers <strong>no way to disable monotonicity
-enforcement</strong> — there is no such argument in the constructor or
-the exported function. The roxygen already corrects the “unsupervised”
-in its name: only initialisation is unsupervised.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>μ</mi><mo>,</mo><mi>μ</mi><mo>±</mo><mi>σ</mi><mo>,</mo><mi>μ</mi><mo>±</mo><mn>2</mn><mi>σ</mi></mrow><annotation encoding="application/x-tex">\mu, \mu \pm \sigma, \mu \pm 2\sigma</annotation></semantics></math>
+unioned with equal-width points
+(<code>src/OBN_UBSD_v5.cpp:357-374</code>), then supervised refinement.
+Own parameter: <code>laplace_smoothing</code>. <em>Note:</em> it has
+<strong>no argument to disable monotonicity enforcement</strong>; it
+always calls <code>enforce_monotonicity()</code> (<code>:122</code>),
+and ten other numerical engines also always enforce monotonicity
+(<code>cm</code>, <code>fetb</code>, <code>ir</code>, <code>jedi</code>,
+<code>jedi_mwoe</code>, <code>mblp</code>, <code>mdlp</code>,
+<code>mob</code>, <code>mrblp</code>, <code>oslp</code>). The roxygen
+already corrects the “unsupervised” in its name: only initialization is
+unsupervised.</p>
 </div>
 <div class="section level3">
 <h3 id="divergence-driven">Divergence-driven<a class="anchor" aria-label="anchor" href="#divergence-driven"></a>
@@ -571,53 +764,77 @@ Jensen–Shannon (Lin, 1991), L1, L2, L∞. Own parameters:
 <code>is_monotonic</code> on the numerical side.</p>
 <p><strong><code>bin_method</code> defaults to <code>"woe1"</code>,
 which is not standard WoE.</strong> Zeng’s WOE1 is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>g</mi><mi>i</mi></msub><mi>/</mi><msub><mi>b</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln(g_i/b_i)</annotation></semantics></math>
-— a per-bin log-odds with no normalisation by the totals — so it differs
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>e</mi><mi>i</mi></msub><mi>/</mi><msub><mi>n</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln(e_i/n_i)</annotation></semantics></math>
+— a per-bin log-odds with no normalization by the totals — so it differs
 from standard WoE by the constant
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mi>/</mi><mi>b</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln(g/b)</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>E</mi><mi>/</mi><mi>N</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln(E/N)</annotation></semantics></math>.
 IV is unaffected, because the offset cancels in the sum, and the code
-computes IV separately for exactly that reason
-(<code>src/OBN_DMIV_v5.cpp:724-761</code>). But the WoE values are not
-comparable with the other 27 engines, and a scorecard fitted on them
-carries a different intercept. Pass <code>bin_method = "woe"</code> to
-the wrapper for the standard definition.</p>
+computes IV separately from the smoothed class distributions for exactly
+that reason (<code>src/OBN_DMIV_v5.cpp:790-822</code>). But the WoE
+values are not comparable with the other 27 engines, and a scorecard
+fitted on them carries a different intercept. Pass
+<code>bin_method = "woe"</code> to the wrapper for the standard
+definition.</p>
+<p><em>Merge rule (numerical).</em> The merge phase does not compare
+pairs: it finds the single bin with the smallest absolute divergence
+contribution and absorbs it into the previous bin (into the next one
+when it is the first), until <code>max_bins</code> is met
+(<code>fit()</code>, <code>src/OBN_DMIV_v5.cpp:720-761</code>; the
+comment there calls this “Branch and Bound”, but nothing is branched or
+bounded).</p>
 <p><em>Attribution note.</em> The package presents the
 <strong>smoothed</strong> form
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>g</mi><mi>i</mi></msub><mo>+</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>b</mi><mi>i</mi></msub><mo>+</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln((g_i+0.5)/(b_i+0.5))</annotation></semantics></math>
-as Zeng’s (<code>R/obc_dmiv.R:38</code>). Zeng’s published WOE1 is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>e</mi><mi>i</mi></msub><mo>+</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>n</mi><mi>i</mi></msub><mo>+</mo><mn>0.5</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln((e_i+0.5)/(n_i+0.5))</annotation></semantics></math>
+as Zeng’s (<code>R/obc_dmiv.R:44</code>). Zeng’s published WOE1 is
 unsmoothed; the pseudo-count is this package’s own numerical-stability
-addition. Two further citation issues: <code>R/obn_dmiv.R:86</code>
-gives the venue as <em>Journal of the Operational Research Society</em>
-64(5), 712–731, but the verified publication is <em>Journal of
-Mathematics</em> 2013, article 848271; and two divergence methods behave
+addition. In the numerical engine two divergence methods also behave
 globally rather than per bin — <code>l2</code> rescales each bin’s share
 of the global norm, and <code>l∞</code> assigns the maximum to whichever
-bins attain it and zero to all others.</p>
+bins attain it and zero to all others
+(<code>src/OBN_DMIV_v5.cpp:426-449</code>); the categorical engine uses
+them as ordinary pairwise distances between two bins.</p>
 </div>
 <div class="section level3">
 <h3 id="streaming">Streaming<a class="anchor" aria-label="anchor" href="#streaming"></a>
 </h3>
 <p><strong><code>sketch</code></strong>
 (<code><a href="../reference/ob_numerical_sketch.html">ob_numerical_sketch()</a></code>,
-<code><a href="../reference/ob_categorical_sketch.html">ob_categorical_sketch()</a></code>) — the only engine whose memory
-does not grow with the data. The categorical variant uses Count-Min
-sketches (Cormode and Muthukrishnan, 2005) for category frequencies,
-making its cost independent of the number of levels; the numerical
-variant uses a multi-level compactor for approximate quantiles. Own
-parameters: <code>sketch_k</code> and <code>monotonic</code>
-(numerical); <code>sketch_width</code>, <code>sketch_depth</code>
-(categorical).</p>
-<p><em>Two qualifications on the numerical side.</em> The compactor uses
-the <strong>same capacity at every level</strong> and a
+<code><a href="../reference/ob_categorical_sketch.html">ob_categorical_sketch()</a></code>) — built on streaming summaries,
+though both wrappers receive the full in-memory vectors. The categorical
+variant uses fixed-size Count-Min sketches (Cormode and Muthukrishnan,
+2005) to decide which categories are heavy hitters. It does
+<strong>not</strong> make memory independent of the number of levels:
+the class counts of every distinct level are kept exactly
+(<code>cat_pos</code>, <code>cat_neg</code> and <code>cat_index</code>,
+<code>src/OBC_Sketch_v5.cpp:231-233</code>) and the bin statistics are
+read from them (<code>exact_counts()</code>, <code>:289-299</code>), so
+only the heavy-hitter decision is approximate. The numerical variant
+uses a multi-level compactor for approximate quantiles; the quantiles
+only propose candidate cutpoints, and every bin statistic is then
+computed exactly from the feature and target vectors, which the engine
+keeps (<code>src/OBN_Sketch_v5.cpp:307-308</code>). Own parameters:
+<code>sketch_k</code> and <code>monotonic</code> (numerical);
+<code>sketch_width</code>, <code>sketch_depth</code> (categorical).</p>
+<p><em>Qualifications on the numerical side.</em> The compactor uses the
+<strong>same capacity at every level</strong> and a
 <strong>deterministic parity rule</strong> to choose which item of a
-compacted pair survives
-(<code>src/OBN_Sketch_v5.cpp:81, 107-108</code>). Karnin, Lang and
-Liberty (2016) obtain their optimal bound from geometrically decreasing
-capacities and a randomised coin flip; neither is present here. The
-implementation is in the KLL <em>family</em>, but the
+compacted pair survives: the lower one on even levels, the upper one on
+odd levels (<code>KLLSketch</code>,
+<code>src/OBN_Sketch_v5.cpp:43-161</code>, rule at <code>:99</code>).
+Karnin, Lang and Liberty (2016) obtain their optimal bound from
+geometrically decreasing capacities and a randomized coin flip; neither
+is present here. The code comment at <code>:54-59</code> derives a
+worst-case rank error of about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>n</mi><mi>H</mi><mi>/</mi><mi>k</mi></mrow><annotation encoding="application/x-tex">2nH/k</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi><mo>=</mo><msub><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mn>2</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mi>/</mi><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">H = \log_2(n/k)</annotation></semantics></math>
+levels, that is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mi>/</mi><mi>k</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(\log(n/k)/k)</annotation></semantics></math>,
+and <code>R/obn_sketch.R</code> states the same bound next to the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>≈</mo><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mi>/</mi><mi>k</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\varepsilon \approx O(1/k)</annotation></semantics></math>
-guarantee quoted in the documentation is not established for this
-variant. And <code>max_n_prebins</code> is never read — the candidate
+of the original randomized algorithm, which is not established for this
+variant. And <code>max_n_prebins</code> is never read
+(<code>(void)max_n_prebins</code>, <code>:700</code>) — the candidate
 quantile grid is hardcoded.</p>
 </div>
 <div class="section level3">
@@ -644,20 +861,26 @@ direction is decided, and which IV expression selects the merge.</p>
 <tr class="odd">
 <td><code>jedi</code></td>
 <td>both</td>
-<td>Majority vote over WoE increments</td>
-<td>Smallest summed current IV</td>
+<td>Numerical: majority vote over WoE increments. Categorical: bins
+ordered by WoE</td>
+<td>Numerical: smallest summed current IV. Categorical: least IV
+loss</td>
 </tr>
 <tr class="even">
 <td><code>jedi_mwoe</code></td>
 <td>both</td>
-<td>Per-class, all classes checked</td>
-<td>Smallest IV summed over classes</td>
+<td>Numerical: per-class, all classes checked. Categorical: alternating
+divergence and IV-loss merges</td>
+<td>Numerical: smallest IV summed over classes. Categorical: least IV
+loss summed over classes</td>
 </tr>
 <tr class="odd">
 <td><code>mob</code></td>
 <td>both</td>
-<td>First two bins’ WoE</td>
-<td>Minimum IV loss after merge</td>
+<td>Numerical: majority vote over adjacent WoE steps. Categorical:
+direction with fewer violations</td>
+<td>Numerical: minimum IV loss after merge. Categorical: event-rate
+similarity, then smallest adjacent WoE difference</td>
 </tr>
 <tr class="even">
 <td><code>mrblp</code></td>
@@ -702,8 +925,9 @@ direction is decided, and which IV expression selects the merge.</p>
 <tr class="even">
 <td><code>milp</code></td>
 <td>categorical</td>
-<td>All-pairs rate similarity</td>
-<td>Minimum
+<td>All-pairs rate similarity for pre-bins and rare levels, then WoE
+order</td>
+<td>Minimum loss of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><mi>I</mi><mi>V</mi><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">|IV|</annotation></semantics></math>
 </td>
 </tr>
@@ -721,65 +945,75 @@ direction is decided, and which IV expression selects the merge.</p>
 </tr>
 </tbody>
 </table>
-<p>Own parameters: <code>laplace_smoothing</code> for <code>mob</code>,
-<code>mrblp</code>, <code>oslp</code>;
+<p>Own parameters: <code>laplace_smoothing</code> for numerical
+<code>mob</code>, <code>mrblp</code>, <code>oslp</code>;
 <code>force_monotonic_direction</code> for <code>mblp</code>;
 <code>is_monotonic</code> for <code>bb</code>; none for the rest.</p>
 <p><strong><code>jedi</code> and <code>jedi_mwoe</code> are the package
 author’s own construction</strong>, combining adjacent published
 techniques rather than implementing a named method — there is no paper
-to cite and none is claimed. The numerical heuristic is: quantile
-pre-binning; merge bins below <code>bin_cutoff</code> into the smaller
-neighbour; infer trend direction by majority vote over pairwise WoE
-increments; merge violating adjacent pairs until monotone; then merge
-until <code>max_bins</code>, each time taking the adjacent pair with the
-smallest summed current IV; iterate until total IV stops changing by
-more than <code>convergence_threshold</code>
-(<code>src/OBN_JEDI_v5.cpp:113-129, 235-425</code>).
-<code>jedi_mwoe</code> is the same procedure with one-vs-rest WoE per
-class, requiring monotonicity in every class simultaneously. <em>Name
-note:</em> despite “Joint Entropy-Driven” in the title, the numerical
-implementation computes no entropy — the file contains no entropy,
-<code>log2</code> or information-gain term anywhere. The optimisation is
-entirely WoE/IV-driven. The roxygen also describes the merge as choosing
-the smallest <em>decrease</em> in IV, while the code chooses the
-smallest summed current IV; those are different rules.</p>
+to cite and none is claimed. The numerical heuristic is: pre-binning at
+evenly spaced ranks of the distinct values; merge bins below
+<code>bin_cutoff</code> into the smaller neighbor; infer trend direction
+by majority vote over pairwise WoE increments; merge violating adjacent
+pairs until monotone; then merge until <code>max_bins</code>, each time
+taking the adjacent pair with the smallest summed current IV; iterate
+until total IV stops changing by more than
+<code>convergence_threshold</code> (<code>fit()</code>,
+<code>src/OBN_JEDI_v5.cpp:136-166</code>; the merge helpers are at
+<code>:333-449</code>). Numerical <code>jedi_mwoe</code> is the same
+procedure with one-vs-rest WoE per class, requiring monotonicity in
+every class simultaneously (the categorical version does not, see
+below). <em>Name note:</em> despite “Joint Entropy-Driven” in the title,
+the numerical implementation computes no entropy — the file contains no
+entropy, <code>log2</code> or information-gain term anywhere. The
+optimization is entirely WoE/IV-driven. The merge criterion is the
+smallest <em>summed current IV</em>, which is only a proxy for the
+smallest IV <em>loss</em>; the roxygen now says so.</p>
 <p><strong><code>bb</code></strong> is named “Branch and Bound” but
 neither branches nor bounds: it repeatedly merges the single lowest-IV
-bin and never reconsiders (<code>src/OBN_BB_v5.cpp:449-517</code>).
+bin into a neighbor and never reconsiders (the loop headed “Branch and
+Bound optimization”, <code>src/OBN_BB_v5.cpp:511-546</code>).
 <strong><code>dp</code>, numerical</strong> is named “Dynamic
 Programming” and builds no DP table — its own source comment says so and
 cites Navas-Palencia (2020) as what a real formulation would look like.
-<strong><code>milp</code></strong> solves no mixed-integer programme,
-and its header says so. <strong><code>mblp</code></strong> and
-<strong><code>oslp</code></strong> contain no linear programme.
+<strong><code>milp</code></strong> solves no mixed-integer program, and
+its header says so. <strong><code>mblp</code></strong> and
+<strong><code>oslp</code></strong> contain no linear program.
 <strong><code>mrblp</code></strong> does no likelihood-ratio
 pre-binning: the word “likelihood” appears only in comments.
 <strong><code>swb</code></strong> slides no window — for unordered
 levels there is no axis to slide along; it is greedy divergence merging
 with an adjacency preference.</p>
-<p><code>R/obn_oslp.R:135</code> recommends against <code>oslp</code>
-outright: “Use OSLP: Never. Use MBLP or MOB instead.”</p>
+<p><code>R/obn_oslp.R:142</code> recommends against <code>oslp</code>
+outright: “Use OSLP: Never. Use MBLP or MOB instead”.</p>
 </div>
 <div class="section level3">
 <h3 id="metaheuristic">Metaheuristic<a class="anchor" aria-label="anchor" href="#metaheuristic"></a>
 </h3>
 <p><strong><code>sab</code></strong> (<code><a href="../reference/ob_categorical_sab.html">ob_categorical_sab()</a></code>)
 — simulated annealing (Kirkpatrick, Gelatt and Vecchi, 1983) over
-category-to-bin assignments. Alone among the categorical engines it can
-move a level between <strong>non-adjacent</strong> bins, so it is not
-restricted to a single ordering. Rare-bin and monotonicity violations
-enter the objective as penalties rather than being repaired afterwards
-(<code>src/OBC_SAB_v5.cpp:161-215</code>). Own parameters:
-<code>initial_temperature</code>, <code>cooling_rate</code>,
-<code>adaptive_cooling</code>. Its generator is seeded from R’s RNG
-stream, so <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> makes it reproducible.
-<code>max_n_prebins</code> is validated and never used, so it anneals
-over the full level set.</p>
+category-to-bin assignments. A move swaps two levels, reassigns one
+level to a random bin, or moves the level with the largest event-rate
+gap to its best bin (<code>generate_neighbor()</code>,
+<code>src/OBC_SAB_v5.cpp:285-368</code>), so levels are not tied to a
+single ordering — as in several other categorical engines
+(<code>dmiv</code>, <code>mba</code>, <code>swb</code>), which also
+merge non-adjacent bins. Violations enter the objective as penalties
+(<code>calculate_iv()</code>, <code>:172-237</code>): −1000 for each bin
+below <code>bin_cutoff</code>, −1000 for each bin short of
+<code>min_bins</code>, and −500 for a non-monotone solution; a final
+step still re-sorts the bins by event rate if the best solution is not
+monotone (<code>ensure_monotonicity()</code>, <code>:567-632</code>).
+Own parameters: <code>initial_temperature</code>,
+<code>cooling_rate</code>, <code>adaptive_cooling</code>. Its random
+draws come from R’s RNG stream, so <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> makes it
+reproducible. <code>max_n_prebins</code> is validated and never used, so
+it anneals over the full level set.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="measured-behaviour">Measured behaviour<a class="anchor" aria-label="anchor" href="#measured-behaviour"></a>
+<h2 id="measured-behavior">Measured behavior<a class="anchor" aria-label="anchor" href="#measured-behavior"></a>
 </h2>
 <p>All 37 combinations on the bundled German Credit data, identical
 constraints:</p>
@@ -1026,44 +1260,125 @@ rows.</p>
 <div class="section level2">
 <h2 id="known-limitations">Known limitations<a class="anchor" aria-label="anchor" href="#known-limitations"></a>
 </h2>
-<p>Collected so they are findable, with the source location for
-each.</p>
-<p><strong>Parameters accepted and never read.</strong>
+<p>Collected so they are findable.</p>
+<p><strong>Parameters accepted and never used.</strong>
 <code>polynomial_degree</code> in <code>lpdb</code>;
 <code>max_n_prebins</code> in <code>fast_mdlp</code>, numerical
-<code>sketch</code>, categorical <code>fetb</code> and <code>sab</code>;
+<code>sketch</code>, and categorical <code>fetb</code>, <code>sab</code>
+and <code>udt</code>; <code>max_iterations</code> in numerical
+<code>sketch</code> and categorical <code>dp</code>;
 <code>bin_cutoff</code> in <code>fast_mdlp</code> and categorical
-<code>dmiv</code>, whose rare-level handling uses a hardcoded threshold
-of 5 observations instead.</p>
-<p><strong><code>convergence_threshold</code> is inert in five numerical
-engines</strong> — <code>ldb</code>, <code>lpdb</code>,
-<code>ewb</code>, <code>kmb</code> and <code>dp</code> accept and
-validate it but never compare against it. Only <code>bb</code>,
-<code>ubsd</code> and <code>sketch</code> use it.</p>
-<p><strong>Silent level truncation in <code>ivb</code> and
-<code>gmb</code>.</strong> When more levels survive the rare-level merge
-than <code>max_n_prebins</code> allows, both <strong>discard</strong>
-the excess rather than pooling it (<code>src/OBC_IVB_v5.cpp:315</code>,
-<code>src/OBC_GMB_v5.cpp:273</code>), and the observations leave the
-binning entirely. Default settings hide this — with
-<code>bin_cutoff = 0.05</code> at most 20 levels can survive — but at a
-lower cutoff it is reachable, and no warning is emitted. Prefer
-<code>dp</code> or <code>jedi</code> for high-cardinality features under
-a small <code>bin_cutoff</code>.</p>
+<code>dmiv</code>, whose rare-level pre-binning (only when there are
+more levels than <code>max_n_prebins</code>) uses a hardcoded threshold
+of 5 observations instead (<code>min_prebin_count</code>,
+<code>src/OBC_DMIV_v5.cpp:87, 245</code>). Some of these are validated
+and then ignored. In numerical <code>cm</code>,
+<code>chi_merge_threshold</code> is read but cannot change the result
+(see <code>cm</code> above).</p>
+<p><strong><code>convergence_threshold</code> rarely acts.</strong>
+Among the numerical engines only <code>jedi</code>,
+<code>jedi_mwoe</code>, <code>ubsd</code> and <code>udt</code> stop an
+outer loop on a change in IV; <code>fast_mdlp</code> compares it with a
+change in WoE in its monotonicity pass, and <code>cm</code> compares it
+in code that is never reached (see <code>cm</code>). The other fifteen
+accept it and never read it: <code>ldb</code>, <code>lpdb</code>,
+<code>ewb</code>, <code>kmb</code>, <code>dp</code>, <code>bb</code>,
+<code>ir</code>, <code>mdlp</code>, <code>mob</code>, <code>mblp</code>,
+<code>mrblp</code>, <code>oslp</code>, <code>dmiv</code>,
+<code>fetb</code> and <code>sketch</code>. Of these, <code>ldb</code>,
+<code>lpdb</code>, <code>ewb</code>, <code>kmb</code>, <code>dp</code>,
+<code>fetb</code> and <code>mdlp</code> do not even validate it, so a
+negative value (or <code>NA</code>, <code>Inf</code>) is accepted.</p>
+<p><strong>Levels beyond <code>max_n_prebins</code> in <code>ivb</code>
+and <code>gmb</code>.</strong> When more levels survive the rare-level
+merge than <code>max_n_prebins</code> allows, both <strong>fold</strong>
+the excess into the smallest of the retained levels rather than dropping
+it (<code>ensure_max_prebins()</code>,
+<code>src/OBC_IVB_v5.cpp:391-415</code>; the “Limit number of pre-bins”
+block, <code>src/OBC_GMB_v5.cpp:310-335</code>), so every observation
+stays in the binning. Releases before 1.13.3 dropped them. Which levels
+keep their own identity is unchanged: the <code>max_n_prebins</code>
+most frequent. With <code>bin_cutoff = 0.05</code> at most 20 levels can
+survive the rare-level merge, so with the default
+<code>max_n_prebins = 20</code> the cap only binds at a lower cutoff;
+the folded pool can then mix very different event rates, and a larger
+<code>max_n_prebins</code> avoids it.</p>
+<p><strong><code>min_bins</code> against
+<code>bin_cutoff</code>.</strong> In <code>ldb</code>, the rare-bin
+merge never goes below <code>min_bins</code> (<code>merge_bins()</code>,
+<code>src/OBN_LDB_v5.cpp:843-940</code>), so bins below
+<code>bin_cutoff</code> survive once only <code>min_bins</code> bins are
+left, as when the pre-binning already yields <code>min_bins</code> bins:
+with <code>set.seed(20260930)</code> and <code>rnorm(1e5)</code> the
+only density minima found lie in the sparse tails, so the default
+<code>min_bins = 3</code> gives bins of 5, 99,988 and 7 observations.
+The numerical <code>cm</code> rare-bin pass goes the other way: it does
+not re-check <code>min_bins</code> between merges and can end below it
+(<code>merge_rare_bins()</code>,
+<code>src/OBN_CM_v5.cpp:811-868</code>).</p>
+<p><strong>An empty cell has an unclamped WoE in numerical
+<code>jedi</code>.</strong> The class share of a bin without events is
+floored at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><annotation encoding="application/x-tex">10^{-10}</annotation></semantics></math>
+and the log ratio is not clamped (<code>calculate_woe_iv()</code>,
+<code>src/OBN_JEDI_v5.cpp:362-381</code>), so such a bin gets WoE
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><mi>/</mi><mi>q</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln(10^{-10}/q)</annotation></semantics></math>,
+about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>20</mn></mrow><annotation encoding="application/x-tex">-20</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>22</mn></mrow><annotation encoding="application/x-tex">-22</annotation></semantics></math>
+for class shares of 5% to 30%, and an IV contribution of order one or
+more that is an artifact of the floor, not predictive power. Most other
+engines smooth the counts or clamp at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>±</mi><mn>20</mn></mrow><annotation encoding="application/x-tex">\pm 20</annotation></semantics></math>.</p>
 <p><strong>Multiclass monotonicity is not simultaneous.</strong> In
 categorical <code>jedi_mwoe</code>,
 <code>ensure_monotonic_order()</code> re-sorts by each class in turn
 without re-checking earlier classes
-(<code>src/OBC_JEDIMWoE_v5.cpp:854-869</code>), so a later class’s sort
+(<code>src/OBC_JEDIMWoE_v5.cpp:665-675</code>), so a later class’s sort
 can reintroduce a violation in an earlier one.</p>
-<p><strong>Citation errors in the shipped documentation.</strong>
-<code>R/obc_cm.R:94</code> gives the Chi2 author as “Liu, B.” (it is
-Huan Liu) and pages 372–377 (they are 388–391; <code>R/obn_cm.R</code>
-has them right). <code>src/OBN_OSLP_v5.cpp:46</code> attributes “Optimal
-Binning: Mathematical Programming Formulation” to “Belcastro, L., et
-al.”; the paper is by Guillermo Navas-Palencia. <code>R/obc_sab.R</code>
-has no references at all, though simulated annealing is its
-namesake.</p>
+<p><strong>Citation errors in the shipped documentation.</strong> Some
+help pages and source comments cite a work with details that do not
+match the published record:</p>
+<ul>
+<li>
+<code>R/step_obwoe.R</code> and the help pages of the categorical
+<code>gmb</code>, <code>ivb</code>, <code>jedi</code> and
+<code>jedi_mwoe</code> cite Navas-Palencia (2020) as <em>Expert Systems
+with Applications</em> 158, 113508 (doi 10.1016/j.eswa.2020.113508).
+That DOI belongs to an unrelated paper; the work is an arXiv preprint
+(arXiv:2001.08025) with no journal version.
+<code>src/OBC_DP_v5.cpp:123</code> cites it under a title and year
+(<em>OptBinning: Mathematical Optimization for Optimal Binning</em>,
+2022) that match no record in Crossref, DataCite or arXiv.</li>
+<li>Mironchyk and Tchistiakov (2017) are given an SSRN DOI that belongs
+to an unrelated paper (<code>R/obc_gmb.R:139</code>,
+<code>R/obc_mba.R:121</code>) and the venue <em>Frontiers in Applied
+Mathematics and Statistics</em> 3, 2 (<code>R/obn_mob.R:210</code>,
+<code>R/obn_mrblp.R:168</code>, <code>R/obn_oslp.R:153</code>,
+<code>R/obn_mblp.R:200</code>), which is a different paper. Theirs is an
+unpublished working paper.</li>
+<li>
+<code>R/obn_sketch.R:133</code> gives Karnin, Lang and Liberty
+(2016) the DOI 10.1109/FOCS.2016.20, which is a different FOCS paper;
+theirs is 10.1109/FOCS.2016.17.</li>
+<li>
+<code>R/obn_dmiv.R:91</code> places Zeng (2013) in the <em>Journal
+of the Operational Research Society</em> 64(5), 712–731. No such version
+was found; the paper is in the <em>Journal of Mathematics</em> 2013 (doi
+10.1155/2013/848271).</li>
+<li>
+<code>R/obc_cm.R:100-102</code> gives the Chi2 author as “Liu, B.”
+and pages 372–377; it is Huan Liu, pages 388–391
+(<code>R/obn_cm.R</code> has them right).</li>
+<li>
+<code>R/obc_dp.R:116</code> and <code>src/OBC_DP_v5.cpp:125</code>
+list the authors of the 2017 edition of Thomas, Crook and Edelman in the
+order of the 2002 first edition.</li>
+<li>
+<code>R/obc_sab.R</code> has no references at all, though simulated
+annealing is its namesake.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
@@ -1144,34 +1459,35 @@ in credit scoring. <em>Applied Mathematical Sciences</em>, 8(65),
 </h2>
 <p>Stated so that absence of a citation is not mistaken for absence of a
 source.</p>
-<p><strong>The IV interpretation bands.</strong> The scale (&lt; 0.02
-unpredictive, 0.02–0.1 weak, 0.1–0.3 medium, 0.3+ strong) is attributed
-to Siddiqi (2006) by two independent sources that quote it with page
-numbers, and Zeng (2013, §3.2) cites Siddiqi for it as well. The book’s
-text was not consulted directly, and the sources disagree on whether a
-fifth band exists and what it says — the widely repeated “&gt; 0.5
-suspiciously high, check for overfitting” wording could not be traced to
-Siddiqi’s own text.</p>
-<p><strong>Whether Kerber’s ChiMerge uses a continuity
-correction.</strong> The primary source could not be retrieved.
-Secondary descriptions give the uncorrected
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∑</mo><mo stretchy="false" form="prefix">(</mo><mi>O</mi><mo>−</mo><mi>E</mi><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mi>/</mi><mi>E</mi></mrow><annotation encoding="application/x-tex">\sum (O-E)^2/E</annotation></semantics></math>;
-this package implements the Yates-corrected form.</p>
-<p><strong>The mechanism of Mironchyk and Tchistiakov (2017)</strong>,
+<p><strong>The IV interpretation bands.</strong> The cut-offs 0.02, 0.1
+and 0.3 are credited to Siddiqi (2006) by secondary sources that quote
+the book with a page number (p. 81 in one, pp. 79–83 in another), and
+Zeng (2013, §3.2) cites Siddiqi for them as well. The book’s text was
+not consulted directly, and the sources disagree on whether a fifth band
+exists. Navas-Palencia (2020, Table 3) prints five bands, the last one
+“over-prediction” from 0.5, and cites Siddiqi (2005); another source
+reproduces four bands “from Siddiqi, page 81”. The widely repeated “&gt;
+0.5 suspicious” label could not be traced to Siddiqi’s own text, and
+none of the sources supports a stronger claim such as “almost always
+leakage”.</p>
+<p><strong>The content of Mironchyk and Tchistiakov (2017)</strong>,
 cited by <code>mob</code>, <code>mrblp</code>, <code>mblp</code>,
-<code>gmb</code> and <code>mba</code>. The paper is real; access was
-blocked, and its characterisation as a PAVA-based construction rests on
-secondary descriptions. If that characterisation is right, none of the
-five engines citing it reproduces its mechanism — <code>ir</code> is the
-package’s only PAVA implementation.</p>
+<code>oslp</code>, <code>gmb</code> and <code>mba</code>. It is an
+unpublished working paper (2017). No SSRN record or journal version was
+found; its only DOI is a ResearchGate preprint DOI
+(10.13140/RG.2.2.31885.44003, publisher listed as “Unpublished”), and
+the SSRN and journal records that the help pages give for it belong to
+other papers (see the known limitations above). The paper itself could
+not be retrieved. Two independent descriptions of it (SESUG 2022 paper
+188 and excerpts of the PDF) describe a merge of adjacent bins driven by
+a p-value, followed by a monotonicity merge, and nothing in either
+mentions PAVA. None of the six engines that cite it merges by p-value;
+<code>ir</code> is the only engine that applies PAVA to weighted event
+rates.</p>
 <p><strong>The error bound of this package’s compactor sketch.</strong>
 What it does differently from Karnin, Lang and Liberty (2016) is
 documented above; deriving a corrected bound for the deterministic
 equal-capacity variant would require a proof not attempted here.</p>
-<p><strong>Whether a <em>Journal of the Operational Research
-Society</em> version of Zeng (2013) exists</strong>, as
-<code>R/obn_dmiv.R:86</code> states. Only the <em>Journal of
-Mathematics</em> version was found.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

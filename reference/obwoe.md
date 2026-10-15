@@ -3,9 +3,10 @@
 Master interface for optimal discretization and Weight of Evidence (WoE)
 computation across numerical and categorical predictors. This function
 serves as the primary entry point for the **OptimalBinningWoE** package,
-providing automatic feature type detection, intelligent algorithm
-selection, and unified output structures for seamless integration into
-credit scoring and predictive modeling workflows.
+providing automatic feature type detection, a default algorithm chosen
+from the target type (`"auto"`), and unified output structures for
+seamless integration into credit scoring and predictive modeling
+workflows.
 
 ## Usage
 
@@ -70,8 +71,9 @@ obwoe(
 
   Character string specifying the binning algorithm. Use `"auto"`
   (default) for automatic selection based on target type: `"jedi"` for
-  binary targets, `"jedi_mwoe"` for multinomial. See Details for the
-  complete algorithm taxonomy.
+  binary targets, `"jedi_mwoe"` for multinomial. This is a fixed rule,
+  not a search: no algorithm is compared or chosen by IV. See Details
+  for the complete algorithm taxonomy.
 
 - control:
 
@@ -183,7 +185,12 @@ distributions.
 
 ### Algorithm Taxonomy
 
-The package provides 28 algorithms organized by supported feature types:
+The package provides 28 algorithms (37 implementations: 21 numerical and
+16 categorical) organized by supported feature types. The last column
+says what the code does, which is not always what the name suggests; the
+algorithm reference vignette
+([`vignette("algorithms", package = "OptimalBinningWoE")`](https://evandeilton.github.io/OptimalBinningWoE/articles/algorithms.md))
+gives the mechanism of each engine.
 
 **Universal Algorithms** (both numerical and categorical):
 
@@ -193,43 +200,43 @@ The package provides 28 algorithms organized by supported feature types:
 | `jedi` | Joint Entropy-Driven Information | Heuristic + IV optimization |
 | `jedi_mwoe` | JEDI Multinomial WoE | Extension for K\>2 classes |
 | `cm` | ChiMerge | Bottom-up chi-squared merging |
-| `dp` | Dynamic Programming | Exact optimal IV partitioning |
-| `dmiv` | Decision Tree MIV | Recursive partitioning |
+| `dp` | Dynamic Programming | Exact DP over event-rate-ordered levels (categorical); greedy merging, no DP table (numerical) |
+| `dmiv` | Metric Divergence Measures | Divergence-based merging (nine measures) |
 | `fetb` | Fisher's Exact Test | Statistical significance-based |
-| `mob` | Monotonic Optimal Binning | IV-optimal with monotonicity |
+| `mob` | Monotonic Optimal Binning | Greedy IV-loss merging with monotonicity |
 | `sketch` | Sketching | Probabilistic data structures |
-| `udt` | Unsupervised Decision Tree | Entropy-based without target |
+| `udt` | Unsupervised Decision Tree (misnomer) | Supervised: entropy-ranked cuts, then bottom-up merging; no tree |
 
 **Numerical-Only Algorithms**:
 
-|             |                                    |
-|-------------|------------------------------------|
-| **ID**      | **Description**                    |
-| `bb`        | Branch and Bound (exact search)    |
-| `ewb`       | Equal Width Binning (unsupervised) |
-| `fast_mdlp` | Fast MDLP with pruning             |
-| `ir`        | Isotonic Regression                |
-| `kmb`       | K-Means Binning                    |
-| `ldb`       | Local Density Binning              |
-| `lpdb`      | Local Polynomial Density           |
-| `mblp`      | Monotonic Binning LP               |
-| `mdlp`      | Minimum Description Length         |
-| `mrblp`     | Monotonic Regression LP            |
-| `oslp`      | Optimal Supervised LP              |
-| `ubsd`      | Unsupervised Std-Dev Based         |
+|  |  |
+|----|----|
+| **ID** | **Description** |
+| `bb` | Branch and Bound (greedy: merges the lowest-IV bin repeatedly; no search tree) |
+| `ewb` | Equal Width Binning (equal-width start, supervised merging) |
+| `fast_mdlp` | Fayyad-Irani MDLP (recursive entropy partitioning) |
+| `ir` | Isotonic Regression |
+| `kmb` | K-Means inspired Binning (evenly spaced centroids; no k-means iteration) |
+| `ldb` | Local Density Binning |
+| `lpdb` | Local Polynomial Density (Gaussian KDE; no polynomial is fitted) |
+| `mblp` | Monotonic Binning LP (greedy; no linear program is solved) |
+| `mdlp` | Minimum Description Length (greedy bottom-up merging by MDL cost) |
+| `mrblp` | Monotonic Risk Binning (greedy; no LP, no likelihood-ratio pre-binning) |
+| `oslp` | Optimal Supervised LP (greedy; no linear program is solved) |
+| `ubsd` | Unsupervised Std-Dev Based (unsupervised start, supervised refinement) |
 
 **Categorical-Only Algorithms**:
 
-|        |                              |
-|--------|------------------------------|
-| **ID** | **Description**              |
-| `gmb`  | Greedy Monotonic Binning     |
-| `ivb`  | Information Value DP (exact) |
-| `mba`  | Modified Binning Algorithm   |
-| `milp` | Mixed Integer LP             |
-| `sab`  | Simulated Annealing          |
-| `sblp` | Similarity-Based LP          |
-| `swb`  | Sliding Window Binning       |
+|        |                                                                  |
+|--------|------------------------------------------------------------------|
+| **ID** | **Description**                                                  |
+| `gmb`  | Greedy Monotonic Binning                                         |
+| `ivb`  | Information Value DP (exact over levels ordered by event rate)   |
+| `mba`  | Modified Binning Algorithm                                       |
+| `milp` | Mixed Integer LP (greedy merging; no integer program is solved)  |
+| `sab`  | Simulated Annealing                                              |
+| `sblp` | Similarity-Based LP (exact DP over levels ordered by event rate) |
+| `swb`  | Sliding Window Binning (greedy Jensen-Shannon merging)           |
 
 ### Automatic Type Detection
 
@@ -247,17 +254,19 @@ When `algorithm = "auto"`, the function selects:
 
 ### IV Interpretation Guidelines
 
-Siddiqi (2006) provides the following IV thresholds for variable
-selection:
+The package grades IV with the usual rule-of-thumb bands. The cut-offs
+0.02, 0.10 and 0.30 are usually credited to Siddiqi (2006); the top band
+is a common extension that Navas-Palencia (2020, Table 3) labels
+"over-prediction". The bands are conventions, not statistical tests.
 
-|              |                                 |
-|--------------|---------------------------------|
-| **IV Range** | **Predictive Power**            |
-| \< 0.02      | Unpredictive                    |
-| 0.02 - 0.10  | Weak                            |
-| 0.10 - 0.30  | Medium                          |
-| 0.30 - 0.50  | Strong                          |
-| \> 0.50      | Suspicious (likely overfitting) |
+|              |                                              |
+|--------------|----------------------------------------------|
+| **IV Range** | **Predictive Power**                         |
+| \< 0.02      | Unpredictive                                 |
+| 0.02 - 0.10  | Weak                                         |
+| 0.10 - 0.30  | Medium                                       |
+| 0.30 - 0.50  | Strong                                       |
+| \>= 0.50     | Suspicious (look for leakage or overfitting) |
 
 ### Computational Considerations
 
@@ -266,15 +275,20 @@ Time complexity varies by algorithm:
 - **JEDI, ChiMerge, MOB**: \\O(n \log n + k^2 m)\\ where \\n\\ =
   observations, \\k\\ = bins, \\m\\ = iterations
 
-- **Dynamic Programming**: \\O(n \cdot k^2)\\ for exact solution
+- **Dynamic programming over ordered levels** (`ivb`, categorical `dp`,
+  `sblp`): \\O(K L^2)\\ where \\K\\ = `max_bins` and \\L\\ = levels left
+  after pre-binning
 
-- **Equal Width**: \\O(n)\\ (fastest, but unsupervised)
+- **Equal Width**: \\O(n)\\ (fastest, but unsupervised start)
 
-- **MILP, SBLP**: Potentially exponential (NP-hard problems)
+- **MILP, numerical DP**: greedy merging; no integer program is solved
+  and no DP table is built
 
 For large datasets (\\n \> 10^6\\), consider:
 
-1.  Using `algorithm = "sketch"` for approximate streaming
+1.  Using `algorithm = "sketch"`, which for numerical features proposes
+    cut points from a quantile sketch (the data still have to fit in
+    memory)
 
 2.  Reducing `max_n_prebins` via
     [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md)
@@ -299,9 +313,8 @@ Computation*.
 [doi:10.1137/1.9780898718317](https://doi.org/10.1137/1.9780898718317)
 
 Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming
-Formulation and Solution Approach. *Expert Systems with Applications*,
-158, 113508.
-[doi:10.1016/j.eswa.2020.113508](https://doi.org/10.1016/j.eswa.2020.113508)
+Formulation. *arXiv preprint arXiv:2001.08025*.
+[doi:10.48550/arXiv.2001.08025](https://doi.org/10.48550/arXiv.2001.08025)
 
 Zeng, G. (2014). A Necessary Condition for a Good Binning Algorithm in
 Credit Scoring. *Applied Mathematical Sciences*, 8(65), 3229-3242.

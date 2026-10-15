@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,24 @@
       <small>Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.14.1" id="optimalbinningwoe-1141">OptimalBinningWoE 1.14.1<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1141"></a></h2>
+<p>Documentation only: no algorithm, argument or fitted result changes.</p>
+<ul><li>
+<strong>Algorithm reference vignette:</strong> corrected the statements that contradicted the C++ code (<code>sblp</code> complexity, excess levels in <code>ivb</code> and <code>gmb</code>, the <code>fast_mdlp</code>, <code>mdlp</code> and <code>cm</code> criteria, PAVA cost, sketch memory, <code>ldb</code> bandwidth) and fixed the WoE convention: events are the numerator.</li>
+<li>
+<strong><code>DESCRIPTION</code> and <code><a href="../reference/obwoe.html">?obwoe</a></code>:</strong> 28 algorithms (37 implementations); no genetic algorithms or MILP solver. The algorithm tables say what each engine does (<code>bb</code>, <code>mdlp</code>, <code>milp</code>, <code>mblp</code>, <code>mrblp</code> and <code>oslp</code> merge greedily), and <code>algorithm = "auto"</code> is a fixed rule by target type, not a search for the highest IV.</li>
+<li>
+<strong><code><a href="../reference/ob_numerical_cm.html">ob_numerical_cm()</a></code>:</strong> <code>chi_merge_threshold</code> does not change the result, because bins are merged down to <code>max_bins</code> before the significance test is reached. Documented and covered by a test; <code><a href="../reference/ob_categorical_cm.html">ob_categorical_cm()</a></code> does use it as its stopping rule.</li>
+<li>
+<strong>Documented behavior:</strong> <code>ldb</code> lets <code>min_bins</code> override <code>bin_cutoff</code>; <code>jedi</code> leaves the WoE of an empty cell unclamped (about -20 to -22); <code>ir</code> caps its pre-bins at <code>max_bins</code>; <code>lpdb</code> ignores <code>polynomial_degree</code>.</li>
+<li>
+<strong><code><a href="../reference/control.obwoe.html">control.obwoe()</a></code> and <code><a href="../articles/introduction.html">vignette("introduction")</a></code>:</strong> the default <code>bin_cutoff = 0.05</code> can cost IV on categorical features with many levels, because the rare levels share one bin. The vignette shows how to compare lower cutoffs on held-out data. The default is unchanged.</li>
+<li>
+<strong>IV bands (<code><a href="../reference/obwoe.html">?obwoe</a></code>, <code><a href="../reference/summary.obwoe.html">?summary.obwoe</a></code>, <code><a href="../articles/introduction.html">vignette("introduction")</a></code>):</strong> described as a rule of thumb; the 0.50 band is no longer credited to Siddiqi or called “almost always leakage”.</li>
+<li>
+<strong>References:</strong> <code>inst/references.bib</code> corrected, and <code><a href="../reference/obwoe.html">?obwoe</a></code> cites the optimal binning method as the arXiv preprint it is. The DOI given before belongs to an unrelated paper.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.14.0" id="optimalbinningwoe-1140">OptimalBinningWoE 1.14.0<a class="anchor" aria-label="anchor" href="#optimalbinningwoe-1140"></a></h2><p class="text-muted">CRAN release: 2026-09-30</p>
 <div class="section level3">

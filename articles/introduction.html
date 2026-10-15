@@ -28,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-10-11</h4>
+            <h4 data-toc-skip class="date">2026-10-15</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
@@ -150,10 +150,11 @@ what enters the model.</p>
 \mathrm{IV} \;=\; \sum_{i=1}^{k}
 \left(\frac{n_{i,1}}{N_1} - \frac{n_{i,0}}{N_0}\right) \mathrm{WoE}_i
 </annotation></semantics></math></p>
-<p>This is the symmetrised Kullback–Leibler divergence (Jeffreys
+<p>This is the symmetrized Kullback–Leibler divergence (Jeffreys
 divergence) between the event and non-event distributions across bins.
 It is the standard single-number summary of predictive strength, and the
-package grades it with the bands from Siddiqi (2006):</p>
+package grades it with the usual rule-of-thumb bands (the 0.02, 0.10 and
+0.30 cut-offs are usually credited to Siddiqi, 2006):</p>
 <table class="table">
 <thead><tr class="header">
 <th>IV</th>
@@ -184,7 +185,7 @@ package grades it with the bands from Siddiqi (2006):</p>
 <tr class="odd">
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>≥</mo><mn>0.50</mn></mrow><annotation encoding="application/x-tex">\ge 0.50</annotation></semantics></math></td>
 <td>Suspicious</td>
-<td>almost always leakage</td>
+<td>check for leakage or overfitting</td>
 </tr>
 </tbody>
 </table>
@@ -468,9 +469,9 @@ trusted.</p>
 <span><span class="co">#&gt; 7:     people_liable 4.339e-05 Unpredictive  IV_BELOW_MIN</span></span></code></pre></div>
 <p><code>status</code> — the checking-account balance — is the strongest
 variable in the file and is rejected for it. An IV of 0.67 sits in the
-<em>Suspicious</em> band, where single-variable strength is far more
-often a symptom of target leakage than of a genuinely dominant
-predictor. Raise <code>iv_max</code> to admit it deliberately:</p>
+<em>Suspicious</em> band, where single-variable strength deserves a
+check for target leakage before it is trusted. Raise <code>iv_max</code>
+to admit it deliberately:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">admitted</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_select.html">obwoe_select</a></span><span class="op">(</span><span class="va">model</span>, iv_max <span class="op">=</span> <span class="cn">Inf</span><span class="op">)</span></span>
 <span><span class="va">admitted</span><span class="op">[</span><span class="va">admitted</span><span class="op">$</span><span class="va">feature</span> <span class="op">==</span> <span class="st">"status"</span>,</span>
@@ -520,6 +521,51 @@ This is the object to hand to a model validation team.</p>
 <span><span class="co">#&gt; 3:       500 &lt;= ... &lt; 1000 DM            1    63   0.1746 -0.7061 0.02656 0.5820</span></span>
 <span><span class="co">#&gt; 4:        100 &lt;= ... &lt; 500 DM            1   103   0.3301  0.1396 0.00206 1.1003</span></span>
 <span><span class="co">#&gt; 5:               ... &lt; 100 DM            1   603   0.3599  0.2714 0.04665 1.1996</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="rare-levels-and-bin_cutoff">Rare levels and <code>bin_cutoff</code><a class="anchor" aria-label="anchor" href="#rare-levels-and-bin_cutoff"></a>
+</h3>
+<p><code>bin_cutoff</code> (default 0.05) is the smallest share of the
+rows a bin may hold. For a categorical variable it also decides which
+levels count as <em>rare</em>. In <code>jedi</code>, the default, the
+levels below the cutoff go into one pooled bin before the algorithm
+optimizes anything, whatever their event rates (the
+<code>min_bins</code> most frequent rare levels keep bins of their own;
+other engines treat rare levels in their own ways). On a variable with
+many levels that bin can mix very different groups, and it lowers the
+IV, in-sample and on new data alike.</p>
+<p>A census-income case study shows the size of it (UCI Census-Income
+(KDD) data, <a href="https://doi.org/10.24432/C5N30T" class="external-link">doi:10.24432/C5N30T</a>; 143,531
+adults to fit, IV measured on the held-out file, <code>jedi</code> with
+<code>min_bins = 2</code> and <code>max_bins = 6</code>). At the
+default, 11 of the 16 education levels went into one pooled bin: “Less
+than 1st grade” (0.1% events) next to “Doctorate degree” (52%). Lowering
+the cutoff to 0.005 raised the held-out IV of education from 0.67 to
+1.27, and that of the 47-level detailed occupation from 0.97 to
+1.64.</p>
+<p>The default stays at 0.05 because another cutoff moves fitted cut
+points, so the check is worth running on your own high-cardinality
+variables: fit at a few cutoffs and compare the IV on held-out rows.
+In-sample IV cannot guide the choice, because smaller bins never lower
+it. Stop lowering the cutoff when the held-out IV stops improving; bins
+of fewer than about 30 observations give unstable WoE estimates.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># `dev` and `holdout` are any split of your data into fitting and held-out rows</span></span>
+<span><span class="va">heldout_iv</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">w</span>, <span class="va">y</span><span class="op">)</span> <span class="op">{</span>            <span class="co"># IV of a WoE column on new rows</span></span>
+<span>  <span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="va">w</span>, <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">w</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tabulate.html" class="external-link">tabulate</a></span><span class="op">(</span><span class="va">g</span><span class="op">[</span><span class="va">y</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="va">q</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tabulate.html" class="external-link">tabulate</a></span><span class="op">(</span><span class="va">g</span><span class="op">[</span><span class="va">y</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">g</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">(</span><span class="va">p</span> <span class="op">-</span> <span class="va">q</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">w</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">cuts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.02</span>, <span class="fl">0.005</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">cuts</span>, <span class="kw">function</span><span class="op">(</span><span class="va">cut</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">dev</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"purpose"</span>,</span>
+<span>               min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">6</span>,</span>
+<span>               control <span class="op">=</span> <span class="fu"><a href="../reference/control.obwoe.html">control.obwoe</a></span><span class="op">(</span>bin_cutoff <span class="op">=</span> <span class="va">cut</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">holdout</span>, <span class="va">fit</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">$</span><span class="va">purpose_woe</span></span>
+<span>  <span class="fu">heldout_iv</span><span class="op">(</span><span class="va">w</span>, <span class="va">holdout</span><span class="op">$</span><span class="va">default</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span>, <span class="va">cuts</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -605,7 +651,7 @@ designed for streaming and very large
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>;
 the exact optimisers (<code>milp</code>, <code>bb</code>) are the most
 expensive and are best kept for a shortlist.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">algos</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_algorithms.html">obwoe_algorithms</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span>numerical <span class="op">=</span> <span class="va">algos</span><span class="op">$</span><span class="va">numerical</span>, categorical <span class="op">=</span> <span class="va">algos</span><span class="op">$</span><span class="va">categorical</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          categorical</span></span>
@@ -614,7 +660,7 @@ expensive and are best kept for a shortlist.</p>
 <span><span class="co">#&gt;     TRUE     12    9</span></span></code></pre></div>
 <p>A comparison run costs a few lines. Here five methods on
 <code>amount</code>, a variable with no clean monotone relationship:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">compare</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">alg</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">german</span>, target <span class="op">=</span> <span class="st">"default"</span>, feature <span class="op">=</span> <span class="st">"amount"</span>,</span>
 <span>             algorithm <span class="op">=</span> <span class="va">alg</span>, min_bins <span class="op">=</span> <span class="fl">2</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span>
@@ -645,7 +691,7 @@ variables and reading this table is cheap and usually decisive.</p>
 <p><code><a href="../reference/obwoe_apply.html">obwoe_apply()</a></code> scores a data frame with a fitted binning.
 It is the function to use on a validation sample, on a scoring run, or
 on next month’s file.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">scored</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_apply.html">obwoe_apply</a></span><span class="op">(</span><span class="va">german</span>, <span class="va">model</span>, keep_original <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">scored</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="st">"duration_bin"</span>, <span class="st">"duration_woe"</span>,</span>
 <span>                <span class="st">"purpose_bin"</span>, <span class="st">"purpose_woe"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
@@ -664,7 +710,7 @@ categories never seen during training and <code>NA</code> receive
 <code>na_woe</code>, which defaults to 0 — the neutral value, since
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">W</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">E</mi></mrow><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\mathrm{WoE}=0</annotation></semantics></math>
 means “portfolio average”.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">two</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe.html">obwoe</a></span><span class="op">(</span><span class="va">german</span>, target <span class="op">=</span> <span class="st">"default"</span>,</span>
 <span>             feature <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"duration"</span>, <span class="st">"purpose"</span><span class="op">)</span>, max_bins <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span>
 <span></span>
@@ -680,7 +726,7 @@ means “portfolio average”.</p>
 <span><span class="co">#&gt; 4       NA                 &lt;NA&gt;       0.0000            &lt;NA&gt;               &lt;NA&gt;      0.0000</span></span></code></pre></div>
 <p>A WoE-transformed frame is exactly what a logistic regression
 wants:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">keep</span> <span class="op">&lt;-</span> <span class="va">sel</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">sel</span><span class="op">$</span><span class="va">selected</span><span class="op">]</span></span>
 <span><span class="va">woe_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">keep</span>, <span class="st">"_woe"</span><span class="op">)</span></span>
 <span><span class="va">train</span> <span class="op">&lt;-</span> <span class="va">scored</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="va">woe_cols</span><span class="op">)</span><span class="op">]</span></span>
@@ -705,7 +751,7 @@ correlation.</p>
 </h2>
 <p><code><a href="../reference/obwoe_sql.html">obwoe_sql()</a></code> writes the same transformation as SQL, so
 the scoring can run in the warehouse instead of in R.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/obwoe_sql.html">obwoe_sql</a></span><span class="op">(</span></span>
 <span>  <span class="va">model</span>,</span>
 <span>  table        <span class="op">=</span> <span class="st">"risk.applications"</span>,</span>
@@ -715,7 +761,7 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; -- Weight of Evidence transformation</span></span>
-<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.14.0</span></span>
+<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.14.1</span></span>
 <span><span class="co">#&gt; -- Algorithm(s): jedi</span></span>
 <span><span class="co">#&gt; -- Dialect: postgres</span></span>
 <span><span class="co">#&gt; -- Interval convention: (lower, upper]  -- upper bound inclusive</span></span>
@@ -757,7 +803,7 @@ and every expression opens with an explicit <code>IS NULL</code> branch
 <code>ELSE</code>. Fourteen dialects are supported, along with
 <code>style = "view"</code>, <code>"cte"</code> and
 <code>"case"</code>.</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/obwoe_sql.html">obwoe_sql</a></span><span class="op">(</span><span class="va">model</span>, features <span class="op">=</span> <span class="st">"age"</span>, style <span class="op">=</span> <span class="st">"case"</span>, comment <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- age_woe</span></span>
 <span><span class="co">#&gt; CASE</span></span>
@@ -775,7 +821,7 @@ and every expression opens with an explicit <code>IS NULL</code> branch
 </h2>
 <p><code><a href="../reference/ob_preprocess.html">ob_preprocess()</a></code> handles the two pathologies that break
 binning before it starts: missing values and extreme outliers.</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
 <span><span class="va">messy</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">800</span>, <span class="fl">5000</span>, <span class="fl">2000</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">100</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">100</span>, <span class="op">-</span><span class="fl">1e4</span>, <span class="fl">5e4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">1000</span>, <span class="fl">1</span>, <span class="fl">0.3</span><span class="op">)</span></span>
@@ -831,7 +877,7 @@ discretization of continuous-valued attributes for classification
 learning. <em>IJCAI</em>.</p>
 <p>Hofmann, H. (1994). <em>Statlog (German Credit Data)</em>. UCI
 Machine Learning Repository.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
 <span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
@@ -853,7 +899,7 @@ Machine Learning Repository.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] OptimalBinningWoE_1.14.0</span></span>
+<span><span class="co">#&gt; [1] OptimalBinningWoE_1.14.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] future_1.76.0       sass_0.4.10         generics_0.1.4      class_7.3-23       </span></span>
@@ -866,7 +912,7 @@ Machine Learning Repository.</p>
 <span><span class="co">#&gt; [29] future.apply_1.20.2 splines_4.6.1       withr_3.0.3         cachem_1.1.0       </span></span>
 <span><span class="co">#&gt; [33] dials_1.4.4         yaml_2.3.12         prodlim_2026.03.11  otel_0.2.0         </span></span>
 <span><span class="co">#&gt; [37] parallel_4.6.1      tools_4.6.1         dplyr_1.2.1         recipes_1.4.0      </span></span>
-<span><span class="co">#&gt; [41] globals_0.19.1      vctrs_0.7.3         R6_2.6.1            rpart_4.1.27       </span></span>
+<span><span class="co">#&gt; [41] globals_0.20.0      vctrs_0.7.3         R6_2.6.1            rpart_4.1.27       </span></span>
 <span><span class="co">#&gt; [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-65        </span></span>
 <span><span class="co">#&gt; [49] ragg_1.5.2          pkgconfig_2.0.3     desc_1.4.3          pkgdown_2.2.1      </span></span>
 <span><span class="co">#&gt; [53] pillar_1.11.1       bslib_0.12.0        data.table_1.18.6.1 glue_1.8.1         </span></span>

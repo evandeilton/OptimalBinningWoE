@@ -15,7 +15,7 @@ constraints like credit scoring."><meta property="og:image" content="https://eva
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -110,8 +110,12 @@ will be merged with neighbors. Value must be in (0, 1). Defaults to 0.05.</p></d
 
 
 <dt id="arg-max-n-prebins">max_n_prebins<a class="anchor" aria-label="anchor" href="#arg-max-n-prebins"></a></dt>
-<dd><p>Integer. The number of initial quantiles to generate
-during the pre-binning phase. Defaults to 20.</p></dd>
+<dd><p>Integer. Upper limit on the number of initial quantile
+bins. The number used is <code>min(max_n_prebins, number of distinct values,
+max_bins)</code>, raised to <code>min_bins</code> if needed, so values above
+<code>max_bins</code> change nothing: with the defaults the isotonic fit sees at
+most 5 pre-bins, which PAVA can only pool. Raise <code>max_bins</code> to give it
+more resolution. Defaults to 20.</p></dd>
 
 
 <dt id="arg-auto-monotonicity">auto_monotonicity<a class="anchor" aria-label="anchor" href="#arg-auto-monotonicity"></a></dt>
@@ -158,7 +162,8 @@ transform the empirical event rates of initial bins into a sequence that is
 either monotonically increasing or decreasing. It works by scanning the sequence
 and merging ("pooling") any adjacent pairs that violate the desired trend until
 a perfect fit is achieved. This guarantees an optimal solution in \(O(n)\) time.</p>
-<p><strong>Process Flow:</strong></p><ol><li><p><strong>Pre-binning:</strong> Creates initial bins using quantiles.</p></li>
+<p><strong>Process Flow:</strong></p><ol><li><p><strong>Pre-binning:</strong> Creates initial quantile bins, at most
+        <code>max_bins</code> of them (see <code>max_n_prebins</code>).</p></li>
 <li><p><strong>Stabilization:</strong> Merges bins below <code>bin_cutoff</code>.</p></li>
 <li><p><strong>Trend Detection:</strong> If <code>auto_monotonicity = TRUE</code>, calculates
         the correlation between feature midpoints and bin event rates to determine

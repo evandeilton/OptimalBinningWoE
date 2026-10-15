@@ -77,16 +77,23 @@ ob_numerical_cm(
 
 - chi_merge_threshold:
 
-  Numeric. The significance level (\\\alpha\\) for the Chi-square test.
-  Pairs of bins with a p-value \> `chi_merge_threshold` are candidates
-  for merging. Defaults to 0.05.
+  Numeric in (0, 1). The significance level (\\\alpha\\) of the
+  Chi-square test; the critical value is
+  `qchisq(1 - chi_merge_threshold, 1)`. **It does not change the result
+  of this function**: the initial bins are merged, smallest chi-square
+  first, until at most `max_bins` remain, before the significance test
+  is ever reached, so the test never has a merge left to decide (see
+  Details). Control the number of bins with `max_bins`. The categorical
+  [`ob_categorical_cm`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_cm.md)
+  does use the level as its stopping rule. Defaults to 0.05.
 
 - use_chi2_algorithm:
 
-  Logical. If `TRUE`, uses the Chi2 algorithm variant which performs
-  multi-phase merging with decreasing significance levels (0.5, 0.1,
-  0.05, 0.01, ...). This is often more robust for noisy data. Defaults
-  to `FALSE`.
+  Logical. If `TRUE`, runs the Chi2 variant, a schedule of decreasing
+  significance levels (0.5, 0.1, 0.05, 0.01, 0.005, 0.001). For the
+  reason given for `chi_merge_threshold` the schedule merges nothing
+  beyond `max_bins`; the bins match the default path except that the
+  `bin_cutoff` rare-bin pass is skipped. Defaults to `FALSE`.
 
 ## Value
 
@@ -127,29 +134,42 @@ The function implements two major discretization strategies:
 
     - Initializes bins using `init_method`.
 
-    - Iteratively merges adjacent bins with the lowest \\\chi^2\\
-      statistic.
+    - Iteratively merges the adjacent pair with the lowest \\\chi^2\\
+      statistic (2x2 table, Yates continuity correction clamped at
+      zero).
 
-    - Merging continues until all adjacent pairs have a p-value less
-      than `chi_merge_threshold` or the number of bins reaches
-      `max_bins`.
+    - Merging continues until the number of bins reaches `max_bins`. The
+      significance test of Kerber (1992) is never reached: merging stops
+      at `max_bins` first (see below).
 
 2.  **Chi2 Algorithm:**
 
     - Activated when `use_chi2_algorithm = TRUE`.
 
-    - Performs multiple passes with decreasing significance levels (0.5
-      \\\to\\ 0.001) to automatically select the optimal significance
-      threshold.
+    - Loops over a schedule of decreasing significance levels (0.5
+      \\\to\\ 0.001) and checks the inconsistency rate of the data.
 
-    - Checks for inconsistency rates in the data during the process.
+**The significance level does not decide the bin count.** Before either
+method starts, the initial bins are merged, smallest \\\chi^2\\ first,
+until at most `max_bins` remain. The significance tests never run,
+because no merge is left to decide once `max_bins` is met, so the number
+of bins is set by `max_bins` (and by `min_bins`, `bin_cutoff` and
+monotonicity), not by `chi_merge_threshold`. The categorical
+[`ob_categorical_cm`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_cm.md)
+differs: it merges down to `max_bins` and then keeps merging while pairs
+are not significantly different at the chosen level.
 
-Both methods include post-processing steps to enforce:
+Post-processing steps enforce:
 
-- **Minimum Bin Size:** Merging rare bins smaller than `bin_cutoff`.
+- **Minimum Bin Size:** Merging rare bins smaller than `bin_cutoff`
+  (standard ChiMerge path only).
 
 - **Monotonicity:** Ensuring WoE trend is strictly increasing or
   decreasing to improve model interpretability.
+
+Monotonicity merging stops at `min_bins`; the rare-bin pass does not
+check it again between merges, so a large `bin_cutoff` (for example 0.3)
+can leave fewer than `min_bins` bins.
 
 ## References
 

@@ -28,7 +28,10 @@ control.obwoe(
   observations that a bin must contain. Bins with fewer observations are
   merged with adjacent bins. Serves as a regularization mechanism to
   prevent overfitting and ensure statistical stability of WoE estimates.
-  Recommended range: 0.02 to 0.10. Default is 0.05 (5%).
+  Recommended range: 0.02 to 0.10 for numerical features. For
+  categorical features with many levels the default can cost predictive
+  power: compare lower values on held-out data (see Details). Default is
+  0.05 (5%).
 
 - max_n_prebins:
 
@@ -86,6 +89,33 @@ subtle patterns but risk unstable WoE estimates. The variance of WoE
 estimates increases as \\1/n_i\\ where \\n_i\\ is the bin size. For bins
 with fewer than ~30 observations, consider using Laplace or Bayesian
 smoothing (applied automatically by most algorithms).
+
+**bin_cutoff and high-cardinality categorical features**: the default of
+0.05 is not neutral for a categorical feature with many levels. In
+`jedi`, the default engine, levels that hold less than `bin_cutoff` of
+the rows are pooled into one bin before the optimization, whatever their
+event rates (the `min_bins` most frequent rare levels keep bins of their
+own). Other engines treat rare levels in their own ways, for example by
+merging a rare level with the level of closest event rate. The pooled
+bin can be very heterogeneous, and it costs IV, in-sample as well as on
+new data.
+
+In a census-income case study (UCI Census-Income (KDD) data,
+[doi:10.24432/C5N30T](https://doi.org/10.24432/C5N30T) ; target income
+above 50,000, 143,531 adults used to fit, IV measured on the held-out
+file, `jedi` with `min_bins = 2` and `max_bins = 6`), 11 of the 16
+education levels were pooled into one bin, putting "Less than 1st grade"
+(0.1% events) together with "Doctorate degree" (52%). Held-out IV for
+education was 0.67 at `bin_cutoff = 0.05` and 1.27 at 0.005; for the
+47-level detailed occupation it was 0.97 and 1.64.
+
+The default is unchanged because another cutoff moves fitted cut points.
+For a categorical feature with many levels, fit at a few cutoffs (for
+example 0.05, 0.02 and 0.005) and compare the IV on held-out data.
+In-sample IV cannot warn you off a cutoff that is too low, because
+smaller bins never lower it. Stop lowering the cutoff once the held-out
+IV no longer improves: bins of fewer than ~30 observations give unstable
+WoE estimates.
 
 **max_n_prebins**: Critical for categorical features with many levels.
 If a feature has 100 categories, setting `max_n_prebins = 20` will

@@ -3,9 +3,9 @@
 Performs supervised discretization of continuous numerical variables
 using a novel approach that combines non-parametric density estimation
 with information-theoretic optimization. The algorithm first identifies
-natural clusters and boundaries in the feature distribution using local
-polynomial density estimation, then refines the bins to maximize
-predictive power.
+natural clusters and boundaries in the feature distribution using a
+Gaussian kernel density estimate (no local polynomial is fitted), then
+refines the bins to maximize predictive power.
 
 ## Usage
 
@@ -63,8 +63,9 @@ ob_numerical_lpdb(
 
 - polynomial_degree:
 
-  Integer. The degree of the local polynomial used for density
-  estimation (note: currently approximated via KDE). Defaults to 3.
+  Integer in 1 to 10. Accepted and validated but not used: the density
+  is a Gaussian KDE and no polynomial is fitted, so changing it does not
+  change the result. Defaults to 3.
 
 - enforce_monotonic:
 
@@ -119,8 +120,8 @@ process:
 1.  **Density-Based Initialization:**
 
     - Estimates the probability density function \\f(x)\\ of the
-      `feature` using Kernel Density Estimation (KDE), which
-      approximates local polynomial regression.
+      `feature` using Gaussian Kernel Density Estimation (KDE); no local
+      polynomial is fitted.
 
     - Identifies *critical points* on the density curve, such as local
       minima and inflection points. These points often correspond to

@@ -15,7 +15,7 @@ and statistical robustness."><meta property="og:image" content="https://evandeil
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -132,15 +132,23 @@ Defaults to <code>"equal_frequency"</code>.</p></dd>
 
 
 <dt id="arg-chi-merge-threshold">chi_merge_threshold<a class="anchor" aria-label="anchor" href="#arg-chi-merge-threshold"></a></dt>
-<dd><p>Numeric. The significance level (\(\alpha\)) for
-the Chi-square test. Pairs of bins with a p-value &gt; <code>chi_merge_threshold</code>
-are candidates for merging. Defaults to 0.05.</p></dd>
+<dd><p>Numeric in (0, 1). The significance level
+(\(\alpha\)) of the Chi-square test; the critical value is
+<code>qchisq(1 - chi_merge_threshold, 1)</code>. <strong>It does not change the
+result of this function</strong>: the initial bins are merged, smallest chi-square
+first, until at most <code>max_bins</code> remain, before the significance test
+is ever reached, so the test never has a merge left to decide (see
+Details). Control the number of bins with <code>max_bins</code>. The categorical
+<code><a href="ob_categorical_cm.html">ob_categorical_cm</a></code> does use the level as its stopping rule.
+Defaults to 0.05.</p></dd>
 
 
 <dt id="arg-use-chi-algorithm">use_chi2_algorithm<a class="anchor" aria-label="anchor" href="#arg-use-chi-algorithm"></a></dt>
-<dd><p>Logical. If <code>TRUE</code>, uses the Chi2 algorithm
-variant which performs multi-phase merging with decreasing significance levels
-(0.5, 0.1, 0.05, 0.01, ...). This is often more robust for noisy data.
+<dd><p>Logical. If <code>TRUE</code>, runs the Chi2 variant, a
+schedule of decreasing significance levels (0.5, 0.1, 0.05, 0.01, 0.005,
+0.001). For the reason given for <code>chi_merge_threshold</code> the schedule
+merges nothing beyond <code>max_bins</code>; the bins match the default path
+except that the <code>bin_cutoff</code> rare-bin pass is skipped.
 Defaults to <code>FALSE</code>.</p></dd>
 
 </dl></div>
@@ -164,19 +172,33 @@ Defaults to <code>FALSE</code>.</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The function implements two major discretization strategies:</p>
 <ol><li><p><strong>Standard ChiMerge:</strong></p><ul><li><p>Initializes bins using <code>init_method</code>.</p></li>
-<li><p>Iteratively merges adjacent bins with the lowest \(\chi^2\) statistic.</p></li>
-<li><p>Merging continues until all adjacent pairs have a p-value less than
-          <code>chi_merge_threshold</code> or the number of bins reaches <code>max_bins</code>.</p></li>
+<li><p>Iteratively merges the adjacent pair with the lowest \(\chi^2\)
+          statistic (2x2 table, Yates continuity correction clamped at zero).</p></li>
+<li><p>Merging continues until the number of bins reaches <code>max_bins</code>.
+          The significance test of Kerber (1992) is never reached: merging
+          stops at <code>max_bins</code> first (see below).</p></li>
 </ul></li>
 <li><p><strong>Chi2 Algorithm:</strong></p><ul><li><p>Activated when <code>use_chi2_algorithm = TRUE</code>.</p></li>
-<li><p>Performs multiple passes with decreasing significance levels
-          (0.5 \(\to\) 0.001) to automatically select the optimal significance threshold.</p></li>
-<li><p>Checks for inconsistency rates in the data during the process.</p></li>
+<li><p>Loops over a schedule of decreasing significance levels
+          (0.5 \(\to\) 0.001) and checks the inconsistency rate of the data.</p></li>
 </ul></li>
-</ol><p>Both methods include post-processing steps to enforce:</p><ul><li><p><strong>Minimum Bin Size:</strong> Merging rare bins smaller than <code>bin_cutoff</code>.</p></li>
+</ol><p><strong>The significance level does not decide the bin count.</strong> Before either
+method starts, the initial bins are merged, smallest \(\chi^2\) first,
+until at most <code>max_bins</code> remain. The significance tests never run,
+because no merge is left to decide once <code>max_bins</code> is met, so the number
+of bins is set by <code>max_bins</code> (and by <code>min_bins</code>, <code>bin_cutoff</code>
+and monotonicity), not by <code>chi_merge_threshold</code>. The categorical
+<code><a href="ob_categorical_cm.html">ob_categorical_cm</a></code> differs: it merges down to <code>max_bins</code> and
+then keeps merging while pairs are not significantly different at the chosen
+level.</p>
+<p>Post-processing steps enforce:</p><ul><li><p><strong>Minimum Bin Size:</strong> Merging rare bins smaller than
+        <code>bin_cutoff</code> (standard ChiMerge path only).</p></li>
 <li><p><strong>Monotonicity:</strong> Ensuring WoE trend is strictly increasing or decreasing
         to improve model interpretability.</p></li>
-</ul></div>
+</ul><p>Monotonicity merging stops at <code>min_bins</code>; the rare-bin pass does not
+check it again between merges, so a large <code>bin_cutoff</code> (for example 0.3)
+can leave fewer than <code>min_bins</code> bins.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Kerber, R. (1992). ChiMerge: Discretization of numeric attributes.

@@ -58,8 +58,13 @@ ob_numerical_ir(
 
 - max_n_prebins:
 
-  Integer. The number of initial quantiles to generate during the
-  pre-binning phase. Defaults to 20.
+  Integer. Upper limit on the number of initial quantile bins. The
+  number used is
+  `min(max_n_prebins, number of distinct values, max_bins)`, raised to
+  `min_bins` if needed, so values above `max_bins` change nothing: with
+  the defaults the isotonic fit sees at most 5 pre-bins, which PAVA can
+  only pool. Raise `max_bins` to give it more resolution. Defaults to
+  20.
 
 - auto_monotonicity:
 
@@ -120,7 +125,8 @@ achieved. This guarantees an optimal solution in \\O(n)\\ time.
 
 **Process Flow:**
 
-1.  **Pre-binning:** Creates initial bins using quantiles.
+1.  **Pre-binning:** Creates initial quantile bins, at most `max_bins`
+    of them (see `max_n_prebins`).
 
 2.  **Stabilization:** Merges bins below `bin_cutoff`.
 

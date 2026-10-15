@@ -51,7 +51,9 @@ ob_numerical_ldb(
 
   Minimum fraction of total observations in each bin (default: 0.05).
   Bins with frequency below this threshold are merged with adjacent
-  bins. Must be in the range \[0, 1\].
+  bins, but only while more than `min_bins` bins remain: `min_bins`
+  takes precedence, so bins below the cutoff are kept once `min_bins` is
+  reached (see Details). Must be in the range \[0, 1\].
 
 - max_n_prebins:
 
@@ -156,6 +158,10 @@ where \\h\\ is the bandwidth computed via Silverman's rule of thumb:
 \$\$h = 0.9 \times \min(\hat{\sigma}, \text{IQR}/1.34) \times
 n^{-1/5}\$\$
 
+with \\\hat{\sigma}\\ the population standard deviation (divisor \\n\\)
+and \\h\\ floored at \\\text{range}/1000\\, so it can differ from
+[`bw.nrd0`](https://rdrr.io/r/stats/bandwidth.html).
+
 Bin boundaries are placed at local minima of \\\hat{f}(x)\\, which
 correspond to natural transition regions where density is lowest
 (analogous to valleys in the density landscape). This strategy ensures
@@ -209,7 +215,13 @@ Two merging criteria are applied sequentially:
     `bin_cutoff` \\\times n\\ are merged with the adjacent bin having
     the most similar event rate (minimizing heterogeneity). If event
     rates are equivalent, the merge that preserves higher IV is
-    preferred.
+    preferred. Merging stops at `min_bins`, which takes precedence over
+    `bin_cutoff`. On a smooth, unimodal sample the only density minima
+    are bumps between isolated tail observations; they have the lowest
+    density and are chosen first, so the cuts can fall in the sparse
+    tails and leave bins of a handful of observations. With no minimum
+    at all the engine uses quantile cuts. Lower `min_bins` or choose
+    another algorithm in that case.
 
 2.  **Cardinality reduction**: If the number of bins exceeds `max_bins`,
     the pair of adjacent bins minimizing IV loss when merged is
@@ -223,10 +235,10 @@ Two merging criteria are applied sequentially:
   Silverman (1986, Chapter 3), balancing bias-variance tradeoff for
   univariate density estimation.
 
-- **Weight of Evidence**: Siddiqi (2006) formalizes WoE/IV as measures
-  of predictive strength in credit scoring, with IV thresholds: \\\<
+- **Weight of Evidence**: Siddiqi (2006) presents WoE/IV as measures of
+  predictive strength in credit scoring, with the usual IV bands: \\\<
   0.02\\ (unpredictive), 0.02-0.1 (weak), 0.1-0.3 (medium), 0.3-0.5
-  (strong), \\\> 0.5\\ (suspect overfitting).
+  (strong); an IV above 0.5 is commonly treated as a warning sign.
 
 - **Supervised Discretization**: García et al. (2013) categorize LDB
   within "static" supervised methods that do not require iterative

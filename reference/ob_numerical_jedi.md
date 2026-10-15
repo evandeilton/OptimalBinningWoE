@@ -125,6 +125,17 @@ This joint approach (Entropy/IV + Stability constraints) makes JEDI
 particularly effective for datasets with noise or non-monotonic initial
 distributions that require smoothing.
 
+**WoE and IV of an empty cell.** WoE and IV use the raw class shares
+\\p_i = n\_{i,1}/N_1\\ and \\q_i = n\_{i,0}/N_0\\, with no smoothing. A
+bin with no events (or no non-events) has the zero share replaced by
+\\10^{-10}\\, so its WoE is \\\ln(10^{-10}/q_i)\\ (or
+\\\ln(p_i/10^{-10})\\), about \\-20\\ to \\-22\\ (or \\+20\\ to \\+22\\)
+for shares of 5% to 30%. It is not clamped to \\\pm 20\\, the limit
+several other engines apply. The IV contribution (of order 1 or more) is
+an artifact of that floor, not evidence of predictive power. Treat such
+a bin as a sign that `min_bins`, `bin_cutoff` or the data need
+attention.
+
 ## See also
 
 [`ob_numerical_cm`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md),

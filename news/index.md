@@ -1,5 +1,49 @@
 # Changelog
 
+## OptimalBinningWoE 1.14.1
+
+Documentation only: no algorithm, argument or fitted result changes.
+
+- **Algorithm reference vignette:** corrected the statements that
+  contradicted the C++ code (`sblp` complexity, excess levels in `ivb`
+  and `gmb`, the `fast_mdlp`, `mdlp` and `cm` criteria, PAVA cost,
+  sketch memory, `ldb` bandwidth) and fixed the WoE convention: events
+  are the numerator.
+- **`DESCRIPTION` and
+  [`?obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md):**
+  28 algorithms (37 implementations); no genetic algorithms or MILP
+  solver. The algorithm tables say what each engine does (`bb`, `mdlp`,
+  `milp`, `mblp`, `mrblp` and `oslp` merge greedily), and
+  `algorithm = "auto"` is a fixed rule by target type, not a search for
+  the highest IV.
+- **[`ob_numerical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md):**
+  `chi_merge_threshold` does not change the result, because bins are
+  merged down to `max_bins` before the significance test is reached.
+  Documented and covered by a test;
+  [`ob_categorical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_cm.md)
+  does use it as its stopping rule.
+- **Documented behavior:** `ldb` lets `min_bins` override `bin_cutoff`;
+  `jedi` leaves the WoE of an empty cell unclamped (about -20 to -22);
+  `ir` caps its pre-bins at `max_bins`; `lpdb` ignores
+  `polynomial_degree`.
+- **[`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/reference/control.obwoe.md)
+  and
+  [`vignette("introduction")`](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.md):**
+  the default `bin_cutoff = 0.05` can cost IV on categorical features
+  with many levels, because the rare levels share one bin. The vignette
+  shows how to compare lower cutoffs on held-out data. The default is
+  unchanged.
+- **IV bands
+  ([`?obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md),
+  [`?summary.obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/summary.obwoe.md),
+  [`vignette("introduction")`](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.md)):**
+  described as a rule of thumb; the 0.50 band is no longer credited to
+  Siddiqi or called “almost always leakage”.
+- **References:** `inst/references.bib` corrected, and
+  [`?obwoe`](https://evandeilton.github.io/OptimalBinningWoE/reference/obwoe.md)
+  cites the optimal binning method as the arXiv preprint it is. The DOI
+  given before belongs to an unrelated paper.
+
 ## OptimalBinningWoE 1.14.0
 
 CRAN release: 2026-09-30

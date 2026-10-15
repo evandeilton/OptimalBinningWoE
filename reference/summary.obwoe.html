@@ -11,7 +11,7 @@ including predictive power classification based on established IV thresholds
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -133,9 +133,11 @@ for IV, <code>FALSE</code> for feature names.</p></dd>
 <h3 id="iv-classification-thresholds">IV Classification Thresholds<a class="anchor" aria-label="anchor" href="#iv-classification-thresholds"></a></h3>
 
 
-<p>Following Siddiqi (2006), features are classified by predictive power:</p>
-<table class="table table"><tr><td><strong>Classification</strong></td><td><strong>IV Range</strong></td></tr><tr><td>Unpredictive</td><td>&lt; 0.02</td></tr><tr><td>Weak</td><td>0.02 - 0.10</td></tr><tr><td>Medium</td><td>0.10 - 0.30</td></tr><tr><td>Strong</td><td>0.30 - 0.50</td></tr><tr><td>Suspicious</td><td>&gt; 0.50</td></tr></table><p>Features with IV &gt; 0.50 should be examined for data leakage or
-overfitting, as such high values are rarely observed in practice.</p>
+<p>Features are classified with the usual rule-of-thumb IV bands. The cut-offs
+0.02, 0.10 and 0.30 are usually credited to Siddiqi (2006); the top band is a
+common extension:</p>
+<table class="table table"><tr><td><strong>Classification</strong></td><td><strong>IV Range</strong></td></tr><tr><td>Unpredictive</td><td>&lt; 0.02</td></tr><tr><td>Weak</td><td>0.02 - 0.10</td></tr><tr><td>Medium</td><td>0.10 - 0.30</td></tr><tr><td>Strong</td><td>0.30 - 0.50</td></tr><tr><td>Suspicious</td><td>&gt;= 0.50</td></tr></table><p>Features with an IV of 0.50 or more should be examined for data leakage or
+overfitting.</p>
 </div>
 
     </div>

@@ -93,7 +93,9 @@ An S3 object of class `"summary.obwoe"` containing:
 
 ### IV Classification Thresholds
 
-Following Siddiqi (2006), features are classified by predictive power:
+Features are classified with the usual rule-of-thumb IV bands. The
+cut-offs 0.02, 0.10 and 0.30 are usually credited to Siddiqi (2006); the
+top band is a common extension:
 
 |                    |              |
 |--------------------|--------------|
@@ -102,10 +104,10 @@ Following Siddiqi (2006), features are classified by predictive power:
 | Weak               | 0.02 - 0.10  |
 | Medium             | 0.10 - 0.30  |
 | Strong             | 0.30 - 0.50  |
-| Suspicious         | \> 0.50      |
+| Suspicious         | \>= 0.50     |
 
-Features with IV \> 0.50 should be examined for data leakage or
-overfitting, as such high values are rarely observed in practice.
+Features with an IV of 0.50 or more should be examined for data leakage
+or overfitting.
 
 ## References
 
