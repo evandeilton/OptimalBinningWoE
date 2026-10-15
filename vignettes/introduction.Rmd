@@ -79,10 +79,11 @@ $$
 \left(\frac{n_{i,1}}{N_1} - \frac{n_{i,0}}{N_0}\right) \mathrm{WoE}_i
 $$
 
-This is the symmetrised Kullback–Leibler divergence (Jeffreys divergence)
+This is the symmetrized Kullback–Leibler divergence (Jeffreys divergence)
 between the event and non-event distributions across bins. It is the standard
 single-number summary of predictive strength, and the package grades it with
-the bands from Siddiqi (2006):
+the usual rule-of-thumb bands (the 0.02, 0.10 and 0.30 cut-offs are usually
+credited to Siddiqi, 2006):
 
 | IV | Band | Reading |
 |---|---|---|
@@ -90,7 +91,7 @@ the bands from Siddiqi (2006):
 | $[0.02,\ 0.10)$ | Weak | keep only if it adds diversity |
 | $[0.10,\ 0.30)$ | Medium | the workhorses of a scorecard |
 | $[0.30,\ 0.50)$ | Strong | strong, verify it is not a proxy |
-| $\ge 0.50$ | Suspicious | almost always leakage |
+| $\ge 0.50$ | Suspicious | check for leakage or overfitting |
 
 IV never decreases when you split a bin, so it cannot be used on its own to
 choose the number of bins — that is what the optimisation algorithms are for.
@@ -245,8 +246,8 @@ sel[!sel$selected, c("feature", "total_iv", "iv_class", "reason")]
 
 `status` — the checking-account balance — is the strongest variable in the file
 and is rejected for it. An IV of 0.67 sits in the *Suspicious* band, where
-single-variable strength is far more often a symptom of target leakage than of
-a genuinely dominant predictor. Raise `iv_max` to admit it deliberately:
+single-variable strength deserves a check for target leakage before it is
+trusted. Raise `iv_max` to admit it deliberately:
 
 ```{r select-admit}
 admitted <- obwoe_select(model, iv_max = Inf)
@@ -284,6 +285,50 @@ dim(detail)
 
 detail[detail$feature == "savings",
        c("bin", "n_categories", "count", "pos_rate", "woe", "iv", "lift")]
+```
+
+## Rare levels and `bin_cutoff`
+
+`bin_cutoff` (default 0.05) is the smallest share of the rows a bin may hold.
+For a categorical variable it also decides which levels count as *rare*. In
+`jedi`, the default, the levels below the cutoff go into one pooled bin before
+the algorithm optimizes anything, whatever their event rates (the `min_bins` most
+frequent rare levels keep bins of their own; other engines treat rare levels in
+their own ways). On a variable with many levels that bin can mix very different
+groups, and it lowers the IV, in-sample and on new data alike.
+
+A census-income case study shows the size of it (UCI Census-Income (KDD) data,
+[doi:10.24432/C5N30T](https://doi.org/10.24432/C5N30T); 143,531 adults to fit,
+IV measured on the held-out file, `jedi` with `min_bins = 2` and `max_bins = 6`).
+At the default, 11 of the 16 education levels went into one pooled bin: "Less
+than 1st grade" (0.1% events) next to "Doctorate degree" (52%). Lowering the
+cutoff to 0.005 raised the held-out IV of education from 0.67 to 1.27, and that
+of the 47-level detailed occupation from 0.97 to 1.64.
+
+The default stays at 0.05 because another cutoff moves fitted cut points, so the
+check is worth running on your own high-cardinality variables: fit at a few
+cutoffs and compare the IV on held-out rows. In-sample IV cannot guide the
+choice, because smaller bins never lower it. Stop lowering the cutoff when the
+held-out IV stops improving; bins of fewer than about 30 observations give
+unstable WoE estimates.
+
+```{r cutoff-recipe, eval = FALSE}
+# `dev` and `holdout` are any split of your data into fitting and held-out rows
+heldout_iv <- function(w, y) {            # IV of a WoE column on new rows
+  g <- match(w, unique(w))
+  p <- tabulate(g[y == 1], max(g)) / sum(y == 1)
+  q <- tabulate(g[y == 0], max(g)) / sum(y == 0)
+  sum((p - q) * unique(w))
+}
+
+cuts <- c(0.05, 0.02, 0.005)
+setNames(sapply(cuts, function(cut) {
+  fit <- obwoe(dev, target = "default", feature = "purpose",
+               min_bins = 2, max_bins = 6,
+               control = control.obwoe(bin_cutoff = cut))
+  w <- obwoe_apply(holdout, fit, keep_original = FALSE)$purpose_woe
+  heldout_iv(w, holdout$default)
+}), cuts)
 ```
 
 # Choosing an algorithm

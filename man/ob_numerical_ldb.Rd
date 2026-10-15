@@ -32,8 +32,10 @@ Must have the same length as \code{feature}. Missing values are not permitted (a
 than or equal to \code{min_bins}.}
 
 \item{bin_cutoff}{Minimum fraction of total observations in each bin (default: 0.05).
-Bins with frequency below this threshold are merged with adjacent bins. Must be
-in the range [0, 1].}
+Bins with frequency below this threshold are merged with adjacent bins, but
+only while more than \code{min_bins} bins remain: \code{min_bins} takes
+precedence, so bins below the cutoff are kept once \code{min_bins} is reached
+(see Details). Must be in the range [0, 1].}
 
 \item{max_n_prebins}{Maximum number of pre-bins before optimization (default: 20).
 Controls granularity of initial density-based discretization.}
@@ -94,6 +96,10 @@ where \eqn{h} is the bandwidth computed via Silverman's rule of thumb:
 
 \deqn{h = 0.9 \times \min(\hat{\sigma}, \text{IQR}/1.34) \times n^{-1/5}}
 
+with \eqn{\hat{\sigma}} the population standard deviation (divisor \eqn{n}) and
+\eqn{h} floored at \eqn{\text{range}/1000}, so it can differ from
+\code{\link[stats]{bw.nrd0}}.
+
 Bin boundaries are placed at local minima of \eqn{\hat{f}(x)}, which correspond
 to natural transition regions where density is lowest (analogous to valleys in
 the density landscape). This strategy ensures bins capture homogeneous subpopulations.
@@ -139,7 +145,13 @@ Two merging criteria are applied sequentially:
   \item \strong{Frequency-based merging}: Bins with total count below
     \code{bin_cutoff} \eqn{\times n} are merged with the adjacent bin having
     the most similar event rate (minimizing heterogeneity). If event rates are
-    equivalent, the merge that preserves higher IV is preferred.
+    equivalent, the merge that preserves higher IV is preferred. Merging stops
+    at \code{min_bins}, which takes precedence over \code{bin_cutoff}. On a
+    smooth, unimodal sample the only density minima are bumps between isolated
+    tail observations; they have the lowest density and are chosen first, so
+    the cuts can fall in the sparse tails and leave bins of a handful of
+    observations. With no minimum at all the engine uses quantile
+    cuts. Lower \code{min_bins} or choose another algorithm in that case.
   \item \strong{Cardinality reduction}: If the number of bins exceeds \code{max_bins},
     the pair of adjacent bins minimizing IV loss when merged is identified via:
     \deqn{\Delta \text{IV}_{i,i+1} = \text{IV}_i + \text{IV}_{i+1} - \text{IV}_{\text{merged}}}
@@ -152,10 +164,10 @@ Two merging criteria are applied sequentially:
   \item \strong{Kernel Density Estimation}: The bandwidth selection follows
     Silverman (1986, Chapter 3), balancing bias-variance tradeoff for univariate
     density estimation.
-  \item \strong{Weight of Evidence}: Siddiqi (2006) formalizes WoE/IV as measures
-    of predictive strength in credit scoring, with IV thresholds: \eqn{< 0.02}
-    (unpredictive), 0.02-0.1 (weak), 0.1-0.3 (medium), 0.3-0.5 (strong), \eqn{> 0.5}
-    (suspect overfitting).
+  \item \strong{Weight of Evidence}: Siddiqi (2006) presents WoE/IV as measures
+    of predictive strength in credit scoring, with the usual IV bands: \eqn{< 0.02}
+    (unpredictive), 0.02-0.1 (weak), 0.1-0.3 (medium), 0.3-0.5 (strong); an IV
+    above 0.5 is commonly treated as a warning sign.
   \item \strong{Supervised Discretization}: García et al. (2013) categorize LDB
     within "static" supervised methods that do not require iterative feedback
     from the model, unlike dynamic methods (e.g., ChiMerge).

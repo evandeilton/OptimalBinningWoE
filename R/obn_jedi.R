@@ -74,6 +74,17 @@
 #' effective for datasets with noise or non-monotonic initial distributions that
 #' require smoothing.
 #'
+#' \strong{WoE and IV of an empty cell.} WoE and IV use the raw class shares
+#' \eqn{p_i = n_{i,1}/N_1} and \eqn{q_i = n_{i,0}/N_0}, with no smoothing. A bin
+#' with no events (or no non-events) has the zero share replaced by
+#' \eqn{10^{-10}}, so its WoE is \eqn{\ln(10^{-10}/q_i)} (or
+#' \eqn{\ln(p_i/10^{-10})}), about \eqn{-20} to \eqn{-22} (or \eqn{+20} to
+#' \eqn{+22}) for shares of 5\% to 30\%. It is not clamped to \eqn{\pm 20}, the
+#' limit several other engines apply. The IV contribution (of order 1 or more)
+#' is an artifact of that floor, not evidence of predictive power.
+#' Treat such a bin as a sign that \code{min_bins}, \code{bin_cutoff} or the
+#' data need attention.
+#'
 #' @seealso \code{\link{ob_numerical_cm}}, \code{\link{ob_numerical_ir}}
 #'
 #' @examples

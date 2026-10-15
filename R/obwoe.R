@@ -4,9 +4,9 @@
 #' Master interface for optimal discretization and Weight of Evidence (WoE)
 #' computation across numerical and categorical predictors. This function serves
 #' as the primary entry point for the \strong{OptimalBinningWoE} package, providing
-#' automatic feature type detection, intelligent algorithm selection, and unified
-#' output structures for seamless integration into credit scoring and predictive
-#' modeling workflows.
+#' automatic feature type detection, a default algorithm chosen from the target
+#' type (\code{"auto"}), and unified output structures for seamless integration
+#' into credit scoring and predictive modeling workflows.
 #'
 #' @param data A \code{data.frame} containing the predictor variables (features)
 #'   and the response variable (target). All features to be binned must be present
@@ -38,7 +38,8 @@
 #'   Default is 7.
 #' @param algorithm Character string specifying the binning algorithm.
 #'   Use \code{"auto"} (default) for automatic selection based on target type:
-#'   \code{"jedi"} for binary targets, \code{"jedi_mwoe"} for multinomial.
+#'   \code{"jedi"} for binary targets, \code{"jedi_mwoe"} for multinomial. This is
+#'   a fixed rule, not a search: no algorithm is compared or chosen by IV.
 #'   See Details for the complete algorithm taxonomy.
 #' @param control A list of algorithm-specific control parameters created by
 #'   \code{\link{control.obwoe}}. Provides fine-grained control over convergence
@@ -98,7 +99,11 @@
 #'
 #' \subsection{Algorithm Taxonomy}{
 #'
-#' The package provides 28 algorithms organized by supported feature types:
+#' The package provides 28 algorithms (37 implementations: 21 numerical and 16
+#' categorical) organized by supported feature types. The last column says what
+#' the code does, which is not always what the name suggests; the algorithm
+#' reference vignette (\code{vignette("algorithms", package = "OptimalBinningWoE")})
+#' gives the mechanism of each engine.
 #'
 #' \strong{Universal Algorithms} (both numerical and categorical):
 #' \tabular{lll}{
@@ -106,41 +111,41 @@
 #'   \code{jedi} \tab Joint Entropy-Driven Information \tab Heuristic + IV optimization \cr
 #'   \code{jedi_mwoe} \tab JEDI Multinomial WoE \tab Extension for K>2 classes \cr
 #'   \code{cm} \tab ChiMerge \tab Bottom-up chi-squared merging \cr
-#'   \code{dp} \tab Dynamic Programming \tab Exact optimal IV partitioning \cr
-#'   \code{dmiv} \tab Decision Tree MIV \tab Recursive partitioning \cr
+#'   \code{dp} \tab Dynamic Programming \tab Exact DP over event-rate-ordered levels (categorical); greedy merging, no DP table (numerical) \cr
+#'   \code{dmiv} \tab Metric Divergence Measures \tab Divergence-based merging (nine measures) \cr
 #'   \code{fetb} \tab Fisher's Exact Test \tab Statistical significance-based \cr
-#'   \code{mob} \tab Monotonic Optimal Binning \tab IV-optimal with monotonicity \cr
+#'   \code{mob} \tab Monotonic Optimal Binning \tab Greedy IV-loss merging with monotonicity \cr
 #'   \code{sketch} \tab Sketching \tab Probabilistic data structures \cr
-#'   \code{udt} \tab Unsupervised Decision Tree \tab Entropy-based without target
+#'   \code{udt} \tab Unsupervised Decision Tree (misnomer) \tab Supervised: entropy-ranked cuts, then bottom-up merging; no tree
 #' }
 #'
 #' \strong{Numerical-Only Algorithms}:
 #' \tabular{ll}{
 #'   \strong{ID} \tab \strong{Description} \cr
-#'   \code{bb} \tab Branch and Bound (exact search) \cr
-#'   \code{ewb} \tab Equal Width Binning (unsupervised) \cr
-#'   \code{fast_mdlp} \tab Fast MDLP with pruning \cr
+#'   \code{bb} \tab Branch and Bound (greedy: merges the lowest-IV bin repeatedly; no search tree) \cr
+#'   \code{ewb} \tab Equal Width Binning (equal-width start, supervised merging) \cr
+#'   \code{fast_mdlp} \tab Fayyad-Irani MDLP (recursive entropy partitioning) \cr
 #'   \code{ir} \tab Isotonic Regression \cr
-#'   \code{kmb} \tab K-Means Binning \cr
+#'   \code{kmb} \tab K-Means inspired Binning (evenly spaced centroids; no k-means iteration) \cr
 #'   \code{ldb} \tab Local Density Binning \cr
-#'   \code{lpdb} \tab Local Polynomial Density \cr
-#'   \code{mblp} \tab Monotonic Binning LP \cr
-#'   \code{mdlp} \tab Minimum Description Length \cr
-#'   \code{mrblp} \tab Monotonic Regression LP \cr
-#'   \code{oslp} \tab Optimal Supervised LP \cr
-#'   \code{ubsd} \tab Unsupervised Std-Dev Based
+#'   \code{lpdb} \tab Local Polynomial Density (Gaussian KDE; no polynomial is fitted) \cr
+#'   \code{mblp} \tab Monotonic Binning LP (greedy; no linear program is solved) \cr
+#'   \code{mdlp} \tab Minimum Description Length (greedy bottom-up merging by MDL cost) \cr
+#'   \code{mrblp} \tab Monotonic Risk Binning (greedy; no LP, no likelihood-ratio pre-binning) \cr
+#'   \code{oslp} \tab Optimal Supervised LP (greedy; no linear program is solved) \cr
+#'   \code{ubsd} \tab Unsupervised Std-Dev Based (unsupervised start, supervised refinement)
 #' }
 #'
 #' \strong{Categorical-Only Algorithms}:
 #' \tabular{ll}{
 #'   \strong{ID} \tab \strong{Description} \cr
 #'   \code{gmb} \tab Greedy Monotonic Binning \cr
-#'   \code{ivb} \tab Information Value DP (exact) \cr
+#'   \code{ivb} \tab Information Value DP (exact over levels ordered by event rate) \cr
 #'   \code{mba} \tab Modified Binning Algorithm \cr
-#'   \code{milp} \tab Mixed Integer LP \cr
+#'   \code{milp} \tab Mixed Integer LP (greedy merging; no integer program is solved) \cr
 #'   \code{sab} \tab Simulated Annealing \cr
-#'   \code{sblp} \tab Similarity-Based LP \cr
-#'   \code{swb} \tab Sliding Window Binning
+#'   \code{sblp} \tab Similarity-Based LP (exact DP over levels ordered by event rate) \cr
+#'   \code{swb} \tab Sliding Window Binning (greedy Jensen-Shannon merging)
 #' }
 #' }
 #'
@@ -161,14 +166,17 @@
 #'
 #' \subsection{IV Interpretation Guidelines}{
 #'
-#' Siddiqi (2006) provides the following IV thresholds for variable selection:
+#' The package grades IV with the usual rule-of-thumb bands. The cut-offs 0.02,
+#' 0.10 and 0.30 are usually credited to Siddiqi (2006); the top band is a common
+#' extension that Navas-Palencia (2020, Table 3) labels "over-prediction". The
+#' bands are conventions, not statistical tests.
 #' \tabular{ll}{
 #'   \strong{IV Range} \tab \strong{Predictive Power} \cr
 #'   < 0.02 \tab Unpredictive \cr
 #'   0.02 - 0.10 \tab Weak \cr
 #'   0.10 - 0.30 \tab Medium \cr
 #'   0.30 - 0.50 \tab Strong \cr
-#'   > 0.50 \tab Suspicious (likely overfitting)
+#'   >= 0.50 \tab Suspicious (look for leakage or overfitting)
 #' }
 #' }
 #'
@@ -177,14 +185,19 @@
 #' Time complexity varies by algorithm:
 #' \itemize{
 #'   \item \strong{JEDI, ChiMerge, MOB}: \eqn{O(n \log n + k^2 m)} where \eqn{n} = observations, \eqn{k} = bins, \eqn{m} = iterations
-#'   \item \strong{Dynamic Programming}: \eqn{O(n \cdot k^2)} for exact solution
-#'   \item \strong{Equal Width}: \eqn{O(n)} (fastest, but unsupervised)
-#'   \item \strong{MILP, SBLP}: Potentially exponential (NP-hard problems)
+#'   \item \strong{Dynamic programming over ordered levels} (\code{ivb},
+#'     categorical \code{dp}, \code{sblp}): \eqn{O(K L^2)} where \eqn{K} =
+#'     \code{max_bins} and \eqn{L} = levels left after pre-binning
+#'   \item \strong{Equal Width}: \eqn{O(n)} (fastest, but unsupervised start)
+#'   \item \strong{MILP, numerical DP}: greedy merging; no integer program is
+#'     solved and no DP table is built
 #' }
 #'
 #' For large datasets (\eqn{n > 10^6}), consider:
 #' \enumerate{
-#'   \item Using \code{algorithm = "sketch"} for approximate streaming
+#'   \item Using \code{algorithm = "sketch"}, which for numerical features
+#'     proposes cut points from a quantile sketch (the data still have to fit in
+#'     memory)
 #'   \item Reducing \code{max_n_prebins} via \code{control.obwoe()}
 #'   \item Sampling the data before binning
 #' }
@@ -206,8 +219,8 @@
 #' and Computation}. \doi{10.1137/1.9780898718317}
 #'
 #' Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming
-#' Formulation and Solution Approach. \emph{Expert Systems with Applications},
-#' 158, 113508. \doi{10.1016/j.eswa.2020.113508}
+#' Formulation. \emph{arXiv preprint arXiv:2001.08025}.
+#' \doi{10.48550/arXiv.2001.08025}
 #'
 #' Zeng, G. (2014). A Necessary Condition for a Good Binning Algorithm
 #' in Credit Scoring. \emph{Applied Mathematical Sciences}, 8(65), 3229-3242.
@@ -849,7 +862,10 @@ obwoe <- function(data,
 #'   proportion of total observations that a bin must contain. Bins with
 #'   fewer observations are merged with adjacent bins. Serves as a regularization
 #'   mechanism to prevent overfitting and ensure statistical stability of
-#'   WoE estimates. Recommended range: 0.02 to 0.10. Default is 0.05 (5\%).
+#'   WoE estimates. Recommended range: 0.02 to 0.10 for numerical features. For
+#'   categorical features with many levels the default can cost predictive
+#'   power: compare lower values on held-out data (see Details).
+#'   Default is 0.05 (5\%).
 #'
 #' @param max_n_prebins Integer specifying the maximum number of initial bins
 #'   created before optimization. For high-cardinality categorical features,
@@ -892,6 +908,30 @@ obwoe <- function(data,
 #' estimates increases as \eqn{1/n_i} where \eqn{n_i} is the bin size.
 #' For bins with fewer than ~30 observations, consider using Laplace or
 #' Bayesian smoothing (applied automatically by most algorithms).
+#'
+#' \strong{bin_cutoff and high-cardinality categorical features}: the default of
+#' 0.05 is not neutral for a categorical feature with many levels. In
+#' \code{jedi}, the default engine, levels that hold less than \code{bin_cutoff}
+#' of the rows are pooled into one bin before the optimization, whatever their
+#' event rates (the \code{min_bins} most frequent rare levels keep bins of their
+#' own). Other engines treat rare levels in their own ways, for example by
+#' merging a rare level with the level of closest event rate. The pooled bin can
+#' be very heterogeneous, and it costs IV, in-sample as well as on new data.
+#'
+#' In a census-income case study (UCI Census-Income (KDD) data,
+#' \doi{10.24432/C5N30T}; target income above 50,000, 143,531 adults used to
+#' fit, IV measured on the held-out file, \code{jedi} with \code{min_bins = 2}
+#' and \code{max_bins = 6}), 11 of the 16 education levels were pooled into one
+#' bin, putting "Less than 1st grade" (0.1\% events) together with "Doctorate
+#' degree" (52\%). Held-out IV for education was 0.67 at \code{bin_cutoff = 0.05}
+#' and 1.27 at 0.005; for the 47-level detailed occupation it was 0.97 and 1.64.
+#'
+#' The default is unchanged because another cutoff moves fitted cut points. For
+#' a categorical feature with many levels, fit at a few cutoffs (for example 0.05,
+#' 0.02 and 0.005) and compare the IV on held-out data. In-sample IV cannot warn
+#' you off a cutoff that is too low, because smaller bins never lower it. Stop
+#' lowering the cutoff once the held-out IV no longer improves: bins of fewer
+#' than ~30 observations give unstable WoE estimates.
 #'
 #' \strong{max_n_prebins}: Critical for categorical features with many levels.
 #' If a feature has 100 categories, setting \code{max_n_prebins = 20} will
@@ -1099,7 +1139,9 @@ print.obwoe <- function(x, ...) {
 #' @details
 #' \subsection{IV Classification Thresholds}{
 #'
-#' Following Siddiqi (2006), features are classified by predictive power:
+#' Features are classified with the usual rule-of-thumb IV bands. The cut-offs
+#' 0.02, 0.10 and 0.30 are usually credited to Siddiqi (2006); the top band is a
+#' common extension:
 #'
 #' \tabular{ll}{
 #'   \strong{Classification} \tab \strong{IV Range} \cr
@@ -1107,11 +1149,11 @@ print.obwoe <- function(x, ...) {
 #'   Weak \tab 0.02 - 0.10 \cr
 #'   Medium \tab 0.10 - 0.30 \cr
 #'   Strong \tab 0.30 - 0.50 \cr
-#'   Suspicious \tab > 0.50
+#'   Suspicious \tab >= 0.50
 #' }
 #'
-#' Features with IV > 0.50 should be examined for data leakage or
-#' overfitting, as such high values are rarely observed in practice.
+#' Features with an IV of 0.50 or more should be examined for data leakage or
+#' overfitting.
 #' }
 #'
 #' @references

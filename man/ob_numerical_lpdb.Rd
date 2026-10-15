@@ -40,8 +40,9 @@ Value must be in (0, 1). Defaults to 0.05.}
 \item{max_n_prebins}{Integer. The maximum number of initial candidate cut points
 to generate during the density estimation phase. Defaults to 20.}
 
-\item{polynomial_degree}{Integer. The degree of the local polynomial used for
-density estimation (note: currently approximated via KDE). Defaults to 3.}
+\item{polynomial_degree}{Integer in 1 to 10. Accepted and validated but not
+used: the density is a Gaussian KDE and no polynomial is fitted, so changing
+it does not change the result. Defaults to 3.}
 
 \item{enforce_monotonic}{Logical. If \code{TRUE}, the algorithm forces the
 Weight of Evidence (WoE) trend to be strictly monotonic. Defaults to \code{TRUE}.}
@@ -73,8 +74,9 @@ A list containing the binning results:
 Performs supervised discretization of continuous numerical variables using a
 novel approach that combines non-parametric density estimation with
 information-theoretic optimization. The algorithm first identifies natural
-clusters and boundaries in the feature distribution using local polynomial
-density estimation, then refines the bins to maximize predictive power.
+clusters and boundaries in the feature distribution using a Gaussian kernel
+density estimate (no local polynomial is fitted), then refines the bins to
+maximize predictive power.
 }
 \details{
 The \strong{Local Polynomial Density Binning (LPDB)} algorithm is a two-stage process:
@@ -83,7 +85,7 @@ The \strong{Local Polynomial Density Binning (LPDB)} algorithm is a two-stage pr
   \item \strong{Density-Based Initialization:}
   \itemize{
     \item Estimates the probability density function \eqn{f(x)} of the \code{feature}
-          using Kernel Density Estimation (KDE), which approximates local polynomial regression.
+          using Gaussian Kernel Density Estimation (KDE); no local polynomial is fitted.
     \item Identifies \emph{critical points} on the density curve, such as local minima
           and inflection points. These points often correspond to natural boundaries
           between clusters or modes in the data.
