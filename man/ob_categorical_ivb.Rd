@@ -159,6 +159,11 @@ After finding the optimal bins, the algorithm enforces WoE monotonicity by:
   \item \strong{vs GMB}: IVB guarantees optimality; GMB is faster but approximate
   \item \strong{vs ChiMerge}: IVB uses IV criterion; ChiMerge uses chi-square
 }
+
+\strong{Ties:} categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.
 }
 \examples{
 \donttest{

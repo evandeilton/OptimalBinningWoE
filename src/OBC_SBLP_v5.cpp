@@ -78,6 +78,7 @@ private:
   double iv_from_counts(int bin_pos, int bin_neg, size_t n_members) const;
   double smoothed_rate(const std::vector<size_t>& bin) const;
   void compact(const std::vector<bool>& alive);
+  bool rate_less(size_t i, size_t j) const;
   bool is_monotonic(const std::vector<std::vector<size_t>>& bins) const;
   void initialize_cache() const;
   List prepare_output(const std::vector<std::vector<size_t>>& bins, bool converged, int iterations) const;
@@ -185,9 +186,10 @@ void OBC_SBLP::validate_input() {
 
 // Cálculo inicial das contagens por categoria com tratamento para valores ausentes
 void OBC_SBLP::compute_initial_counts() {
-  // Categories are indexed in order of first appearance. Every distinct
-  // CHARSXP is resolved once (pointer lookup); the string map only merges
-  // CHARSXPs that hold the same bytes under different encodings.
+  // Categories are indexed in order of first appearance, then put in name
+  // order below. Every distinct CHARSXP is resolved once (pointer lookup);
+  // the string map only merges CHARSXPs that hold the same bytes under
+  // different encodings.
   std::unordered_map<std::string, size_t> category_indices;
   std::unordered_map<SEXP, size_t> ptr_indices;
   bool has_missing = false;
@@ -249,11 +251,40 @@ void OBC_SBLP::compute_initial_counts() {
     throw std::invalid_argument("No valid observations found after processing missing values");
   }
 
+  // Put the categories in name order. First-appearance order depends on the
+  // row order; every later sort is stable, so ties keep this order.
+  std::vector<size_t> by_name(unique_categories.size());
+  std::iota(by_name.begin(), by_name.end(), 0);
+  std::sort(by_name.begin(), by_name.end(), [this](size_t i, size_t j) {
+    return unique_categories[i].front() < unique_categories[j].front();
+  });
+  std::vector<std::vector<std::string>> cats_sorted;
+  std::vector<int> total_sorted, pos_sorted, neg_sorted;
+  cats_sorted.reserve(by_name.size());
+  for (size_t k : by_name) {
+    cats_sorted.push_back(std::move(unique_categories[k]));
+    total_sorted.push_back(count_total[k]);
+    pos_sorted.push_back(count_pos[k]);
+    neg_sorted.push_back(count_neg[k]);
+  }
+  unique_categories = std::move(cats_sorted);
+  count_total = std::move(total_sorted);
+  count_pos = std::move(pos_sorted);
+  count_neg = std::move(neg_sorted);
+
   // Target rates with mild (Laplace) smoothing, used as the sort key
   category_target_rate.resize(unique_categories.size());
   for (size_t i = 0; i < unique_categories.size(); ++i) {
     category_target_rate[i] = static_cast<double>(count_pos[i] + 0.5) / (count_total[i] + 1.0);
   }
+}
+
+// Ascending smoothed target rate; equal rates by ascending count. Used with
+// stable sorts, so remaining ties keep the index (name) order.
+bool OBC_SBLP::rate_less(size_t i, size_t j) const {
+  if (category_target_rate[i] != category_target_rate[j])
+    return category_target_rate[i] < category_target_rate[j];
+  return count_total[i] < count_total[j];
 }
 
 // Drops the groups flagged as merged away and recomputes the target rates.
@@ -306,8 +337,8 @@ void OBC_SBLP::handle_rare_categories() {
   if (rare_indices.size() == unique_categories.size()) {
     std::vector<size_t> sorted_by_freq(unique_categories.size());
     std::iota(sorted_by_freq.begin(), sorted_by_freq.end(), 0);
-    std::sort(sorted_by_freq.begin(), sorted_by_freq.end(),
-              [this](size_t i, size_t j) { return count_total[i] > count_total[j]; });
+    std::stable_sort(sorted_by_freq.begin(), sorted_by_freq.end(),
+                     [this](size_t i, size_t j) { return count_total[i] > count_total[j]; });
 
     size_t keep_count = std::min(static_cast<size_t>(min_bins), unique_categories.size());
     rare_indices.clear();
@@ -318,8 +349,8 @@ void OBC_SBLP::handle_rare_categories() {
 
   const double similarity_threshold = 0.1;
 
-  std::sort(rare_indices.begin(), rare_indices.end(),
-            [this](size_t i, size_t j) { return category_target_rate[i] < category_target_rate[j]; });
+  std::stable_sort(rare_indices.begin(), rare_indices.end(),
+                   [this](size_t i, size_t j) { return rate_less(i, j); });
 
   std::vector<std::vector<size_t>> similar_groups;
   if (!rare_indices.empty()) {
@@ -383,8 +414,8 @@ void OBC_SBLP::ensure_max_prebins() {
 
   std::vector<size_t> indices(unique_categories.size());
   std::iota(indices.begin(), indices.end(), 0);
-  std::sort(indices.begin(), indices.end(),
-            [this](size_t i, size_t j) { return category_target_rate[i] < category_target_rate[j]; });
+  std::stable_sort(indices.begin(), indices.end(),
+                   [this](size_t i, size_t j) { return rate_less(i, j); });
 
   size_t bins_to_merge = unique_categories.size() - static_cast<size_t>(max_n_prebins);
 
@@ -395,8 +426,9 @@ void OBC_SBLP::ensure_max_prebins() {
     double rate_diff = std::abs(category_target_rate[indices[i+1]] - category_target_rate[indices[i]]);
     merge_candidates.push_back({rate_diff, {indices[i], indices[i+1]}});
   }
-  std::sort(merge_candidates.begin(), merge_candidates.end(),
-            [](const auto& a, const auto& b) { return a.first < b.first; });
+  // Stable: equal differences keep the rate order.
+  std::stable_sort(merge_candidates.begin(), merge_candidates.end(),
+                   [](const auto& a, const auto& b) { return a.first < b.first; });
 
   std::vector<bool> merged(unique_categories.size(), false);
   size_t merges_performed = 0;
@@ -427,8 +459,8 @@ void OBC_SBLP::ensure_max_prebins() {
 void OBC_SBLP::sort_categories() {
   sorted_indices.resize(unique_categories.size());
   std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
-  std::sort(sorted_indices.begin(), sorted_indices.end(),
-            [this](size_t i, size_t j) { return category_target_rate[i] < category_target_rate[j]; });
+  std::stable_sort(sorted_indices.begin(), sorted_indices.end(),
+                   [this](size_t i, size_t j) { return rate_less(i, j); });
 }
 
 // Executa o binning via programação dinâmica
@@ -727,8 +759,8 @@ List OBC_SBLP::fit() {
           for (const auto& bin : best_bins) {
             all_indices.insert(all_indices.end(), bin.begin(), bin.end());
           }
-          std::sort(all_indices.begin(), all_indices.end(),
-                    [this](size_t a, size_t b) { return category_target_rate[a] < category_target_rate[b]; });
+          std::stable_sort(all_indices.begin(), all_indices.end(),
+                           [this](size_t a, size_t b) { return rate_less(a, b); });
 
           std::vector<std::vector<size_t>> chunked;
           size_t bin_size = all_indices.size() / std::max(static_cast<size_t>(min_bins), static_cast<size_t>(1));

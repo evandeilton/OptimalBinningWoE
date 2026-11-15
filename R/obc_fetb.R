@@ -110,6 +110,11 @@
 #'   \item Space: \eqn{O(k + n_{max})} for bins and factorial cache
 #' }
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @references
 #' Fisher, R. A. (1922). On the interpretation of chi-squared from contingency tables,
 #' and the calculation of P. \emph{Journal of the Royal Statistical Society},

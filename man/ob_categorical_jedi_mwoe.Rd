@@ -196,6 +196,11 @@ where \eqn{C} is the number of classes and \eqn{\alpha = 0.5}.
   Similarity \tab Chi-square \tab Jensen-Shannon \tab Distribution-based \cr
   Monotonicity \tab Global \tab Per-class \tab Multi-constraint
 }
+
+\strong{Ties:} categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.
 }
 \examples{
 \donttest{

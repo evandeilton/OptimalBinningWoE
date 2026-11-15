@@ -44,12 +44,9 @@ private:
   int iterations_run_;
 
   // Per-category counts, built once in the constructor (it also yields the
-  // number of categories, which used to cost two extra hash passes over the
-  // data). Same reserve and insertion sequence as before, so the iteration
-  // order -- which feeds the unstable sorts below -- is unchanged.
+  // number of categories). Read only through bins_by_name(), so its
+  // iteration order never reaches the result.
   std::unordered_map<std::string, CategoricalBin> bin_map_;
-  // Categories in order of first appearance (used only by the <= 2 path).
-  std::vector<std::string> first_seen_;
   int ncat_;
 
   // Enhanced input validation with comprehensive checks
@@ -195,7 +192,6 @@ private:
   void count_categories() {
     size_t est_cats = std::min(feature_.size() / 4, static_cast<size_t>(1024));
     bin_map_.reserve(est_cats);
-    first_seen_.clear();
 
     for (size_t i = 0; i < feature_.size(); ++i) {
       const std::string &cat = feature_[i];
@@ -205,9 +201,6 @@ private:
       if (it == bin_map_.end()) {
         it = bin_map_.emplace(cat, CategoricalBin()).first;
         it->second.categories.push_back(cat);
-        if (first_seen_.size() < 3) {
-          first_seen_.push_back(cat);
-        }
       }
       CategoricalBin &bin = it->second;
       bin.count++;
@@ -232,13 +225,23 @@ private:
                     "may be unstable.");
     }
 
-    // Transfer to final vector
+    bins_by_name();
+  }
+
+  // Move the per-category bins into bins_ in name order. Hash-map iteration
+  // order depends on the row order and on the C++ library; the stable sorts
+  // below keep the name order for ties.
+  void bins_by_name() {
     bins_.clear();
     bins_.reserve(bin_map_.size());
     for (auto &kv : bin_map_) {
       bins_.push_back(std::move(kv.second));
     }
     bin_map_.clear();
+    std::sort(bins_.begin(), bins_.end(),
+              [](const CategoricalBin &a, const CategoricalBin &b) {
+                return a.categories.front() < b.categories.front();
+              });
   }
 
   // Enhanced rare category merging with improved handling
@@ -249,11 +252,11 @@ private:
     }
     double cutoff_count = total_count * bin_cutoff_;
 
-    // Sort by frequency (rarest first)
-    std::sort(bins_.begin(), bins_.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.count < b.count;
-              });
+    // Sort by frequency (rarest first); equal counts keep name order.
+    std::stable_sort(bins_.begin(), bins_.end(),
+                     [](const CategoricalBin &a, const CategoricalBin &b) {
+                       return a.count < b.count;
+                     });
 
     // Up to min_bins rare categories stay separate (as they always have); the
     // rest are pooled. The rare categories occupy the front of the ascending
@@ -300,10 +303,12 @@ private:
   // Enhanced monotonic ordering with stability improvements
   void ensure_monotonic_order() {
     compute_woe_iv(bins_);
-    std::sort(bins_.begin(), bins_.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.woe < b.woe;
-              });
+    // Ascending WoE; ties by ascending count, then the current order.
+    std::stable_sort(bins_.begin(), bins_.end(),
+                     [](const CategoricalBin &a, const CategoricalBin &b) {
+                       if (a.woe != b.woe) return a.woe < b.woe;
+                       return a.count < b.count;
+                     });
   }
 
   // Merge bin idx+1 into bin idx. Only the merged bin's WoE/IV change (each
@@ -439,9 +444,9 @@ private:
     if (violations.empty())
       return;
 
-    // Sort by severity (largest first)
-    std::sort(violations.begin(), violations.end(),
-              [](const auto &a, const auto &b) { return a.second > b.second; });
+    // Sort by severity (largest first); ties keep the leftmost first.
+    std::stable_sort(violations.begin(), violations.end(),
+                     [](const auto &a, const auto &b) { return a.second > b.second; });
 
     // Fix the worst violation
     size_t i = violations[0].first;
@@ -571,27 +576,12 @@ public:
 
   void fit() {
     if (ncat_ <= 2) {
-      // Trivial case: <= 2 categories, one bin each. The bins come out in the
-      // iteration order of an un-reserved map filled in order of first
-      // appearance, as they always have.
-      std::unordered_map<std::string, CategoricalBin> small_map;
-      for (const auto &cat : first_seen_) {
-        small_map[cat].categories.push_back(cat);
-      }
+      // Trivial case: <= 2 categories, one bin each, in name order.
+      bins_by_name();
       int total_pos = 0, total_neg = 0;
-      for (size_t i = 0; i < feature_.size(); ++i) {
-        auto &bin = small_map[feature_[i]];
-        bin.count++;
-        bin.count_pos += target_[i];
-        bin.count_neg += (1 - target_[i]);
-        total_pos += target_[i];
-        total_neg += (1 - target_[i]);
-      }
-
-      bins_.clear();
-      bins_.reserve(small_map.size());
-      for (auto &kv : small_map) {
-        bins_.push_back(std::move(kv.second));
+      for (const auto &bin : bins_) {
+        total_pos += bin.count_pos;
+        total_neg += bin.count_neg;
       }
 
       total_pos_ = total_pos;

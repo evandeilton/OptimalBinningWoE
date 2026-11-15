@@ -136,6 +136,11 @@ Monotonicity repairs stop at \code{min_bins}.
   \item Time: \eqn{O(k^2 \cdot m)} where \eqn{k} = initial bins, \eqn{m} = iterations
   \item Space: \eqn{O(k + n_{max})} for bins and factorial cache
 }
+
+\strong{Ties:} categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.
 }
 \examples{
 \donttest{

@@ -133,6 +133,11 @@
 #'   \item \strong{vs ChiMerge}: IVB uses IV criterion; ChiMerge uses chi-square
 #' }
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @references
 #' Navas-Palencia, G. (2020). Optimal binning: mathematical programming
 #' formulation and solution approach. \emph{Expert Systems with Applications},
