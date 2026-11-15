@@ -101,8 +101,9 @@ ob_categorical_dp(
   :   No monotonicity constraint
 
   Categories are ordered by event rate (reversed for `"descending"`)
-  before the DP, so every bin partition it considers is monotone.
-  Defaults to `"auto"`.
+  before the DP, so every bin partition it considers is monotone. Equal
+  rates are ordered by count, then by category name, so the result does
+  not depend on the row order or the platform. Defaults to `"auto"`.
 
 ## Value
 
@@ -166,11 +167,12 @@ to constraints.
 
 1.  Input validation and data preprocessing
 
-2.  Rare category merging (frequencies below `bin_cutoff`)
+2.  Rare category merging (frequencies below `bin_cutoff`), taking
+    categories by ascending count, ties by name
 
 3.  Pre-binning limitation (if categories exceed `max_n_prebins`)
 
-4.  Category sorting by event rate
+4.  Category sorting by event rate (ties: ascending count, then name)
 
 5.  Dynamic programming table initialization
 

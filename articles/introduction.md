@@ -782,13 +782,13 @@ Repository.
 ``` r
 
 sessionInfo()
-#> R version 4.6.1 (2026-06-24)
+#> R version 4.6.2 (2026-10-29)
 #> Platform: x86_64-pc-linux-gnu
-#> Running under: Ubuntu 24.04.5 LTS
+#> Running under: Ubuntu 26.04.1 LTS
 #> 
 #> Matrix products: default
 #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
-#> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+#> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.32.so;  LAPACK version 3.12.0
 #> 
 #> locale:
 #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8        LC_COLLATE=C.UTF-8    
@@ -805,22 +805,22 @@ sessionInfo()
 #> [1] OptimalBinningWoE_1.14.1
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] future_1.76.0       sass_0.4.10         generics_0.1.4      class_7.3-23       
-#>  [5] lattice_0.22-9      DiceDesign_1.10     listenv_1.1.0       digest_0.6.39      
-#>  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.1         
-#> [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-5       
-#> [17] nnet_7.3-20         survival_3.8-6      purrr_1.2.2         scales_1.4.0       
-#> [21] codetools_0.2-20    textshaping_1.0.5   jquerylib_0.1.4     lava_1.9.3         
-#> [25] cli_3.6.6           rlang_1.3.0         hardhat_1.4.3       parallelly_1.48.0  
-#> [29] future.apply_1.20.2 splines_4.6.1       withr_3.0.3         cachem_1.1.0       
-#> [33] dials_1.4.4         yaml_2.3.12         prodlim_2026.03.11  otel_0.2.0         
-#> [37] parallel_4.6.1      tools_4.6.1         dplyr_1.2.1         recipes_1.4.0      
+#>  [1] future_1.82.0       sass_0.4.10         generics_0.1.4      class_7.3-24       
+#>  [5] lattice_0.23-1      DiceDesign_1.10     listenv_1.1.0       digest_0.6.39      
+#>  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.2         
+#> [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-6       
+#> [17] nnet_7.3-21         survival_3.8-12     purrr_1.2.2         scales_1.4.0       
+#> [21] codetools_0.2-20    textshaping_1.0.5   jquerylib_0.1.4     lava_1.11          
+#> [25] cli_3.6.6           rlang_1.3.0         hardhat_1.4.3       parallelly_1.50.0  
+#> [29] future.apply_1.21.0 splines_4.6.2       withr_3.0.3         cachem_1.1.0       
+#> [33] dials_1.4.5         yaml_2.3.12         prodlim_2026.03.11  otel_0.3.0         
+#> [37] parallel_4.6.2      tools_4.6.2         dplyr_1.2.1         recipes_1.4.0      
 #> [41] globals_0.20.0      vctrs_0.7.3         R6_2.6.1            rpart_4.1.27       
-#> [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-65        
+#> [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-66        
 #> [49] ragg_1.5.2          pkgconfig_2.0.3     desc_1.4.3          pkgdown_2.2.1      
 #> [53] pillar_1.11.1       bslib_0.12.0        data.table_1.18.6.1 glue_1.8.1         
-#> [57] Rcpp_1.1.2          systemfonts_1.3.2   xfun_0.61           tibble_3.3.1       
+#> [57] Rcpp_1.1.2          systemfonts_1.3.2   xfun_0.62           tibble_3.3.1       
 #> [61] tidyselect_1.2.1    knitr_1.52          farver_2.1.2        htmltools_0.5.9    
 #> [65] rmarkdown_2.32      ipred_0.9-16        timeDate_4052.112   gower_1.0.2        
-#> [69] compiler_4.6.1
+#> [69] compiler_4.6.2
 ```
