@@ -1,6 +1,19 @@
 # OptimalBinningWoE 1.14.1
 
-Documentation only: no algorithm, argument or fitted result changes.
+## Bug fix
+
+*   **`ob_categorical_dp()` is deterministic.** Categories with equal event
+    rates or equal counts were ordered by hash-table iteration order, so the
+    fitted bins depended on the row order of the data and differed between
+    Linux and macOS. Ties are now broken by count, then by category name, and
+    event rates are compared exactly. Fits with such ties can change.
+*   **`ob_categorical_dp()` with `monotonic_trend = "descending"`** and at most
+    `max_bins` categories returns the bins in decreasing event rate, as
+    documented; they came out increasing.
+
+## Documentation
+
+No algorithm, argument or fitted result changes besides the fix above.
 
 *   **Algorithm reference vignette:** corrected the statements that contradicted
     the C++ code (`sblp` complexity, excess levels in `ivb` and `gmb`, the

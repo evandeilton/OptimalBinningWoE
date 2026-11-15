@@ -62,7 +62,9 @@ for Weight of Evidence. Must be one of:
   \item{\code{"none"}}{No monotonicity constraint}
 }
 Categories are ordered by event rate (reversed for \code{"descending"})
-before the DP, so every bin partition it considers is monotone.
+before the DP, so every bin partition it considers is monotone. Equal
+rates are ordered by count, then by category name, so the result does not
+depend on the row order or the platform.
 Defaults to \code{"auto"}.}
 }
 \value{
@@ -96,9 +98,10 @@ binning solution that maximizes total Information Value subject to constraints.
 \strong{Algorithm Workflow:}
 \enumerate{
   \item Input validation and data preprocessing
-  \item Rare category merging (frequencies below \code{bin_cutoff})
+  \item Rare category merging (frequencies below \code{bin_cutoff}),
+    taking categories by ascending count, ties by name
   \item Pre-binning limitation (if categories exceed \code{max_n_prebins})
-  \item Category sorting by event rate
+  \item Category sorting by event rate (ties: ascending count, then name)
   \item Dynamic programming table initialization
   \item Iterative DP optimization with optional monotonicity constraints
   \item Backtracking to construct optimal bins

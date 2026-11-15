@@ -39,7 +39,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -167,9 +168,8 @@ public:
   iterations_run(0),
   total_iv(0.0),
   execution_time_ms(0) {
-    // The reserve() below fixes the bucket layout, and with it the iteration
-    // order of category_info, which decides the order of equal-rate categories
-    // after sorting. Keep it unchanged.
+    // Pre-size the hash table. Its iteration order is never used: categories
+    // are read through categories_by_name(), so results do not depend on it.
     const size_t est_categories = std::min(feature.size() / 4, static_cast<size_t>(1024));
     category_info.reserve(est_categories);
     if (max_bins > 0) bin_results.reserve(static_cast<size_t>(max_bins));
@@ -341,25 +341,56 @@ private:
   }
 
   /**
+   * @brief Categories sorted by name (byte-wise).
+   *
+   * The iteration order of an unordered_map depends on the row order and on
+   * the C++ standard library. Every later sort keeps this order for ties, so
+   * results are the same on every platform.
+   */
+  std::vector<std::pair<std::string, const CategoryStats*>> categories_by_name() const {
+    std::vector<std::pair<std::string, const CategoryStats*>> cats;
+    cats.reserve(category_info.size());
+    for (const auto& pair : category_info) {
+      cats.emplace_back(pair.first, &pair.second);
+    }
+    std::sort(cats.begin(), cats.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    return cats;
+  }
+
+  /**
+   * @brief Exact event-rate comparison a.pos / a.n < b.pos / b.n.
+   *
+   * Cross-multiplied in 64-bit integers: equal rates such as 1/3 and 2/6 tie
+   * exactly, and close rates are never collapsed by rounding.
+   */
+  static bool rate_less(int pos_a, int n_a, int pos_b, int n_b) {
+    return static_cast<long long>(pos_a) * n_b < static_cast<long long>(pos_b) * n_a;
+  }
+
+  /**
    * @brief One bin per category, used when there are at most max_bins categories.
    */
   void compute_bins_no_optimization() {
-    for (const auto& pair : category_info) {
-      const std::string& cat = pair.first;
-      const CategoryStats& info = pair.second;
-
+    for (const auto& [cat, info] : categories_by_name()) {
       double woe, iv;
-      compute_woe_iv(info.count_pos, info.count_neg, total_pos, total_neg, woe, iv);
+      compute_woe_iv(info->count_pos, info->count_neg, total_pos, total_neg, woe, iv);
 
-      bin_results.emplace_back(cat, woe, iv, info.count, info.count_pos, info.count_neg);
+      bin_results.emplace_back(cat, woe, iv, info->count, info->count_pos, info->count_neg);
     }
 
-    // Sort bins by event rate if monotonicity is required
+    // Sort bins by event rate if monotonicity is required; equal rates by
+    // ascending count, then name (the input order, kept by the stable sort).
     if (monotonic_trend != "none") {
-      std::sort(bin_results.begin(), bin_results.end(),
-                [](const CategoricalBin& a, const CategoricalBin& b) {
-                  return a.event_rate() < b.event_rate();
-                });
+      std::stable_sort(bin_results.begin(), bin_results.end(),
+                       [](const CategoricalBin& a, const CategoricalBin& b) {
+                         if (rate_less(a.count_pos, a.count, b.count_pos, b.count)) return true;
+                         if (rate_less(b.count_pos, b.count, a.count_pos, a.count)) return false;
+                         return a.count < b.count;
+                       });
+      if (monotonic_trend == "descending") {
+        std::reverse(bin_results.begin(), bin_results.end());
+      }
     }
 
     // One bin per category, already within max_bins: an exact, final result.
@@ -376,16 +407,12 @@ private:
   void merge_rare_categories() {
     const double cutoff_count = bin_cutoff * total_count;
 
-    std::vector<std::pair<std::string, const CategoryStats*>> sorted_cats;
-    sorted_cats.reserve(category_info.size());
-    for (const auto& pair : category_info) {
-      sorted_cats.emplace_back(pair.first, &pair.second);
-    }
-
-    std::sort(sorted_cats.begin(), sorted_cats.end(),
-              [](const auto& a, const auto& b) {
-                return a.second->count < b.second->count;
-              });
+    // Ascending count; equal counts stay in name order.
+    auto sorted_cats = categories_by_name();
+    std::stable_sort(sorted_cats.begin(), sorted_cats.end(),
+                     [](const auto& a, const auto& b) {
+                       return a.second->count < b.second->count;
+                     });
 
     merged_bins.clear();
     merged_bins.reserve(sorted_cats.size());
@@ -454,7 +481,8 @@ private:
     auto by_count = [](const PreBin& a, const PreBin& b) {
       return a.count < b.count;
     };
-    std::sort(merged_bins.begin(), merged_bins.end(), by_count);
+    // Stable: equal counts keep the deterministic order of merged_bins.
+    std::stable_sort(merged_bins.begin(), merged_bins.end(), by_count);
 
     while (merged_bins.size() > limit) {
       PreBin merged;
@@ -475,32 +503,25 @@ private:
    * @brief Sort the pre-bins by event rate (the DP order).
    */
   void compute_and_sort_event_rates() {
-    std::vector<std::pair<size_t, double>> rates;
-    rates.reserve(merged_bins.size());
-    for (size_t i = 0; i < merged_bins.size(); ++i) {
-      const PreBin& b = merged_bins[i];
-      rates.emplace_back(i, b.count_pos / static_cast<double>(b.count));
-    }
-
-    std::sort(rates.begin(), rates.end(),
-              [](const auto& a, const auto& b) {
-                return a.second < b.second;
+    // Total order: exact event rate, then ascending count, then label. The
+    // result is the same for any row order and on every platform.
+    sorted_bins = merged_bins;
+    std::sort(sorted_bins.begin(), sorted_bins.end(),
+              [](const PreBin& a, const PreBin& b) {
+                if (rate_less(a.count_pos, a.count, b.count_pos, b.count)) return true;
+                if (rate_less(b.count_pos, b.count, a.count_pos, a.count)) return false;
+                if (a.count != b.count) return a.count < b.count;
+                return a.name < b.name;
               });
-
-    sorted_bins.clear();
-    sorted_bins.reserve(rates.size());
-    for (const auto& r : rates) {
-      sorted_bins.push_back(merged_bins[r.first]);
-    }
 
     if (monotonic_trend == "descending") {
       std::reverse(sorted_bins.begin(), sorted_bins.end());
     } else if (monotonic_trend == "auto") {
       // Detect the trend from the event rates in the sorted order.
       std::vector<double> event_rates;
-      event_rates.reserve(rates.size());
-      for (const auto& r : rates) {
-        event_rates.push_back(r.second);
+      event_rates.reserve(sorted_bins.size());
+      for (const PreBin& b : sorted_bins) {
+        event_rates.push_back(b.count_pos / static_cast<double>(b.count));
       }
       MonotonicTrend detected = detect_trend_welford_woe(event_rates);
       if (detected == MonotonicTrend::DESCENDING) { // # nocov start (rates are sorted ascending, so the slope is never negative)
