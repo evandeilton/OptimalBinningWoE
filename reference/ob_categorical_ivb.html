@@ -220,7 +220,11 @@ $$IV_i = (p'_i - n'_i) \times WoE_i$$</p>
 </ul><p><strong>Comparison with Related Methods:</strong></p><ul><li><p><strong>vs DP (general)</strong>: IVB specifically optimizes IV; general DP more flexible</p></li>
 <li><p><strong>vs GMB</strong>: IVB guarantees optimality; GMB is faster but approximate</p></li>
 <li><p><strong>vs ChiMerge</strong>: IVB uses IV criterion; ChiMerge uses chi-square</p></li>
-</ul></div>
+</ul><p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Navas-Palencia, G. (2020). Optimal binning: mathematical programming

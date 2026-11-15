@@ -243,6 +243,11 @@ small.
 | GMB        | Greedy/Local     | Enforced         | Fast      |
 | ChiMerge   | Statistical      | Optional         | Fast      |
 
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
 ## References
 
 Cover, T. M., & Thomas, J. A. (2006). *Elements of Information Theory*

@@ -174,6 +174,11 @@ Jensen-Shannon Divergence between two bins: \$\$JSD(P\|\|Q) =
 \frac{1}{2}\left\[KL(P\|\|M) + KL(Q\|\|M)\right\]\$\$ where \\M =
 \frac{1}{2}(P+Q)\\ and \\KL\\ represents Kullback-Leibler divergence.
 
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
 ## Note
 
 - Target variable must contain both 0 and 1 values.
@@ -211,7 +216,7 @@ result <- ob_categorical_swb(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
 #> [1] "E"                                                                                
-#> [2] "i%;%g%;%y%;%r%;%q%;%l%;%t%;%z%;%w%;%n%;%F%;%k%;%j%;%x%;%m%;%p%;%h%;%u%;%s%;%v%;%o"
+#> [2] "F%;%g%;%h%;%i%;%j%;%k%;%l%;%m%;%n%;%o%;%p%;%q%;%r%;%s%;%t%;%u%;%v%;%w%;%x%;%y%;%z"
 #> [3] "C%;%D"                                                                            
 #> [4] "A"                                                                                
 #> [5] "B"                                                                                

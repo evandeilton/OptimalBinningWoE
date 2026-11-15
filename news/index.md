@@ -2,7 +2,7 @@
 
 ## OptimalBinningWoE 1.14.1
 
-### Bug fix
+### Bug fixes
 
 - **[`ob_categorical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_dp.md)
   is deterministic.** Categories with equal event rates or equal counts
@@ -14,10 +14,21 @@
   with `monotonic_trend = "descending"`** and at most `max_bins`
   categories returns the bins in decreasing event rate, as documented;
   they came out increasing.
+- **Ten more categorical binners are deterministic:**
+  [`ob_categorical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_cm.md),
+  `fetb()`, `gmb()`, `ivb()`, `jedi()`, `jedi_mwoe()`, `sblp()`,
+  `sketch()`, `swb()` and `udt()`. Ties in count, event rate or WoE were
+  ordered by hash-table or first-appearance order; they are now broken
+  by count, then by category name (byte-wise). Fits with such ties can
+  change, and the categories inside a merged bin label now come in name
+  order.
+  [`ob_categorical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sketch.md)
+  also derives its hash seeds in a way that does not depend on the C++
+  library.
 
 ### Documentation
 
-No algorithm, argument or fitted result changes besides the fix above.
+No algorithm, argument or fitted result changes besides the fixes above.
 
 - **Algorithm reference vignette:** corrected the statements that
   contradicted the C++ code (`sblp` complexity, excess levels in `ivb`

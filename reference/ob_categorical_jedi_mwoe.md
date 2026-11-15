@@ -272,6 +272,11 @@ where \\C\\ is the number of classes and \\\alpha = 0.5\\.
 | Similarity     | Chi-square   | Jensen-Shannon          | Distribution-based |
 | Monotonicity   | Global       | Per-class               | Multi-constraint   |
 
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
 ## References
 
 Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and Implementing
@@ -438,8 +443,8 @@ for (i in seq_along(result_mwoe_hc$bin)) {
     cat(sprintf("Bin %d: %d categories merged\n", i, n_merged))
   }
 }
-#> Bin 1: 12 categories merged
-#> Bin 2: 2 categories merged
+#> Bin 2: 3 categories merged
+#> Bin 3: 11 categories merged
 
 # Example 3: Laplace smoothing demonstration
 set.seed(789)

@@ -189,13 +189,17 @@ Kullback-Leibler divergence.
 Laplace smoothing is applied to WoE and IV calculations:
 \$\$p\_{smoothed} = \frac{count + \alpha}{total + 2\alpha}\$\$
 
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
 ## Note
 
 - Target variable must contain both 0 and 1 values.
 
-- Due to the probabilistic nature of sketches, results may vary slightly
-  between runs. For deterministic results, consider setting fixed random
-  seeds in the underlying C++ code.
+- The sketch hash functions use fixed seeds, so results are the same
+  across runs, row orders and platforms.
 
 - Accuracy of frequency estimates depends on `sketch_width` and
   `sketch_depth`. Increase these parameters for higher precision at the
@@ -232,7 +236,7 @@ target <- rbinom(n, 1, prob = target_probs)
 result <- ob_categorical_sketch(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "k%;%z%;%o%;%t"             "n%;%p%;%x%;%w%;%r%;%s%;%q"
+#> [1] "k%;%z%;%o%;%t"             "n%;%p%;%q%;%r%;%s%;%w%;%x"
 #> [3] "u%;%v%;%y%;%l%;%m%;%h%;%j" "a%;%e%;%f%;%g"            
 #> [5] "b%;%d%;%c%;%i"            
 #> 

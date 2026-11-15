@@ -236,7 +236,11 @@ estimates are smoothed with a Laplace prior:</p>
 <li><p><strong>Class-wise monotonicity</strong>: Enforces meaningful ordering for each class</p></li>
 <li><p><strong>Statistical similarity</strong>: Uses Jensen-Shannon divergence for merging</p></li>
 </ul><p><strong>Comparison with Binary Methods:</strong></p>
-<table class="table table"><tr><td><strong>Aspect</strong></td><td><strong>Binary</strong></td><td><strong>Multinomial</strong></td><td><strong>Extension</strong></td></tr><tr><td>Target Classes</td><td>2</td><td>C &gt;= 2</td><td>One-vs-rest</td></tr><tr><td>WoE Definition</td><td>\(\ln(p/n)\)</td><td>\(\ln(P(c)/P(\neg c))\)</td><td>Class-specific</td></tr><tr><td>IV Aggregation</td><td>Sum</td><td>Per-class</td><td>Vector-valued</td></tr><tr><td>Similarity</td><td>Chi-square</td><td>Jensen-Shannon</td><td>Distribution-based</td></tr><tr><td>Monotonicity</td><td>Global</td><td>Per-class</td><td>Multi-constraint</td></tr></table></div>
+<table class="table table"><tr><td><strong>Aspect</strong></td><td><strong>Binary</strong></td><td><strong>Multinomial</strong></td><td><strong>Extension</strong></td></tr><tr><td>Target Classes</td><td>2</td><td>C &gt;= 2</td><td>One-vs-rest</td></tr><tr><td>WoE Definition</td><td>\(\ln(p/n)\)</td><td>\(\ln(P(c)/P(\neg c))\)</td><td>Class-specific</td></tr><tr><td>IV Aggregation</td><td>Sum</td><td>Per-class</td><td>Vector-valued</td></tr><tr><td>Similarity</td><td>Chi-square</td><td>Jensen-Shannon</td><td>Distribution-based</td></tr><tr><td>Monotonicity</td><td>Global</td><td>Per-class</td><td>Multi-constraint</td></tr></table><p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Siddiqi, N. (2006). <em>Credit Risk Scorecards: Developing and Implementing
@@ -394,8 +398,8 @@ Modern Bayesian Methods</em>. MIT Press.</p>
 <span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"Bin %d: %d categories merged\n"</span>, <span class="va">i</span>, <span class="va">n_merged</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="op">}</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Bin 1: 12 categories merged</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Bin 2: 2 categories merged</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Bin 2: 3 categories merged</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Bin 3: 11 categories merged</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 3: Laplace smoothing demonstration</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">789</span><span class="op">)</span></span></span>

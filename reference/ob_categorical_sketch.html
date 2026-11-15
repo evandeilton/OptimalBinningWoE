@@ -217,14 +217,17 @@ where \(M = \frac{1}{2}(P+Q)\) and \(KL\) is the Kullback-Leibler
 divergence.</p>
 <p>Laplace smoothing is applied to WoE and IV calculations:
 $$p_{smoothed} = \frac{count + \alpha}{total + 2\alpha}$$</p>
+<p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
 
 <ul><li><p>Target variable must contain both 0 and 1 values.</p></li>
-<li><p>Due to the probabilistic nature of sketches, results may vary
-        slightly between runs. For deterministic results, consider setting
-        fixed random seeds in the underlying C++ code.</p></li>
+<li><p>The sketch hash functions use fixed seeds, so results are the same
+        across runs, row orders and platforms.</p></li>
 <li><p>Accuracy of frequency estimates depends on <code>sketch_width</code> and
         <code>sketch_depth</code>. Increase these parameters for higher precision
         at the cost of memory/computation.</p></li>
@@ -256,7 +259,7 @@ Discovery, 15(2), 107-144.</p>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ob_categorical_sketch</span><span class="op">(</span><span class="va">feature</span>, <span class="va">target</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"             "n%;%p%;%x%;%w%;%r%;%s%;%q"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "k%;%z%;%o%;%t"             "n%;%p%;%q%;%r%;%s%;%w%;%x"</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [3] "u%;%v%;%y%;%l%;%m%;%h%;%j" "a%;%e%;%f%;%g"            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [5] "b%;%d%;%c%;%i"            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

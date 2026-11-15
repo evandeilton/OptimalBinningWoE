@@ -196,6 +196,11 @@ repairs stop at `min_bins`.
 
 - Space: \\O(k + n\_{max})\\ for bins and factorial cache
 
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
 ## References
 
 Fisher, R. A. (1922). On the interpretation of chi-squared from

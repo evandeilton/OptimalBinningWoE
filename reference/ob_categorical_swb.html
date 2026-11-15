@@ -200,6 +200,10 @@ parameter (default 0.5).</p>
 $$JSD(P||Q) = \frac{1}{2}\left[KL(P||M) + KL(Q||M)\right]$$
 where \(M = \frac{1}{2}(P+Q)\) and \(KL\) represents Kullback-Leibler
 divergence.</p>
+<p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
@@ -236,7 +240,7 @@ divergence.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"count"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $bin</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "E"                                                                                </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [2] "i%;%g%;%y%;%r%;%q%;%l%;%t%;%z%;%w%;%n%;%F%;%k%;%j%;%x%;%m%;%p%;%h%;%u%;%s%;%v%;%o"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [2] "F%;%g%;%h%;%i%;%j%;%k%;%l%;%m%;%n%;%o%;%p%;%q%;%r%;%s%;%t%;%u%;%v%;%w%;%x%;%y%;%z"</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [3] "C%;%D"                                                                            </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [4] "A"                                                                                </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [5] "B"                                                                                </span>

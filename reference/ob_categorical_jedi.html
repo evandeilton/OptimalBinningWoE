@@ -220,7 +220,11 @@ $$\tau = \min(\epsilon, 0.01\bar{\Delta})$$</p>
 <li><p><strong>Best solution tracking</strong>: Retains optimal intermediate states</p></li>
 <li><p><strong>Adaptive thresholds</strong>: Context-aware monotonicity tolerance</p></li>
 </ul><p><strong>Comparison with Related Methods:</strong></p>
-<table class="table table"><tr><td><strong>Method</strong></td><td><strong>Optimization</strong></td><td><strong>Monotonicity</strong></td><td><strong>Speed</strong></td></tr><tr><td>JEDI</td><td>Joint/Global</td><td>Adaptive</td><td>Medium</td></tr><tr><td>IVB</td><td>DP (Exact)</td><td>Enforced</td><td>Slow</td></tr><tr><td>GMB</td><td>Greedy/Local</td><td>Enforced</td><td>Fast</td></tr><tr><td>ChiMerge</td><td>Statistical</td><td>Optional</td><td>Fast</td></tr></table></div>
+<table class="table table"><tr><td><strong>Method</strong></td><td><strong>Optimization</strong></td><td><strong>Monotonicity</strong></td><td><strong>Speed</strong></td></tr><tr><td>JEDI</td><td>Joint/Global</td><td>Adaptive</td><td>Medium</td></tr><tr><td>IVB</td><td>DP (Exact)</td><td>Enforced</td><td>Slow</td></tr><tr><td>GMB</td><td>Greedy/Local</td><td>Enforced</td><td>Fast</td></tr><tr><td>ChiMerge</td><td>Statistical</td><td>Optional</td><td>Fast</td></tr></table><p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
+    </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Cover, T. M., &amp; Thomas, J. A. (2006). <em>Elements of Information Theory</em>
