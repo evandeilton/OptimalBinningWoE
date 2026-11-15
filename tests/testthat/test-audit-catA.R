@@ -23,6 +23,11 @@ catA_split <- function(bins, sep = "%;%") {
   }))
 }
 
+# Bin labels as sorted "a+b+c" strings, so partitions compare as sets.
+catA_canon <- function(bins, sep = "%;%") {
+  vapply(strsplit(bins, sep, fixed = TRUE), function(v) paste(sort(v), collapse = "+"), "")
+}
+
 # The contract shared by all six algorithms.
 catA_check <- function(res, x, y, max_bins, min_bins, sep = "%;%") {
   x <- as.character(x)
@@ -314,6 +319,53 @@ test_that("dp does not discard partitions because of pure pre-bins", {
   res <- ob_categorical_dp(x, y)
   catA_check(res, x, y, max_bins = 5, min_bins = 3)
   expect_gt(res$total_iv, 2)
+  # Five pure categories share event rate 0. Ties are ordered by count, then
+  # by name, so the partition is the same on every platform.
+  expect_setequal(catA_canon(res$bin), c("L1", "L3+L4+L5+L6+L8", "L2+L7"))
+})
+
+test_that("dp result does not depend on the row order", {
+  # Equal event rates and equal counts are ordered by count, then by name,
+  # so neither the row order nor the C++ library changes the fit.
+  set.seed(42)
+  lev <- sprintf("C%02d", 1:40)
+  n_per <- sample(c(2, 3, 4, 6), 40, TRUE)
+  pos_per <- vapply(n_per, function(n) sample(0:n, 1), 0)
+  x <- rep(lev, n_per)
+  y <- unlist(mapply(function(n, p) c(rep(1L, p), rep(0L, n - p)), n_per, pos_per))
+  ref <- ob_categorical_dp(x, y)
+  catA_check(ref, x, y, max_bins = 5, min_bins = 3)
+  for (s in 1:10) {
+    set.seed(s)
+    o <- sample(length(x))
+    res <- ob_categorical_dp(x[o], y[o])
+    expect_identical(res$bin, ref$bin)
+    expect_equal(res$total_iv, ref$total_iv, tolerance = 1e-12)
+  }
+
+  # Same with at most max_bins categories (one bin per category), with and
+  # without the monotonic ordering.
+  for (trend in c("auto", "none")) {
+    x6 <- rep(c("b", "a", "d", "c", "f", "e"), times = c(4, 4, 3, 3, 2, 2))
+    y6 <- c(1L, 0L, 0L, 0L, 1L, 0L, 0L, 0L, 1L, 0L, 0L, 1L, 0L, 0L, 1L, 0L, 0L, 0L)
+    ref6 <- ob_categorical_dp(x6, y6, max_bins = 6, monotonic_trend = trend)
+    for (s in 1:10) {
+      set.seed(s)
+      o <- sample(length(x6))
+      res6 <- ob_categorical_dp(x6[o], y6[o], max_bins = 6, monotonic_trend = trend)
+      expect_identical(res6$bin, ref6$bin)
+    }
+  }
+})
+
+test_that("dp orders one-bin-per-category results by the requested trend", {
+  x <- rep(c("a", "b", "c", "d"), each = 5)
+  y <- c(1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0)
+  up <- ob_categorical_dp(x, y, max_bins = 4, monotonic_trend = "ascending")
+  dn <- ob_categorical_dp(x, y, max_bins = 4, monotonic_trend = "descending")
+  expect_identical(up$bin, c("d", "b", "a", "c"))
+  expect_identical(dn$bin, rev(up$bin))
+  expect_false(is.unsorted(rev(dn$event_rate)))
 })
 
 test_that("dp validates its inputs", {
