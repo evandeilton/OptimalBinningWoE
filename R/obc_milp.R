@@ -36,6 +36,11 @@
 #' \deqn{IV = \sum_{i=1}^{n} (p_i^{(1)} - p_i^{(0)}) \times WoE_i}{
 #' IV = sum((p_i^(1) - p_i^(0)) * WoE_i)}
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @param feature A character vector or factor representing the categorical
 #'   predictor variable. Missing values (NA) will be converted to the string
 #'   "NA" and treated as a separate category.

@@ -39,7 +39,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -226,6 +227,13 @@ private:
    */
   void initialize_bins() {
     bins.clear();
+
+    // Categories in name order, so the initial bins do not depend on the row
+    // order or on the hash-map layout.
+    std::vector<std::string> names;
+    names.reserve(total_count_map.size());
+    for (const auto& item : total_count_map) names.push_back(item.first);
+    std::sort(names.begin(), names.end());
     
     // Pre-binning logic if unique categories exceed max_n_prebins
     if (initial_unique_categories > max_n_prebins) {
@@ -237,9 +245,8 @@ private:
       // applied (obwoe_apply() matches categories against the labels).
       CategoricalBin other_bin;
 
-      for (const auto& item : total_count_map) {
-        const std::string& cat = item.first;
-        int cat_total = item.second;
+      for (const std::string& cat : names) {
+        int cat_total = total_count_map[cat];
 
         // Keep categories if count is >= min_prebin_count, otherwise add to 'other' bin
         if (cat_total >= min_prebin_count) {
@@ -275,11 +282,11 @@ private:
     // Normal initialization if no pre-binning occurred or if fallback triggered
     if (bins.empty()) {
       bins.reserve(initial_unique_categories);
-      for (const auto& item : total_count_map) {
+      for (const std::string& cat : names) {
         CategoricalBin bin;
-        bin.categories.push_back(item.first);
-        bin.count_pos = count_pos_map[item.first];
-        bin.count_neg = count_neg_map[item.first];
+        bin.categories.push_back(cat);
+        bin.count_pos = count_pos_map[cat];
+        bin.count_neg = count_neg_map[cat];
         bins.push_back(std::move(bin));
       }
     }
@@ -299,11 +306,14 @@ private:
   
   
   /**
-   * Sort bins by Weight of Evidence (ascending).
+   * Sort bins by Weight of Evidence (ascending); equal WoE by ascending count.
    */
   void sort_bins_by_woe() {
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin& a, const CategoricalBin& b) { return a.woe < b.woe; });
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin& a, const CategoricalBin& b) {
+                       if (a.woe != b.woe) return a.woe < b.woe;
+                       return a.total() < b.total();
+                     });
     // NOTE: Sorting invalidates the distance matrix if done mid-process.
     // It's mainly for final output or potentially better initial state.
     // We recompute/update the distance matrix after merges/splits anyway.

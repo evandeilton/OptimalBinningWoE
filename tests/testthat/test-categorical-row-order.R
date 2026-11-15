@@ -16,7 +16,8 @@ row_order_data <- function() {
 }
 
 row_order_algs <- c(
-  "cm", "fetb", "gmb", "ivb", "jedi", "jedi_mwoe", "sblp", "sketch", "swb", "udt"
+  "cm", "dmiv", "fetb", "gmb", "ivb", "jedi", "jedi_mwoe", "mba", "milp", "sblp",
+  "sketch", "swb", "udt"
 )
 
 for (alg in row_order_algs) {
