@@ -235,9 +235,14 @@ affects the binning structure:
 **Pre-binning Strategy:** When the number of unique categories exceeds
 `max_n_prebins`, categories with fewer than 5 observations are pooled
 into one bin to control computational complexity. The pooled bin is
-labelled with the categories it contains, like any other bin, so it can
+labeled with the categories it contains, like any other bin, so it can
 be mapped when the binning is applied. Pre-binning is skipped when it
 would leave fewer than `min_bins` bins.
+
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
 
 ## References
 

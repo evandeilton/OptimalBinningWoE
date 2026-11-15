@@ -247,10 +247,14 @@ The choice of divergence measure affects the binning structure:</p><ul><li><p>In
 </ul><p><strong>Pre-binning Strategy:</strong>
 When the number of unique categories exceeds <code>max_n_prebins</code>, categories
 with fewer than 5 observations are pooled into one bin to control
-computational complexity. The pooled bin is labelled with the categories it
+computational complexity. The pooled bin is labeled with the categories it
 contains, like any other bin, so it can be mapped when the binning is
 applied. Pre-binning is skipped when it would leave fewer than
 <code>min_bins</code> bins.</p>
+<p><strong>Ties:</strong> categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
