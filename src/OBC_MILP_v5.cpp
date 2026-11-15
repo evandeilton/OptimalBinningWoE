@@ -210,6 +210,12 @@ void OBC_MILP::initialize_bins() {
   for (auto& kv : bin_map) {
     bins.push_back(std::move(kv.second));
   }
+  // Name order, so the initial bins do not depend on the row order or on the
+  // hash-map layout.
+  std::sort(bins.begin(), bins.end(),
+            [](const CategoricalBin& a, const CategoricalBin& b) {
+              return a.categories.front() < b.categories.front();
+            });
   
   // Calculate initial WoE and IV for each bin
   for (auto& bin : bins) {
@@ -299,10 +305,10 @@ void OBC_MILP::merge_rare_categories() {
     if (low_freq_bins.empty()) break;
 
     // Sort bins by frequency (ascending) for better merging strategy
-    std::sort(low_freq_bins.begin(), low_freq_bins.end(),
-              [this](size_t a, size_t b) {
-                return bins[a].total() < bins[b].total();
-              });
+    std::stable_sort(low_freq_bins.begin(), low_freq_bins.end(),
+                     [this](size_t a, size_t b) {
+                       return bins[a].total() < bins[b].total();
+                     });
 
     for (size_t idx : low_freq_bins) {
       if (static_cast<int>(bins.size()) <= min_bins) {
@@ -355,7 +361,7 @@ void OBC_MILP::merge_bins() {
   // Reduce pre-bins if necessary
   if (bins.size() > max_n_prebins_size) {
     // Sort by count (ascending) for better merging strategy
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
+    std::stable_sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
       return (a.count_pos + a.count_neg) < (b.count_pos + b.count_neg);
     });
     
@@ -500,9 +506,11 @@ void OBC_MILP::reduce_prebins_by_similarity(size_t target_bins) {
 }
 
 void OBC_MILP::sort_bins_by_woe() {
+  // Equal WoE by ascending count.
   std::stable_sort(bins.begin(), bins.end(),
                    [](const CategoricalBin& a, const CategoricalBin& b) {
-                     return a.woe < b.woe;
+                     if (a.woe != b.woe) return a.woe < b.woe;
+                     return a.total() < b.total();
                    });
 }
 

@@ -18,6 +18,14 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
+// Ascending WoE; equal WoE by ascending count, so ties do not depend on the
+// position a bin happened to reach.
+static bool woe_then_count(const CategoricalBin &a, const CategoricalBin &b) {
+  if (a.woe != b.woe)
+    return a.woe < b.woe;
+  return a.count < b.count;
+}
+
 // Enhanced main class with improved optimization strategies
 class OBC_MBA {
 private:
@@ -37,9 +45,7 @@ private:
   std::vector<CategoricalBin> bins;
 
   // Per-category counts, built once while validating (it also yields the
-  // number of categories, which used a separate hash pass over the data).
-  // Same reserve and insertion sequence as before, so the iteration order --
-  // which decides the order of equal-count bins -- is unchanged.
+  // number of categories). Bins are taken from it in category-name order.
   std::unordered_map<std::string, CategoricalBin> category_bins_;
 
   // Enhanced input validation with comprehensive checks
@@ -151,10 +157,16 @@ private:
       bins.push_back(std::move(pair.second));
     }
 
+    // Name order first, then a stable count sort: equal counts stay in name
+    // order whatever the row order or hash-map layout.
     std::sort(bins.begin(), bins.end(),
               [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.count > b.count;
+                return a.categories.front() < b.categories.front();
               });
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin &a, const CategoricalBin &b) {
+                       return a.count > b.count;
+                     });
 
     // Reduce to max_n_prebins if necessary with improved strategy
     if (static_cast<int>(bins.size()) > max_n_prebins &&
@@ -233,7 +245,7 @@ private:
     }
 
     // Sort bins by frequency (ascending) for better merging strategy
-    std::sort(
+    std::stable_sort(
         low_freq_bins.begin(), low_freq_bins.end(),
         [this](size_t a, size_t b) { return bins[a].count < bins[b].count; });
 
@@ -352,10 +364,7 @@ private:
     }
 
     // Sort bins by WoE
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.woe < b.woe;
-              });
+    std::stable_sort(bins.begin(), bins.end(), woe_then_count);
 
     // Calculate average WoE gap for adaptive threshold
     double total_woe_gap = 0.0;
@@ -411,7 +420,7 @@ private:
         break;
 
       // Sort violations by severity (descending)
-      std::sort(
+      std::stable_sort(
           violations.begin(), violations.end(),
           [](const auto &a, const auto &b) { return a.second > b.second; });
 
@@ -434,10 +443,7 @@ private:
     } while (any_merge && static_cast<int>(bins.size()) > min_bins);
 
     // Final sort by WoE to ensure correct order
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.woe < b.woe;
-              });
+    std::stable_sort(bins.begin(), bins.end(), woe_then_count);
   }
 
   // Enhanced bin optimization with improved IV-based strategy
@@ -673,10 +679,7 @@ public:
       // always keep that order under Bayesian smoothing (two pure bins of
       // different sizes), which left the documented monotone WoE unmet. The
       // sort is stable, so an already ordered result is unchanged.
-      std::stable_sort(bins.begin(), bins.end(),
-                       [](const CategoricalBin &a, const CategoricalBin &b) {
-                         return a.woe < b.woe;
-                       });
+      std::stable_sort(bins.begin(), bins.end(), woe_then_count);
 
       // Final consistency check
       check_consistency();

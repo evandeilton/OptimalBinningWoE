@@ -115,6 +115,11 @@
 #'   \item \strong{Consistency verification}: Final integrity checks
 #' }
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @references
 #' Mironchyk, P., & Tchistiakov, V. (2017). Monotone optimal binning algorithm
 #' for credit risk modeling. \emph{SSRN Electronic Journal}.
