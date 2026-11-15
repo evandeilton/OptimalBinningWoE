@@ -37,7 +37,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -249,8 +250,13 @@ private:
     std::vector<std::pair<std::string,size_t>> sorted;
     sorted.reserve(category_counts.size());
     for (auto& kv : category_counts) sorted.emplace_back(kv.first, kv.second);
+    // Descending count, equal counts by name: hash-map iteration order
+    // depends on the row order and on the C++ library.
     std::sort(sorted.begin(), sorted.end(),
-              [](auto& a, auto& b){ return a.second > b.second; });
+              [](const auto& a, const auto& b) {
+                if (a.second != b.second) return a.second > b.second;
+                return a.first < b.first;
+              });
 
     // (category, count, positives) of the categories below the cutoff
     struct Rare { const std::string* cat; size_t cnt; size_t cntp; };
@@ -289,11 +295,15 @@ private:
         // until each pool reaches bin_cutoff, so similar categories end up
         // together and every pool but the last meets the cutoff.
         std::vector<Rare> by_rate = rare_cats;
-        std::stable_sort(by_rate.begin(), by_rate.end(),
-                         [](const Rare& x, const Rare& y) {
-                           return static_cast<double>(x.cntp) / static_cast<double>(x.cnt) <
-                             static_cast<double>(y.cntp) / static_cast<double>(y.cnt);
-                         });
+        // Equal rates by ascending count, then name.
+        std::sort(by_rate.begin(), by_rate.end(),
+                  [](const Rare& x, const Rare& y) {
+                    const double rx = static_cast<double>(x.cntp) / static_cast<double>(x.cnt);
+                    const double ry = static_cast<double>(y.cntp) / static_cast<double>(y.cnt);
+                    if (rx != ry) return rx < ry;
+                    if (x.cnt != y.cnt) return x.cnt < y.cnt;
+                    return *x.cat < *y.cat;
+                  });
         std::vector<CategoricalBin> pools;
         CategoricalBin cur;
         for (const Rare& r : by_rate) {
@@ -322,8 +332,13 @@ private:
       }
     }
 
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin& a, const CategoricalBin& b){ return a.woe < b.woe; });
+    // Ascending WoE; ties by ascending count, then the deterministic order
+    // built above (kept by the stable sort).
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin& a, const CategoricalBin& b) {
+                       if (a.woe != b.woe) return a.woe < b.woe;
+                       return a.count < b.count;
+                     });
   }
 
   // ------------ Merge two bins ----------------------------------

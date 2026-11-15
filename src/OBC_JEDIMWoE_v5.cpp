@@ -185,8 +185,8 @@ private:
   int iterations_run_;
   bool use_divergence_;  // Flag to toggle between IV and divergence-based merging
 
-  // Per-category statistics, built once (same reserve and insertion
-  // sequence as before, so the iteration order is unchanged).
+  // Per-category statistics, built once. Read only through initial_binning(),
+  // which orders the categories by name.
   std::unordered_map<std::string, MultiCatBinInfo> bin_map_;
   int ncat_;
 
@@ -270,6 +270,12 @@ private:
       bins_.push_back(std::move(kv.second));
     }
     bin_map_.clear();
+    // Name order: hash-map iteration order depends on the row order and on
+    // the C++ library. The stable sorts below keep it for ties.
+    std::sort(bins_.begin(), bins_.end(),
+              [](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
+                return a.categories.front() < b.categories.front();
+              });
   }
 
   // Enhanced merging of low frequency categories
@@ -280,11 +286,11 @@ private:
                                       });
     double cutoff_count = total_count * bin_cutoff_;
 
-    // Sort bins by count (ascending)
-    std::sort(bins_.begin(), bins_.end(),
-              [](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
-                return a.total_count < b.total_count;
-              });
+    // Sort bins by count (ascending); equal counts keep name order.
+    std::stable_sort(bins_.begin(), bins_.end(),
+                     [](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
+                       return a.total_count < b.total_count;
+                     });
 
     std::vector<MultiCatBinInfo> new_bins;
     new_bins.reserve(bins_.size());
@@ -665,9 +671,12 @@ private:
   void ensure_monotonic_order() {
     for (size_t class_idx = 0; class_idx < n_classes_; ++class_idx) {
       if (!is_monotonic_for_class(bins_, class_idx)) {
+        // Ties by ascending count, then the current order.
         std::stable_sort(bins_.begin(), bins_.end(),
                          [class_idx](const MultiCatBinInfo& a, const MultiCatBinInfo& b) {
-                           return a.woes[class_idx] < b.woes[class_idx];
+                           if (a.woes[class_idx] != b.woes[class_idx])
+                             return a.woes[class_idx] < b.woes[class_idx];
+                           return a.total_count < b.total_count;
                          });
         compute_metrics();
       }

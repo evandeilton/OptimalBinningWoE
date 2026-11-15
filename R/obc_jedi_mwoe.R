@@ -170,6 +170,11 @@
 #'   Monotonicity \tab Global \tab Per-class \tab Multi-constraint
 #' }
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @references
 #' Siddiqi, N. (2006). \emph{Credit Risk Scorecards: Developing and Implementing
 #' Intelligent Credit Scoring}. Wiley.

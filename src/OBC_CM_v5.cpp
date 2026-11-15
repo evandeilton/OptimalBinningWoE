@@ -44,7 +44,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -395,7 +396,14 @@ private:
     bins.clear();
     bins.reserve(unique_categories);
     
-    for (const auto& [cat, count] : total_count_map) {
+    // Categories in name order: hash-map iteration order depends on the row
+    // order and on the C++ library, and would decide ties below.
+    std::vector<std::string> names;
+    names.reserve(total_count_map.size());
+    for (const auto& kv : total_count_map) names.push_back(kv.first);
+    std::sort(names.begin(), names.end());
+
+    for (const auto& cat : names) {
       CategoricalBin bin;
       bin.categories.push_back(cat);
       bin.count_pos = count_pos_map[cat];
@@ -417,10 +425,12 @@ private:
       bin.woe = calculate_woe(bin.count_pos, bin.count_neg);
     }
     
-    // Stable sort to maintain relative order of equal WoE bins
+    // Ascending WoE; equal WoE by ascending count, then name order (kept by
+    // the stable sort).
     std::stable_sort(bins.begin(), bins.end(),
-                     [](const CategoricalBin& a, const CategoricalBin& b) { 
-                       return a.woe < b.woe; 
+                     [](const CategoricalBin& a, const CategoricalBin& b) {
+                       if (a.woe != b.woe) return a.woe < b.woe;
+                       return a.total() < b.total();
                      });
   }
   
@@ -676,8 +686,8 @@ private:
       cat_woes.emplace_back(cat, woe);
     }
     
-    std::sort(cat_woes.begin(), cat_woes.end(),
-              [](const auto& a, const auto& b) { return a.second < b.second; });
+    std::stable_sort(cat_woes.begin(), cat_woes.end(),
+                     [](const auto& a, const auto& b) { return a.second < b.second; });
     
     // Split at midpoint
     size_t split_point = cat_woes.size() / 2;

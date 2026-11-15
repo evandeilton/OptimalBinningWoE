@@ -42,7 +42,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -259,6 +260,13 @@ private:
     }
   }
 
+  // Ascending event rate, then ascending count. Used with stable sorts, so
+  // remaining ties keep their deterministic input order.
+  static bool rate_then_count(const CategoryStats &a, const CategoryStats &b) {
+    if (a.event_rate != b.event_rate) return a.event_rate < b.event_rate;
+    return a.count < b.count;
+  }
+
   // Enhanced data preprocessing with optimized counting
   void preprocess_data() {
     // Estimate number of categories for pre-allocation
@@ -285,6 +293,12 @@ private:
       // pair.second.compute_event_rate(); (auto-handled)
       category_stats.push_back(std::move(pair.second));
     }
+    // Name order: hash-map iteration order depends on the row order and on
+    // the C++ library. The stable sorts below keep it for ties.
+    std::sort(category_stats.begin(), category_stats.end(),
+              [](const CategoryStats &a, const CategoryStats &b) {
+                return a.category < b.category;
+              });
 
     // Check for extremely imbalanced datasets
     int total_pos = 0, total_neg = 0;
@@ -348,10 +362,8 @@ private:
       // instead, closing each pool once it reaches bin_cutoff, so similar
       // categories stay together and every pool but the last meets the cutoff.
       std::vector<CategoryStats> by_rate = rare_stats;
-      std::stable_sort(by_rate.begin(), by_rate.end(),
-                       [](const CategoryStats &a, const CategoryStats &b) {
-                         return a.event_rate < b.event_rate;
-                       });
+      // Equal rates by ascending count, then name (stable sort).
+      std::stable_sort(by_rate.begin(), by_rate.end(), rate_then_count);
       std::vector<CategoryStats> pools;
       CategoryStats cur;
       for (auto &rare : by_rate) {
@@ -396,15 +408,14 @@ private:
     const int n_stats = static_cast<int>(category_stats.size());
 
     if (n_stats > keep) {
-      // Sort by count and keep only the `keep` most frequent
-      std::partial_sort(category_stats.begin(), category_stats.begin() + keep,
-                        category_stats.end(),
-                        [](const CategoryStats &a, const CategoryStats &b) {
-                          return a.count > b.count;
-                        });
+      // Sort by descending count and keep the `keep` most frequent. Stable,
+      // so equal counts keep their deterministic order.
+      std::stable_sort(category_stats.begin(), category_stats.end(),
+                       [](const CategoryStats &a, const CategoryStats &b) {
+                         return a.count > b.count;
+                       });
 
-      // Fold the remainder into the smallest retained category. partial_sort
-      // orders the retained block by descending count, so that is the last one.
+      // Fold the remainder into the smallest retained category, the last one.
       CategoryStats &absorber = category_stats[keep - 1];
       for (int i = keep; i < n_stats; ++i) {
         absorber.merge_with(category_stats[i], bin_separator);
@@ -419,11 +430,10 @@ private:
     // Event rates are calculated dynamically via event_rate() method
     // No need to iterate through category_stats here
 
-    // Sort by event rate for monotonicity
-    std::sort(category_stats.begin(), category_stats.end(),
-              [](const CategoryStats &a, const CategoryStats &b) {
-                return a.event_rate < b.event_rate;
-              });
+    // Sort by event rate for monotonicity; equal rates by ascending count,
+    // then the current order (stable sort).
+    std::stable_sort(category_stats.begin(), category_stats.end(),
+                     rate_then_count);
   }
 
   // Build the cumulative statistics cache if it does not exist yet.

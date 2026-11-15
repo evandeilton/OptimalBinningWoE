@@ -122,6 +122,11 @@ Information Value interpretation:
   \item 0.3-0.5: Strong predictive power
   \item > 0.5: Suspiciously high (potential overfitting)
 }
+
+\strong{Ties:} categories with equal event rates or WoE values are ordered
+by ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or on
+the platform.
 }
 \examples{
 # Example 1: Basic usage with synthetic data

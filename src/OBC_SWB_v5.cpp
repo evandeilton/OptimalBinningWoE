@@ -129,6 +129,13 @@ inline double calculate_divergence(int bin1_pos, int bin1_neg, int bin2_pos, int
 }
 }
 
+// Ascending WoE, then ascending count. Used with stable sorts, so remaining
+// ties keep their (name-based) input order on every platform.
+static bool woe_then_count(const CategoricalBin& a, const CategoricalBin& b) {
+  if (a.woe != b.woe) return a.woe < b.woe;
+  return a.count < b.count;
+}
+
 // Improved Categorical Binning with Sliding Window Binning (SWB)
 // Greedy similarity merging shared by the optimisation loops.
 //
@@ -143,8 +150,8 @@ inline double calculate_divergence(int bin1_pos, int bin1_neg, int bin2_pos, int
 // candidate pairs with the merged bin are re-evaluated. The pairs chosen are
 // exactly those of the full scan.
 //
-// keep_woe_order: after each merge the bins are re-sorted by WoE with
-// std::sort, as the former code did (same permutation, ties included).
+// keep_woe_order: after each merge the bins are re-sorted with the stable
+// woe_then_count() order, as merge_most_similar_bins() does.
 static void greedy_similarity_merge(std::vector<CategoricalBin>& bins, size_t target,
                                     int total_pos, int total_neg, bool keep_woe_order) {
   const size_t B = bins.size();
@@ -207,16 +214,14 @@ static void greedy_similarity_merge(std::vector<CategoricalBin>& bins, size_t ta
     order.erase(order.begin() + static_cast<std::ptrdiff_t>(pb));
     std::vector<size_t> permuted;
     if (keep_woe_order) {
-      // Re-sort exactly as the former code did (std::sort on the bins in
-      // their current order): sorting the ids with the same comparator
-      // performs the same comparisons and hence the same permutation, ties
-      // included. Bins other than the merged one whose relative order
-      // changed (tied bins that std::sort permuted) are re-evaluated.
+      // Re-sort as merge_most_similar_bins() does: a stable sort of the ids
+      // with the same comparator gives the same permutation. Bins other than
+      // the merged one whose relative order changed are re-evaluated.
       std::vector<size_t> before;
       before.reserve(order.size());
       for (size_t x : order) if (x != a) before.push_back(x);
-      std::sort(order.begin(), order.end(), [&bins](size_t x, size_t y) {
-        return bins[x].woe < bins[y].woe;
+      std::stable_sort(order.begin(), order.end(), [&bins](size_t x, size_t y) {
+        return woe_then_count(bins[x], bins[y]);
       });
       std::vector<size_t> after;
       after.reserve(order.size());
@@ -313,8 +318,8 @@ private:
   // Local CategoricalBin definition removed
 
   
-  // Input data (aggregated per distinct category, in order of first
-  // appearance) and parameters
+  // Input data (aggregated per distinct category, in name order) and
+  // parameters
   std::vector<std::string> categories;
   std::vector<int> cat_pos;
   std::vector<int> cat_neg;
@@ -336,15 +341,13 @@ private:
   
   // Initialize bins from raw data
   void initialize_bins() {
-    std::unordered_map<std::string, CategoricalBin> initial_bins;
+    // One bin per category, in name order (categories are distinct).
+    std::vector<CategoricalBin> initial_bins(categories.size());
     total_pos = 0;
     total_neg = 0;
     
-    // First pass: statistics for each unique category. Keys are inserted in
-    // order of first appearance, as the former per-observation loop did, so
-    // the map (and everything derived from its iteration order) is unchanged.
     for (size_t c = 0; c < categories.size(); ++c) {
-      auto& b = initial_bins[categories[c]];
+      auto& b = initial_bins[c];
       b.categories.push_back(categories[c]);
       b.count_pos = cat_pos[c];
       b.count_neg = cat_neg[c];
@@ -366,8 +369,8 @@ private:
 
     std::vector<const CategoricalBin*> rare;
     size_t n_freq = 0;
-    for (const auto& pair : initial_bins) {
-      if (pair.second.count >= count_threshold) ++n_freq; else rare.push_back(&pair.second);
+    for (const auto& bin : initial_bins) {
+      if (bin.count >= count_threshold) ++n_freq; else rare.push_back(&bin);
     }
     const size_t target = static_cast<size_t>(std::max(min_bins, 1));
     size_t keep = 0;
@@ -383,12 +386,12 @@ private:
       promoted.insert(by_size.begin(), by_size.begin() + static_cast<std::ptrdiff_t>(keep));
     }
 
-    for (auto& pair : initial_bins) {
-      if (pair.second.count >= count_threshold || promoted.count(&pair.second)) {
-        pair.second.calculate_metrics(total_pos, total_neg);
-        temp_bins.push_back(std::move(pair.second));
+    for (auto& bin : initial_bins) {
+      if (bin.count >= count_threshold || promoted.count(&bin)) {
+        bin.calculate_metrics(total_pos, total_neg);
+        temp_bins.push_back(std::move(bin));
       } else {
-        low_freq_bin.merge_with(pair.second);
+        low_freq_bin.merge_with(bin);
       }
     }
     
@@ -401,9 +404,7 @@ private:
     bins = std::move(temp_bins);
     
     // Sort bins by WoE for better merging strategy
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe < b.woe;
-    });
+    std::stable_sort(bins.begin(), bins.end(), woe_then_count);
     
     // Initial consolidation to max_n_prebins if needed (the incremental
     // merger picks the same pairs as merge_most_similar_bins(); see
@@ -451,9 +452,7 @@ private:
     bins.erase(bins.begin() + merge_idx2);
     
     // Re-sort bins by WoE after merge
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.woe < b.woe;
-    });
+    std::stable_sort(bins.begin(), bins.end(), woe_then_count);
   }
   
   // Optimize bins for monotonicity and IV
@@ -586,7 +585,7 @@ private:
   
 public:
   // Constructor with validation. 'categories' holds the distinct categories
-  // in order of first appearance and 'pos'/'neg' their class counts.
+  // in name order and 'pos'/'neg' their class counts.
   OBC_SWB(std::vector<std::string> categories_,
           std::vector<int> pos_,
           std::vector<int> neg_,
@@ -660,25 +659,18 @@ public:
     
     // Handle special case of very few categories
     if (ncat <= 2) {
-      // Process each unique category as a separate bin
-      std::unordered_map<std::string, CategoricalBin> bin_map;
+      // Each category as a separate bin, in name order
       total_pos = 0;
       total_neg = 0;
-      
+      bins.assign(categories.size(), CategoricalBin());
       for (size_t c = 0; c < categories.size(); ++c) {
-        auto& bin = bin_map[categories[c]];
+        auto& bin = bins[c];
         bin.categories.push_back(categories[c]);
         bin.count_pos = cat_pos[c];
         bin.count_neg = cat_neg[c];
         bin.count = cat_pos[c] + cat_neg[c];
         total_pos += cat_pos[c];
         total_neg += cat_neg[c];
-      }
-      
-      // Transfer to bins vector
-      bins.clear();
-      for (auto& kv : bin_map) {
-        bins.push_back(std::move(kv.second));
       }
       
       // max_bins = 1 with two categories: a single bin (it used to return
@@ -771,9 +763,9 @@ Rcpp::List optimal_binning_categorical_swb(Rcpp::IntegerVector target,
      Rcpp::stop("Feature and target vectors must have the same length");
    }
    
-   // Aggregate per distinct category (first-appearance order). Each distinct
-   // CHARSXP is resolved once; the string map merges equal byte strings
-   // stored under different encodings.
+   // Aggregate per distinct category. Each distinct CHARSXP is resolved once;
+   // the string map merges equal byte strings stored under different
+   // encodings.
    std::vector<std::string> categories;
    std::vector<int> pos, neg;
    std::unordered_map<std::string, size_t> str_index;
@@ -807,7 +799,24 @@ Rcpp::List optimal_binning_categorical_swb(Rcpp::IntegerVector target,
      if (t == 1) pos[idx]++; else neg[idx]++;
    }
    
-   OBC_SWB binner(std::move(categories), std::move(pos), std::move(neg),
+   // Name order, so the fit does not depend on the row order.
+   std::vector<size_t> by_name(categories.size());
+   std::iota(by_name.begin(), by_name.end(), 0);
+   std::sort(by_name.begin(), by_name.end(), [&categories](size_t a, size_t b) {
+     return categories[a] < categories[b];
+   });
+   std::vector<std::string> cats_sorted;
+   std::vector<int> pos_sorted, neg_sorted;
+   cats_sorted.reserve(by_name.size());
+   pos_sorted.reserve(by_name.size());
+   neg_sorted.reserve(by_name.size());
+   for (size_t k : by_name) {
+     cats_sorted.push_back(std::move(categories[k]));
+     pos_sorted.push_back(pos[k]);
+     neg_sorted.push_back(neg[k]);
+   }
+
+   OBC_SWB binner(std::move(cats_sorted), std::move(pos_sorted), std::move(neg_sorted),
                   static_cast<size_t>(n), min_bins, max_bins,
                   bin_cutoff, max_n_prebins, bin_separator,
                   convergence_threshold, max_iterations);

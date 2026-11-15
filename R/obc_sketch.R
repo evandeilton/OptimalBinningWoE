@@ -59,6 +59,11 @@
 #' \deqn{p_{smoothed} = \frac{count + \alpha}{total + 2\alpha}}{
 #' p_smoothed = (count + alpha) / (total + 2*alpha)}
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @param feature A character vector or factor representing the categorical
 #'   predictor variable. Missing values (NA) will be converted to the string
 #'   "NA" and treated as a separate category.
@@ -107,9 +112,8 @@
 #' @note
 #' \itemize{
 #'   \item Target variable must contain both 0 and 1 values.
-#'   \item Due to the probabilistic nature of sketches, results may vary
-#'         slightly between runs. For deterministic results, consider setting
-#'         fixed random seeds in the underlying C++ code.
+#'   \item The sketch hash functions use fixed seeds, so results are the same
+#'         across runs, row orders and platforms.
 #'   \item Accuracy of frequency estimates depends on \code{sketch_width} and
 #'         \code{sketch_depth}. Increase these parameters for higher precision
 #'         at the cost of memory/computation.

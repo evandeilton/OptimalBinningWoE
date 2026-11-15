@@ -39,7 +39,8 @@ std::size_t count_separator_hits(const Container& categories, const std::string&
   for (const auto& item : categories) {
     const std::string& cat = separator_key(item);
     if (cat.find(sep) != std::string::npos) {
-      if (hits == 0) example = cat;
+      // Smallest name, so the warning text does not depend on hash order.
+      if (hits == 0 || cat < example) example = cat;
       ++hits;
     }
   }
@@ -233,6 +234,14 @@ private:
     return merged_bins;
   }
 
+  // Ascending event rate, then ascending count. Used with stable_sort, so
+  // remaining ties keep their (deterministic) input order.
+  static bool rate_then_count(const CategoricalBin& a, const CategoricalBin& b) {
+    const double ra = a.event_rate(), rb = b.event_rate();
+    if (ra != rb) return ra < rb;
+    return a.count < b.count;
+  }
+
   // Enhanced bin initialization with optimized counting
   void initializeBins() {
     // Efficient single-pass counting
@@ -270,7 +279,15 @@ private:
     bins.clear();
     bins.reserve(category_stats.size());
 
-    for (const auto& [cat, stats] : category_stats) {
+    // Categories in name order: hash-map iteration order depends on the row
+    // order and on the C++ library, and would decide ties below.
+    std::vector<std::string> names;
+    names.reserve(category_stats.size());
+    for (const auto& kv : category_stats) names.push_back(kv.first);
+    std::sort(names.begin(), names.end());
+
+    for (const auto& cat : names) {
+      const auto& stats = category_stats[cat];
       CategoricalBin bin;
       bin.categories.push_back(cat);
       bin.count_pos = stats.first;
@@ -279,10 +296,8 @@ private:
       bins.push_back(std::move(bin));
     }
 
-    // Sort by positive rate for consistent ordering
-    std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-      return a.event_rate() < b.event_rate();
-    });
+    // Ascending event rate; equal rates by ascending count, then name.
+    std::stable_sort(bins.begin(), bins.end(), rate_then_count);
 
     // Rare category handling
     int total_count = std::accumulate(bins.begin(), bins.end(), 0,
@@ -318,8 +333,9 @@ private:
       const size_t keep = static_cast<size_t>(max_n_prebins);
       const size_t n_bins = bins.size();
 
-      std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-        return a.count > b.count;  // Descending order
+      // Descending count; equal counts keep the event-rate order.
+      std::stable_sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
+        return a.count > b.count;
       });
 
       CategoricalBin& absorber = bins[keep - 1];
@@ -329,9 +345,7 @@ private:
 
       bins.resize(keep);
 
-      std::sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-        return a.event_rate() < b.event_rate();
-      });
+      std::stable_sort(bins.begin(), bins.end(), rate_then_count);
     }
 
     // Calculate metrics for all bins

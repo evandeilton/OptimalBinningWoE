@@ -3,6 +3,7 @@
 #include <Rcpp.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -76,7 +77,8 @@ inline size_t string_hash(const std::string &str, size_t seed) {
 
   size_t hash = FNV_OFFSET_BASIS ^ seed;
   for (char c : str) {
-    hash ^= static_cast<size_t>(c);
+    // Through unsigned char: plain char is signed on some platforms only.
+    hash ^= static_cast<size_t>(static_cast<unsigned char>(c));
     hash *= FNV_PRIME;
   }
   return hash;
@@ -147,13 +149,14 @@ public:
       row.resize(width, 0);
     }
 
+    // Seeds straight from mt19937, whose output is fixed by the standard;
+    // uniform_int_distribution differs between C++ libraries.
     std::mt19937 gen(42);
-    std::uniform_int_distribution<size_t> dist(
-        1, std::numeric_limits<size_t>::max());
-
     seeds.resize(depth);
     for (size_t i = 0; i < depth; ++i) {
-      seeds[i] = dist(gen);
+      const uint64_t hi = gen();
+      const uint64_t lo = gen();
+      seeds[i] = static_cast<size_t>((hi << 32) | lo);
     }
   }
 
@@ -225,8 +228,8 @@ public:
 // NOTE: MergeCache removed to fix UBSAN memory corruption issues
 class OBC_Sketch {
 private:
-  // Distinct categories in order of first appearance, with their exact class
-  // counts, and the number of observations.
+  // Distinct categories in name order, with their exact class counts, and
+  // the number of observations.
   std::vector<std::string> categories;
   std::vector<int> cat_pos;
   std::vector<int> cat_neg;
@@ -325,15 +328,8 @@ private:
   }
 
   void prebinning() {
-    // Same insertion order (first appearance) as the former per-observation
-    // loop, hence the same iteration order.
-    std::unordered_set<std::string> unique_categories_set;
-    for (const auto &cat : categories) {
-      unique_categories_set.insert(cat);
-    }
-
-    std::vector<std::string> unique_categories(unique_categories_set.begin(),
-                                               unique_categories_set.end());
+    // Distinct categories in name order (see the entry point).
+    const std::vector<std::string> &unique_categories = categories;
 
     double heavy_hitter_threshold = bin_cutoff / 2.0;
     std::vector<std::string> heavy_hitters =
@@ -406,10 +402,11 @@ private:
       bins.push_back(rare_bin);
     }
 
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.count > b.count;
-              });
+    // Descending count; equal counts keep the order above (stable sort).
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin &a, const CategoricalBin &b) {
+                       return a.count > b.count;
+                     });
 
     if (static_cast<int>(bins.size()) > max_n_prebins &&
         static_cast<int>(bins.size()) > min_bins) {
@@ -572,10 +569,12 @@ private:
       throw std::runtime_error("No bins available to enforce monotonicity.");
     }
 
-    std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
-                return a.woe < b.woe;
-              });
+    // Ascending WoE; ties by ascending count, then the current order.
+    std::stable_sort(bins.begin(), bins.end(),
+                     [](const CategoricalBin &a, const CategoricalBin &b) {
+                       if (a.woe != b.woe) return a.woe < b.woe;
+                       return a.count < b.count;
+                     });
 
     bool increasing = true;
     if (bins.size() > 1) {
@@ -861,9 +860,11 @@ public:
           if (bins[i].woe > bins[i - 1].woe) dec = false;
         }
         if (!inc && !dec) {
+          // Ties by ascending count, then the current order.
           std::stable_sort(bins.begin(), bins.end(),
                            [](const CategoricalBin &a, const CategoricalBin &b) {
-                             return a.woe < b.woe;
+                             if (a.woe != b.woe) return a.woe < b.woe;
+                             return a.count < b.count;
                            });
         }
       }
@@ -934,9 +935,8 @@ Rcpp::List optimal_binning_categorical_sketch(
                "3 for reasonable accuracy.");
   }
 
-  // Aggregate per distinct category in order of first appearance. Each
-  // distinct CHARSXP is resolved once; the string map merges equal byte
-  // strings stored under different encodings.
+  // Aggregate per distinct category. Each distinct CHARSXP is resolved once;
+  // the string map merges equal byte strings stored under different encodings.
   std::vector<std::string> categories;
   std::vector<int> pos, neg;
   std::unordered_map<std::string, size_t> str_index;
@@ -976,8 +976,25 @@ Rcpp::List optimal_binning_categorical_sketch(
       neg[idx]++;
   }
 
-  OBC_Sketch sketch_binner(std::move(categories), std::move(pos),
-                           std::move(neg), static_cast<size_t>(n), min_bins,
+  // Name order, so the fit does not depend on the row order.
+  std::vector<size_t> by_name(categories.size());
+  std::iota(by_name.begin(), by_name.end(), 0);
+  std::sort(by_name.begin(), by_name.end(), [&categories](size_t a, size_t b) {
+    return categories[a] < categories[b];
+  });
+  std::vector<std::string> cats_sorted;
+  std::vector<int> pos_sorted, neg_sorted;
+  cats_sorted.reserve(by_name.size());
+  pos_sorted.reserve(by_name.size());
+  neg_sorted.reserve(by_name.size());
+  for (size_t k : by_name) {
+    cats_sorted.push_back(std::move(categories[k]));
+    pos_sorted.push_back(pos[k]);
+    neg_sorted.push_back(neg[k]);
+  }
+
+  OBC_Sketch sketch_binner(std::move(cats_sorted), std::move(pos_sorted),
+                           std::move(neg_sorted), static_cast<size_t>(n), min_bins,
                            max_bins, bin_cutoff, max_n_prebins, bin_separator,
                            convergence_threshold, max_iterations,
                            static_cast<size_t>(sketch_width),

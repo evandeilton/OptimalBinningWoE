@@ -149,6 +149,11 @@
 #'   ChiMerge \tab Statistical \tab Optional \tab Fast
 #' }
 #'
+#' \strong{Ties:} categories with equal event rates or WoE values are ordered
+#' by ascending count, then by category name (byte-wise), and equal counts by
+#' name, so the fitted bins do not depend on the row order of the data or on
+#' the platform.
+#'
 #' @references
 #' Cover, T. M., & Thomas, J. A. (2006). \emph{Elements of Information Theory}
 #' (2nd ed.). Wiley-Interscience. \doi{10.1002/047174882X}
