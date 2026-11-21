@@ -819,7 +819,7 @@ sessionInfo()
 #> [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-66        
 #> [49] ragg_1.5.2          pkgconfig_2.0.3     desc_1.4.3          pkgdown_2.2.1      
 #> [53] pillar_1.11.1       bslib_0.12.0        data.table_1.18.6.1 glue_1.8.1         
-#> [57] Rcpp_1.1.2          systemfonts_1.3.2   xfun_0.62           tibble_3.3.1       
+#> [57] Rcpp_1.1.2          systemfonts_1.3.3   xfun_0.62           tibble_3.3.1       
 #> [61] tidyselect_1.2.1    knitr_1.52          farver_2.1.2        htmltools_0.5.9    
 #> [65] rmarkdown_2.32      ipred_0.9-16        timeDate_4052.112   gower_1.0.2        
 #> [69] compiler_4.6.2

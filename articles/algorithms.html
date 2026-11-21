@@ -75,7 +75,7 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-11-15</h4>
+            <h4 data-toc-skip class="date">2026-11-21</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/algorithms.Rmd" class="external-link"><code>vignettes/algorithms.Rmd</code></a></small>
       <div class="d-none name"><code>algorithms.Rmd</code></div>
@@ -275,7 +275,7 @@ divides by <code>total_pos + num_bins * ALPHA</code>, while
 <code>pos / total_pos - neg / total_neg</code> and multiplies it by that
 WoE. Categorical <code>cm</code> does the same
 (<code>calculate_woe_iv()</code> and <code>calculate_woe()</code>,
-<code>src/OBC_CM_v5.cpp:778-799, 832-839</code>). Numerical
+<code>src/OBC_CM_v5.cpp:788-809, 843-849</code>). Numerical
 <code>jedi</code> does not smooth at all: WoE and IV use raw shares,
 with
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>10</mn><mrow><mi>−</mi><mn>10</mn></mrow></msup><annotation encoding="application/x-tex">10^{-10}</annotation></semantics></math>
@@ -397,39 +397,39 @@ program only in its categorical form).</p>
 counts with a segment-IV cache, so each DP cell is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>
 (<code>CumulativeStatsCache</code> and <code>IVCache</code>,
-<code>src/OBC_IVB_v5.cpp:68-192</code>; recurrence in
-<code>perform_dynamic_programming()</code>, <code>:463-493</code>). No
+<code>src/OBC_IVB_v5.cpp:69-193</code>; recurrence in
+<code>perform_dynamic_programming()</code>, <code>:473-503</code>). No
 own parameters.</p>
 <p><strong><code>dp</code>, categorical</strong>
 (<code><a href="../reference/ob_categorical_dp.html">ob_categorical_dp()</a></code>) — the same DP over the levels sorted
 by event rate (<code>compute_and_sort_event_rates()</code>,
-<code>src/OBC_DP_v5.cpp:477-513</code>; recurrence in
-<code>perform_dynamic_programming()</code>, <code>:539-585</code>).
+<code>src/OBC_DP_v5.cpp:505-534</code>; recurrence in
+<code>perform_dynamic_programming()</code>, <code>:560-606</code>).
 There is <strong>no trend test in the recurrence</strong>: the pooled
 event rate of a run of consecutive sorted levels lies between those of
 its first and last members, so every contiguous partition has monotone
-event rates by construction (the code comment at <code>:545-557</code>
+event rates by construction (the code comment at <code>:566-578</code>
 records that an earlier test only fired on an artifact). A bin without
 events or without non-events is still reported with WoE = IV = 0
-(<code>:75-82</code>, <code>:662</code>), which can break the order of
+(<code>:76-83</code>, <code>:683</code>), which can break the order of
 the reported WoE. When there are more than <code>max_bins</code> levels,
 <code>monotonic_trend</code> therefore only orders the list:
 <code>"descending"</code> reverses it, and <code>"auto"</code> runs a
 Welford-stable online correlation (Welford, 1962) on rates that are
 already sorted ascending, so it always resolves to ascending. With at
 most <code>max_bins</code> levels the DP is skipped
-(<code>compute_bins_no_optimization()</code>, <code>:346-368</code>) and
-the levels come out in ascending event-rate order, so
-<code>"descending"</code> is ignored (<code>"none"</code> leaves them in
-hash order). Own parameter: <code>monotonic_trend</code>
+(<code>compute_bins_no_optimization()</code>, <code>:374-399</code>) and
+the levels come out in event-rate order, ascending or, with
+<code>"descending"</code>, decreasing (<code>"none"</code> leaves them
+in name order). Own parameter: <code>monotonic_trend</code>
 (<code>"auto"</code>, <code>"ascending"</code>,
 <code>"descending"</code>, <code>"none"</code>).</p>
 <p><strong><code>sblp</code></strong>
 (<code><a href="../reference/ob_categorical_sblp.html">ob_categorical_sblp()</a></code>) — event-rate ordering, a
 rate-similarity pre-merge for rare levels
 (<code>handle_rare_categories()</code>,
-<code>src/OBC_SBLP_v5.cpp:289-376</code>), then interval DP over prefix
-sums (<code>perform_binning()</code>, <code>:441-502</code>). The IV of
+<code>src/OBC_SBLP_v5.cpp:320-407</code>), then interval DP over prefix
+sums (<code>perform_binning()</code>, <code>:473-534</code>). The IV of
 a segment is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math>,
 so it is
@@ -440,9 +440,9 @@ every candidate segment and was
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>K</mi><msup><mi>L</mi><mn>3</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(K L^3)</annotation></semantics></math>.
 Own parameter: <code>alpha</code> (Laplace constant). <em>Two
 cautions.</em> The DP adds <code>alpha</code> once per level in a
-segment (<code>iv_from_counts()</code>, <code>:506-521</code>), while
+segment (<code>iv_from_counts()</code>, <code>:538-553</code>), while
 the reported WoE and IV add it once per bin
-(<code>prepare_output()</code>, <code>:592-605</code>), so the partition
+(<code>prepare_output()</code>, <code>:624-637</code>), so the partition
 is optimal for a slightly different objective than the IV it reports.
 And, as a name note, no logistic regression is fitted anywhere; the R
 documentation’s analogy to Jenks natural breaks is structural only —
@@ -588,8 +588,8 @@ ChiMerge bins (without the rare-bin pass), and categorical
 Unlike the ChiMerge path, the Chi2 path skips the
 <code>bin_cutoff</code> rare-level pass and the
 <code>max_n_prebins</code> limit (<code>perform_chi2_binning()</code>,
-<code>src/OBC_CM_v5.cpp:450-480</code>; compare
-<code>perform_chimerge_binning()</code>, <code>:430-445</code>), so the
+<code>src/OBC_CM_v5.cpp:460-490</code>; compare
+<code>perform_chimerge_binning()</code>, <code>:440-455</code>), so the
 two can differ.</p>
 <p><em>Three implementation notes.</em> The statistic includes a
 <strong>Yates continuity correction</strong> with the deviation clamped
@@ -622,7 +622,7 @@ merge further. The categorical engine differs: it merges down to
 <code>max_bins</code> and then keeps merging while the smallest
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>χ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\chi^2</annotation></semantics></math>
 is below the critical value (<code>merge_bins_chimerge()</code>,
-<code>src/OBC_CM_v5.cpp:582-630</code>), so there the significance level
+<code>src/OBC_CM_v5.cpp:592-640</code>), so there the significance level
 does decide the bin count.</p>
 <p><strong><code>fetb</code></strong> (<code><a href="../reference/ob_numerical_fetb.html">ob_numerical_fetb()</a></code>,
 <code><a href="../reference/ob_categorical_fetb.html">ob_categorical_fetb()</a></code>) — merges the adjacent pair whose 2×2
@@ -631,7 +631,7 @@ table is least distinguishable: the pair with the highest
 tolerance for “as extreme” tables as <code><a href="https://rdrr.io/r/stats/fisher.test.html" class="external-link">fisher.test()</a></code>
 (<code>fisher_two_sided_log_p()</code>,
 <code>src/OBN_FETB_v5.cpp:91-154</code>; categorical
-<code>fisherLogPValue()</code>, <code>src/OBC_FETB_v5.cpp:172</code>).
+<code>fisherLogPValue()</code>, <code>src/OBC_FETB_v5.cpp:173</code>).
 No own parameters.</p>
 <p><em>What it computes.</em> The p-value ranks the merges; it does not
 stop them. There is no α: merging continues until <code>max_bins</code>
@@ -640,7 +640,7 @@ is met (<code>fisher_merge_loop()</code>,
 merges by the hypergeometric <em>point probability</em> of the observed
 table, which is not a p-value. On the categorical side,
 <code>max_n_prebins</code> is accepted and never read
-(<code>src/OBC_FETB_v5.cpp:423</code>).</p>
+(<code>src/OBC_FETB_v5.cpp:438</code>).</p>
 </div>
 <div class="section level3">
 <h3 id="isotonic-regression">Isotonic regression<a class="anchor" aria-label="anchor" href="#isotonic-regression"></a>
@@ -805,8 +805,8 @@ variant uses fixed-size Count-Min sketches (Cormode and Muthukrishnan,
 <strong>not</strong> make memory independent of the number of levels:
 the class counts of every distinct level are kept exactly
 (<code>cat_pos</code>, <code>cat_neg</code> and <code>cat_index</code>,
-<code>src/OBC_Sketch_v5.cpp:231-233</code>) and the bin statistics are
-read from them (<code>exact_counts()</code>, <code>:289-299</code>), so
+<code>src/OBC_Sketch_v5.cpp:234-236</code>) and the bin statistics are
+read from them (<code>exact_counts()</code>, <code>:292-302</code>), so
 only the heavy-hitter decision is approximate. The numerical variant
 uses a multi-level compactor for approximate quantiles; the quantiles
 only propose candidate cutpoints, and every bin statistic is then
@@ -1270,7 +1270,7 @@ and <code>udt</code>; <code>max_iterations</code> in numerical
 <code>dmiv</code>, whose rare-level pre-binning (only when there are
 more levels than <code>max_n_prebins</code>) uses a hardcoded threshold
 of 5 observations instead (<code>min_prebin_count</code>,
-<code>src/OBC_DMIV_v5.cpp:87, 245</code>). Some of these are validated
+<code>src/OBC_DMIV_v5.cpp:88, 252</code>). Some of these are validated
 and then ignored. In numerical <code>cm</code>,
 <code>chi_merge_threshold</code> is read but cannot change the result
 (see <code>cm</code> above).</p>
@@ -1293,8 +1293,8 @@ and <code>gmb</code>.</strong> When more levels survive the rare-level
 merge than <code>max_n_prebins</code> allows, both <strong>fold</strong>
 the excess into the smallest of the retained levels rather than dropping
 it (<code>ensure_max_prebins()</code>,
-<code>src/OBC_IVB_v5.cpp:391-415</code>; the “Limit number of pre-bins”
-block, <code>src/OBC_GMB_v5.cpp:310-335</code>), so every observation
+<code>src/OBC_IVB_v5.cpp:403-426</code>; the “Limit number of pre-bins”
+block, <code>src/OBC_GMB_v5.cpp:325-349</code>), so every observation
 stays in the binning. Releases before 1.13.3 dropped them. Which levels
 keep their own identity is unchanged: the <code>max_n_prebins</code>
 most frequent. With <code>bin_cutoff = 0.05</code> at most 20 levels can
@@ -1334,7 +1334,7 @@ engines smooth the counts or clamp at
 categorical <code>jedi_mwoe</code>,
 <code>ensure_monotonic_order()</code> re-sorts by each class in turn
 without re-checking earlier classes
-(<code>src/OBC_JEDIMWoE_v5.cpp:665-675</code>), so a later class’s sort
+(<code>src/OBC_JEDIMWoE_v5.cpp:671-684</code>), so a later class’s sort
 can reintroduce a violation in an earlier one.</p>
 <p><strong>Citation errors in the shipped documentation.</strong> Some
 help pages and source comments cite a work with details that do not
@@ -1347,12 +1347,12 @@ match the published record:</p>
 with Applications</em> 158, 113508 (doi 10.1016/j.eswa.2020.113508).
 That DOI belongs to an unrelated paper; the work is an arXiv preprint
 (arXiv:2001.08025) with no journal version.
-<code>src/OBC_DP_v5.cpp:123</code> cites it under a title and year
+<code>src/OBC_DP_v5.cpp:124</code> cites it under a title and year
 (<em>OptBinning: Mathematical Optimization for Optimal Binning</em>,
 2022) that match no record in Crossref, DataCite or arXiv.</li>
 <li>Mironchyk and Tchistiakov (2017) are given an SSRN DOI that belongs
-to an unrelated paper (<code>R/obc_gmb.R:139</code>,
-<code>R/obc_mba.R:121</code>) and the venue <em>Frontiers in Applied
+to an unrelated paper (<code>R/obc_gmb.R:143</code>,
+<code>R/obc_mba.R:126</code>) and the venue <em>Frontiers in Applied
 Mathematics and Statistics</em> 3, 2 (<code>R/obn_mob.R:210</code>,
 <code>R/obn_mrblp.R:168</code>, <code>R/obn_oslp.R:153</code>,
 <code>R/obn_mblp.R:200</code>), which is a different paper. Theirs is an
@@ -1367,11 +1367,11 @@ of the Operational Research Society</em> 64(5), 712–731. No such version
 was found; the paper is in the <em>Journal of Mathematics</em> 2013 (doi
 10.1155/2013/848271).</li>
 <li>
-<code>R/obc_cm.R:100-102</code> gives the Chi2 author as “Liu, B.”
+<code>R/obc_cm.R:105-107</code> gives the Chi2 author as “Liu, B.”
 and pages 372–377; it is Huan Liu, pages 388–391
 (<code>R/obn_cm.R</code> has them right).</li>
 <li>
-<code>R/obc_dp.R:116</code> and <code>src/OBC_DP_v5.cpp:125</code>
+<code>R/obc_dp.R:119</code> and <code>src/OBC_DP_v5.cpp:126</code>
 list the authors of the 2017 edition of Thomas, Crook and Edelman in the
 order of the 2002 first edition.</li>
 <li>
