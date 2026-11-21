@@ -14,9 +14,6 @@
 ^Meta$
 ^\.claude$
 ^\.Rhistory$
-.claude
-^\.positai$
-^TODO\.md$
 ^src/.*C.pia em conflito.*$
 ^inst/paper$
 ^.*\.tar\.gz$
