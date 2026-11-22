@@ -35,12 +35,13 @@ the algorithm will attempt to split bins. Defaults to 3.}
 this constraint is satisfied. Defaults to 5.}
 
 \item{bin_cutoff}{Numeric. Frequency threshold for rare category handling.
-Categories with relative frequency below this value are candidates for
-pre-binning. Must be in (0, 1). Defaults to 0.05.}
+Categories with relative frequency below this value are pooled with
+their neighbours in event-rate order before the merging phase (see
+Pre-binning Strategy). Must be in (0, 1). Defaults to 0.05.}
 
-\item{max_n_prebins}{Integer. Maximum number of initial bins before the
-main merging phase. When unique categories exceed this limit, rare
-categories are pre-merged into an "other" bin. Must be >= 2. Defaults to 20.}
+\item{max_n_prebins}{Integer. Maximum number of bins entering the main
+merging phase: above it, adjacent bins (in event-rate order) with the
+smallest divergence are merged first. Must be >= 2. Defaults to 20.}
 
 \item{bin_separator}{Character string used to concatenate category names
 when multiple categories are merged into a single bin. Defaults to "\%;\%".
@@ -115,7 +116,9 @@ are iteratively merged based on minimum pairwise divergence until the
 \strong{Algorithm Workflow:}
 \enumerate{
   \item Input validation and frequency computation
-  \item Pre-binning of rare categories (if unique categories > \code{max_n_prebins})
+  \item Pre-binning: rare categories (frequency < \code{bin_cutoff}) are
+    pooled in event-rate order, then adjacent bins are merged down to
+    \code{max_n_prebins}
   \item Initialization of pairwise divergence matrix
   \item Iterative merging of most similar bin pairs
   \item Splitting of heterogeneous bins (if bins < \code{min_bins})
@@ -136,12 +139,16 @@ The choice of divergence measure affects the binning structure:
 }
 
 \strong{Pre-binning Strategy:}
-When the number of unique categories exceeds \code{max_n_prebins}, categories
-with fewer than 5 observations are pooled into one bin to control
-computational complexity. The pooled bin is labeled with the categories it
-contains, like any other bin, so it can be mapped when the binning is
-applied. Pre-binning is skipped when it would leave fewer than
-\code{min_bins} bins.
+Categories holding less than \code{bin_cutoff} of the observations are
+rare. With all categories in event-rate order, each run of consecutive rare
+categories is pooled, a pool being closed as soon as it reaches
+\code{bin_cutoff}; a pool still below it joins the adjacent bin with the
+closer event rate. Frequent categories keep their own bin. While more than \code{max_n_prebins} bins remain, the adjacent pair (in
+event-rate order) with the smallest divergence is merged. Pooled bins are
+labeled with the categories they contain, so they can be mapped when the
+binning is applied. Pooling is skipped when it would leave fewer than
+\code{min_bins} bins. (Up to version 1.14.1 \code{bin_cutoff} had no
+effect and only categories with fewer than 5 rows were pooled.)
 
 \strong{Ties:} categories with equal event rates or WoE values are ordered
 by ascending count, then by category name (byte-wise), and equal counts by

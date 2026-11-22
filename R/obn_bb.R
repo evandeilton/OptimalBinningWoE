@@ -67,8 +67,11 @@
 #'   preserves the maximum possible Information Value while satisfying the
 #'   monotonicity constraint.
 #'
-#'   \item \strong{Optimization Phase:} The algorithm iteratively merges adjacent
-#'   bins that have the lowest contribution to the total Information Value (IV).
+#'   \item \strong{Optimization Phase:} The algorithm iteratively merges the adjacent
+#'   pair of bins whose fusion keeps the largest total Information Value (the
+#'   total as reported, all bins renormalized after the merge): a greedy merge,
+#'   not an exhaustive branch-and-bound search. With \code{is_monotonic = TRUE}
+#'   only merges that add no WoE violation compete, unless none qualifies.
 #'   This process continues until the number of bins is reduced to \code{max_bins}.
 #'   With \code{is_monotonic = TRUE} the returned WoE is monotonic unless that
 #'   would require fewer than \code{min_bins} bins.

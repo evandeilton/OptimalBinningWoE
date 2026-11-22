@@ -7,6 +7,18 @@
 # cutpoint fewer than bins, and the counts are reproduced exactly by assigning
 # the data to (c[j-1], c[j]] intervals.
 
+# Forensic audit X-11 (B-05, C-09, E-14): the numerical engines now warn when
+# a requested monotonic WoE is not reached (the merges stop at min_bins) and
+# report it in `$monotonic`. That warning is the documented signal, not a
+# defect, so the "no warning" checks in this file let it through and still
+# fail on any other warning.
+allow_x11_warning <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("monotonic WoE was requested", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
+}
+
 numd_fns <- list(
   mob = ob_numerical_mob,
   mrblp = ob_numerical_mrblp,
@@ -18,7 +30,7 @@ numd_fns <- list(
 # Run and collect warnings, so a test can assert exactly which ones occur.
 numd_run <- function(fn, ...) {
   ws <- character(0)
-  res <- withCallingHandlers(fn(...), warning = function(w) {
+  res <- withCallingHandlers(allow_x11_warning(fn(...)), warning = function(w) {
     ws <<- c(ws, conditionMessage(w))
     invokeRestart("muffleWarning")
   })

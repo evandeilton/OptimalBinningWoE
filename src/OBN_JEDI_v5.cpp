@@ -18,12 +18,18 @@
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
 
 
 static constexpr double EPS = 1e-10;
+
+// Prior strength (pseudo-observations per bin) of the empirical-Bayes IV used
+// to DECIDE merges (audit Section 15.5, minimum evidence). See
+// find_min_iv_merge().
+static constexpr double kJediEbM = 50.0;
 
 // Data layout
 // -----------
@@ -232,8 +238,8 @@ private:
   // If not monotonic, merge adjacent bins that cause violations until monotonic order is restored or min_bins reached.
   //
   // Minimizing IV loss merges:
-  // When the number of bins exceeds max_bins, merge the adjacent pair with the
-  // smallest combined IV.
+  // When the number of bins exceeds max_bins, merge the adjacent pair whose
+  // fusion loses the least IV (see find_min_iv_merge()).
   //
   // Convergence:
   // Convergence is reached when |IV_current - IV_previous| < convergence_threshold or max_iterations is hit.
@@ -414,16 +420,49 @@ private:
     }
   }
 
+  // Left index of the adjacent pair whose merge keeps the largest total IV
+  // (audit D-02 / X-08). The pair used to be the one with the smallest SUM of
+  // IV: two adjacent bins without events keep a large EPS-floored IV each,
+  // although merging them loses nothing (it even raises the reported IV), so
+  // they were never merged while informative bins were swallowed. The loss of
+  // a candidate is now the change of the total IV over all bins (K bins before
+  // the merge, K - 1 after, every bin renormalized), the exact one-step greedy.
+  //
+  // Minimum evidence (audit Section 15.5): the IV that DECIDES the merge is
+  // the empirical-Bayes IV ob::eb_woe_iv() -- each bin's rate is shrunk
+  // towards the overall rate by a beta prior worth kJediEbM pseudo-
+  // observations -- not the raw IV reported by calculate_woe_iv(). With the
+  // raw IV, isolating a handful of rows with an extreme observed rate earns a
+  // large IV, and in small samples (n = 40-60) the greedy kept such tiny bins
+  // and lost out-of-sample log-loss; shrinkage makes them worth little while
+  // leaving large bins unchanged. The reported WoE / IV are unchanged.
+  // Ties keep the leftmost pair.
   size_t find_min_iv_merge() const {
-    if(bins.size()<2)return bins.size();
-    double min_iv_sum=std::numeric_limits<double>::max();
-    size_t idx=bins.size();
-    for(size_t i=0;i<bins.size()-1;i++){
-      double iv_sum=bins[i].iv+bins[i+1].iv;
-      if(iv_sum<min_iv_sum) {
-        min_iv_sum=iv_sum;
-        idx=i;
-      }
+    const size_t nb = bins.size();
+    if(nb<2)return nb;
+    double tp=0.0, tn=0.0;
+    for (const auto &b:bins) { tp+=b.count_pos; tn+=b.count_neg; }
+    if (tp == 0.0 || tn == 0.0) return 0;  // one class: every merge is neutral
+    const int K = static_cast<int>(nb);
+    auto eb = [&](double p, double n, int k) {
+      return ob::eb_woe_iv(p, n, tp, tn, k, kJediEbM).iv;
+    };
+    // Every bin enters the K - 1 total with the same renormalization, so the
+    // total after merging (i, i+1) is S - e_i - e_{i+1} + e_merged: O(K).
+    double now = 0.0, s_after = 0.0;
+    std::vector<double> e(nb);
+    for (size_t j=0;j<nb;++j) {
+      now += eb(bins[j].count_pos, bins[j].count_neg, K);
+      e[j] = eb(bins[j].count_pos, bins[j].count_neg, K-1);
+      s_after += e[j];
+    }
+    double best=std::numeric_limits<double>::infinity();
+    size_t idx=nb;
+    for(size_t i=0;i+1<nb;i++){
+      const double after = s_after - e[i] - e[i+1] +
+        eb(bins[i].count_pos+bins[i+1].count_pos, bins[i].count_neg+bins[i+1].count_neg, K-1);
+      const double loss = now - after;
+      if(loss<best){best=loss;idx=i;}
     }
     return idx;
   }

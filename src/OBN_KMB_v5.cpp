@@ -102,8 +102,17 @@ private:
       return 0.0;
     }
 
-    double pos_dist = static_cast<double>(pos) / static_cast<double>(total_pos);
-    double neg_dist = static_cast<double>(neg) / static_cast<double>(total_neg);
+    // Audit E-06 / C-14 / B-09 (theme T3): the IV used the RAW shares
+    // pos/total_pos - neg/total_neg times the SMOOTHED WoE, so a bin could get a
+    // negative IV (e.g. a bin without events whose smoothed WoE is positive).
+    // The same smoothed shares now enter WoE and IV, IV = (p - q) * ln(p / q) >=
+    // 0; the WoE estimator is unchanged.
+    const double alpha = 0.5;  // as in calculateWOE()
+    const double num_bins = static_cast<double>(bins.size());
+    const double pos_dist = (static_cast<double>(pos) + alpha) /
+      (static_cast<double>(total_pos) + num_bins * alpha);
+    const double neg_dist = (static_cast<double>(neg) + alpha) /
+      (static_cast<double>(total_neg) + num_bins * alpha);
 
     return (pos_dist - neg_dist) * woe;
   }
@@ -544,8 +553,14 @@ private:
   }
 
   /**
-   * Enforce monotonicity in WoE values by merging violating bins
-   * This improves interpretability and model stability
+   * Enforce monotonicity in WoE values by merging violating bins.
+   *
+   * Audit C-08: the direction used to be taken from the first two bins
+   * alone, which picks the wrong one in ~16% of runs under a weak trend and
+   * then merges in cascade down to min_bins. Both directions are now run on
+   * the same bins (as OBN_BB does) and the result kept is the one that
+   * reaches a monotone WoE, or, when both or neither do, the one with the
+   * larger total IV (ties: increasing).
    */
   void enforceMonotonicity() {
     if (!enforce_monotonic || bins.size() <= 2) {
@@ -553,18 +568,47 @@ private:
       return;
     }
 
+    const std::vector<NumericalBin> start = bins;
+    const int iter0 = iterations_run;
+    const bool conv0 = converged;
+
+    enforceMonotonicityDir(true);
+    const std::vector<NumericalBin> inc_bins = bins;
+    const double inc_iv = total_iv;
+    const bool inc_mono = woeIsMonotone(true);
+    const int inc_iter = iterations_run;
+    const bool inc_conv = converged;
+
+    bins = start;
+    iterations_run = iter0;
+    converged = conv0;
+    enforceMonotonicityDir(false);
+    const bool dec_mono = woeIsMonotone(false);
+
+    const bool keep_inc = (inc_mono != dec_mono) ? inc_mono : !(total_iv > inc_iv);
+    if (keep_inc) {
+      bins = inc_bins;
+      iterations_run = inc_iter;
+      converged = inc_conv;
+      calculateBinStatistics();
+    }
+  }
+
+  bool woeIsMonotone(bool increasing) const {
+    for (size_t i = 1; i < bins.size(); ++i) {
+      if (increasing ? bins[i].woe < bins[i - 1].woe : bins[i].woe > bins[i - 1].woe) return false;
+    }
+    return true;
+  }
+
+  // Pool adjacent violators of the given direction until the WoE is monotone
+  // or min_bins is reached.
+  void enforceMonotonicityDir(bool increasing) {
     // Calculate initial WoE values
     calculateBinStatistics();
 
     int iterations = 0;
     bool is_monotonic = false;
-
-    // Determine monotonicity direction (increasing or decreasing)
-    // based on the first two bins
-    bool increasing = true;
-    if (bins.size() >= 2) {
-      increasing = (bins[1].woe >= bins[0].woe);
-    }
 
     // Iteratively merge bins until monotonicity is achieved
     while (!is_monotonic && static_cast<int>(bins.size()) > min_bins && iterations < max_iterations) {
@@ -594,6 +638,7 @@ private:
       }
     }
 
+    calculateBinStatistics();  // total_iv of the final bins (direction choice)
     iterations_run += iterations;
     if (iterations >= max_iterations) {
       converged = false;
@@ -853,6 +898,52 @@ public:
   }
 };
 
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 List optimal_binning_numerical_kmb(
     IntegerVector target,
@@ -879,7 +970,10 @@ List optimal_binning_numerical_kmb(
         convergence_threshold, max_iterations);
 
     // Perform binning and return results
-    return binner.fit();
+    Rcpp::List res = binner.fit();
+    flag_monotonic_result(res, enforce_monotonic, 0,
+                          "ob_numerical_kmb");
+    return res;
   } catch(std::exception &e) {
     forward_exception_to_r(e);
   } catch(...) {

@@ -152,8 +152,18 @@ private:
    * @return IV contribution
    */
   double calculateIV(double woe, int pos, int neg, double total_pos, double total_neg) const {
-    double dist_good = (total_pos > 0) ? static_cast<double>(pos) / total_pos : 0.0;
-    double dist_bad = (total_neg > 0) ? static_cast<double>(neg) / total_neg : 0.0;
+    // Audit E-06 / C-14 / B-09 (theme T3): the IV used the RAW shares
+    // pos/total_pos - neg/total_neg times the SMOOTHED WoE, so a bin could get a
+    // negative IV (e.g. a bin without events whose smoothed WoE is positive).
+    // The same smoothed shares now enter WoE and IV, IV = (p - q) * ln(p / q) >=
+    // 0; the WoE estimator is unchanged.
+    // Same shares, smoothing and floor as calculateWOE().
+    const double num_bins = static_cast<double>(bin_edges.size() - 1);
+    const double epsilon = 1e-14;
+    const double dist_good = std::max((static_cast<double>(pos) + ALPHA) /
+                                      (total_pos + num_bins * ALPHA), epsilon);
+    const double dist_bad = std::max((static_cast<double>(neg) + ALPHA) /
+                                     (total_neg + num_bins * ALPHA), epsilon);
     return (dist_good - dist_bad) * woe;
   }
   
@@ -973,6 +983,60 @@ void OBN_LDB::create_bin_labels() {
   }
 }
 
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+// +1 / -1 / 0 for a reported direction label ("increasing"/"ascending",
+// "decreasing"/"descending", anything else).
+static int monotone_direction_of(const std::string &label) {
+  if (label == "increasing" || label == "ascending") return 1;
+  if (label == "decreasing" || label == "descending") return -1;
+  return 0;
+}
+
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_ldb(
     Rcpp::IntegerVector target,
@@ -999,7 +1063,11 @@ Rcpp::List optimal_binning_numerical_ldb(
     
     binner.fit(std::move(feature_vec), std::move(target_vec));
     
-    return binner.transform();
+    Rcpp::List res = binner.transform();
+    flag_monotonic_result(res, enforce_monotonic,
+                          monotone_direction_of(Rcpp::as<std::string>(res["monotonicity"])),
+                          "ob_numerical_ldb");
+    return res;
   } catch(std::exception &e) {
     forward_exception_to_r(e);
   } catch(...) {

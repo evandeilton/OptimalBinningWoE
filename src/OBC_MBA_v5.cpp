@@ -14,6 +14,7 @@
 // Include shared headers
 #include "common/bin_structures.h"
 #include "common/optimal_binning_common.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -25,6 +26,15 @@ static bool woe_then_count(const CategoricalBin &a, const CategoricalBin &b) {
     return a.woe < b.woe;
   return a.count < b.count;
 }
+
+namespace {
+// Strength (pseudo-observations) of the empirical-Bayes beta prior, centred on
+// the overall event rate, that orders the categories and drives the merge
+// decisions (audit E-03 follow-up, Section 15.5): a group of m = 20 rows
+// moves its rate half-way from the prior to the data. The hold-out log-loss
+// of the harness corpus was stable for m in [5, 20].
+constexpr double kEvidenceM = 20.0;
+} // namespace
 
 // Enhanced main class with improved optimization strategies
 class OBC_MBA {
@@ -137,7 +147,56 @@ private:
     }
   }
 
-  // Enhanced prebinning with better statistical handling
+  // Empirical-Bayes (posterior mean) event rate of a bin under a beta prior
+  // centred on the overall rate with kEvidenceM pseudo-observations.
+  double shrunk_rate(const CategoricalBin &bin) const {
+    const double r0 = static_cast<double>(total_bad) /
+                      static_cast<double>(total_bad + total_good);
+    return (static_cast<double>(bin.count_pos) + kEvidenceM * r0) /
+           (static_cast<double>(bin.count) + kEvidenceM);
+  }
+
+  // Position of the smallest bin (the first one on ties).
+  size_t smallest_bin() const {
+    size_t k = 0;
+    for (size_t i = 1; i < bins.size(); ++i) {
+      if (bins[i].count < bins[k].count) k = i;
+    }
+    return k;
+  }
+
+  // Merge bins[i] into the adjacent bin (in shrunk-rate order) whose shrunk
+  // rate is closer; the left one on ties. Merging neighbours keeps every bin
+  // a contiguous run of categories in that order.
+  void merge_into_neighbour(size_t i) {
+    const size_t K = bins.size();
+    if (K < 2) return;
+    size_t left;
+    if (i == 0) {
+      left = 0;
+    } else if (i + 1 == K) {
+      left = K - 2;
+    } else {
+      const double s = shrunk_rate(bins[i]);
+      left = (std::fabs(s - shrunk_rate(bins[i - 1])) <=
+              std::fabs(s - shrunk_rate(bins[i + 1])))
+                 ? i - 1
+                 : i;
+    }
+    bins[left].merge_with(bins[left + 1]);
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(left + 1));
+  }
+
+  // Pre-binning: one bin per category, in shrunk-rate order; then the
+  // smallest bin is merged into its closer neighbour until max_n_prebins is
+  // met. The baseline merged each small category into the bin with the
+  // closest *raw* event rate. With many sparse categories (200 categories of
+  // about 10 rows) the raw rates of tiny categories are mostly 0 or 1, so the
+  // categories that had no event by chance were pooled into a bin whose
+  // training rate (0.3%) was far below its hold-out rate (10%): the winner's
+  // curse. The posterior mean (pos + m r0) / (n + m) ranks a small category
+  // near the overall rate unless its data say otherwise (Gelman et al.,
+  // Bayesian Data Analysis, ch. 5); for large categories it is the raw rate.
   void prebinning() {
     std::unordered_map<std::string, CategoricalBin> category_bins =
         std::move(category_bins_);
@@ -149,172 +208,44 @@ private:
                     "may be unstable.");
     }
 
-    // Transfer to vector and sort by count (descending)
     bins.clear();
     bins.reserve(category_bins.size());
-
     for (auto &pair : category_bins) {
       bins.push_back(std::move(pair.second));
     }
 
-    // Name order first, then a stable count sort: equal counts stay in name
-    // order whatever the row order or hash-map layout.
+    // Shrunk rate, then count, then name: the order depends only on the data,
+    // not on the row order or the hash-map layout.
     std::sort(bins.begin(), bins.end(),
-              [](const CategoricalBin &a, const CategoricalBin &b) {
+              [this](const CategoricalBin &a, const CategoricalBin &b) {
+                const double sa = shrunk_rate(a), sb = shrunk_rate(b);
+                if (sa != sb) return sa < sb;
+                if (a.count != b.count) return a.count < b.count;
                 return a.categories.front() < b.categories.front();
               });
-    std::stable_sort(bins.begin(), bins.end(),
-                     [](const CategoricalBin &a, const CategoricalBin &b) {
-                       return a.count > b.count;
-                     });
 
-    // Reduce to max_n_prebins if necessary with improved strategy
-    if (static_cast<int>(bins.size()) > max_n_prebins &&
-        static_cast<int>(bins.size()) > min_bins) {
-      // Merge the smallest bins first. `bins` is sorted by count descending,
-      // so ascending count is descending position. Walking the positions from
-      // the back keeps every index valid: a merge either erases the current
-      // (last unprocessed) position or a position behind it. The previous
-      // version sorted a list of positions taken before any merge; once a
-      // merge erased an earlier-listed position, later entries named the
-      // wrong bin (or ran past the end), so bins were skipped and pre-binning
-      // could stop above max_n_prebins.
-      for (size_t idx = bins.size() - 1;
-           idx >= static_cast<size_t>(max_n_prebins); --idx) {
-        if (static_cast<int>(bins.size()) <= max_n_prebins ||
-            static_cast<int>(bins.size()) <= min_bins) {
-          break;
-        }
-        if (idx >= bins.size()) {
-          continue;
-        }
-
-        // Find best merge candidate based on similarity
-        double best_similarity = -1.0;
-        size_t best_candidate = 0;
-
-        for (size_t j = 0; j < bins.size(); ++j) {
-          if (j == idx)
-            continue;
-
-          // Calculate event rate similarity as a merge criterion
-          double rate_diff =
-              std::fabs(bins[idx].event_rate() - bins[j].event_rate());
-          double similarity = 1.0 / (rate_diff + EPSILON);
-
-          if (similarity > best_similarity) {
-            best_similarity = similarity;
-            best_candidate = j;
-          }
-        }
-
-        // Try to merge with best candidate
-        if (best_candidate < bins.size()) {
-          size_t merge_idx1 = std::min(idx, best_candidate);
-          size_t merge_idx2 = std::max(idx, best_candidate);
-
-          // Adjust index if it's out of bounds after previous merges
-          if (merge_idx1 >= bins.size())
-            merge_idx1 = bins.size() - 1;
-          if (merge_idx2 >= bins.size())
-            merge_idx2 = bins.size() - 1;
-
-          if (merge_idx1 != merge_idx2) {
-            try_merge_bins(merge_idx1, merge_idx2);
-          }
-        }
-      }
+    while (static_cast<int>(bins.size()) > max_n_prebins &&
+           static_cast<int>(bins.size()) > min_bins) {
+      merge_into_neighbour(smallest_bin());
     }
   }
 
-  // Enhanced bin_cutoff enforcement with improved handling
+  // bin_cutoff is a share of *observations* (documented contract; Siddiqi
+  // 2006). The baseline also required count_pos >= bin_cutoff * total_bad,
+  // which merged large low-risk bins (few events, strongly negative WoE) and
+  // every pure non-event bin (audit E-03 / X-15). That undocumented rule also
+  // acted as an accidental regulariser on sparse high-cardinality features;
+  // its role is now played, explicitly, by the shrunk-rate order above and
+  // the empirical-Bayes merge criterion of optimize_bins(). The smallest bin
+  // below the cutoff is merged into its closer neighbour until none is left
+  // (or min_bins is reached).
   void enforce_bin_cutoff() {
-    // Calculate minimum counts based on bin_cutoff
-    int min_count = static_cast<int>(
+    const int min_count = static_cast<int>(
         std::ceil(bin_cutoff * static_cast<double>(feature.size())));
-    int min_count_pos = static_cast<int>(
-        std::ceil(bin_cutoff * static_cast<double>(total_bad)));
-
-    // Identify all low-frequency bins at once
-    std::vector<size_t> low_freq_bins;
-
-    for (size_t i = 0; i < bins.size(); ++i) {
-      if (bins[i].count < min_count || bins[i].count_pos < min_count_pos) {
-        low_freq_bins.push_back(i);
-      }
-    }
-
-    // Sort bins by frequency (ascending) for better merging strategy
-    std::stable_sort(
-        low_freq_bins.begin(), low_freq_bins.end(),
-        [this](size_t a, size_t b) { return bins[a].count < bins[b].count; });
-
-    // Process low-frequency bins efficiently
-    for (size_t idx : low_freq_bins) {
-      if (static_cast<int>(bins.size()) <= min_bins) {
-        break; // Never go below min_bins
-      }
-
-      // Check if bin still exists and is still below cutoff
-      if (idx >= bins.size() || (bins[idx].count >= min_count &&
-                                 bins[idx].count_pos >= min_count_pos)) {
-        continue;
-      }
-
-      // Find best merge candidate based on event rate similarity
-      double best_similarity = -1.0;
-      size_t best_candidate = idx;
-
-      for (size_t j = 0; j < bins.size(); ++j) {
-        if (j == idx)
-          continue;
-
-        // Calculate event rate similarity
-        double rate_diff =
-            std::fabs(bins[idx].event_rate() - bins[j].event_rate());
-        double similarity = 1.0 / (rate_diff + EPSILON);
-
-        if (similarity > best_similarity) {
-          best_similarity = similarity;
-          best_candidate = j;
-        }
-      }
-
-      // Try to merge with best candidate
-      size_t kept = 0, erased = 0;
-      bool merged = false;
-      if (best_candidate != idx && best_candidate < bins.size()) {
-        kept = std::min(idx, best_candidate);
-        erased = std::max(idx, best_candidate);
-        merged = try_merge_bins(kept, erased);
-        if (!merged) {
-          // If unable to merge with best candidate, try adjacent bins
-          if (idx > 0) {
-            kept = idx - 1;
-            erased = idx;
-            merged = try_merge_bins(kept, erased);
-          } else if (idx + 1 < bins.size()) {
-            kept = idx;
-            erased = idx + 1;
-            merged = try_merge_bins(kept, erased);
-          }
-        }
-      }
-
-      // try_merge_bins() keeps the lower position and erases the higher one:
-      // an entry for the erased bin now names the merged bin, and every
-      // position after it moves down by one. The previous adjustment
-      // decremented everything after the *lower* position, so entries between
-      // the two named the wrong bin and a rare bin could be left unmerged.
-      if (merged) {
-        for (auto &remaining_idx : low_freq_bins) {
-          if (remaining_idx == erased) {
-            remaining_idx = kept;
-          } else if (remaining_idx > erased) {
-            remaining_idx--;
-          }
-        }
-      }
+    while (static_cast<int>(bins.size()) > min_bins && bins.size() > 1) {
+      const size_t k = smallest_bin();
+      if (bins[k].count >= min_count) break;
+      merge_into_neighbour(k);
     }
   }
 
@@ -475,16 +406,25 @@ private:
       // The loss of a pair depends only on the two bins, so it is evaluated
       // directly; the merged bin is simulated from the counts alone instead of
       // copying the category-name vector for every candidate.
+      // Merge criterion: the IV lost by the merge under the empirical-Bayes
+      // prior (ob::eb_woe_iv, kEvidenceM pseudo-observations per bin, shares
+      // normalized over the current K bins). The baseline compared the
+      // reported IV of the pair with that of the merged bin; a small bin with
+      // an extreme observed rate (a pure category) then looked too valuable
+      // to merge, and two large, genuinely different bins were merged
+      // instead. Shrinkage makes a bin's IV proportional to the evidence it
+      // carries. Only the decision changes: WoE/IV are still reported with
+      // the estimator of calculate_bin_metrics().
+      const int K = static_cast<int>(bins.size());
+      const double Tp = static_cast<double>(total_bad);
+      const double Tn = static_cast<double>(total_good);
       for (size_t i = 0; i + 1 < bins.size(); ++i) {
-        CategoricalBin merged_bin;
-        merged_bin.count = bins[i].count + bins[i + 1].count;
-        merged_bin.count_pos = bins[i].count_pos + bins[i + 1].count_pos;
-        merged_bin.count_neg = bins[i].count_neg + bins[i + 1].count_neg;
-        calculate_bin_metrics(merged_bin);
-
-        double original_iv = std::fabs(bins[i].iv) + std::fabs(bins[i + 1].iv);
-        double new_iv = std::fabs(merged_bin.iv);
-        double iv_loss = original_iv - new_iv;
+        const double pa = bins[i].count_pos, na = bins[i].count_neg;
+        const double pb = bins[i + 1].count_pos, nb = bins[i + 1].count_neg;
+        double iv_loss =
+            ob::eb_woe_iv(pa, na, Tp, Tn, K, kEvidenceM).iv +
+            ob::eb_woe_iv(pb, nb, Tp, Tn, K, kEvidenceM).iv -
+            ob::eb_woe_iv(pa + pb, na + nb, Tp, Tn, K, kEvidenceM).iv;
 
         if (iv_loss < min_iv_loss) {
           min_iv_loss = iv_loss;

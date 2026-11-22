@@ -1,0 +1,1488 @@
+From b9c6f3b1e186dc944719ea2b7c1dd57991c0fe66 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 22 Nov 2026 14:03:53 +0000
+Subject: [PATCH] fix(cm): numerical ChiMerge honours alpha; Chi2 phases undo
+ on inconsistency (audit X-04, A-05, A-08)
+
+- OBN_CM: fit() merged the pre-bins down to max_bins before chi_merge(),
+  whose loop then stopped at max_bins, so chi_merge_threshold never decided
+  anything (alpha 0.5 / 0.05 / 0.001 gave identical bins, iterations = 0).
+  The pre-enforce is removed and chi_merge() is Kerber's loop: merge the
+  smallest chi-square pair while it is below the critical value OR more than
+  max_bins bins remain, never below min_bins (max_bins is a ceiling). The
+  |delta total IV| < tol stop (A-13b) is removed with it; `converged` is false
+  only when max_iterations cuts the loop.
+- Chi2 (numerical and categorical): phases at decreasing alpha; after each
+  phase the inconsistency rate is measured and, when it exceeds that of the
+  initial bins (Liu & Setiono's delta), the phase is undone and the algorithm
+  stops; max_bins is applied afterwards. The old loops never ran a phase past
+  alpha = 0.5 and stopped on a LOW inconsistency (inverted rule).
+- Docs (roxygen + man) of ob_numerical_cm/ob_categorical_cm describe the
+  new rules; test-cm-significance.R encoded the defect and is updated with a
+  comment citing A-05; new regression tests in test-forensic-fixes-G1.R.
+- audit/diffs/13: manifest + gate report (PASS; 4212/4212 non-target runs
+  bit-identical). Merging non-significant bins lowers training and hold-out
+  IV by construction (IV is monotone under refinement); the declared
+  families are documented with hold-out log-loss evidence in the report.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Vec7ZYQbZ1gRRpELoJZarP
+---
+ R/obc_cm.R                                    |  15 +-
+ R/obn_cm.R                                    |  55 +-
+ .../13-chimerge-kerber-chi2-manifest.yml      | 132 +++++
+ audit/diffs/13-chimerge-kerber-chi2-report.md | 495 ++++++++++++++++++
+ man/ob_categorical_cm.Rd                      |  15 +-
+ man/ob_numerical_cm.Rd                        |  55 +-
+ src/OBC_CM_v5.cpp                             |  73 ++-
+ src/OBN_CM_v5.cpp                             | 222 +++-----
+ tests/testthat/test-cm-significance.R         |  59 ++-
+ tests/testthat/test-forensic-fixes-G1.R       |  70 +++
+ 10 files changed, 938 insertions(+), 253 deletions(-)
+ create mode 100644 audit/diffs/13-chimerge-kerber-chi2-manifest.yml
+ create mode 100644 audit/diffs/13-chimerge-kerber-chi2-report.md
+
+diff --git a/R/obc_cm.R b/R/obc_cm.R
+index 20f9b79..ed57ab1 100644
+--- a/R/obc_cm.R
++++ b/R/obc_cm.R
+@@ -36,9 +36,12 @@
+ #'   \eqn{\chi^2_{1,1-\alpha}} (3.841 for \eqn{\alpha = 0.05}), i.e. while
+ #'   they do not differ significantly. Lower values merge more and create fewer
+ #'   bins. Value must be in (0, 1). Defaults to 0.05.
+-#' @param use_chi2_algorithm Logical. If TRUE, uses the Chi2 variant which
+-#'   performs multi-pass merging with decreasing significance thresholds.
+-#'   Defaults to FALSE.
++#' @param use_chi2_algorithm Logical. If TRUE, uses the Chi2 variant (Liu &
++#'   Setiono, 1995): ChiMerge passes at decreasing significance levels (0.5,
++#'   0.25, 0.1, 0.05, 0.01, 0.005, 0.001); a pass that raises the
++#'   inconsistency rate above that of the original categories is undone and
++#'   ends the algorithm; \code{max_bins} is applied afterwards.
++#'   \code{chi_merge_threshold} is not used. Defaults to FALSE.
+ #'
+ #' @return A list containing binning results with the following components:
+ #'   \itemize{
+@@ -72,8 +75,10 @@
+ #'    distinguishable at the specified significance level.
+ #'
+ #' 2. Chi2 Algorithm (when \code{use_chi2_algorithm = TRUE}): Performs
+-#'    multiple passes with decreasing significance thresholds (0.5 → 0.001),
+-#'    creating more robust binning structures particularly for noisy data.
++#'    multiple passes with decreasing significance thresholds (0.5 → 0.001)
++#'    and stops, undoing the last pass, as soon as the inconsistency rate
++#'    (share of observations outside the majority class of their bin) exceeds
++#'    that of the original categories.
+ #'
+ #' Key features include:
+ #' \itemize{
+diff --git a/R/obn_cm.R b/R/obn_cm.R
+index d4d8fe6..aa673f7 100644
+--- a/R/obn_cm.R
++++ b/R/obn_cm.R
+@@ -22,8 +22,9 @@
+ #'   pre-binning phase before the merging process begins. Higher values provide
+ #'   more granular starting points. Must be \eqn{\ge} \code{max_bins}.
+ #'   Defaults to 20.
+-#' @param convergence_threshold Numeric. The threshold for the change in total
+-#'   IV to determine convergence during the iterative merging process.
++#' @param convergence_threshold Numeric. Must be positive. Kept for
++#'   compatibility; it does not stop the merging (ChiMerge stops on the
++#'   significance test, \code{max_bins} and \code{min_bins} only).
+ #'   Defaults to 1e-6.
+ #' @param max_iterations Integer. Safety limit for the maximum number of merging
+ #'   iterations. Defaults to 1000.
+@@ -32,18 +33,17 @@
+ #'   Defaults to \code{"equal_frequency"}.
+ #' @param chi_merge_threshold Numeric in (0, 1). The significance level
+ #'   (\eqn{\alpha}) of the Chi-square test; the critical value is
+-#'   \code{qchisq(1 - chi_merge_threshold, 1)}. \strong{It does not change the
+-#'   result of this function}: the initial bins are merged, smallest chi-square
+-#'   first, until at most \code{max_bins} remain, before the significance test
+-#'   is ever reached, so the test never has a merge left to decide (see
+-#'   Details). Control the number of bins with \code{max_bins}. The categorical
+-#'   \code{\link{ob_categorical_cm}} does use the level as its stopping rule.
++#'   \code{qchisq(1 - chi_merge_threshold, 1)}. It is the stopping rule of
++#'   ChiMerge: adjacent bins keep being merged while the smallest chi-square is
++#'   below the critical value (the pair does not differ significantly), so a
++#'   lower level merges more and gives fewer bins (see Details).
+ #'   Defaults to 0.05.
+-#' @param use_chi2_algorithm Logical. If \code{TRUE}, runs the Chi2 variant, a
+-#'   schedule of decreasing significance levels (0.5, 0.1, 0.05, 0.01, 0.005,
+-#'   0.001). For the reason given for \code{chi_merge_threshold} the schedule
+-#'   merges nothing beyond \code{max_bins}; the bins match the default path
+-#'   except that the \code{bin_cutoff} rare-bin pass is skipped.
++#' @param use_chi2_algorithm Logical. If \code{TRUE}, runs the Chi2 variant
++#'   (Liu & Setiono, 1995): ChiMerge passes at the decreasing levels 0.5, 0.1,
++#'   0.05, 0.01, 0.005 and 0.001; a pass that raises the inconsistency rate
++#'   above that of the initial bins is undone and ends the algorithm.
++#'   \code{max_bins} is applied afterwards, the \code{bin_cutoff} rare-bin pass
++#'   is skipped and \code{chi_merge_threshold} is not used.
+ #'   Defaults to \code{FALSE}.
+ #'
+ #' @return A list containing the binning results:
+@@ -72,27 +72,28 @@
+ #'     \item Initializes bins using \code{init_method}.
+ #'     \item Iteratively merges the adjacent pair with the lowest \eqn{\chi^2}
+ #'           statistic (2x2 table, Yates continuity correction clamped at zero).
+-#'     \item Merging continues until the number of bins reaches \code{max_bins}.
+-#'           The significance test of Kerber (1992) is never reached: merging
+-#'           stops at \code{max_bins} first (see below).
++#'     \item Merging continues while the smallest \eqn{\chi^2} is below the
++#'           critical value of \code{chi_merge_threshold} (Kerber, 1992) or
++#'           while more than \code{max_bins} bins remain, and never goes below
++#'           \code{min_bins}. \code{max_bins} is therefore a ceiling: when every
++#'           adjacent pair differs significantly, fewer merges are made.
+ #'   }
+ #'   \item \strong{Chi2 Algorithm:}
+ #'   \itemize{
+ #'     \item Activated when \code{use_chi2_algorithm = TRUE}.
+-#'     \item Loops over a schedule of decreasing significance levels
+-#'           (0.5 \eqn{\to}{->} 0.001) and checks the inconsistency rate of the data.
++#'     \item Runs ChiMerge at the decreasing levels 0.5 \eqn{\to}{->} 0.001.
++#'           After each level the inconsistency rate (share of observations
++#'           outside the majority class of their bin) is measured; if it
++#'           exceeds that of the initial bins, the level's merges are undone
++#'           and the algorithm stops. \code{max_bins} is then applied by
++#'           merging the least different pairs.
+ #'   }
+ #' }
+ #'
+-#' \strong{The significance level does not decide the bin count.} Before either
+-#' method starts, the initial bins are merged, smallest \eqn{\chi^2} first,
+-#' until at most \code{max_bins} remain. The significance tests never run,
+-#' because no merge is left to decide once \code{max_bins} is met, so the number
+-#' of bins is set by \code{max_bins} (and by \code{min_bins}, \code{bin_cutoff}
+-#' and monotonicity), not by \code{chi_merge_threshold}. The categorical
+-#' \code{\link{ob_categorical_cm}} differs: it merges down to \code{max_bins} and
+-#' then keeps merging while pairs are not significantly different at the chosen
+-#' level.
++#' The number of bins is decided by the significance test, within
++#' \code{[min_bins, max_bins]}: a feature whose adjacent bins do not differ
++#' significantly is merged down to \code{min_bins}, a strong one keeps up to
++#' \code{max_bins} bins.
+ #'
+ #' Post-processing steps enforce:
+ #' \itemize{
+diff --git a/audit/diffs/13-chimerge-kerber-chi2-manifest.yml b/audit/diffs/13-chimerge-kerber-chi2-manifest.yml
+new file mode 100644
+index 0000000..ebd3f20
+--- /dev/null
++++ b/audit/diffs/13-chimerge-kerber-chi2-manifest.yml
+@@ -0,0 +1,132 @@
++pr: "G1-13: numerical ChiMerge honours alpha (Kerber); Chi2 phases with reversion (X-04 / A-05, A-08)"
++findings: [X-04, A-05, A-08]
++# Common theory for every ob_numerical_cm entry below. ChiMerge (Kerber 1992)
++# merges the adjacent pair with the smallest chi-square while it is below the
++# critical value of alpha OR while more than max_bins bins remain, never below
++# min_bins. The baseline merged the pre-bins down to max_bins and stopped, so
++# (with the pure-bin rule of manifest 10 held fixed) the merge sequence of the
++# candidate is the SAME greedy smallest-chi-square sequence, continued until
++# every pair differs significantly or min_bins binds: before the rare-bin and
++# monotonicity passes the candidate partition is a coarsening of the former
++# one. IV (training or hold-out, any sample) never increases under
++# coarsening (data-processing inequality / log-sum inequality), so a lower IV
++# is the expected, intended effect of honouring alpha and cannot by itself
++# show a regression. Supplementary hold-out evidence that is not biased toward
++# more bins -- the mean hold-out log-loss of the binned event-rate model
++# (train-bin rates, Jeffreys-smoothed) -- is quoted per entry; over all 180
++# ob_numerical_cm runs it improves from 0.4790 to 0.4440.
++targets:
++  - engine: ob_numerical_cm
++    scenarios: "imbalance/rate_1pct/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++    rationale: >
++      About 21 events in 2100 training rows (expected cell counts below 5 in
++      most 2x2 tables). Adjacent baseline bins such as 4/416 vs 8/412 events
++      (s1) are not significantly different at alpha = 0.05, so Kerber merges
++      them (s1 5 -> 3 bins, s2 4 -> 3, s3 4 -> 3, min_bins = 3). The hold-out
++      IV median falls 1.93 -> 1.56 (default/wide) and 1.56 -> 1.33 (tight) by
++      the coarsening argument above; with ~9 hold-out events it is dominated by
++      sampling noise. Hold-out log-loss changes by +0.0010 / +0.0019 / +0.0012
++      nats (default / tight / wide, on 0.058).
++  - engine: ob_numerical_cm
++    scenarios: "imbalance/rate_02pct/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++      nonmono: "any"
++    rationale: >
++      About 4 events in 2100 training rows. The baseline also violated
++      min_bins here (1-2 bins, see manifest 10); the candidate returns
++      min_bins = 3 bins, whose 1 / 1 / 0 events cannot be monotone, and
++      monotonicity merging stops at min_bins as documented. Hold-out IV with
++      ~1-2 test events is noise (tight 0.48 -> 0.06); hold-out log-loss is
++      unchanged or better (tight -0.00004 nats).
++  - engine: ob_numerical_cm
++    scenarios: "signal/step/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++      nonmono: "any"
++    rationale: >
++      The true rate has two levels (0.1 / 0.4 at x = 0.5). Kerber merges the
++      non-significant pieces (s2 tight: a 105-row bin at 32/73 events next to
++      a 945-row bin at 380/565 merges into the 2-bin step), lowering hold-out
++      IV 0.703 -> 0.670 by coarsening; log-loss +0.0009 nats on 0.50. With
++      min_bins = 3 (default/wide) the third bin must split one flat level of
++      the step, its WoE order is noise, and monotonicity merging stops at
++      min_bins (documented), hence the non-monotone runs.
++  - engine: ob_numerical_cm
++    scenarios: "discrete/ties/*"
++    params: "wide"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++    rationale: >
++      round(rnorm, 1) with a weak logistic signal: the pre-bins that are not
++      significantly different at alpha = 0.05 are merged down from up to
++      8 bins; hold-out IV median 0.773 -> 0.722 by coarsening, hold-out
++      log-loss +0.0028 nats on 0.605 (0.5%).
++  - engine: ob_numerical_cm
++    scenarios: "scale/*"
++    params: "wide"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++    rationale: >
++      scale/tiny and scale/huge are the same logistic (slope 1 on the
++      standardised value) at scales 1e-12 / 1e12; both give identical bins.
++      With max_bins = 8 Kerber merges the adjacent pre-bins whose rates do not
++      differ at alpha = 0.05 (smooth logistic: neighbouring quantile bins
++      differ little), hold-out IV median 0.743 -> 0.718 by coarsening;
++      hold-out log-loss +0.0024 nats on 0.608 (0.4%).
++  - engine: ob_numerical_cm
++    scenarios: "signal/u_shape/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: ">="
++      nonmono: "any"
++    rationale: >
++      The true rate is U-shaped (0.6 / 0.1 / 0.6), so a correct binning is
++      non-monotone. Honouring alpha lets the significant tails survive (s1
++      wide: ref IV 0.46 -> 1.47; hold-out log-loss -0.042 nats).
++  - engine: ob_numerical_cm
++    scenarios: "signal/noise/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: "any"
++      nonmono: "any"
++    rationale: >
++      No signal (true IV = 0, layer E skips the family): nothing is
++      significant, Kerber merges down to min_bins and the remaining WoE order
++      of min_bins = 3 noise bins is arbitrary.
++  - engine: ob_numerical_cm
++    scenarios: "size/small_n40/*"
++    expect:
++      ref_iv: "any"
++      oos_iv: ">="
++      nonmono: "any"
++    rationale: >
++      n = 40 (28 training rows): few pairs are significant, Kerber merges down
++      to min_bins = 3 and their WoE order is driven by 2-3 events per bin;
++      monotonicity merging stops at min_bins (documented). Hold-out log-loss
++      improves (wide -0.008 nats).
++  - engine: ob_numerical_cm
++    scenarios: "*"
++    expect:
++      ref_iv: "any"
++      oos_iv: ">="
++    rationale: >
++      See the common theory above: merging the pairs that are not
++      significantly different lowers training IV by construction.
++  # ob_categorical_cm: only its Chi2 path (use_chi2_algorithm = TRUE) changes
++  # here, which the corpus does not run; its default path is covered by
++  # manifest 11 (cumulative scope).
++non_targets: "bit-identical"
++breaking_change_note: >
++  ob_numerical_cm() now runs Kerber's ChiMerge: pairs that do not differ
++  significantly at chi_merge_threshold are merged down to min_bins and
++  max_bins is only a ceiling (the level used to have no effect). The Chi2
++  variant (numerical and categorical) runs its decreasing levels and undoes
++  and stops at the first level that raises the inconsistency rate.
+diff --git a/audit/diffs/13-chimerge-kerber-chi2-report.md b/audit/diffs/13-chimerge-kerber-chi2-report.md
+new file mode 100644
+index 0000000..5dc7711
+--- /dev/null
++++ b/audit/diffs/13-chimerge-kerber-chi2-report.md
+@@ -0,0 +1,495 @@
++# Differential report: G1-13: numerical ChiMerge honours alpha (Kerber); Chi2 phases with reversion (X-04 / A-05, A-08)
++
++- **Verdict:** **PASS**
++- Findings addressed: X-04, A-05, A-08
++- Previously accepted changes in scope (cumulative vs baseline): self-test-identical-builds | onda0-01: pure bins get the most extreme finite WoE (OBC_DP, OBC_FETB) | onda0-10: declare C++17 in Makevars (no numerical change expected) | G1-10: OBN_CM merge_zero_bins respects min_bins (X-03 / A-06) | G1-11: OBC_CM no longer stops on |delta min chi2| < tol (X-05 / A-07) | G1-12: FastMDLPM force_min_bins keeps the MDL cuts (X-07 / A-04)
++- Baseline: 1.14.1 | Candidate: 1.14.1
++- Runs compared: 4815 (603 target, 4212 non-target)
++- Non-target runs bit-identical: 4212 / 4212
++- Target runs changed: 335 / 603
++- Failing checks: 0
++
++## In-scope summary (target runs)
++
++| engine | runs | changed | mean ref IV B | mean ref IV C | mean OOS IV B | mean OOS IV C | non-monotone B→C | min_bins viol. B→C | errors B→C |
++|---|---|---|---|---|---|---|---|---|---|
++| ob_numerical_cm | 180 | 156 | 1.2418 | 2.0596 | 1.2289 | 1.9366 | 7→18 | 19→0 | 0→0 |
++| ob_numerical_fast_mdlp | 180 | 16 | 2.1631 | 2.2503 | 1.9393 | 1.9755 | 8→9 | 31→31 | 0→0 |
++| ob_categorical_cm | 81 | 1 | 1.1054 | 1.1054 | 0.9579 | 0.9577 | 0→0 | 0→0 | 0→0 |
++| ob_categorical_dp | 81 | 81 | 0.9230 | 0.9505 | 0.8723 | 0.8871 | 0→0 | 0→0 | 0→0 |
++| ob_categorical_fetb | 81 | 81 | 1.0577 | 1.0858 | 0.9091 | 0.9276 | 0→0 | 0→0 | 0→0 |
++
++## Failing checks
++
++None.
++
++## Declared deviations (manifest rationale)
++
++- `ob_numerical_cm` / `imbalance/rate_1pct/*` / `*`: About 21 events in 2100 training rows (expected cell counts below 5 in most 2x2 tables). Adjacent baseline bins such as 4/416 vs 8/412 events (s1) are not significantly different at alpha = 0.05, so Kerber merges them (s1 5 -> 3 bins, s2 4 -> 3, s3 4 -> 3, min_bins = 3). The hold-out IV median falls 1.93 -> 1.56 (default/wide) and 1.56 -> 1.33 (tight) by the coarsening argument above; with ~9 hold-out events it is dominated by sampling noise. Hold-out log-loss changes by +0.0010 / +0.0019 / +0.0012 nats (default / tight / wide, on 0.058).
++
++- `ob_numerical_cm` / `imbalance/rate_02pct/*` / `*`: About 4 events in 2100 training rows. The baseline also violated min_bins here (1-2 bins, see manifest 10); the candidate returns min_bins = 3 bins, whose 1 / 1 / 0 events cannot be monotone, and monotonicity merging stops at min_bins as documented. Hold-out IV with ~1-2 test events is noise (tight 0.48 -> 0.06); hold-out log-loss is unchanged or better (tight -0.00004 nats).
++
++- `ob_numerical_cm` / `signal/step/*` / `*`: The true rate has two levels (0.1 / 0.4 at x = 0.5). Kerber merges the non-significant pieces (s2 tight: a 105-row bin at 32/73 events next to a 945-row bin at 380/565 merges into the 2-bin step), lowering hold-out IV 0.703 -> 0.670 by coarsening; log-loss +0.0009 nats on 0.50. With min_bins = 3 (default/wide) the third bin must split one flat level of the step, its WoE order is noise, and monotonicity merging stops at min_bins (documented), hence the non-monotone runs.
++
++- `ob_numerical_cm` / `discrete/ties/*` / `wide`: round(rnorm, 1) with a weak logistic signal: the pre-bins that are not significantly different at alpha = 0.05 are merged down from up to 8 bins; hold-out IV median 0.773 -> 0.722 by coarsening, hold-out log-loss +0.0028 nats on 0.605 (0.5%).
++
++- `ob_numerical_cm` / `scale/*` / `wide`: scale/tiny and scale/huge are the same logistic (slope 1 on the standardised value) at scales 1e-12 / 1e12; both give identical bins. With max_bins = 8 Kerber merges the adjacent pre-bins whose rates do not differ at alpha = 0.05 (smooth logistic: neighbouring quantile bins differ little), hold-out IV median 0.743 -> 0.718 by coarsening; hold-out log-loss +0.0024 nats on 0.608 (0.4%).
++
++- `ob_numerical_cm` / `signal/u_shape/*` / `*`: The true rate is U-shaped (0.6 / 0.1 / 0.6), so a correct binning is non-monotone. Honouring alpha lets the significant tails survive (s1 wide: ref IV 0.46 -> 1.47; hold-out log-loss -0.042 nats).
++
++- `ob_numerical_cm` / `signal/noise/*` / `*`: No signal (true IV = 0, layer E skips the family): nothing is significant, Kerber merges down to min_bins and the remaining WoE order of min_bins = 3 noise bins is arbitrary.
++
++- `ob_numerical_cm` / `size/small_n40/*` / `*`: n = 40 (28 training rows): few pairs are significant, Kerber merges down to min_bins = 3 and their WoE order is driven by 2-3 events per bin; monotonicity merging stops at min_bins (documented). Hold-out log-loss improves (wide -0.008 nats).
++
++- `ob_numerical_cm` / `*` / `*`: See the common theory above: merging the pairs that are not significantly different lowers training IV by construction.
++
++- `ob_categorical_dp` / `cat/pure_category/*` / `tight`: With max_bins = 3 the exact DP now isolates the pure category A (0 events). The population IV of that partition is +infinity (pure bin), so it is the theoretically preferred one; the hold-out IV is finite only because the reference estimator smooths it (alpha = 0.5), which ranks it slightly lower in one seed. This is the intended B-01 behaviour, not a regression.
++
++- `ob_categorical_fetb` / `*` / `*`: FETB merges by Fisher p-value, it does not maximise IV, so training IV is not a monotone target for it. In k200_signal the baseline kept a pool of 47 pure categories (0 events) in the middle of the order because its WoE was reported as 0; it is now placed next to the lowest-risk bin and the Fisher test merges the two. The hold-out IV non-inferiority (layer E) is the binding check and passes for every scenario family.
++
++- `ob_numerical_cm` / `separation/near/*` / `*`: With min_bins = 3 (default/wide) the baseline returned 2 bins, the second one holding 944 events and 1 non-event, i.e. it violated min_bins. The candidate honours min_bins by keeping the pure event bin (525/0) apart from the near-pure one (419/1). The two pieces have practically the same event rate, so the split adds almost no information while the reference estimator smooths with K = 3 instead of K = 2 (a larger pseudo-count mass), which lowers the smoothed IV by 0.07 on 8.16 (s1 only). A drop caused by satisfying a violated min_bins is the exception foreseen in audit Section 9.3-C. Hold-out IV is non-inferior.
++
++- `ob_numerical_cm` / `imbalance/rate_02pct/*` / `*`: 0.2% event rate: about 4 events in 2100 training rows. The baseline collapsed every bin without events and returned 1 or 2 bins although min_bins = 3 (min_bins violation, IV = 0 in s2). The candidate keeps min_bins = 3 bins; with 1 / 1 / 0 events their WoE cannot be monotone, and OBN_CM documents that monotonicity merging stops at min_bins (min_bins has priority). The non-monotone shape is the honest outcome of the requested min_bins on 4 events, not a regression of the merge rule.
++
++- `ob_categorical_cm` / `cat/noise_k10/*` / `*`: cat/noise_k10 has no signal (true IV = 0). With min_bins = 3 / max_bins = 8 (wide, s1) the baseline stopped after two consecutive minimum chi-squares of 0 (Yates term clamped at zero) and kept 7 bins of statistically indistinguishable levels; ChiMerge (Kerber 1992) keeps merging while the smallest chi-square is below the critical value, so the candidate merges them down to min_bins = 3. The training IV of a noise variable shrinks (0.0167 -> 0.0157), which is the intended effect of honouring the test; layer E already treats this family as null-signal.
++
++- `ob_numerical_fast_mdlp` / `imbalance/rate_1pct/*` / `wide`: About 21 events in 2100 training rows. With min_bins = 2 (default / tight) the baseline itself returns the single Fayyad-Irani cut (s1: 0.943638, s2: 2.051675; candidate unchanged there). With min_bins = 3 (wide) the baseline threw that cut away and returned equally spaced cuts; the candidate keeps it and bisects the most populated bin. The hold-out IV of the kept tail bin (s2: 36 training rows, 7 events) is noisy with ~9 test events, so the median over 3 seeds moves 1.08 -> 0.85; it is the IV of the MDL-accepted cut that the baseline already reports for min_bins = 2, not of a cut introduced by this change.
++
++- `ob_numerical_fast_mdlp` / `separation/near/*` / `wide`: The baseline discarded the MDL cut at the true class boundary (s3: cuts -0.017 / 0.660 instead of -0.0024). The candidate keeps it; min_bins = 3 then bisects the pure non-event side (1/531 vs 0/532 events), two bins with practically equal rate whose smoothed WoE differ by count, and monotonicity merging stops at min_bins as documented.
++
++- `ob_numerical_fast_mdlp` / `discrete/mass_at_zero/*` / `wide`: 90% of the mass at x = 0. The MDL cut at 0 is kept and the forced third bin bisects x > 0 by observations (s2: event rates 0.287 / 0.268 / 0.575); the first two bins have nearly equal rate and monotonicity merging stops at min_bins = 3, as documented.
++
++
++Out-of-sample decreases covered by the declarations above:
++
++- ob_numerical_cm imbalance/rate_1pct default (B=1.9317 C=1.5609)
++- ob_categorical_dp cat/pure_category tight (B=1.4848 C=1.4316)
++- ob_numerical_cm imbalance/rate_02pct tight (B=0.4784 C=0.0578)
++- ob_numerical_cm imbalance/rate_1pct tight (B=1.5609 C=1.3274)
++- ob_numerical_cm signal/step tight (B=0.7034 C=0.6703)
++- ob_numerical_cm discrete/ties wide (B=0.7732 C=0.7217)
++- ob_numerical_cm imbalance/rate_1pct wide (B=1.9317 C=1.5609)
++- ob_numerical_fast_mdlp imbalance/rate_1pct wide (B=1.0795 C=0.8541)
++- ob_numerical_cm scale/huge wide (B=0.7428 C=0.7182)
++- ob_numerical_cm scale/tiny wide (B=0.7428 C=0.7182)
++
++_Layer E skips null-signal families (signal/noise, cat/noise_k10): true IV = 0, hold-out IV is noise._
++
++## Changed target runs (detail)
++
++| run | bins B→C | ref IV B → C | OOS IV B → C |
++|---|---|---|---|
++| `ob_numerical_cm::signal/logistic_strong/s1::default` | 5→5 | 1.5096 → 1.5096 | 1.7036 → 1.7036 |
++| `ob_numerical_cm::signal/logistic_strong/s1::tight` | 3→3 | 1.2828 → 1.2828 | 1.4505 → 1.4505 |
++| `ob_numerical_cm::signal/logistic_strong/s1::wide` | 8→7 | 1.6005 → 1.5677 | 1.8726 → 1.8612 |
++| `ob_numerical_cm::signal/logistic_strong/s2::default` | 5→5 | 1.6782 → 1.6782 | 1.4172 → 1.4172 |
++| `ob_numerical_cm::signal/logistic_strong/s2::tight` | 3→3 | 1.3783 → 1.3783 | 1.1537 → 1.1537 |
++| `ob_numerical_cm::signal/logistic_strong/s2::wide` | 8→7 | 1.8201 → 1.8058 | 1.4318 → 1.4131 |
++| `ob_numerical_cm::signal/logistic_strong/s3::default` | 5→5 | 1.5427 → 1.5427 | 1.3267 → 1.3267 |
++| `ob_numerical_cm::signal/logistic_strong/s3::tight` | 3→3 | 1.2860 → 1.2860 | 1.1085 → 1.1085 |
++| `ob_numerical_cm::signal/logistic_strong/s3::wide` | 8→8 | 1.6009 → 1.6009 | 1.4485 → 1.4485 |
++| `ob_numerical_cm::signal/logistic_weak/s1::default` | 4→3 | 0.1160 → 0.1128 | 0.0693 → 0.0311 |
++| `ob_numerical_cm::signal/logistic_weak/s1::tight` | 3→3 | 0.1128 → 0.1128 | 0.0311 → 0.0311 |
++| `ob_numerical_cm::signal/logistic_weak/s1::wide` | 6→3 | 0.1207 → 0.1128 | 0.0786 → 0.0311 |
++| `ob_numerical_fast_mdlp::signal/logistic_weak/s1::wide` | 3→3 | 0.0471 → 0.0982 | 0.0647 → 0.0579 |
++| `ob_numerical_cm::signal/logistic_weak/s2::default` | 4→3 | 0.0921 → 0.0889 | 0.1571 → 0.1433 |
++| `ob_numerical_cm::signal/logistic_weak/s2::tight` | 3→3 | 0.0889 → 0.0889 | 0.1433 → 0.1433 |
++| `ob_numerical_cm::signal/logistic_weak/s2::wide` | 5→3 | 0.0975 → 0.0889 | 0.1759 → 0.1433 |
++| `ob_numerical_fast_mdlp::signal/logistic_weak/s2::wide` | 3→3 | 0.0759 → 0.0944 | 0.1622 → 0.1726 |
++| `ob_numerical_cm::signal/logistic_weak/s3::default` | 4→4 | 0.1600 → 0.1600 | 0.0671 → 0.0671 |
++| `ob_numerical_cm::signal/logistic_weak/s3::tight` | 3→3 | 0.1512 → 0.1512 | 0.0482 → 0.0482 |
++| `ob_numerical_cm::signal/logistic_weak/s3::wide` | 6→5 | 0.1737 → 0.1712 | 0.0751 → 0.0754 |
++| `ob_numerical_cm::signal/step/s1::default` | 4→3 | 0.5479 → 0.5488 | 0.5522 → 0.5461 |
++| `ob_numerical_cm::signal/step/s1::tight` | 2→2 | 0.5440 → 0.5440 | 0.5376 → 0.5376 |
++| `ob_numerical_cm::signal/step/s1::wide` | 4→3 | 0.5479 → 0.5488 | 0.5522 → 0.5461 |
++| `ob_numerical_fast_mdlp::signal/step/s1::wide` | 3→3 | 0.5488 → 0.5558 | 0.5461 → 0.5452 |
++| `ob_numerical_cm::signal/step/s2::default` | 4→3 | 0.7426 → 0.7451 | 0.6988 → 0.7034 |
++| `ob_numerical_cm::signal/step/s2::tight` | 3→2 | 0.7451 → 0.7358 | 0.7034 → 0.6703 |
++| `ob_numerical_cm::signal/step/s2::wide` | 5→3 | 0.7443 → 0.7451 | 0.7016 → 0.7034 |
++| `ob_numerical_fast_mdlp::signal/step/s2::wide` | 3→3 | 0.7370 → 0.7599 | 0.6716 → 0.7215 |
++| `ob_numerical_cm::signal/step/s3::default` | 3→3 | 0.6130 → 0.6147 | 0.7455 → 0.7425 |
++| `ob_numerical_cm::signal/step/s3::tight` | 2→2 | 0.6127 → 0.6127 | 0.7400 → 0.7400 |
++| `ob_numerical_cm::signal/step/s3::wide` | 5→3 | 0.6119 → 0.6147 | 0.7616 → 0.7425 |
++| `ob_numerical_fast_mdlp::signal/step/s3::wide` | 3→3 | 0.6130 → 0.6336 | 0.7538 → 0.8073 |
++| `ob_numerical_cm::signal/multi_step/s1::default` | 5→4 | 2.0473 → 2.0430 | 1.9701 → 1.9566 |
++| `ob_numerical_cm::signal/multi_step/s1::tight` | 3→3 | 1.9849 → 1.9849 | 1.9600 → 1.9600 |
++| `ob_numerical_cm::signal/multi_step/s1::wide` | 6→5 | 2.0480 → 2.0473 | 1.9886 → 1.9701 |
++| `ob_numerical_cm::signal/multi_step/s2::default` | 3→3 | 2.1649 → 2.1649 | 2.0409 → 2.0409 |
++| `ob_numerical_cm::signal/multi_step/s2::tight` | 3→3 | 2.1649 → 2.1649 | 2.0409 → 2.0409 |
++| `ob_numerical_cm::signal/multi_step/s2::wide` | 5→3 | 2.1643 → 2.1649 | 2.0480 → 2.0409 |
++| `ob_numerical_cm::signal/multi_step/s3::default` | 4→4 | 1.8314 → 1.8314 | 2.0566 → 2.0566 |
++| `ob_numerical_cm::signal/multi_step/s3::tight` | 3→3 | 1.8093 → 1.8093 | 2.0101 → 2.0101 |
++| `ob_numerical_cm::signal/multi_step/s3::wide` | 7→4 | 1.8368 → 1.8314 | 2.0759 → 2.0566 |
++| `ob_numerical_cm::signal/u_shape/s1::default` | 3→3 | 0.5164 → 1.4722 | 0.4948 → 1.3869 |
++| `ob_numerical_cm::signal/u_shape/s1::tight` | 2→2 | 0.4897 → 0.4897 | 0.3999 → 0.3999 |
++| `ob_numerical_cm::signal/u_shape/s1::wide` | 3→3 | 0.4572 → 1.4722 | 0.4970 → 1.3869 |
++| `ob_numerical_cm::signal/u_shape/s2::default` | 3→3 | 1.1562 → 1.1562 | 1.2570 → 1.2570 |
++| `ob_numerical_cm::signal/u_shape/s2::tight` | 2→2 | 0.5196 → 0.5196 | 0.3082 → 0.3082 |
++| `ob_numerical_cm::signal/u_shape/s2::wide` | 3→3 | 1.1580 → 1.1562 | 0.7897 → 1.2570 |
++| `ob_numerical_cm::signal/u_shape/s3::default` | 3→3 | 0.3835 → 0.3835 | 0.3595 → 0.3595 |
++| `ob_numerical_cm::signal/u_shape/s3::tight` | 2→2 | 0.5227 → 0.5227 | 0.4395 → 0.4395 |
++| `ob_numerical_cm::signal/u_shape/s3::wide` | 4→3 | 0.3857 → 0.3835 | 0.3894 → 0.3595 |
++| `ob_numerical_cm::signal/noise/s1::default` | 3→3 | 0.0093 → 0.0192 | 0.0106 → 0.0049 |
++| `ob_numerical_cm::signal/noise/s1::tight` | 2→2 | 0.0086 → 0.0086 | 0.0005 → 0.0005 |
++| `ob_numerical_cm::signal/noise/s1::wide` | 3→3 | 0.0093 → 0.0192 | 0.0106 → 0.0049 |
++| `ob_numerical_cm::signal/noise/s2::default` | 3→3 | 0.0120 → 0.0120 | 0.0092 → 0.0092 |
++| `ob_numerical_cm::signal/noise/s2::tight` | 2→2 | 0.0034 → 0.0034 | 0.0086 → 0.0086 |
++| `ob_numerical_cm::signal/noise/s2::wide` | 4→3 | 0.0050 → 0.0120 | 0.0094 → 0.0092 |
++| `ob_numerical_cm::signal/noise/s3::default` | 4→3 | 0.0244 → 0.0168 | 0.0130 → 0.0109 |
++| `ob_numerical_cm::signal/noise/s3::tight` | 2→2 | 0.0130 → 0.0130 | 0.0007 → 0.0007 |
++| `ob_numerical_cm::signal/noise/s3::wide` | 5→3 | 0.0250 → 0.0168 | 0.0131 → 0.0109 |
++| `ob_numerical_cm::separation/perfect/s1::default` | 1→3 | 0.0000 → 14.5302 | 0.0000 → 12.7825 |
++| `ob_numerical_cm::separation/perfect/s1::tight` | 1→2 | 0.0000 → 9.1514 | 0.0000 → 8.1843 |
++| `ob_numerical_cm::separation/perfect/s1::wide` | 1→3 | 0.0000 → 14.5302 | 0.0000 → 12.7825 |
++| `ob_numerical_fast_mdlp::separation/perfect/s1::wide` | 3→3 | 12.6869 → 14.5865 | 11.2635 → 11.7480 |
++| `ob_numerical_cm::separation/perfect/s2::default` | 1→3 | 0.0000 → 14.4353 | 0.0000 → 13.0549 |
++| `ob_numerical_cm::separation/perfect/s2::tight` | 1→2 | 0.0000 → 10.6771 | 0.0000 → 10.1642 |
++| `ob_numerical_cm::separation/perfect/s2::wide` | 1→3 | 0.0000 → 14.4353 | 0.0000 → 13.0549 |
++| `ob_numerical_fast_mdlp::separation/perfect/s2::wide` | 3→3 | 10.0018 → 14.5855 | 9.4809 → 12.8721 |
++| `ob_numerical_cm::separation/perfect/s3::default` | 1→3 | 0.0000 → 14.5485 | 0.0000 → 12.8605 |
++| `ob_numerical_cm::separation/perfect/s3::tight` | 1→2 | 0.0000 → 9.1118 | 0.0000 → 8.6459 |
++| `ob_numerical_cm::separation/perfect/s3::wide` | 1→3 | 0.0000 → 14.5485 | 0.0000 → 12.8605 |
++| `ob_numerical_fast_mdlp::separation/perfect/s3::wide` | 3→3 | 12.7677 → 14.5865 | 11.3489 → 10.8549 |
++| `ob_numerical_cm::separation/near/s1::default` | 2→3 | 8.1572 → 8.0854 | 7.1355 → 6.9445 |
++| `ob_numerical_cm::separation/near/s1::wide` | 2→3 | 8.1572 → 8.0854 | 7.1355 → 6.9445 |
++| `ob_numerical_fast_mdlp::separation/near/s1::wide` | 3→3 | 12.6139 → 13.4758 | 9.7857 → 11.1447 |
++| `ob_numerical_fast_mdlp::separation/near/s2::wide` | 3→3 | 10.0509 → 12.9153 | 9.6009 → 12.3028 |
++| `ob_numerical_fast_mdlp::separation/near/s3::wide` | 3→3 | 11.1037 → 12.9155 | 11.1616 → 10.5804 |
++| `ob_numerical_cm::separation/flag_pure_level/s1::default` | 1→2 | 0.0000 → 2.7790 | 0.0000 → 2.4058 |
++| `ob_numerical_cm::separation/flag_pure_level/s1::tight` | 1→2 | 0.0000 → 2.7790 | 0.0000 → 2.4058 |
++| `ob_numerical_cm::separation/flag_pure_level/s1::wide` | 1→2 | 0.0000 → 2.7790 | 0.0000 → 2.4058 |
++| `ob_numerical_cm::separation/flag_pure_level/s2::default` | 1→2 | 0.0000 → 2.9966 | 0.0000 → 2.3487 |
++| `ob_numerical_cm::separation/flag_pure_level/s2::tight` | 1→2 | 0.0000 → 2.9966 | 0.0000 → 2.3487 |
++| `ob_numerical_cm::separation/flag_pure_level/s2::wide` | 1→2 | 0.0000 → 2.9966 | 0.0000 → 2.3487 |
++| `ob_numerical_cm::separation/flag_pure_level/s3::default` | 1→2 | 0.0000 → 2.7776 | 0.0000 → 2.7067 |
++| `ob_numerical_cm::separation/flag_pure_level/s3::tight` | 1→2 | 0.0000 → 2.7776 | 0.0000 → 2.7067 |
++| `ob_numerical_cm::separation/flag_pure_level/s3::wide` | 1→2 | 0.0000 → 2.7776 | 0.0000 → 2.7067 |
++| `ob_numerical_cm::imbalance/rate_1pct/s1::default` | 5→3 | 1.8567 → 1.7506 | 2.3830 → 2.1518 |
++| `ob_numerical_cm::imbalance/rate_1pct/s1::tight` | 3→3 | 1.7506 → 1.7506 | 2.1518 → 2.1518 |
++| `ob_numerical_cm::imbalance/rate_1pct/s1::wide` | 6→3 | 1.8686 → 1.7506 | 2.5013 → 2.1518 |
++| `ob_numerical_fast_mdlp::imbalance/rate_1pct/s1::wide` | 3→3 | 1.2763 → 1.7684 | 2.2704 → 2.0329 |
++| `ob_numerical_cm::imbalance/rate_1pct/s2::default` | 4→3 | 1.3046 → 1.2836 | 1.9317 → 1.5609 |
++| `ob_numerical_cm::imbalance/rate_1pct/s2::tight` | 3→2 | 1.2836 → 1.1226 | 1.5609 → 0.8004 |
++| `ob_numerical_cm::imbalance/rate_1pct/s2::wide` | 4→3 | 1.3046 → 1.2836 | 1.9317 → 1.5609 |
++| `ob_numerical_fast_mdlp::imbalance/rate_1pct/s2::wide` | 3→3 | 0.5078 → 1.4034 | 1.0795 → 0.8541 |
++| `ob_numerical_cm::imbalance/rate_1pct/s3::default` | 4→3 | 2.5980 → 2.5790 | 1.3179 → 1.3274 |
++| `ob_numerical_cm::imbalance/rate_1pct/s3::tight` | 3→3 | 2.5790 → 2.5790 | 1.3274 → 1.3274 |
++| `ob_numerical_cm::imbalance/rate_1pct/s3::wide` | 5→3 | 2.4411 → 2.5790 | 1.2474 → 1.3274 |
++| `ob_numerical_fast_mdlp::imbalance/rate_1pct/s3::wide` | 3→3 | 2.3104 → 2.6254 | 0.4053 → 0.4374 |
++| `ob_numerical_cm::imbalance/rate_02pct/s1::default` | 2→3 | 0.4164 → 1.0477 | 1.7871 → 1.9772 |
++| `ob_numerical_cm::imbalance/rate_02pct/s1::wide` | 2→3 | 0.4164 → 1.0477 | 1.7871 → 1.9772 |
++| `ob_numerical_cm::imbalance/rate_02pct/s2::default` | 1→3 | 0.0000 → 1.8938 | 0.0000 → 0.1337 |
++| `ob_numerical_cm::imbalance/rate_02pct/s2::tight` | 1→2 | 0.0000 → 0.0482 | 0.0000 → 0.0578 |
++| `ob_numerical_cm::imbalance/rate_02pct/s2::wide` | 1→3 | 0.0000 → 1.8938 | 0.0000 → 0.1337 |
++| `ob_numerical_cm::imbalance/rate_02pct/s3::default` | 5→3 | 1.1476 → 0.9808 | 0.4147 → 0.4784 |
++| `ob_numerical_cm::imbalance/rate_02pct/s3::tight` | 3→2 | 0.9808 → 0.8799 | 0.4784 → 0.0428 |
++| `ob_numerical_cm::imbalance/rate_02pct/s3::wide` | 5→3 | 1.1476 → 0.9808 | 0.4147 → 0.4784 |
++| `ob_numerical_cm::discrete/ties/s1::default` | 5→5 | 0.8570 → 0.8570 | 0.8617 → 0.8617 |
++| `ob_numerical_cm::discrete/ties/s1::tight` | 3→3 | 0.7578 → 0.7578 | 0.8192 → 0.8192 |
++| `ob_numerical_cm::discrete/ties/s1::wide` | 8→5 | 0.8738 → 0.8570 | 0.8948 → 0.8617 |
++| `ob_numerical_cm::discrete/ties/s2::default` | 5→5 | 0.8178 → 0.8178 | 0.7217 → 0.7217 |
++| `ob_numerical_cm::discrete/ties/s2::tight` | 3→3 | 0.7618 → 0.7618 | 0.6678 → 0.6678 |
++| `ob_numerical_cm::discrete/ties/s2::wide` | 8→5 | 0.8413 → 0.8178 | 0.7732 → 0.7217 |
++| `ob_numerical_cm::discrete/ties/s3::default` | 5→5 | 0.7999 → 0.7999 | 0.6296 → 0.6296 |
++| `ob_numerical_cm::discrete/ties/s3::tight` | 3→3 | 0.7095 → 0.7095 | 0.5655 → 0.5655 |
++| `ob_numerical_cm::discrete/ties/s3::wide` | 8→6 | 0.8347 → 0.8277 | 0.6642 → 0.6355 |
++| `ob_numerical_fast_mdlp::discrete/mass_at_zero/s1::wide` | 3→3 | 0.1005 → 0.1272 | 0.1846 → 0.1590 |
++| `ob_numerical_cm::discrete/mass_at_zero/s2::tight` | 2→2 | 0.0884 → 0.0884 | 0.1192 → 0.1192 |
++| `ob_numerical_fast_mdlp::discrete/mass_at_zero/s2::wide` | 3→3 | 0.0957 → 0.1160 | 0.1431 → 0.1529 |
++| `ob_numerical_cm::discrete/mass_at_zero/s3::tight` | 2→2 | 0.0593 → 0.0701 | 0.0103 → 0.0470 |
++| `ob_numerical_cm::scale/tiny/s1::default` | 5→5 | 0.8329 → 0.8329 | 0.8086 → 0.8086 |
++| `ob_numerical_cm::scale/tiny/s1::tight` | 3→3 | 0.7446 → 0.7446 | 0.7368 → 0.7368 |
++| `ob_numerical_cm::scale/tiny/s1::wide` | 8→5 | 0.8489 → 0.8329 | 0.8754 → 0.8086 |
++| `ob_numerical_cm::scale/tiny/s2::default` | 5→5 | 0.8252 → 0.8252 | 0.7053 → 0.7053 |
++| `ob_numerical_cm::scale/tiny/s2::tight` | 3→3 | 0.7440 → 0.7440 | 0.6800 → 0.6800 |
++| `ob_numerical_cm::scale/tiny/s2::wide` | 7→6 | 0.8461 → 0.8381 | 0.7428 → 0.7182 |
++| `ob_numerical_cm::scale/tiny/s3::default` | 5→5 | 0.7907 → 0.7907 | 0.5834 → 0.5834 |
++| `ob_numerical_cm::scale/tiny/s3::tight` | 3→3 | 0.7236 → 0.7236 | 0.5378 → 0.5378 |
++| `ob_numerical_cm::scale/tiny/s3::wide` | 8→7 | 0.8260 → 0.8175 | 0.6376 → 0.6334 |
++| `ob_numerical_cm::scale/huge/s1::default` | 5→5 | 0.8329 → 0.8329 | 0.8086 → 0.8086 |
++| `ob_numerical_cm::scale/huge/s1::tight` | 3→3 | 0.7446 → 0.7446 | 0.7368 → 0.7368 |
++| `ob_numerical_cm::scale/huge/s1::wide` | 8→5 | 0.8489 → 0.8329 | 0.8754 → 0.8086 |
++| `ob_numerical_cm::scale/huge/s2::default` | 5→5 | 0.8252 → 0.8252 | 0.7053 → 0.7053 |
++| `ob_numerical_cm::scale/huge/s2::tight` | 3→3 | 0.7440 → 0.7440 | 0.6800 → 0.6800 |
++| `ob_numerical_cm::scale/huge/s2::wide` | 7→6 | 0.8461 → 0.8381 | 0.7428 → 0.7182 |
++| `ob_numerical_cm::scale/huge/s3::default` | 5→5 | 0.7907 → 0.7907 | 0.5834 → 0.5834 |
++| `ob_numerical_cm::scale/huge/s3::tight` | 3→3 | 0.7236 → 0.7236 | 0.5378 → 0.5378 |
++| `ob_numerical_cm::scale/huge/s3::wide` | 8→7 | 0.8260 → 0.8175 | 0.6376 → 0.6334 |
++| `ob_numerical_cm::outlier/single_extreme/s1::default` | 5→5 | 0.8244 → 0.8244 | 0.7760 → 0.7760 |
++| `ob_numerical_cm::outlier/single_extreme/s1::tight` | 3→3 | 0.7233 → 0.7233 | 0.6705 → 0.6705 |
++| `ob_numerical_cm::outlier/single_extreme/s1::wide` | 8→7 | 0.8590 → 0.8509 | 0.8554 → 0.8562 |
++| `ob_numerical_cm::outlier/single_extreme/s2::default` | 5→5 | 0.8740 → 0.8740 | 0.6045 → 0.6045 |
++| `ob_numerical_cm::outlier/single_extreme/s2::tight` | 3→3 | 0.7484 → 0.7484 | 0.5375 → 0.5375 |
++| `ob_numerical_cm::outlier/single_extreme/s2::wide` | 8→6 | 0.9148 → 0.8937 | 0.6496 → 0.6552 |
++| `ob_numerical_cm::outlier/single_extreme/s3::default` | 5→5 | 0.7802 → 0.7802 | 0.8570 → 0.8570 |
++| `ob_numerical_cm::outlier/single_extreme/s3::tight` | 3→3 | 0.6819 → 0.6819 | 0.7176 → 0.7176 |
++| `ob_numerical_cm::outlier/single_extreme/s3::wide` | 8→5 | 0.8069 → 0.7802 | 0.9170 → 0.8570 |
++| `ob_numerical_cm::missing/na_30pct/s1::default` | 4→4 | 0.7784 → 0.7784 | 0.6517 → 0.6517 |
++| `ob_numerical_cm::missing/na_30pct/s1::tight` | 3→3 | 0.7083 → 0.7083 | 0.6008 → 0.6008 |
++| `ob_numerical_cm::missing/na_30pct/s1::wide` | 5→4 | 0.7894 → 0.7784 | 0.6729 → 0.6517 |
++| `ob_numerical_cm::missing/na_30pct/s2::default` | 5→5 | 0.8165 → 0.8165 | 0.7286 → 0.7286 |
++| `ob_numerical_cm::missing/na_30pct/s2::tight` | 3→3 | 0.7264 → 0.7264 | 0.6212 → 0.6212 |
++| `ob_numerical_cm::missing/na_30pct/s2::wide` | 7→6 | 0.8444 → 0.8275 | 0.7329 → 0.7353 |
++| `ob_numerical_cm::missing/na_30pct/s3::default` | 5→5 | 0.7976 → 0.7976 | 0.6627 → 0.6627 |
++| `ob_numerical_cm::missing/na_30pct/s3::tight` | 3→3 | 0.7115 → 0.7115 | 0.6245 → 0.6245 |
++| `ob_numerical_cm::missing/na_30pct/s3::wide` | 6→6 | 0.8103 → 0.8103 | 0.6862 → 0.6862 |
++| `ob_numerical_cm::size/small_n40/s1::default` | 4→3 | 0.8155 → 0.8311 | 1.5388 → 1.5388 |
++| `ob_numerical_cm::size/small_n40/s1::tight` | 3→2 | 0.8311 → 0.7090 | 1.5388 → 1.9251 |
++| `ob_numerical_cm::size/small_n40/s1::wide` | 5→3 | 0.8245 → 0.8511 | 1.6355 → 2.1733 |
++| `ob_numerical_cm::size/small_n40/s2::default` | 3→3 | 0.5910 → 0.6636 | 0.8588 → 0.8588 |
++| `ob_numerical_cm::size/small_n40/s2::tight` | 2→2 | 0.6160 → 0.6160 | 1.0666 → 1.0666 |
++| `ob_numerical_cm::size/small_n40/s2::wide` | 5→3 | 0.5873 → 0.7152 | 1.4260 → 1.6350 |
++| `ob_numerical_cm::size/small_n40/s3::default` | 3→3 | 0.6503 → 0.5780 | 1.8249 → 2.1686 |
++| `ob_numerical_cm::size/small_n40/s3::tight` | 3→2 | 0.5780 → 0.6160 | 2.1686 → 1.9617 |
++| `ob_numerical_cm::size/small_n40/s3::wide` | 3→3 | 0.9320 → 0.9320 | 1.7881 → 1.7881 |
++| `ob_numerical_cm::size/n60/s1::default` | 4→3 | 0.6198 → 0.6494 | 1.2113 → 1.2234 |
++| `ob_numerical_cm::size/n60/s1::tight` | 3→2 | 0.6494 → 0.5190 | 1.2234 → 1.2217 |
++| `ob_numerical_cm::size/n60/s1::wide` | 4→3 | 0.9593 → 0.9513 | 1.2405 → 1.1564 |
++| `ob_numerical_cm::size/n60/s2::default` | 4→3 | 0.6107 → 0.6400 | 0.2646 → 0.0540 |
++| `ob_numerical_cm::size/n60/s2::tight` | 3→2 | 0.6400 → 0.5365 | 0.0540 → 0.0436 |
++| `ob_numerical_cm::size/n60/s2::wide` | 4→3 | 0.7645 → 0.7719 | 0.2498 → 0.2297 |
++| `ob_numerical_cm::size/n60/s3::default` | 3→3 | 1.0121 → 1.0121 | 0.3266 → 0.3266 |
++| `ob_numerical_cm::size/n60/s3::tight` | 3→2 | 1.0121 → 0.8033 | 0.3266 → 0.3520 |
++| `ob_numerical_cm::size/n60/s3::wide` | 4→3 | 1.1113 → 1.0572 | 0.3528 → 0.3770 |
++| `ob_categorical_dp::cat/k5_signal/s1::default` | 5→5 | 1.3073 → 1.3073 | 1.1655 → 1.1655 |
++| `ob_categorical_dp::cat/k5_signal/s1::tight` | 3→3 | 1.1638 → 1.1638 | 1.0986 → 1.0986 |
++| `ob_categorical_dp::cat/k5_signal/s1::wide` | 5→5 | 1.3073 → 1.3073 | 1.1655 → 1.1655 |
++| `ob_categorical_fetb::cat/k5_signal/s1::default` | 5→5 | 1.3073 → 1.3073 | 1.1655 → 1.1655 |
++| `ob_categorical_fetb::cat/k5_signal/s1::tight` | 3→3 | 1.1210 → 1.1210 | 0.9181 → 0.9181 |
++| `ob_categorical_fetb::cat/k5_signal/s1::wide` | 5→5 | 1.3073 → 1.3073 | 1.1655 → 1.1655 |
++| `ob_categorical_dp::cat/k5_signal/s2::default` | 5→5 | 1.0893 → 1.0893 | 1.2213 → 1.2213 |
++| `ob_categorical_dp::cat/k5_signal/s2::tight` | 3→3 | 1.0036 → 1.0036 | 1.2001 → 1.2001 |
++| `ob_categorical_dp::cat/k5_signal/s2::wide` | 5→5 | 1.0893 → 1.0893 | 1.2213 → 1.2213 |
++| `ob_categorical_fetb::cat/k5_signal/s2::default` | 5→5 | 1.0893 → 1.0893 | 1.2213 → 1.2213 |
++| `ob_categorical_fetb::cat/k5_signal/s2::tight` | 3→3 | 1.0036 → 1.0036 | 1.2001 → 1.2001 |
++| `ob_categorical_fetb::cat/k5_signal/s2::wide` | 5→5 | 1.0893 → 1.0893 | 1.2213 → 1.2213 |
++| `ob_categorical_dp::cat/k5_signal/s3::default` | 5→5 | 1.2679 → 1.2679 | 1.1598 → 1.1598 |
++| `ob_categorical_dp::cat/k5_signal/s3::tight` | 3→3 | 1.1367 → 1.1367 | 1.0663 → 1.0663 |
++| `ob_categorical_dp::cat/k5_signal/s3::wide` | 5→5 | 1.2679 → 1.2679 | 1.1598 → 1.1598 |
++| `ob_categorical_fetb::cat/k5_signal/s3::default` | 5→5 | 1.2679 → 1.2679 | 1.1598 → 1.1598 |
++| `ob_categorical_fetb::cat/k5_signal/s3::tight` | 3→3 | 1.0220 → 1.0220 | 0.9624 → 0.9624 |
++| `ob_categorical_fetb::cat/k5_signal/s3::wide` | 5→5 | 1.2679 → 1.2679 | 1.1598 → 1.1598 |
++| `ob_categorical_dp::cat/k20_signal/s1::default` | 5→5 | 0.3390 → 0.3390 | 0.2552 → 0.2552 |
++| `ob_categorical_dp::cat/k20_signal/s1::tight` | 3→3 | 0.2825 → 0.2825 | 0.2025 → 0.2025 |
++| `ob_categorical_dp::cat/k20_signal/s1::wide` | 8→8 | 0.3470 → 0.3470 | 0.2979 → 0.2979 |
++| `ob_categorical_fetb::cat/k20_signal/s1::default` | 5→5 | 0.3129 → 0.3129 | 0.2418 → 0.2418 |
++| `ob_categorical_fetb::cat/k20_signal/s1::tight` | 3→3 | 0.2560 → 0.2560 | 0.1924 → 0.1924 |
++| `ob_categorical_fetb::cat/k20_signal/s1::wide` | 8→8 | 0.3186 → 0.3186 | 0.2577 → 0.2577 |
++| `ob_categorical_dp::cat/k20_signal/s2::default` | 5→5 | 0.5494 → 0.6998 | 0.5290 → 0.5684 |
++| `ob_categorical_dp::cat/k20_signal/s2::tight` | 3→3 | 0.4804 → 0.6309 | 0.5010 → 0.5404 |
++| `ob_categorical_dp::cat/k20_signal/s2::wide` | 8→8 | 0.5587 → 0.7145 | 0.5486 → 0.5893 |
++| `ob_categorical_fetb::cat/k20_signal/s2::default` | 5→5 | 0.6823 → 0.6823 | 0.5566 → 0.5566 |
++| `ob_categorical_fetb::cat/k20_signal/s2::tight` | 3→3 | 0.5911 → 0.6309 | 0.4155 → 0.5404 |
++| `ob_categorical_fetb::cat/k20_signal/s2::wide` | 8→8 | 0.6953 → 0.6953 | 0.5477 → 0.5477 |
++| `ob_categorical_dp::cat/k20_signal/s3::default` | 5→5 | 0.4328 → 0.4328 | 0.2591 → 0.2591 |
++| `ob_categorical_dp::cat/k20_signal/s3::tight` | 3→3 | 0.3854 → 0.3854 | 0.2402 → 0.2402 |
++| `ob_categorical_dp::cat/k20_signal/s3::wide` | 8→8 | 0.4455 → 0.4455 | 0.2736 → 0.2736 |
++| `ob_categorical_fetb::cat/k20_signal/s3::default` | 5→5 | 0.4240 → 0.4240 | 0.2712 → 0.2712 |
++| `ob_categorical_fetb::cat/k20_signal/s3::tight` | 3→3 | 0.3854 → 0.3854 | 0.2402 → 0.2402 |
++| `ob_categorical_fetb::cat/k20_signal/s3::wide` | 8→8 | 0.4302 → 0.4302 | 0.3114 → 0.3114 |
++| `ob_categorical_dp::cat/k200_signal/s1::default` | 5→5 | 0.1163 → 0.1171 | 0.0818 → 0.0853 |
++| `ob_categorical_dp::cat/k200_signal/s1::tight` | 3→3 | 0.1098 → 0.1098 | 0.0435 → 0.0435 |
++| `ob_categorical_dp::cat/k200_signal/s1::wide` | 8→8 | 0.1214 → 0.1217 | 0.0888 → 0.0876 |
++| `ob_categorical_fetb::cat/k200_signal/s1::default` | 5→5 | 1.4055 → 1.4867 | 0.4356 → 0.4361 |
++| `ob_categorical_fetb::cat/k200_signal/s1::tight` | 3→3 | 0.9097 → 1.3337 | 0.3689 → 0.3459 |
++| `ob_categorical_fetb::cat/k200_signal/s1::wide` | 8→8 | 1.5393 → 1.5367 | 0.4659 → 0.4587 |
++| `ob_categorical_dp::cat/k200_signal/s2::default` | 5→5 | 0.0712 → 0.0712 | 0.0236 → 0.0236 |
++| `ob_categorical_dp::cat/k200_signal/s2::tight` | 3→3 | 0.0633 → 0.0633 | 0.0240 → 0.0240 |
++| `ob_categorical_dp::cat/k200_signal/s2::wide` | 8→8 | 0.0733 → 0.0737 | 0.0352 → 0.0616 |
++| `ob_categorical_fetb::cat/k200_signal/s2::default` | 5→5 | 1.4832 → 1.3095 | 0.5059 → 0.4923 |
++| `ob_categorical_fetb::cat/k200_signal/s2::tight` | 3→3 | 0.9031 → 1.1133 | 0.4477 → 0.4274 |
++| `ob_categorical_fetb::cat/k200_signal/s2::wide` | 8→8 | 1.5877 → 1.5877 | 0.5151 → 0.5151 |
++| `ob_categorical_dp::cat/k200_signal/s3::default` | 5→5 | 0.1389 → 0.1389 | 0.0868 → 0.0868 |
++| `ob_categorical_dp::cat/k200_signal/s3::tight` | 3→3 | 0.1196 → 0.1196 | 0.0545 → 0.0545 |
++| `ob_categorical_dp::cat/k200_signal/s3::wide` | 8→8 | 0.1452 → 0.1457 | 0.1821 → 0.1539 |
++| `ob_categorical_fetb::cat/k200_signal/s3::default` | 5→5 | 1.3978 → 1.4285 | 0.4714 → 0.5363 |
++| `ob_categorical_fetb::cat/k200_signal/s3::tight` | 3→3 | 1.2066 → 1.2089 | 0.3795 → 0.4974 |
++| `ob_categorical_fetb::cat/k200_signal/s3::wide` | 8→8 | 1.5637 → 1.4855 | 0.5542 → 0.5807 |
++| `ob_categorical_dp::cat/pure_category/s1::default` | 4→4 | 2.0789 → 2.0789 | 1.4801 → 1.4801 |
++| `ob_categorical_dp::cat/pure_category/s1::tight` | 3→3 | 1.7810 → 1.7810 | 1.3009 → 1.3009 |
++| `ob_categorical_dp::cat/pure_category/s1::wide` | 4→4 | 2.0789 → 2.0789 | 1.4801 → 1.4801 |
++| `ob_categorical_fetb::cat/pure_category/s1::default` | 4→4 | 2.0789 → 2.0789 | 1.4801 → 1.4801 |
++| `ob_categorical_fetb::cat/pure_category/s1::tight` | 3→3 | 1.7810 → 1.7810 | 1.3009 → 1.3009 |
++| `ob_categorical_fetb::cat/pure_category/s1::wide` | 4→4 | 2.0789 → 2.0789 | 1.4801 → 1.4801 |
++| `ob_categorical_dp::cat/pure_category/s2::default` | 4→4 | 1.7798 → 1.7798 | 1.7135 → 1.7135 |
++| `ob_categorical_dp::cat/pure_category/s2::tight` | 3→3 | 1.5204 → 1.5392 | 1.4848 → 1.4316 |
++| `ob_categorical_dp::cat/pure_category/s2::wide` | 4→4 | 1.7798 → 1.7798 | 1.7135 → 1.7135 |
++| `ob_categorical_fetb::cat/pure_category/s2::default` | 4→4 | 1.7798 → 1.7798 | 1.7135 → 1.7135 |
++| `ob_categorical_fetb::cat/pure_category/s2::tight` | 3→3 | 1.5204 → 1.5204 | 1.4848 → 1.4848 |
++| `ob_categorical_fetb::cat/pure_category/s2::wide` | 4→4 | 1.7798 → 1.7798 | 1.7135 → 1.7135 |
++| `ob_categorical_dp::cat/pure_category/s3::default` | 4→4 | 2.0405 → 2.0405 | 1.7422 → 1.7422 |
++| `ob_categorical_dp::cat/pure_category/s3::tight` | 3→3 | 1.7721 → 1.7721 | 1.5208 → 1.5208 |
++| `ob_categorical_dp::cat/pure_category/s3::wide` | 4→4 | 2.0405 → 2.0405 | 1.7422 → 1.7422 |
++| `ob_categorical_fetb::cat/pure_category/s3::default` | 4→4 | 2.0405 → 2.0405 | 1.7422 → 1.7422 |
++| `ob_categorical_fetb::cat/pure_category/s3::tight` | 3→3 | 1.7721 → 1.7721 | 1.5208 → 1.5208 |
++| `ob_categorical_fetb::cat/pure_category/s3::wide` | 4→4 | 2.0405 → 2.0405 | 1.7422 → 1.7422 |
++| `ob_categorical_dp::cat/identical_rates/s1::default` | 5→3 | 1.0757 → 1.0769 | 0.7730 → 0.7706 |
++| `ob_categorical_dp::cat/identical_rates/s1::tight` | 3→3 | 1.0769 → 1.0769 | 0.7706 → 0.7706 |
++| `ob_categorical_dp::cat/identical_rates/s1::wide` | 8→3 | 1.0727 → 1.0769 | 0.8258 → 0.7706 |
++| `ob_categorical_fetb::cat/identical_rates/s1::default` | 5→5 | 1.0757 → 1.0757 | 0.7730 → 0.7730 |
++| `ob_categorical_fetb::cat/identical_rates/s1::tight` | 3→3 | 1.0769 → 1.0769 | 0.7706 → 0.7706 |
++| `ob_categorical_fetb::cat/identical_rates/s1::wide` | 8→8 | 1.0727 → 1.0727 | 0.8258 → 0.8258 |
++| `ob_categorical_dp::cat/identical_rates/s2::default` | 5→5 | 1.1443 → 1.1443 | 1.0294 → 1.0294 |
++| `ob_categorical_dp::cat/identical_rates/s2::tight` | 3→3 | 1.1255 → 1.1255 | 1.0348 → 1.0348 |
++| `ob_categorical_dp::cat/identical_rates/s2::wide` | 8→7 | 1.1449 → 1.1465 | 1.0561 → 1.0536 |
++| `ob_categorical_fetb::cat/identical_rates/s2::default` | 5→5 | 1.1443 → 1.1443 | 1.0294 → 1.0294 |
++| `ob_categorical_fetb::cat/identical_rates/s2::tight` | 3→3 | 1.1255 → 1.1255 | 1.0348 → 1.0348 |
++| `ob_categorical_fetb::cat/identical_rates/s2::wide` | 8→8 | 1.1449 → 1.1449 | 1.0561 → 1.0561 |
++| `ob_categorical_dp::cat/identical_rates/s3::default` | 5→5 | 0.9902 → 0.9902 | 1.3795 → 1.3795 |
++| `ob_categorical_dp::cat/identical_rates/s3::tight` | 3→3 | 0.9861 → 0.9861 | 1.3639 → 1.3639 |
++| `ob_categorical_dp::cat/identical_rates/s3::wide` | 8→6 | 0.9889 → 0.9906 | 1.3865 → 1.3753 |
++| `ob_categorical_fetb::cat/identical_rates/s3::default` | 5→5 | 0.9902 → 0.9902 | 1.3793 → 1.3793 |
++| `ob_categorical_fetb::cat/identical_rates/s3::tight` | 3→3 | 0.9858 → 0.9858 | 1.3627 → 1.3627 |
++| `ob_categorical_fetb::cat/identical_rates/s3::wide` | 8→8 | 0.9890 → 0.9890 | 1.3718 → 1.3718 |
++| `ob_categorical_dp::cat/rare_levels/s1::default` | 5→4 | 0.3329 → 0.3334 | 0.3994 → 0.3937 |
++| `ob_categorical_dp::cat/rare_levels/s1::tight` | 3→3 | 0.3140 → 0.3140 | 0.3895 → 0.3895 |
++| `ob_categorical_dp::cat/rare_levels/s1::wide` | 6→6 | 0.3608 → 0.3608 | 0.4425 → 0.4425 |
++| `ob_categorical_fetb::cat/rare_levels/s1::default` | 5→5 | 0.3329 → 0.3329 | 0.3994 → 0.3994 |
++| `ob_categorical_fetb::cat/rare_levels/s1::tight` | 3→3 | 0.3140 → 0.3140 | 0.3895 → 0.3895 |
++| `ob_categorical_fetb::cat/rare_levels/s1::wide` | 5→5 | 0.3329 → 0.3329 | 0.3994 → 0.3994 |
++| `ob_categorical_dp::cat/rare_levels/s2::default` | 5→5 | 0.4375 → 0.4375 | 0.4395 → 0.4395 |
++| `ob_categorical_dp::cat/rare_levels/s2::tight` | 3→3 | 0.4162 → 0.4162 | 0.4224 → 0.4224 |
++| `ob_categorical_dp::cat/rare_levels/s2::wide` | 6→6 | 0.4991 → 0.4991 | 0.5146 → 0.5146 |
++| `ob_categorical_fetb::cat/rare_levels/s2::default` | 5→5 | 0.4375 → 0.4375 | 0.4395 → 0.4395 |
++| `ob_categorical_fetb::cat/rare_levels/s2::tight` | 3→3 | 0.4162 → 0.4162 | 0.4224 → 0.4224 |
++| `ob_categorical_fetb::cat/rare_levels/s2::wide` | 5→5 | 0.4375 → 0.4375 | 0.4395 → 0.4395 |
++| `ob_categorical_dp::cat/rare_levels/s3::default` | 5→5 | 0.3363 → 0.3363 | 0.4698 → 0.4698 |
++| `ob_categorical_dp::cat/rare_levels/s3::tight` | 3→3 | 0.3282 → 0.3282 | 0.4399 → 0.4399 |
++| `ob_categorical_dp::cat/rare_levels/s3::wide` | 6→6 | 0.4009 → 0.4009 | 0.4785 → 0.4785 |
++| `ob_categorical_fetb::cat/rare_levels/s3::default` | 5→5 | 0.3363 → 0.3363 | 0.4698 → 0.4698 |
++| `ob_categorical_fetb::cat/rare_levels/s3::tight` | 3→3 | 0.3282 → 0.3282 | 0.4399 → 0.4399 |
++| `ob_categorical_fetb::cat/rare_levels/s3::wide` | 5→5 | 0.3363 → 0.3363 | 0.4698 → 0.4698 |
++| `ob_categorical_dp::cat/large_low_risk/s1::default` | 4→4 | 1.8776 → 1.8776 | 2.1077 → 2.1077 |
++| `ob_categorical_dp::cat/large_low_risk/s1::tight` | 3→3 | 1.8153 → 1.8153 | 2.0739 → 2.0739 |
++| `ob_categorical_dp::cat/large_low_risk/s1::wide` | 4→4 | 1.8776 → 1.8776 | 2.1077 → 2.1077 |
++| `ob_categorical_fetb::cat/large_low_risk/s1::default` | 4→4 | 1.8776 → 1.8776 | 2.1077 → 2.1077 |
++| `ob_categorical_fetb::cat/large_low_risk/s1::tight` | 3→3 | 1.8153 → 1.8153 | 2.0739 → 2.0739 |
++| `ob_categorical_fetb::cat/large_low_risk/s1::wide` | 4→4 | 1.8776 → 1.8776 | 2.1077 → 2.1077 |
++| `ob_categorical_dp::cat/large_low_risk/s2::default` | 4→4 | 2.5527 → 2.5527 | 2.5628 → 2.5628 |
++| `ob_categorical_dp::cat/large_low_risk/s2::tight` | 3→3 | 2.5057 → 2.5057 | 2.5004 → 2.5004 |
++| `ob_categorical_dp::cat/large_low_risk/s2::wide` | 4→4 | 2.5527 → 2.5527 | 2.5628 → 2.5628 |
++| `ob_categorical_fetb::cat/large_low_risk/s2::default` | 4→4 | 2.5527 → 2.5527 | 2.5628 → 2.5628 |
++| `ob_categorical_fetb::cat/large_low_risk/s2::tight` | 3→3 | 2.5057 → 2.5057 | 2.5004 → 2.5004 |
++| `ob_categorical_fetb::cat/large_low_risk/s2::wide` | 4→4 | 2.5527 → 2.5527 | 2.5628 → 2.5628 |
++| `ob_categorical_dp::cat/large_low_risk/s3::default` | 4→4 | 3.5828 → 3.5828 | 3.0297 → 3.0297 |
++| `ob_categorical_dp::cat/large_low_risk/s3::tight` | 3→3 | 1.8200 → 3.5604 | 1.6876 → 2.9181 |
++| `ob_categorical_dp::cat/large_low_risk/s3::wide` | 4→4 | 3.5828 → 3.5828 | 3.0297 → 3.0297 |
++| `ob_categorical_fetb::cat/large_low_risk/s3::default` | 4→4 | 3.5828 → 3.5828 | 3.0297 → 3.0297 |
++| `ob_categorical_fetb::cat/large_low_risk/s3::tight` | 3→3 | 1.8200 → 3.5604 | 1.6876 → 2.9181 |
++| `ob_categorical_fetb::cat/large_low_risk/s3::wide` | 4→4 | 3.5828 → 3.5828 | 3.0297 → 3.0297 |
++| `ob_categorical_cm::cat/noise_k10/s1::wide` | 7→3 | 0.0167 → 0.0157 | 0.0244 → 0.0064 |
++| `ob_categorical_dp::cat/noise_k10/s1::default` | 5→5 | 0.0166 → 0.0168 | 0.0068 → 0.0075 |
++| `ob_categorical_dp::cat/noise_k10/s1::tight` | 3→3 | 0.0157 → 0.0157 | 0.0064 → 0.0061 |
++| `ob_categorical_dp::cat/noise_k10/s1::wide` | 8→7 | 0.0166 → 0.0168 | 0.0257 → 0.0242 |
++| `ob_categorical_fetb::cat/noise_k10/s1::default` | 5→5 | 0.0166 → 0.0166 | 0.0229 → 0.0229 |
++| `ob_categorical_fetb::cat/noise_k10/s1::tight` | 3→3 | 0.0157 → 0.0157 | 0.0064 → 0.0064 |
++| `ob_categorical_fetb::cat/noise_k10/s1::wide` | 8→8 | 0.0168 → 0.0168 | 0.0246 → 0.0246 |
++| `ob_categorical_dp::cat/noise_k10/s2::default` | 5→5 | 0.0251 → 0.0251 | 0.0061 → 0.0064 |
++| `ob_categorical_dp::cat/noise_k10/s2::tight` | 3→3 | 0.0236 → 0.0236 | 0.0032 → 0.0032 |
++| `ob_categorical_dp::cat/noise_k10/s2::wide` | 8→8 | 0.0258 → 0.0258 | 0.0145 → 0.0145 |
++| `ob_categorical_fetb::cat/noise_k10/s2::default` | 5→5 | 0.0251 → 0.0251 | 0.0061 → 0.0061 |
++| `ob_categorical_fetb::cat/noise_k10/s2::tight` | 3→3 | 0.0236 → 0.0236 | 0.0032 → 0.0032 |
++| `ob_categorical_fetb::cat/noise_k10/s2::wide` | 8→8 | 0.0258 → 0.0258 | 0.0145 → 0.0145 |
++| `ob_categorical_dp::cat/noise_k10/s3::default` | 5→5 | 0.0144 → 0.0144 | 0.0029 → 0.0029 |
++| `ob_categorical_dp::cat/noise_k10/s3::tight` | 3→3 | 0.0134 → 0.0134 | 0.0023 → 0.0023 |
++| `ob_categorical_dp::cat/noise_k10/s3::wide` | 8→8 | 0.0146 → 0.0147 | 0.0342 → 0.0152 |
++| `ob_categorical_fetb::cat/noise_k10/s3::default` | 5→5 | 0.0144 → 0.0144 | 0.0029 → 0.0029 |
++| `ob_categorical_fetb::cat/noise_k10/s3::tight` | 3→3 | 0.0134 → 0.0134 | 0.0023 → 0.0023 |
++| `ob_categorical_fetb::cat/noise_k10/s3::wide` | 8→8 | 0.0146 → 0.0146 | 0.0342 → 0.0342 |
++| `ob_categorical_dp::cat/with_na/s1::default` | 5→5 | 0.7472 → 0.7472 | 0.8773 → 0.8773 |
++| `ob_categorical_dp::cat/with_na/s1::tight` | 3→3 | 0.6551 → 0.6551 | 0.7980 → 0.7980 |
++| `ob_categorical_dp::cat/with_na/s1::wide` | 6→6 | 0.7490 → 0.7490 | 0.9043 → 0.9043 |
++| `ob_categorical_fetb::cat/with_na/s1::default` | 5→5 | 0.7472 → 0.7472 | 0.8773 → 0.8773 |
++| `ob_categorical_fetb::cat/with_na/s1::tight` | 3→3 | 0.6506 → 0.6506 | 0.6552 → 0.6552 |
++| `ob_categorical_fetb::cat/with_na/s1::wide` | 6→6 | 0.7490 → 0.7490 | 0.9043 → 0.9043 |
++| `ob_categorical_dp::cat/with_na/s2::default` | 5→5 | 0.8330 → 0.8330 | 0.7159 → 0.7159 |
++| `ob_categorical_dp::cat/with_na/s2::tight` | 3→3 | 0.7411 → 0.7411 | 0.5442 → 0.5442 |
++| `ob_categorical_dp::cat/with_na/s2::wide` | 6→6 | 0.8394 → 0.8394 | 0.7162 → 0.7162 |
++| `ob_categorical_fetb::cat/with_na/s2::default` | 5→5 | 0.8330 → 0.8330 | 0.7159 → 0.7159 |
++| `ob_categorical_fetb::cat/with_na/s2::tight` | 3→3 | 0.6860 → 0.6860 | 0.6524 → 0.6524 |
++| `ob_categorical_fetb::cat/with_na/s2::wide` | 6→6 | 0.8394 → 0.8394 | 0.7162 → 0.7162 |
++| `ob_categorical_dp::cat/with_na/s3::default` | 5→5 | 0.8901 → 0.8901 | 0.7838 → 0.7838 |
++| `ob_categorical_dp::cat/with_na/s3::tight` | 3→3 | 0.7599 → 0.7599 | 0.7328 → 0.7328 |
++| `ob_categorical_dp::cat/with_na/s3::wide` | 6→6 | 0.8983 → 0.8983 | 0.8367 → 0.8367 |
++| `ob_categorical_fetb::cat/with_na/s3::default` | 5→5 | 0.8901 → 0.8901 | 0.7838 → 0.7838 |
++| `ob_categorical_fetb::cat/with_na/s3::tight` | 3→3 | 0.7303 → 0.7303 | 0.7127 → 0.7127 |
++| `ob_categorical_fetb::cat/with_na/s3::wide` | 6→6 | 0.8983 → 0.8983 | 0.8367 → 0.8367 |
++
++## Supplementary hold-out evidence (not part of the automatic verdict)
++
++Hold-out IV cannot increase under coarsening, so it penalises every merge of
++non-significant bins. The table uses a proper scoring rule instead: mean
++hold-out log-loss (nats) of the binned event-rate model of `ob_numerical_cm`
++(train-bin rates, Jeffreys-smoothed, applied to the 30% hold-out), per family
++and parameter set; `d = C - B`, negative is better. Computed from the same
++base.rds / cand.rds as this report. It is cumulative over manifests 10 and 13
++(the large gains in separation/* come from manifest 10). Outside the
++separation and U-shape families the change is small and mostly positive
++(worse) by 0.0003-0.003 nats (<= 0.5%, rate_1pct 2-3%): the price of the
++fewer, statistically significant bins that alpha now asks for.
++
++```
++                     family  params     llB     llC          d
++      discrete/mass_at_zero default 0.60336 0.60336  0.000e+00
++      discrete/mass_at_zero   tight 0.60558 0.60374 -1.844e-03
++      discrete/mass_at_zero    wide 0.60336 0.60336  0.000e+00
++      discrete/three_values default 0.51514 0.51514  0.000e+00
++      discrete/three_values   tight 0.51514 0.51514  0.000e+00
++      discrete/three_values    wide 0.51514 0.51514  0.000e+00
++              discrete/ties default 0.60772 0.60772  0.000e+00
++              discrete/ties   tight 0.61322 0.61322  0.000e+00
++              discrete/ties    wide 0.60465 0.60743  2.786e-03
++       imbalance/rate_02pct default 0.02046 0.02135  8.890e-04
++       imbalance/rate_02pct   tight 0.02029 0.02026 -3.689e-05
++       imbalance/rate_02pct    wide 0.02046 0.02135  8.890e-04
++        imbalance/rate_1pct default 0.05770 0.05871  1.011e-03
++        imbalance/rate_1pct   tight 0.05871 0.06056  1.850e-03
++        imbalance/rate_1pct    wide 0.05751 0.05871  1.193e-03
++           missing/na_30pct default 0.61512 0.61512  0.000e+00
++           missing/na_30pct   tight 0.62146 0.62146  0.000e+00
++           missing/na_30pct    wide 0.61327 0.61388  6.090e-04
++     outlier/single_extreme default 0.61090 0.61090  0.000e+00
++     outlier/single_extreme   tight 0.61978 0.61978  0.000e+00
++     outlier/single_extreme    wide 0.60710 0.60821  1.104e-03
++                 scale/huge default 0.61244 0.61244  0.000e+00
++                 scale/huge   tight 0.61614 0.61614  0.000e+00
++                 scale/huge    wide 0.60789 0.61031  2.420e-03
++                 scale/tiny default 0.61244 0.61244  0.000e+00
++                 scale/tiny   tight 0.61614 0.61614  0.000e+00
++                 scale/tiny    wide 0.60789 0.61031  2.420e-03
++ separation/flag_pure_level default 0.21266 0.17294 -3.972e-02
++ separation/flag_pure_level   tight 0.21266 0.17294 -3.972e-02
++ separation/flag_pure_level    wide 0.21266 0.17294 -3.972e-02
++            separation/near default 0.07721 0.07747  2.605e-04
++            separation/near   tight 0.07721 0.07721  0.000e+00
++            separation/near    wide 0.07721 0.07747  2.605e-04
++         separation/perfect default 0.69310 0.02644 -6.667e-01
++         separation/perfect   tight 0.69310 0.11718 -5.759e-01
++         separation/perfect    wide 0.69310 0.02644 -6.667e-01
++     signal/logistic_strong default 0.49166 0.49166  0.000e+00
++     signal/logistic_strong   tight 0.51144 0.51144  0.000e+00
++     signal/logistic_strong    wide 0.48570 0.48662  9.215e-04
++       signal/logistic_weak default 0.58565 0.58658  9.275e-04
++       signal/logistic_weak   tight 0.58712 0.58712  0.000e+00
++       signal/logistic_weak    wide 0.58487 0.58629  1.414e-03
++          signal/multi_step default 0.48199 0.48079 -1.198e-03
++          signal/multi_step   tight 0.48231 0.48231  0.000e+00
++          signal/multi_step    wide 0.48163 0.48199  3.623e-04
++               signal/noise default 0.61622 0.61631  9.076e-05
++               signal/noise   tight 0.61494 0.61494  0.000e+00
++               signal/noise    wide 0.61527 0.61631  1.038e-03
++                signal/step default 0.49947 0.50021  7.435e-04
++                signal/step   tight 0.49951 0.50037  8.545e-04
++                signal/step    wide 0.49935 0.50021  8.627e-04
++             signal/u_shape default 0.55043 0.51974 -3.069e-02
++             signal/u_shape   tight 0.57881 0.57881  0.000e+00
++             signal/u_shape    wide 0.56208 0.51974 -4.234e-02
++                   size/n60 default 0.62127 0.62159  3.142e-04
++                   size/n60   tight 0.62159 0.61990 -1.689e-03
++                   size/n60    wide 0.61332 0.60751 -5.806e-03
++             size/small_n40 default 0.49022 0.47792 -1.230e-02
++             size/small_n40   tight 0.48333 0.49192  8.595e-03
++             size/small_n40    wide 0.45308 0.44517 -7.910e-03
++
++all runs: mean logloss B=0.47899 C=0.44398; C better in 41, worse in 51, equal in 88 of 180
++```
+diff --git a/man/ob_categorical_cm.Rd b/man/ob_categorical_cm.Rd
+index c7abf1c..edc9a83 100644
+--- a/man/ob_categorical_cm.Rd
++++ b/man/ob_categorical_cm.Rd
+@@ -59,9 +59,12 @@ continuity correction) is below the critical value
+ they do not differ significantly. Lower values merge more and create fewer
+ bins. Value must be in (0, 1). Defaults to 0.05.}
+ 
+-\item{use_chi2_algorithm}{Logical. If TRUE, uses the Chi2 variant which
+-performs multi-pass merging with decreasing significance thresholds.
+-Defaults to FALSE.}
++\item{use_chi2_algorithm}{Logical. If TRUE, uses the Chi2 variant (Liu &
++Setiono, 1995): ChiMerge passes at decreasing significance levels (0.5,
++0.25, 0.1, 0.05, 0.01, 0.005, 0.001); a pass that raises the
++inconsistency rate above that of the original categories is undone and
++ends the algorithm; \code{max_bins} is applied afterwards.
++\code{chi_merge_threshold} is not used. Defaults to FALSE.}
+ }
+ \value{
+ A list containing binning results with the following components:
+@@ -103,8 +106,10 @@ The algorithm implements two main approaches:
+    distinguishable at the specified significance level.
+ 
+ 2. Chi2 Algorithm (when \code{use_chi2_algorithm = TRUE}): Performs
+-   multiple passes with decreasing significance thresholds (0.5 → 0.001),
+-   creating more robust binning structures particularly for noisy data.
++   multiple passes with decreasing significance thresholds (0.5 → 0.001)
++   and stops, undoing the last pass, as soon as the inconsistency rate
++   (share of observations outside the majority class of their bin) exceeds
++   that of the original categories.
+ 
+ Key features include:
+ \itemize{
+diff --git a/man/ob_numerical_cm.Rd b/man/ob_numerical_cm.Rd
+index 86ae5d6..c466576 100644
+--- a/man/ob_numerical_cm.Rd
++++ b/man/ob_numerical_cm.Rd
+@@ -41,8 +41,9 @@ pre-binning phase before the merging process begins. Higher values provide
+ more granular starting points. Must be \eqn{\ge} \code{max_bins}.
+ Defaults to 20.}
+ 
+-\item{convergence_threshold}{Numeric. The threshold for the change in total
+-IV to determine convergence during the iterative merging process.
++\item{convergence_threshold}{Numeric. Must be positive. Kept for
++compatibility; it does not stop the merging (ChiMerge stops on the
++significance test, \code{max_bins} and \code{min_bins} only).
+ Defaults to 1e-6.}
+ 
+ \item{max_iterations}{Integer. Safety limit for the maximum number of merging
+@@ -54,19 +55,18 @@ Defaults to \code{"equal_frequency"}.}
+ 
+ \item{chi_merge_threshold}{Numeric in (0, 1). The significance level
+ (\eqn{\alpha}) of the Chi-square test; the critical value is
+-\code{qchisq(1 - chi_merge_threshold, 1)}. \strong{It does not change the
+-result of this function}: the initial bins are merged, smallest chi-square
+-first, until at most \code{max_bins} remain, before the significance test
+-is ever reached, so the test never has a merge left to decide (see
+-Details). Control the number of bins with \code{max_bins}. The categorical
+-\code{\link{ob_categorical_cm}} does use the level as its stopping rule.
++\code{qchisq(1 - chi_merge_threshold, 1)}. It is the stopping rule of
++ChiMerge: adjacent bins keep being merged while the smallest chi-square is
++below the critical value (the pair does not differ significantly), so a
++lower level merges more and gives fewer bins (see Details).
+ Defaults to 0.05.}
+ 
+-\item{use_chi2_algorithm}{Logical. If \code{TRUE}, runs the Chi2 variant, a
+-schedule of decreasing significance levels (0.5, 0.1, 0.05, 0.01, 0.005,
+-0.001). For the reason given for \code{chi_merge_threshold} the schedule
+-merges nothing beyond \code{max_bins}; the bins match the default path
+-except that the \code{bin_cutoff} rare-bin pass is skipped.
++\item{use_chi2_algorithm}{Logical. If \code{TRUE}, runs the Chi2 variant
++(Liu & Setiono, 1995): ChiMerge passes at the decreasing levels 0.5, 0.1,
++0.05, 0.01, 0.005 and 0.001; a pass that raises the inconsistency rate
++above that of the initial bins is undone and ends the algorithm.
++\code{max_bins} is applied afterwards, the \code{bin_cutoff} rare-bin pass
++is skipped and \code{chi_merge_threshold} is not used.
+ Defaults to \code{FALSE}.}
+ }
+ \value{
+@@ -103,27 +103,28 @@ The function implements two major discretization strategies:
+     \item Initializes bins using \code{init_method}.
+     \item Iteratively merges the adjacent pair with the lowest \eqn{\chi^2}
+           statistic (2x2 table, Yates continuity correction clamped at zero).
+-    \item Merging continues until the number of bins reaches \code{max_bins}.
+-          The significance test of Kerber (1992) is never reached: merging
+-          stops at \code{max_bins} first (see below).
++    \item Merging continues while the smallest \eqn{\chi^2} is below the
++          critical value of \code{chi_merge_threshold} (Kerber, 1992) or
++          while more than \code{max_bins} bins remain, and never goes below
++          \code{min_bins}. \code{max_bins} is therefore a ceiling: when every
++          adjacent pair differs significantly, fewer merges are made.
+   }
+   \item \strong{Chi2 Algorithm:}
+   \itemize{
+     \item Activated when \code{use_chi2_algorithm = TRUE}.
+-    \item Loops over a schedule of decreasing significance levels
+-          (0.5 \eqn{\to}{->} 0.001) and checks the inconsistency rate of the data.
++    \item Runs ChiMerge at the decreasing levels 0.5 \eqn{\to}{->} 0.001.
++          After each level the inconsistency rate (share of observations
++          outside the majority class of their bin) is measured; if it
++          exceeds that of the initial bins, the level's merges are undone
++          and the algorithm stops. \code{max_bins} is then applied by
++          merging the least different pairs.
+   }
+ }
+ 
+-\strong{The significance level does not decide the bin count.} Before either
+-method starts, the initial bins are merged, smallest \eqn{\chi^2} first,
+-until at most \code{max_bins} remain. The significance tests never run,
+-because no merge is left to decide once \code{max_bins} is met, so the number
+-of bins is set by \code{max_bins} (and by \code{min_bins}, \code{bin_cutoff}
+-and monotonicity), not by \code{chi_merge_threshold}. The categorical
+-\code{\link{ob_categorical_cm}} differs: it merges down to \code{max_bins} and
+-then keeps merging while pairs are not significantly different at the chosen
+-level.
++The number of bins is decided by the significance test, within
++\code{[min_bins, max_bins]}: a feature whose adjacent bins do not differ
++significantly is merged down to \code{min_bins}, a strong one keeps up to
++\code{max_bins} bins.
+ 
+ Post-processing steps enforce:
+ \itemize{
+diff --git a/src/OBC_CM_v5.cpp b/src/OBC_CM_v5.cpp
+index 56fbf82..b7a1f78 100644
+--- a/src/OBC_CM_v5.cpp
++++ b/src/OBC_CM_v5.cpp
+@@ -455,36 +455,69 @@ private:
+   }
+   
+   /**
+-   * @brief Perform Chi2 algorithm with multiple passes
++   * @brief Chi2 algorithm (Liu & Setiono, 1995)
++   *
++   * Phases with decreasing significance level; each phase runs ChiMerge at
++   * its level (merge while min chi-square <= critical value, never below
++   * min_bins). After every phase the inconsistency rate is measured; when it
++   * exceeds delta, the phase is undone (bins return to the snapshot taken
++   * before it) and the algorithm stops. delta is the inconsistency rate of
++   * the initial bins (one per category), i.e. of the original data, as in
++   * Liu & Setiono. max_bins is applied afterwards as a post-condition.
++   *
++   * Audit X-04 / A-08: every level used to call merge_bins_chimerge(), which
++   * merges down to max_bins first, so the loop ended after the first level
++   * (alpha = 0.5); the remaining levels and the inconsistency rule (which was
++   * inverted: it stopped on a LOW rate) never ran.
+    */
+   void perform_chi2_binning() {
+     const std::vector<double> significance_levels = {
+       0.5, 0.25, 0.1, 0.05, 0.01, 0.005, 0.001
+     };
+-    
++    iterations_run = 0;
++    converged = false;
++
++    const double delta = calculate_inconsistency_rate() + 1e-12;
++    std::vector<CategoricalBin> snapshot = bins;
++
+     for (double sig_level : significance_levels) {
+       chi_merge_threshold = sig_level;
+-      merge_bins_chimerge();
+-      
+-      if (bins.size() <= static_cast<size_t>(max_bins)) {
+-        break;
++      const double critical_value = get_chi_square_critical_value();
++
++      while (can_merge_further() && iterations_run < max_iterations) {
++        auto [min_chi, idx] = find_min_chi_square_pair();
++        if (min_chi > critical_value) break;
++        merge_adjacent_bins(idx);
++        update_cache_after_merge(idx);
++        iterations_run++;
+       }
+-      
+-      // merge_bins_chimerge() always merges down to max_bins before its
+-      // significance loop, so the check above ends this loop after the first
+-      // level and the inconsistency rule below is never reached.
+-      // # nocov start
+-      // Check inconsistency rate (optional early stopping)
+-      double inconsistency = calculate_inconsistency_rate();
+-      if (inconsistency < 0.05) { // 5% threshold
+-        warnings.push_back("Chi2: Stopped at significance " + 
+-          std::to_string(sig_level) + 
+-          " due to low inconsistency rate");
++
++      if (calculate_inconsistency_rate() > delta) {
++        bins = snapshot;  // undo this phase and stop
++        chi_cache->clear();
++        chi_cache->resize(bins.size());
++        warnings.push_back("Chi2: stopped at significance " +
++          std::to_string(sig_level) +
++          " (inconsistency rate would exceed that of the original data)");
+         break;
+       }
+-      // # nocov end
++      snapshot = bins;
+     }
+-    
++
++    // max_bins as a post-condition: merge the least different pairs
++    while (bins.size() > static_cast<size_t>(max_bins) &&
++           iterations_run < max_iterations) {
++      auto [min_chi, idx] = find_min_chi_square_pair();
++      merge_adjacent_bins(idx);
++      update_cache_after_merge(idx);
++      iterations_run++;
++    }
++    converged = iterations_run < max_iterations;
++    if (!converged) {
++      warnings.push_back("Chi2 reached max_iterations (" +
++        std::to_string(max_iterations) + ")");
++    }
++
+     ensure_min_bins();
+     enforce_monotonicity();
+   }
+@@ -978,7 +1011,6 @@ private:
+   /**
+    * @brief Calculate inconsistency rate
+    */
+-  // Only reached from the Chi2 loop past its first pass (see there). # nocov start
+   double calculate_inconsistency_rate() const {
+     double inconsistent_count = 0;
+     
+@@ -989,7 +1021,6 @@ private:
+     
+     return safe_divide(inconsistent_count, total_pos + total_neg);
+   }
+-  // # nocov end
+   
+   /**
+    * @brief Join categories with separator
+diff --git a/src/OBN_CM_v5.cpp b/src/OBN_CM_v5.cpp
+index 42c454c..74cb73d 100644
+--- a/src/OBN_CM_v5.cpp
++++ b/src/OBN_CM_v5.cpp
+@@ -644,192 +644,123 @@ private:
+   }
+ 
+   /**
+-   * @brief Main Chi-Merge algorithm implementation
++   * @brief Main Chi-Merge algorithm implementation (Kerber, 1992)
+    *
+-   * Based on Kerber (1992)
++   * The adjacent pair with the smallest chi-square is merged while that
++   * statistic is below the critical value of the chosen significance level
++   * (the pair is not significantly different) OR while more than max_bins
++   * bins remain (max_bins is a ceiling, Kerber's max-interval rule). Merging
++   * never goes below min_bins.
++   *
++   * Audit X-04 / A-05: fit() used to merge the pre-bins down to max_bins
++   * before this loop, and the loop then stopped as soon as bins <= max_bins,
++   * so the significance test was never reached and chi_merge_threshold did
++   * not change the result (alpha = 0.5, 0.05 and 0.001 gave identical bins).
++   * A further stop on |delta total IV| < convergence_threshold (A-13b) ended
++   * the loop after merging two near-identical bins -- exactly the merges
++   * ChiMerge does first -- and is removed as well.
+    */
+   void chi_merge() {
+-    // Get chi-square critical value based on threshold
+-    double critical_value = chi_square_critical_value(chi_merge_threshold);
+-
+-    double prev_total_iv = 0.0;
++    const double critical_value = chi_square_critical_value(chi_merge_threshold);
+     converged = false;
++    iterations_run = 0;
+ 
+-    for (iterations_run = 0; iterations_run < max_iterations;
+-         ++iterations_run) {
+-      // Stop if we've reached minimum bins
+-      if (bins.size() <= static_cast<size_t>(min_bins)) {
+-        converged = true;
+-        break;
+-      }
+-
+-      // Find pair with minimum chi-square
+-      std::pair<double, size_t> min_chi_pair = find_min_chi_square_pair();
+-      double min_chi_square = min_chi_pair.first;
+-      size_t merge_index = min_chi_pair.second;
+-
+-      // Check if we should stop based on statistical significance OR bin count
+-      // This prioritizes bin count over significance
+-      if (bins.size() <= static_cast<size_t>(max_bins)) {
+-        converged = true;
+-        break;
+-      }
++    while (bins.size() > static_cast<size_t>(min_bins)) {
++      if (iterations_run >= max_iterations) break;  // converged stays false
+ 
+-      // If chi-square exceeds critical value and we're within bin count limits,
+-      // we can stop
+-      if (min_chi_square > critical_value &&
+-          bins.size() <= static_cast<size_t>(max_bins + 3)) {
+-        converged = true;
++      const std::pair<double, size_t> min_chi_pair = find_min_chi_square_pair();
++      const bool over_ceiling = bins.size() > static_cast<size_t>(max_bins);
++      if (!over_ceiling && min_chi_pair.first > critical_value) {
++        converged = true;  // every adjacent pair differs significantly
+         break;
+       }
+ 
+-      // Merge bins with lowest chi-square
+-      merge_bins(merge_index);
+-
+-      // Handle bins with zero counts
++      merge_bins(min_chi_pair.second);
+       merge_zero_bins();
+-
+-      // Calculate WoE and IV
+-      calculate_woe_iv();
+-
+-      // Calculate total IV for convergence check
+-      double total_iv = std::accumulate(
+-          bins.begin(), bins.end(), 0.0,
+-          [](double sum, const NumericalBin &b) { return sum + b.iv; });
+-
+-      // Check for convergence based on IV change
+-      if (std::abs(total_iv - prev_total_iv) < convergence_threshold) {
+-        converged = true;
+-        break;
+-      }
+-
+-      prev_total_iv = total_iv;
++      ++iterations_run;
+     }
++    if (bins.size() <= static_cast<size_t>(min_bins)) converged = true;
+ 
+-    // Mark as converged if we've reached max iterations
+-    if (iterations_run >= max_iterations) {
+-      converged = true;
+-    }
++    calculate_woe_iv();
+ 
+-    // Enforce max_bins constraint regardless of other criteria
++    // max_bins as a post-condition (no-op unless max_iterations stopped the
++    // loop above the ceiling)
+     enforce_bin_limits();
+   }
+ 
+   /**
+-   * @brief Implementation of Chi2 algorithm
++   * @brief Chi2 algorithm (Liu & Setiono, 1995)
++   *
++   * Phases with decreasing significance level; each phase runs ChiMerge at
++   * its level (merge while min chi-square <= critical value, never below
++   * min_bins). After every phase the inconsistency rate of the discretised
++   * data is measured; when it exceeds delta, the phase is undone (the bins
++   * return to the snapshot taken before it) and the algorithm stops. delta is
++   * the inconsistency rate of the finest discretisation the engine works on
++   * (the pre-bins), the single-attribute analogue of "the inconsistency rate
++   * of the original data" of Liu & Setiono. max_bins is applied afterwards as
++   * a post-condition.
+    *
+-   * Based on Liu & Setiono (1995)
++   * Audit X-04 / A-08: the former loop never ran a phase (bins were already
++   * <= max_bins) and its rule was inverted: it stopped when the inconsistency
++   * was LOW, i.e. exactly when further merging was allowed.
+    */
+   void chi2_algorithm() {
+-    // Chi2 uses multiple phases with decreasing significance levels
+     const std::vector<double> significance_levels = {0.5,  0.1,   0.05,
+                                                      0.01, 0.005, 0.001};
+-
+     converged = false;
+     iterations_run = 0;
+ 
+-    // Multiple phases with different significance levels
+-    for (double significance : significance_levels) {
+-      // Set current significance level
+-      double current_critical_value =
+-          chi_square_critical_value(significance);
+-
+-      // Continue merging until no more bins can be merged
+-      bool continue_merging = true;
+-      int phase_iterations = 0;
+-
+-      while (continue_merging && phase_iterations < max_iterations) {
+-        // Stop if we've reached minimum bins
+-        if (bins.size() <= static_cast<size_t>(min_bins)) {
+-          converged = true;
+-          break;
+-        }
+-
+-        // Check if we're already at max_bins
+-        if (bins.size() <= static_cast<size_t>(max_bins)) {
+-          converged = true;
+-          break;
+-        }
+-
+-        // Find pair with minimum chi-square
+-        std::pair<double, size_t> min_chi_pair = find_min_chi_square_pair();
+-        double min_chi_square = min_chi_pair.first;
+-        size_t merge_index = min_chi_pair.second;
+-
+-        // Stop if chi-square exceeds threshold for this phase
+-        if (min_chi_square > current_critical_value) {
+-          continue_merging = false;
+-          break;
+-        }
++    const double delta = calculate_inconsistency_rate() + 1e-12;
++    std::vector<NumericalBin> snapshot = bins;
+ 
+-        // Merge bins with lowest chi-square
+-        merge_bins(merge_index);
++    for (double significance : significance_levels) {
++      const double critical_value = chi_square_critical_value(significance);
+ 
+-        // Handle bins with zero counts
++      while (bins.size() > static_cast<size_t>(min_bins) &&
++             iterations_run < max_iterations) {
++        const std::pair<double, size_t> min_chi_pair = find_min_chi_square_pair();
++        if (min_chi_pair.first > critical_value) break;
++        merge_bins(min_chi_pair.second);
+         merge_zero_bins();
+-
+-        // Calculate WoE and IV
+-        calculate_woe_iv();
+-
+-        // Track iterations
+-        phase_iterations++;
+-        iterations_run++;
+-      }
+-
+-      // Check inconsistency rate (Chi2 feature selection)
+-      if (calculate_inconsistency_rate() < 0.05) {
+-        break; // Feature is discriminative enough
++        ++iterations_run;
+       }
+ 
+-      // Check if we've reached target bins
+-      if (bins.size() <= static_cast<size_t>(max_bins)) {
+-        converged = true;
++      if (calculate_inconsistency_rate() > delta) {
++        bins = snapshot;  // undo this phase and stop
++        rebuild_chi_adj();
+         break;
+       }
++      snapshot = bins;
+     }
++    converged = iterations_run < max_iterations;
+ 
+-    // Enforce bin limits regardless of previous steps
+-    enforce_bin_limits();
++    calculate_woe_iv();
+ 
+-    // Final adjustments to enforce monotonicity
++    // max_bins as a post-condition, then monotonicity
++    enforce_bin_limits();
+     enforce_monotonicity();
+   }
+ 
+   /**
+-   * @brief Calculate inconsistency rate for Chi2 algorithm
++   * @brief Inconsistency rate of the current discretisation (Chi2)
++   *
++   * Share of observations whose class differs from the majority class of
++   * their bin, i.e. sum over bins of min(pos, neg) / N (a tie counts the
++   * events as inconsistent, as before). Computed from the bin counts, which
++   * gives the same value as the former pass over the raw data.
+    *
+    * @return double Inconsistency rate (0-1)
+    */
+   double calculate_inconsistency_rate() const {
+-    // Count inconsistent instances
+-    int inconsistent_count = 0;
+-
+-    // Using majority class per bin as a reference
+-    std::vector<bool> bin_majority_positive(bins.size());
+-    for (size_t i = 0; i < bins.size(); ++i) {
+-      bin_majority_positive[i] = bins[i].count_pos > bins[i].count_neg;
++    long long inconsistent_count = 0;
++    long long total = 0;
++    for (const auto &bin : bins) {
++      inconsistent_count += std::min(bin.count_pos, bin.count_neg);
++      total += bin.count;
+     }
+-
+-    // Count inconsistencies over the dataset. Bin j holds the values in
+-    // (upper[j-1], upper[j]] and the last bin everything above, so the bin of
+-    // a value is the first j < B-1 with val <= upper[j] (binary search over
+-    // the ascending upper bounds), else B-1.
+-    std::vector<double> uppers;
+-    uppers.reserve(bins.size());
+-    for (size_t j = 0; j + 1 < bins.size(); ++j) uppers.push_back(bins[j].upper_bound);
+-
+-    for (size_t i = 0; i < feature.size(); ++i) {
+-      const size_t bin_idx = static_cast<size_t>(
+-          std::lower_bound(uppers.begin(), uppers.end(), feature[i]) - uppers.begin());
+-
+-      // Check if instance matches majority class
+-      bool is_positive = target[i] == 1;
+-      if (is_positive != bin_majority_positive[bin_idx]) {
+-        inconsistent_count++;
+-      }
+-    }
+-
+-    return safe_divide(inconsistent_count, static_cast<int>(feature.size()));
++    return total > 0 ? static_cast<double>(inconsistent_count) / static_cast<double>(total)
++                     : 0.0;
+   }
+ 
+   /**
+@@ -1126,10 +1057,9 @@ public:
+       initial_binning_equal_frequency();
+     }
+ 
+-    // Immediately enforce max_bins constraint if we have too many initial bins
+-    if (bins.size() > static_cast<size_t>(max_bins)) {
+-      enforce_bin_limits();
+-    }
++    // The pre-bins are NOT merged down to max_bins here any more (audit X-04 /
++    // A-05): doing so before chi_merge() left the significance test nothing
++    // to decide. max_bins is the ceiling of the ChiMerge loop instead.
+ 
+     // Merge bins with zero counts and calculate initial WoE/IV
+     merge_zero_bins();
+diff --git a/tests/testthat/test-cm-significance.R b/tests/testthat/test-cm-significance.R
+index 46da3a4..2209558 100644
+--- a/tests/testthat/test-cm-significance.R
++++ b/tests/testthat/test-cm-significance.R
+@@ -1,37 +1,52 @@
+ # ChiMerge significance level: numerical vs categorical.
+ #
+-# ob_numerical_cm() merges the initial bins down to max_bins before its
+-# significance test is reached, so chi_merge_threshold does not change the
+-# fit; ?ob_numerical_cm documents this. ob_categorical_cm() merges down to
+-# max_bins and then keeps merging while pairs are not significantly different,
+-# so the level decides the bin count there. If the numerical engine is later
+-# changed to honor the level, the first test must change with the docs.
++# Audit X-04 / A-05: up to 1.14.1 ob_numerical_cm() merged the initial bins
++# down to max_bins before its significance test was reached, so
++# chi_merge_threshold did not change the fit, and the first two tests below
++# encoded that defect ("the level does not change the cut points"; "max_bins,
++# not the level, sets the number of bins"). The engine now runs Kerber's
++# (1992) loop -- merge while the smallest chi-square is below the critical
++# value OR more than max_bins bins remain, never below min_bins -- so the level
++# decides the bin count and max_bins is only a ceiling, as in
++# ob_categorical_cm(). The Chi2 variant runs its own schedule of levels, so
++# chi_merge_threshold still does not affect it.
+ 
+-test_that("numerical cm: chi_merge_threshold does not change the cut points", {
++test_that("numerical cm: a smaller level merges more (Kerber); Chi2 ignores it", {
+   alphas <- c(0.001, 0.01, 0.05, 0.2, 0.5, 0.99)
++  any_diff <- FALSE
+   for (seed in c(1, 2, 3)) {
+     set.seed(20261010 + seed)
+     n <- 2000
+     x <- if (seed == 2) rexp(n) else rnorm(n)
+     y <- rbinom(n, 1, plogis(-1 + 0.8 * x))
+-    for (chi2 in c(FALSE, TRUE)) {
+-      for (init in c("equal_frequency", "equal_width")) {
+-        fits <- lapply(alphas, function(a) {
+-          suppressWarnings(ob_numerical_cm(x, y,
+-            min_bins = 2, max_bins = 6, chi_merge_threshold = a,
+-            use_chi2_algorithm = chi2, init_method = init
+-          ))
+-        })
+-        info <- sprintf("seed %d, chi2 %s, init %s", seed, chi2, init)
+-        for (f in fits[-1]) {
+-          expect_identical(f$cutpoints, fits[[1]]$cutpoints, info = info)
+-        }
++    for (init in c("equal_frequency", "equal_width")) {
++      info <- sprintf("seed %d, init %s", seed, init)
++      nb <- vapply(alphas, function(a) {
++        length(suppressWarnings(ob_numerical_cm(x, y,
++          min_bins = 2, max_bins = 6, chi_merge_threshold = a,
++          init_method = init
++        ))$woe)
++      }, integer(1))
++      expect_true(all(nb >= 2L & nb <= 6L), info = info)
++      expect_lte(nb[1], nb[length(nb)])
++      any_diff <- any_diff || length(unique(nb)) > 1
++      # Chi2: chi_merge_threshold is not used
++      fits <- lapply(alphas, function(a) {
++        suppressWarnings(ob_numerical_cm(x, y,
++          min_bins = 2, max_bins = 6, chi_merge_threshold = a,
++          use_chi2_algorithm = TRUE, init_method = init
++        ))
++      })
++      for (f in fits[-1]) {
++        expect_identical(f$cutpoints, fits[[1]]$cutpoints, info = info)
+       }
+     }
+   }
++  # the level must matter somewhere (it never did before A-05 was fixed)
++  expect_true(any_diff)
+ })
+ 
+-test_that("numerical cm: max_bins, not the level, sets the number of bins", {
++test_that("numerical cm: max_bins is a ceiling; the level sets the count below it", {
+   set.seed(20261011)
+   n <- 3000
+   x <- rnorm(n)
+@@ -42,8 +57,8 @@ test_that("numerical cm: max_bins, not the level, sets the number of bins", {
+         min_bins = 2, max_bins = mb, chi_merge_threshold = a
+       )$woe)
+     }, integer(1))
+-    expect_equal(nb[1], nb[2], info = sprintf("max_bins %d", mb))
+-    expect_lte(nb[1], mb)
++    expect_lte(nb[1], nb[2])
++    expect_lte(nb[2], mb)
+   }
+ })
+ 
+diff --git a/tests/testthat/test-forensic-fixes-G1.R b/tests/testthat/test-forensic-fixes-G1.R
+index 9dae528..5f3316b 100644
+--- a/tests/testthat/test-forensic-fixes-G1.R
++++ b/tests/testthat/test-forensic-fixes-G1.R
+@@ -98,3 +98,73 @@ test_that("X-07: forced cuts bisect the most populated bin, not the noise", {
+   added <- setdiff(r$cutpoints, mdl$cutpoints)
+   expect_equal(mean(upper <= added), 0.5, tolerance = 0.01)
+ })
++
++# ---- X-04 / A-05, A-08: ChiMerge alpha inoperative; Chi2 phases -------------
++
++test_that("X-04: numerical ChiMerge merges non-significant bins (alpha decides)", {
++  set.seed(3)
++  x <- rnorm(3000)
++  y <- rbinom(3000, 1, 0.3)
++  nb <- vapply(c(0.5, 0.05, 0.001), function(a) {
++    r <- ob_numerical_cm(x, y, min_bins = 3, max_bins = 15, chi_merge_threshold = a)
++    length(r$bin)
++  }, integer(1))
++  # baseline 1.14.1: 4 bins for every alpha, iterations = 0
++  expect_equal(nb[2:3], c(3L, 3L))
++  set.seed(4)
++  xs <- rnorm(3000)
++  ys <- rbinom(3000, 1, plogis(-1 + 1.5 * xs))
++  ns <- vapply(c(0.5, 0.05, 0.001), function(a) {
++    length(ob_numerical_cm(xs, ys, min_bins = 3, max_bins = 15, chi_merge_threshold = a)$bin)
++  }, integer(1))
++  expect_true(all(diff(ns) <= 0))          # smaller alpha, fewer bins
++  expect_gt(ns[2], 3L)                     # a real signal keeps more bins
++  expect_lte(ns[1], 15L)                   # max_bins is a ceiling
++})
++
++test_that("X-04: adjacent ChiMerge bins differ significantly unless min_bins binds", {
++  set.seed(8)
++  x <- runif(4000)
++  y <- rbinom(4000, 1, ifelse(x < 0.3, 0.1, ifelse(x < 0.7, 0.3, 0.6)))
++  r <- ob_numerical_cm(x, y, min_bins = 2, max_bins = 10, bin_cutoff = 0.01)
++  chi <- vapply(seq_len(length(r$bin) - 1), function(i) {
++    m <- rbind(c(r$count_pos[i], r$count_neg[i]), c(r$count_pos[i + 1], r$count_neg[i + 1]))
++    unname(suppressWarnings(stats::chisq.test(m, correct = TRUE)$statistic))
++  }, 0)
++  expect_true(all(chi > qchisq(0.95, 1)))
++})
++
++test_that("X-04 / A-08: numerical Chi2 runs its phases and never raises inconsistency", {
++  set.seed(3)
++  xn <- rnorm(3000)
++  yn <- rbinom(3000, 1, 0.3)
++  rn <- ob_numerical_cm(xn, yn, min_bins = 3, max_bins = 20, use_chi2_algorithm = TRUE)
++  # baseline 1.14.1: no phase ever ran (iterations = 0)
++  expect_gt(rn$iterations, 0L)
++  expect_length(rn$bin, 3L)
++  set.seed(5)
++  x <- rnorm(3000)
++  y <- rbinom(3000, 1, plogis(3 * x))
++  r <- ob_numerical_cm(x, y, min_bins = 2, max_bins = 20, use_chi2_algorithm = TRUE)
++  # inconsistency of the equal-frequency pre-bins (20 chunks, no ties)
++  o <- order(x)
++  grp <- (seq_along(x) - 1L) %/% (length(x) %/% 20L)
++  pos <- tapply(y[o], grp, sum); cnt <- tapply(y[o], grp, length)
++  incons_pre <- sum(pmin(pos, cnt - pos)) / length(x)
++  incons <- sum(pmin(r$count_pos, r$count_neg)) / length(x)
++  expect_lte(incons, incons_pre + 1e-12)
++  expect_gt(length(r$bin), length(rn$bin))
++})
++
++test_that("X-04 / A-08: categorical Chi2 runs all levels below 0.5", {
++  set.seed(6)
++  lv <- LETTERS[1:12]
++  f <- sample(lv, 4000, TRUE)
++  y <- rbinom(4000, 1, 0.3)
++  r <- ob_categorical_cm(f, y, min_bins = 2, max_bins = 12, use_chi2_algorithm = TRUE)
++  expect_length(r$bin, 2L)
++  rate <- setNames(rep(c(0.1, 0.3, 0.6), each = 4), lv)
++  y2 <- rbinom(4000, 1, rate[f])
++  r2 <- ob_categorical_cm(f, y2, min_bins = 2, max_bins = 12, use_chi2_algorithm = TRUE)
++  expect_length(r2$bin, 3L)
++})
+-- 
+2.43.0
+

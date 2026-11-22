@@ -2,7 +2,7 @@
 % Please edit documentation in R/obc_sab.R
 \name{ob_categorical_sab}
 \alias{ob_categorical_sab}
-\title{Optimal Binning for Categorical Variables using Simulated Annealing}
+\title{Optimal Binning for Categorical Variables (SAB interface, exact search)}
 \usage{
 ob_categorical_sab(
   feature,
@@ -33,35 +33,34 @@ Must be the same length as \code{feature}. Cannot contain missing values.}
 \item{max_bins}{Integer. Maximum number of bins to create. Must be greater
 than or equal to \code{min_bins}. Default is 5.}
 
-\item{bin_cutoff}{Numeric. Minimum relative frequency threshold for
-individual bins. Bins with frequency below this proportion will be
-penalized. Value must be between 0 and 1. Default is 0.05 (5\%).}
+\item{bin_cutoff}{Numeric. Minimum relative frequency of every bin: the
+search only considers bins holding at least this proportion of the
+observations (if no partition with \code{min_bins} bins can satisfy it,
+the constraint is dropped). Value must be between 0 and 1. Default is
+0.05 (5\%).}
 
-\item{max_n_prebins}{Integer. Maximum number of initial categories before
-optimization (not directly used in current implementation). Must be greater
-than or equal to \code{max_bins}. Default is 20.}
+\item{max_n_prebins}{Integer. Maximum number of pre-bins (runs of
+consecutive categories in shrunk-rate order) entering the exact search;
+it bounds its cost. Must be greater than or equal to \code{max_bins}.
+Default is 20.}
 
 \item{bin_separator}{Character string used to separate category names when
 multiple categories are merged into a single bin. Default is "\%;\%".}
 
-\item{initial_temperature}{Numeric. Starting temperature for the simulated
-annealing algorithm. Higher values allow more exploration. Must be
-positive. Default is 1.0.}
+\item{initial_temperature}{Numeric. Kept for backward compatibility; the
+exact search does not use it. Must be positive. Default is 1.0.}
 
-\item{cooling_rate}{Numeric. Rate at which temperature decreases during
-optimization. Value must be between 0 and 1. Lower values lead to faster
-cooling. Default is 0.995.}
+\item{cooling_rate}{Numeric. Kept for backward compatibility; not used.
+Must be in (0, 1]. Default is 0.995.}
 
-\item{max_iterations}{Integer. Maximum number of iterations for the
-optimization process. Must be positive. Default is 1000.}
+\item{max_iterations}{Integer. Kept for backward compatibility; not used.
+Default is 1000.}
 
-\item{convergence_threshold}{Numeric. Threshold for determining algorithm
-convergence based on changes in Information Value: the search stops once
-the best IV has not improved by more than this amount for 200 consecutive
-iterations (checked every 10 iterations). Must be positive. Default is 1e-6.}
+\item{convergence_threshold}{Numeric. Kept for backward compatibility; not
+used. Default is 1e-6.}
 
-\item{adaptive_cooling}{Logical. Whether to use adaptive cooling that
-modifies the cooling rate based on search progress. Default is TRUE.}
+\item{adaptive_cooling}{Logical. Kept for backward compatibility; not used.
+Default is TRUE.}
 }
 \value{
 A list containing the results of the optimal binning procedure:
@@ -76,40 +75,65 @@ A list containing the results of the optimal binning procedure:
   \item{\code{count_neg}}{Integer vector of negative outcomes in each bin}
   \item{\code{total_iv}}{Numeric scalar. Total Information Value across all
         bins}
-  \item{\code{converged}}{Logical. Whether the algorithm converged within
-        the specified tolerance}
-  \item{\code{iterations}}{Integer. Number of iterations performed}
+  \item{\code{converged}}{Logical. Always \code{TRUE}: the search is exact
+        and no iteration budget can stop it early}
+  \item{\code{iterations}}{Integer. Always 0 (no iterative search runs)}
 }
 }
 \description{
-This function performs optimal binning for categorical variables using a
-Simulated Annealing (SA) optimization algorithm. It maximizes Information
-Value (IV) while maintaining monotonic Weight of Evidence (WoE) trends.
+This function performs optimal binning for categorical variables by
+maximizing the Information Value (IV). Up to version 1.14.1 it used a
+Simulated Annealing (SA) search; since the forensic audit (findings C-02,
+C-03, C-04) the same interface solves the problem exactly.
 }
 \details{
-The SAB (Simulated Annealing Binning) algorithm follows these steps:
+For a binary target and an IV that is a sum of convex per-bin terms, the
+optimal grouping of categories into \eqn{k} bins is contiguous in the
+ordering of categories by event rate (Fisher, 1958; Breiman et al., 1984,
+Theorem 4.5). With estimated rates, that ordering and the IV itself must
+account for how much evidence each category carries, otherwise the search
+overfits sparse categories (see \emph{Minimum evidence} below). The
+algorithm therefore:
 \enumerate{
-  \item Initialization: Categories are initially assigned to bins using a
-        k-means-like strategy based on event rates
-  \item Optimization: Simulated annealing explores different bin assignments
-        to maximize IV
-  \item Neighborhood generation: Multiple strategies are employed to generate
-        neighboring solutions (swaps, reassignments, event-rate based moves)
-  \item Acceptance criteria: New solutions are accepted based on the
-        Metropolis criterion with adaptive temperature control
-  \item Monotonicity enforcement: Final solutions are adjusted to ensure
-        monotonic WoE trends
+  \item sorts the categories by their empirical-Bayes (posterior-mean)
+        event rate \eqn{(n_{pos} + m r_0)/(n + m)}, with \eqn{r_0} the
+        overall event rate and \eqn{m = 20} pseudo-observations (ties by
+        count, then name);
+  \item with more than \code{max_n_prebins} categories, merges the
+        smallest run of consecutive categories into its neighbour with the
+        closer shrunk rate until \code{max_n_prebins} pre-bins remain (the
+        pre-binning of \code{\link{ob_categorical_mba}});
+  \item for every \eqn{k} in \code{[min_bins, max_bins]}, runs a dynamic
+        program over that order which returns the partition into \eqn{k}
+        contiguous groups of pre-bins with maximum IV under the same
+        prior, i.e. with
+        shares \eqn{p_i = (n_{i,pos} + m r_0)/(N_{pos} + k m r_0)} and
+        \eqn{q_i = (n_{i,neg} + m (1 - r_0))/(N_{neg} + k m (1 - r_0))},
+        in \eqn{O(k g^2)} for \eqn{g} pre-bins, with every bin holding at
+        least \code{bin_cutoff} of the observations (the constraint is
+        dropped only when no partition can satisfy it);
+  \item among these partitions keeps the one with the largest reported
+        \code{total_iv} (the smallest \eqn{k} on ties) and reports the bins
+        in WoE order.
 }
 
-Key features include:
-\itemize{
-  \item Global optimization approach using simulated annealing
-  \item Adaptive cooling schedule to balance exploration and exploitation
-  \item Multiple neighborhood generation strategies for better search
-  \item Bayesian smoothing to stabilize WoE estimates for sparse categories
-  \item Guaranteed monotonic WoE trend across final bins
-  \item Configurable optimization parameters for fine-tuning
-}
+The result is exact for this objective (over the categories themselves
+when there are at most \code{max_n_prebins} of them). The former
+simulated-annealing
+search stopped after about 200 iterations without improvement, penalized
+solutions by their arbitrary bin labels and re-heated its temperature,
+which left it 11--17\% below the optimum on 40--150 categories while
+reporting \code{converged = TRUE}.
+
+\strong{Minimum evidence.} The raw event rate of a category with a few rows
+is mostly noise: with 200 categories of about 10 rows, the categories that
+had no event by chance sit together at the bottom of the raw-rate order,
+and maximizing the training IV isolates them in a bin whose training rate
+badly understates its rate on new data (winner's curse). The posterior
+mean ranks a small category near \eqn{r_0} unless its data say otherwise,
+and large categories keep their raw-rate rank (Gelman et al., 2013, ch. 5);
+under the prior a bin earns IV in proportion to the evidence it carries.
+The reported WoE and IV keep the smoothing defined below.
 
 Mathematical definitions:
 \deqn{WoE_i = \ln\left(\frac{p_i^{(1)}}{p_i^{(0)}}\right)}{
@@ -120,11 +144,6 @@ adjusted using Bayesian smoothing.
 
 \deqn{IV = \sum_{i=1}^{n} (p_i^{(1)} - p_i^{(0)}) \times WoE_i}{
 IV = sum((p_i^(1) - p_i^(0)) * WoE_i)}
-
-The acceptance probability in simulated annealing is:
-\deqn{P(accept) = \exp\left(\frac{IV_{new} - IV_{current}}{T}\right)}{
-P(accept) = exp((IV_new - IV_current)/T)}
-where \eqn{T} is the current temperature.
 }
 \note{
 \itemize{
@@ -133,13 +152,16 @@ where \eqn{T} is the current temperature.
         an error.
   \item For datasets with very few observations in either class (<5),
         warnings will be issued as results may be unstable.
-  \item The algorithm uses global optimization which may require more
-        computational time compared to heuristic approaches.
+  \item The exact search costs \eqn{O(k g^2)} for each \eqn{k} in
+        \code{[min_bins, max_bins]} and \eqn{g \le} \code{max_n_prebins}
+        pre-bins, plus \eqn{O(m \log m)} to order and pre-bin \eqn{m}
+        categories.
   \item When the number of unique categories is less than \code{max_bins},
-        each category will form its own bin.
-  \item Every random draw of the search comes from R's random number
-        generator, so \code{set.seed()} makes the result reproducible, and
-        identical on every platform.
+        each category forms its own bin unless that would violate
+        \code{bin_cutoff}.
+  \item The result is deterministic: it uses no random numbers, so it does
+        not depend on \code{set.seed()}, and it is identical on every
+        platform.
 }
 }
 \examples{
@@ -158,9 +180,7 @@ result2 <- ob_categorical_sab(
   feature = feature,
   target = target,
   min_bins = 2,
-  max_bins = 4,
-  initial_temperature = 2.0,
-  cooling_rate = 0.99
+  max_bins = 4
 )
 
 # Handling missing values
@@ -168,4 +188,15 @@ feature_with_na <- feature
 feature_with_na[sample(length(feature_with_na), 50)] <- NA
 result3 <- ob_categorical_sab(feature_with_na, target)
 
+}
+\references{
+Fisher, W. D. (1958). On grouping for maximum homogeneity. \emph{Journal
+of the American Statistical Association}, 53(284), 789-798.
+
+Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1984).
+\emph{Classification and Regression Trees}. Wadsworth.
+
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+Rubin, D. B. (2013). \emph{Bayesian Data Analysis} (3rd ed.), ch. 5.
+Chapman & Hall/CRC.
 }

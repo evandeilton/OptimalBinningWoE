@@ -18,12 +18,18 @@
 // Include shared headers
 #include "common/bin_structures.h"
 #include "common/optimal_binning_common.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
 
 // Global constants
 static constexpr double LAPLACE_ALPHA = 0.5;
+// Strength (pseudo-observations) of the empirical-Bayes beta prior, centred on
+// the overall event rate, used for the merge decisions (audit E-03 follow-up,
+// Section 15.5); same value as OBC_MBA. WoE/IV are still reported with the
+// estimator of CategoricalBin::calculate_metrics().
+static constexpr double EVIDENCE_M = 20.0;
 // [D8] Standardized to "NA", matching every other categorical algorithm
 // (this file and OBC_JEDIMWoE_v5.cpp were the only two using "N/A"). The
 // R wrapper (R/obc_sketch.R) already converts NA to this token before the
@@ -244,7 +250,6 @@ private:
   int max_iterations;
   size_t sketch_width;
   size_t sketch_depth;
-  bool use_divergence;
 
   int total_neg;
   int total_pos;
@@ -498,16 +503,29 @@ private:
     bins = std::move(kept);
   }
 
+  // Empirical-Bayes (posterior mean) event rate of a bin under a beta prior
+  // centred on the overall rate with EVIDENCE_M pseudo-observations.
+  double shrunk_rate(const CategoricalBin &bin) const {
+    const double r0 = static_cast<double>(total_pos) /
+                      static_cast<double>(total_pos + total_neg);
+    return (static_cast<double>(bin.count_pos) + EVIDENCE_M * r0) /
+           (static_cast<double>(bin.count) + EVIDENCE_M);
+  }
+
+  // bin_cutoff is a share of *observations* (documented contract). The
+  // baseline also required count_pos >= bin_cutoff * total_pos, which merged
+  // large low-risk bins and every pure non-event bin (audit E-03 / X-15).
+  // A bin below the cutoff joins the bin with the closest shrunk event rate
+  // (posterior mean, Gelman et al., Bayesian Data Analysis, ch. 5) instead of
+  // the closest raw shares: the raw rate of a small bin is mostly noise.
   void enforce_bin_cutoff() {
     int min_count = static_cast<int>(
         std::ceil(bin_cutoff * static_cast<double>(n_obs)));
-    int min_count_pos = static_cast<int>(
-        std::ceil(bin_cutoff * static_cast<double>(total_pos)));
 
     std::vector<size_t> low_freq_bins;
 
     for (size_t i = 0; i < bins.size(); ++i) {
-      if (bins[i].count < min_count || bins[i].count_pos < min_count_pos) {
+      if (bins[i].count < min_count) {
         low_freq_bins.push_back(i);
       }
     }
@@ -517,19 +535,19 @@ private:
         break;
       }
 
-      if (idx >= bins.size() || (bins[idx].count >= min_count &&
-                                 bins[idx].count_pos >= min_count_pos)) {
+      if (idx >= bins.size() || bins[idx].count >= min_count) {
         continue;
       }
 
       size_t merge_idx = idx;
       double min_divergence = std::numeric_limits<double>::max();
+      const double rate_idx = shrunk_rate(bins[idx]);
 
       for (size_t i = 0; i < bins.size(); ++i) {
         if (i == idx)
           continue;
 
-        double div = bins[idx].divergence_from(bins[i], total_pos, total_neg);
+        double div = std::fabs(rate_idx - shrunk_rate(bins[i]));
         if (div < min_divergence) {
           min_divergence = div;
           merge_idx = i;
@@ -546,12 +564,23 @@ private:
         }
       }
 
-      if (!try_merge_bins(std::min(idx, merge_idx), std::max(idx, merge_idx))) {
+      const size_t kept = std::min(idx, merge_idx);
+      const size_t erased = std::max(idx, merge_idx);
+      if (!try_merge_bins(kept, erased)) {
         continue;
       }
 
+      // try_merge_bins() keeps the lower position and erases the higher one:
+      // an entry naming the erased bin now names the merged bin, and every
+      // later position moves down by one. The baseline decremented the
+      // entries above merge_idx instead: when the partner was the lower
+      // position the entries between the two named the wrong bin, and when it
+      // was the higher one the pending entry of the erased bin was lost, so a
+      // bin below bin_cutoff could survive (audit E-02; same fix as OBC_MBA).
       for (auto &remaining_idx : low_freq_bins) {
-        if (remaining_idx > merge_idx) {
+        if (remaining_idx == erased) {
+          remaining_idx = kept;
+        } else if (remaining_idx > erased) {
           remaining_idx--;
         }
       }
@@ -624,68 +653,41 @@ private:
     } while (any_merge && static_cast<int>(bins.size()) > min_bins);
   }
 
-  // Optimized bin optimization - calculates divergence on-the-fly (no cache)
+  // Reduce to max_bins by merging, among the bins adjacent in WoE order
+  // (enforce_monotonicity() sorted them), the pair that loses the least IV
+  // under the empirical-Bayes prior (ob::eb_woe_iv, EVIDENCE_M pseudo-
+  // observations per bin, shares normalized over the current K bins). The
+  // baseline alternated every 5 merges between the Jensen-Shannon divergence
+  // and the sum |IV_i| + |IV_j| over *any* pair of bins; the latter merged the
+  // two least informative bins wherever they sat (a pure category and a mid
+  // bin), and after E-03 kept a pure bin of 10% of the rows apart while
+  // pooling two large bins with rates 0.3 and 0.6 (hold-out log-loss +5%).
   void optimize_bins() {
-    if (static_cast<int>(bins.size()) <= max_bins) {
-      return;
-    }
-
+    const double Tp = static_cast<double>(total_pos);
+    const double Tn = static_cast<double>(total_neg);
     int iterations = 0;
-    double prev_total_iv = 0.0;
-
-    for (const auto &bin : bins) {
-      prev_total_iv += std::fabs(bin.iv);
-    }
-
     while (static_cast<int>(bins.size()) > max_bins &&
+           static_cast<int>(bins.size()) > min_bins &&
            iterations < max_iterations) {
-      if (static_cast<int>(bins.size()) <= min_bins) {
-        break;
-      }
-
-      double min_score = std::numeric_limits<double>::max();
-      size_t min_score_idx1 = 0;
-      size_t min_score_idx2 = 0;
-
-      for (size_t i = 0; i < bins.size(); ++i) {
-        for (size_t j = i + 1; j < bins.size(); ++j) {
-          double score;
-
-          if (use_divergence) {
-            // Calculate divergence on-the-fly (no cache)
-            score = bins[i].divergence_from(bins[j], total_pos, total_neg);
-          } else {
-            // Calculate IV loss on-the-fly (no cache)
-            score = std::fabs(bins[i].iv) + std::fabs(bins[j].iv);
-          }
-
-          if (score < min_score) {
-            min_score = score;
-            min_score_idx1 = i;
-            min_score_idx2 = j;
-          }
+      const int K = static_cast<int>(bins.size());
+      double min_loss = std::numeric_limits<double>::max();
+      size_t min_idx = 0;
+      for (size_t i = 0; i + 1 < bins.size(); ++i) {
+        const double pa = bins[i].count_pos, na = bins[i].count_neg;
+        const double pb = bins[i + 1].count_pos, nb = bins[i + 1].count_neg;
+        const double loss =
+            ob::eb_woe_iv(pa, na, Tp, Tn, K, EVIDENCE_M).iv +
+            ob::eb_woe_iv(pb, nb, Tp, Tn, K, EVIDENCE_M).iv -
+            ob::eb_woe_iv(pa + pb, na + nb, Tp, Tn, K, EVIDENCE_M).iv;
+        if (loss < min_loss) {
+          min_loss = loss;
+          min_idx = i;
         }
       }
-
-      if (!try_merge_bins(min_score_idx1, min_score_idx2)) {
+      if (!try_merge_bins(min_idx, min_idx + 1)) {
         break;
       }
-
-      double total_iv = 0.0;
-      for (const auto &bin : bins) {
-        total_iv += std::fabs(bin.iv);
-      }
-
-      if (std::fabs(total_iv - prev_total_iv) < convergence_threshold) {
-        break;
-      }
-
-      prev_total_iv = total_iv;
       iterations++;
-
-      if (iterations % 5 == 0) {
-        use_divergence = !use_divergence;
-      }
     }
   }
 
@@ -762,7 +764,7 @@ public:
         max_n_prebins(max_n_prebins_), bin_separator(std::move(bin_separator_)),
         convergence_threshold(convergence_threshold_),
         max_iterations(max_iterations_), sketch_width(sketch_width_),
-        sketch_depth(sketch_depth_), use_divergence(true), total_neg(0),
+        sketch_depth(sketch_depth_), total_neg(0),
         total_pos(0) {
     cat_index.reserve(categories.size());
     for (size_t c = 0; c < categories.size(); ++c) {

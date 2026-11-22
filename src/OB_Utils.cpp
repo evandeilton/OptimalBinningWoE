@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <cstdio>
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 
@@ -139,6 +140,16 @@ DataFrame OBGainsTable(List binning_result) {
    if (R_finite(pos_perc[i]) && R_finite(neg_perc[i]) && pos_perc[i] > 0.0 && neg_perc[i] > 0.0) {
      woe[i] = std::log(pos_perc[i] / neg_perc[i]);
      iv[i]  = (pos_perc[i] - neg_perc[i]) * woe[i];
+   } else if (total_pos > 0.0 && total_neg > 0.0 && counts[i] > 0.0) {
+     // A bin without events (or non-events) is the most informative one: its
+     // raw WoE is +/-Inf. It used to get WoE = IV = 0, the value of a neutral
+     // bin, so a perfectly separating feature looked "Weak" in
+     // obwoe_select(). Normalized Jeffreys smoothing gives the most extreme
+     // finite WoE instead (audit T2 / X-01; same estimator as ob_core.h).
+     const ob::WoeIv r = ob::woe_iv(count_pos[i], count_neg[i], total_pos, total_neg,
+                                    static_cast<int>(woe.size()));
+     woe[i] = r.woe;
+     iv[i]  = r.iv;
    } else {
      woe[i] = 0.0;
      iv[i]  = 0.0;
@@ -464,6 +475,16 @@ DataFrame OBGainsTableFeature(DataFrame binned_df,
    if (R_finite(pos_perc[i]) && R_finite(neg_perc[i]) && pos_perc[i] > 0.0 && neg_perc[i] > 0.0) {
      woe[i] = std::log(pos_perc[i] / neg_perc[i]);
      iv[i]  = (pos_perc[i] - neg_perc[i]) * woe[i];
+   } else if (total_pos > 0.0 && total_neg > 0.0 && counts[i] > 0.0) {
+     // A bin without events (or non-events) is the most informative one: its
+     // raw WoE is +/-Inf. It used to get WoE = IV = 0, the value of a neutral
+     // bin, so a perfectly separating feature looked "Weak" in
+     // obwoe_select(). Normalized Jeffreys smoothing gives the most extreme
+     // finite WoE instead (audit T2 / X-01; same estimator as ob_core.h).
+     const ob::WoeIv r = ob::woe_iv(count_pos[i], count_neg[i], total_pos, total_neg,
+                                    static_cast<int>(woe.size()));
+     woe[i] = r.woe;
+     iv[i]  = r.iv;
    } else {
      woe[i] = 0.0;
      iv[i]  = 0.0;

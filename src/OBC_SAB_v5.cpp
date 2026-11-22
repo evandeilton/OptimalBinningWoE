@@ -6,17 +6,20 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
-#include <R_ext/Random.h>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <numeric>
 #include <utility>
+#include <cstdint>
+#include <queue>
+#include <tuple>
 
 
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -26,6 +29,14 @@ using namespace OptimalBinning;
 // Constant removed (uses shared definition)
 // Bayesian smoothing parameter (adjustable prior strength)
 // Constant removed (uses shared definition)
+
+namespace {
+// Strength (pseudo-observations) of the empirical-Bayes beta prior, centred on
+// the overall event rate, that orders the categories and defines the DP
+// objective (minimum evidence, audit Section 15.5); same value as OBC_MBA and
+// OBC_Sketch. The reported WoE/IV keep the estimator of bin_iv().
+constexpr double kEvidenceM = 20.0;
+} // namespace
 
 // Class for Optimal Binning using Simulated Annealing with enhanced algorithms
 class OBC_SAB {
@@ -69,14 +80,6 @@ private:
   int iterations_run;
   int iterations_without_improvement;
   
-  // Uniform integer in [0, n) from R's own RNG stream (the exported wrapper
-  // holds an RNGScope for the whole fit), so set.seed() controls the search
-  // and, unlike std::uniform_int_distribution, whose algorithm differs
-  // between libstdc++ and libc++, gives the same draws on every platform.
-  static int rand_index(int n) {
-    return static_cast<int>(R_unif_index(static_cast<double>(n)));
-  }
-  
   // Initialize the algorithm with comprehensive error checking
   void initialize() {
     // Count per category (one hash lookup per row)
@@ -118,272 +121,74 @@ private:
     int n_categories = static_cast<int>(unique_categories.size());
     actual_bins = std::min(std::max(min_bins, std::min(max_bins, n_categories)), n_categories);
     
-    // Initial solution: using kmeans-like strategy for better starting point
-    initialize_improved_solution();
-    
-    best_solution = current_solution;
-    best_iv = current_iv = calculate_iv(current_solution);
+    best_solution.assign(unique_categories.size(), 0);
+    best_iv = 0.0;
     converged = false;
     iterations_run = 0;
     iterations_without_improvement = 0;
   }
   
-  // Enhanced initialization with kmeans-like strategy
-  void initialize_improved_solution() {
-    int n_categories = static_cast<int>(unique_categories.size());
-    current_solution.resize(n_categories);
-    
-    if (n_categories <= actual_bins) {
-      // If few categories, assign each to a separate bin
-      for (int i = 0; i < n_categories; ++i) {
-        current_solution[i] = i;
-      }
-    } else {
-      // Calculate event rates for each category
-      std::vector<double> event_rates(n_categories);
-      for (int i = 0; i < n_categories; ++i) {
-        int count = cat_count_[static_cast<size_t>(i)];
-        int pos_count = cat_pos_[static_cast<size_t>(i)];
-        event_rates[i] = count > 0 ? static_cast<double>(pos_count) / count : 0.0;
-      }
-      
-      // Sort categories by event rate
-      std::vector<int> indices(n_categories);
-      std::iota(indices.begin(), indices.end(), 0);
-      std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-        return event_rates[a] < event_rates[b];
-      });
-      
-      // Assign to bins based on sorted order
-      for (int i = 0; i < n_categories; ++i) {
-        current_solution[indices[i]] = std::min(i * actual_bins / n_categories, actual_bins - 1);
-      }
-      
-      // Add some randomness to avoid local optima
-      for (int i = 0; i < n_categories; ++i) {
-        if (rand_index(100) < 10) { // 10% chance to reassign
-          current_solution[i] = rand_index(actual_bins);
-        }
-      }
+  // IV of one bin with the Bayesian smoothing that get_results() reports
+  // (same expression, so the optimised value is the reported total IV).
+  double bin_iv(int count, int positives) const {
+    const int negatives = count - positives;
+    const double prior_weight = BAYESIAN_PRIOR_STRENGTH;
+    const double overall_event_rate = static_cast<double>(total_positive) / total_count;
+    const double prior_pos = prior_weight * overall_event_rate;
+    const double prior_neg = prior_weight * (1.0 - overall_event_rate);
+    const double pos_dist = static_cast<double>(positives + prior_pos) /
+      (total_positive + prior_weight);
+    const double neg_dist = static_cast<double>(negatives + prior_neg) /
+      (total_negative + prior_weight);
+    if (pos_dist > EPSILON && neg_dist > EPSILON) {
+      const double woe = std::log(pos_dist / neg_dist);
+      const double iv = (pos_dist - neg_dist) * woe;
+      if (std::isfinite(woe) && std::isfinite(iv)) return iv;
     }
+    return 0.0;
   }
-  
-  // Calculate IV with Bayesian smoothing for more robust estimation
-  double calculate_iv(const std::vector<int>& solution) const {
-    std::vector<int> bin_counts(actual_bins, 0);
-    std::vector<int> bin_positives(actual_bins, 0);
-    
-    // Aggregate counts per bin
-    for (size_t i = 0; i < unique_categories.size(); ++i) {
-      int bin = solution[i];
-      bin_counts[bin] += cat_count_[i];
-      bin_positives[bin] += cat_pos_[i];
-    }
-    
-    double iv = 0.0;
-    int non_empty = 0;
-    
-    // Apply Bayesian smoothing and calculate IV
-    for (int i = 0; i < actual_bins; ++i) {
-      if (bin_counts[i] > 0) {
-        ++non_empty;
-        int bin_negatives = bin_counts[i] - bin_positives[i];
-        
-        // Calculate bin proportion and apply cutoff
-        double bin_proportion = static_cast<double>(bin_counts[i]) / total_count;
-        if (bin_proportion < bin_cutoff) {
-          // Penalize small bins
-          iv -= 1000.0;
-          continue;
-        }
-        
-        // Apply Bayesian smoothing
-        double prior_weight = BAYESIAN_PRIOR_STRENGTH;
-        double overall_event_rate = static_cast<double>(total_positive) / total_count;
-        
-        double prior_pos = prior_weight * overall_event_rate;
-        double prior_neg = prior_weight * (1.0 - overall_event_rate);
-        
-        double pos_dist = static_cast<double>(bin_positives[i] + prior_pos) / 
-          (total_positive + prior_weight);
-        double neg_dist = static_cast<double>(bin_negatives + prior_neg) / 
-          (total_negative + prior_weight);
-        
-        if (pos_dist > EPSILON && neg_dist > EPSILON) {
-          double woe = std::log(pos_dist / neg_dist);
-          if (std::isfinite(woe)) {
-            iv += (pos_dist - neg_dist) * woe;
-          }
-        }
-      }
-    }
-    
-    // Penalise solutions that leave bins empty below min_bins. An empty bin
-    // is dropped from the output, and with Bayesian smoothing merging two
-    // pure bins can *raise* IV (the prior is added once instead of twice),
-    // so without this the search happily returned fewer than min_bins bins
-    // although every category could have had its own.
-    const int required = std::min(min_bins, static_cast<int>(unique_categories.size()));
-    if (non_empty < required) {
-      iv -= 1000.0 * (required - non_empty);
-    }
 
-    // Add monotonicity constraint as a penalty
-    if (!is_monotonic(solution)) {
-      iv -= 500.0; // Penalize non-monotonic solutions
+  // Exact partition of the ordered categories into exactly K contiguous
+  // groups that maximizes the empirical-Bayes IV (ob::eb_woe_iv, kEvidenceM
+  // pseudo-observations per bin, shares normalized over the K bins). With
+  // `use_cutoff`, every group must hold at least bin_cutoff of the
+  // observations. Fills f[k][i] (best value for the first i categories in k
+  // groups, k <= K) and the back-pointers.
+  void run_dp(const std::vector<int64_t>& C, const std::vector<int64_t>& P,
+              int K, bool use_cutoff,
+              std::vector<std::vector<double>>& f,
+              std::vector<std::vector<int>>& bp) const {
+    const int k_hi = K;
+    const double Tp = static_cast<double>(total_positive);
+    const double Tn = static_cast<double>(total_negative);
+    const int m = static_cast<int>(C.size()) - 1;
+    const double NEG = -std::numeric_limits<double>::infinity();
+    f.assign(k_hi + 1, std::vector<double>(m + 1, NEG));
+    bp.assign(k_hi + 1, std::vector<int>(m + 1, -1));
+    f[0][0] = 0.0;
+    auto ok = [&](int j, int i) {
+      if (!use_cutoff) return true;
+      return !(static_cast<double>(C[i] - C[j]) / total_count < bin_cutoff);
+    };
+    for (int k = 1; k <= k_hi; ++k) {
+      for (int i = k; i <= m; ++i) {
+        if ((i & 255) == 0) Rcpp::checkUserInterrupt();
+        double best = NEG;
+        int arg = -1;
+        for (int j = k - 1; j < i; ++j) {
+          if (f[k - 1][j] == NEG || !ok(j, i)) continue;
+          const double pos = static_cast<double>(P[i] - P[j]);
+          const double neg = static_cast<double>(C[i] - C[j]) - pos;
+          const double v = f[k - 1][j] +
+            ob::eb_woe_iv(pos, neg, Tp, Tn, K, kEvidenceM).iv;
+          if (v > best) { best = v; arg = j; }
+        }
+        f[k][i] = best;
+        bp[k][i] = arg;
+      }
     }
-    
-    return iv;
   }
-  
-  // Iterations without improvement of the best IV after which the search is
-  // considered converged: twice the restart window used in fit().
-  static constexpr int kConvergenceWindow = 200;
 
-  // Check monotonicity with adaptive threshold
-  bool is_monotonic(const std::vector<int>& solution) const {
-    std::vector<double> bin_rates(actual_bins, 0.0);
-    std::vector<int> bin_counts(actual_bins, 0);
-    
-    // Calculate event rates for each bin
-    for (size_t i = 0; i < unique_categories.size(); ++i) {
-      int bin = solution[i];
-      bin_counts[bin] += cat_count_[i];
-      bin_rates[bin] += cat_pos_[i];
-    }
-    
-    for (int i = 0; i < actual_bins; ++i) {
-      if (bin_counts[i] > 0) {
-        bin_rates[i] /= bin_counts[i];
-      }
-    }
-    
-    // Calculate average gap for adaptive threshold
-    double total_gap = 0.0;
-    for (int i = 1; i < actual_bins; ++i) {
-      total_gap += std::fabs(bin_rates[i] - bin_rates[i-1]);
-    }
-    double avg_gap = actual_bins > 1 ? total_gap / (actual_bins - 1) : 0.0;
-    double monotonicity_threshold = std::min(EPSILON, avg_gap * 0.01);
-    
-    // Check monotonicity with adaptive threshold
-    bool increasing = true;
-    bool decreasing = true;
-    for (int i = 1; i < actual_bins; ++i) {
-      if (bin_rates[i] < bin_rates[i - 1] - monotonicity_threshold) {
-        increasing = false;
-      }
-      if (bin_rates[i] > bin_rates[i - 1] + monotonicity_threshold) {
-        decreasing = false;
-      }
-    }
-    
-    return increasing || decreasing;
-  }
-  
-  // Enhanced neighbor generation with smarter strategy
-  std::vector<int> generate_neighbor(const std::vector<int>& solution) {
-    std::vector<int> neighbor = solution;
-    if (neighbor.size() <= 1) return neighbor;
-    
-    // Different neighbor generation strategies
-    int strategy = rand_index(10);
-    
-    if (strategy < 5) { // 50% chance for simple swap
-      // Standard random swap
-      const int n_cat = static_cast<int>(neighbor.size());
-      int idx1 = rand_index(n_cat);
-      int idx2 = rand_index(n_cat);
-      
-      while (idx2 == idx1 && neighbor.size() > 1) {
-        idx2 = rand_index(n_cat);
-      }
-      
-      std::swap(neighbor[idx1], neighbor[idx2]);
-    } else if (strategy < 8) { // 30% chance for reassigning a random category
-      // Reassign a random category to a random bin
-      int idx = rand_index(static_cast<int>(neighbor.size()));
-      neighbor[idx] = rand_index(actual_bins);
-    } else { // 20% chance for smarter event rate-based move
-      // Find a category with highest event rate difference from its bin average
-      std::vector<double> bin_rates(actual_bins, 0.0);
-      std::vector<int> bin_counts(actual_bins, 0);
-      
-      // Calculate bin event rates
-      for (size_t i = 0; i < unique_categories.size(); ++i) {
-        int bin = solution[i];
-        bin_counts[bin] += cat_count_[i];
-        bin_rates[bin] += cat_pos_[i];
-      }
-      
-      for (int i = 0; i < actual_bins; ++i) {
-        if (bin_counts[i] > 0) {
-          bin_rates[i] /= bin_counts[i];
-        }
-      }
-      
-      // Find category with highest difference from its bin rate
-      double max_diff = -1.0;
-      int max_diff_idx = -1;
-      
-      for (size_t i = 0; i < unique_categories.size(); ++i) {
-        int bin = solution[i];
-        int count = cat_count_[i];
-        int pos = cat_pos_[i];
-        
-        double cat_rate = count > 0 ? static_cast<double>(pos) / count : 0.0;
-        double diff = std::fabs(cat_rate - bin_rates[bin]);
-        
-        if (diff > max_diff) {
-          max_diff = diff;
-          max_diff_idx = static_cast<int>(i);
-        }
-      }
-      
-      if (max_diff_idx >= 0) {
-        // Move the category to a bin with closer average rate
-        int count = cat_count_[static_cast<size_t>(max_diff_idx)];
-        int pos = cat_pos_[static_cast<size_t>(max_diff_idx)];
-        double cat_rate = count > 0 ? static_cast<double>(pos) / count : 0.0;
-        
-        // Find closest bin by event rate
-        double min_rate_diff = std::numeric_limits<double>::max();
-        int best_bin = 0;
-        
-        for (int i = 0; i < actual_bins; ++i) {
-          if (i != neighbor[max_diff_idx]) {
-            double diff = std::fabs(cat_rate - bin_rates[i]);
-            if (diff < min_rate_diff) {
-              min_rate_diff = diff;
-              best_bin = i;
-            }
-          }
-        }
-        
-        neighbor[max_diff_idx] = best_bin;
-      }
-    }
-    
-    return neighbor;
-  }
-  
-  // Calculate acceptance probability with adaptive temperature
-  double calculate_acceptance_probability(double cur_iv, double neighbor_iv,
-                                          double temperature) const {
-    // Calculate scaled energy difference
-    double energy_diff = (neighbor_iv - cur_iv);
-    
-    // Standard Boltzmann acceptance probability
-    double probability = std::exp(energy_diff / temperature);
-    
-    // Add adaptive component based on iterations without improvement
-    if (iterations_without_improvement > 50) {
-      probability *= 1.5; // Increase acceptance to escape local optimum
-    }
-    
-    return probability;
-  }
-  
 public:
   OBC_SAB(const std::vector<std::string>& feature_,
                                const std::vector<int>& target_,
@@ -458,179 +263,171 @@ public:
       throw std::invalid_argument("cooling_rate must be in (0, 1]");
     }
 
-    // All random draws come from R's RNG (see rand_index()), so set.seed()
-    // makes the search reproducible. It was first seeded from
-    // std::random_device (irreproducible), then from one R draw feeding a
-    // std::mt19937 whose distributions are library-specific.
+    // The annealing parameters (initial_temperature, cooling_rate,
+    // max_iterations, convergence_threshold, adaptive_cooling) are still
+    // validated so the interface is unchanged, but fit() is now an exact DP
+    // that uses no random numbers (audit C-02).
     initialize();
   }
   
-  // Enhanced fit method with adaptive cooling and parallel tempering
+  // Exact optimisation (audit C-02, C-03, C-04 / X-12), with minimum
+  // evidence (audit Section 15.5). For a binary target and an IV that is a
+  // sum of convex per-bin terms, the optimal grouping of categories into k
+  // bins is contiguous in event-rate order (Fisher 1958; Breiman et al. 1984,
+  // Thm 4.5), so a DP over the ordered categories finds it in O(k m^2). The
+  // simulated annealing it replaces stopped after ~200 iterations without
+  // improvement (it returned its random initial assignment on 150 categories,
+  // 11-17% below the optimum while reporting converged = TRUE), subtracted
+  // 500 from any solution whose arbitrary bin *labels* were not in rate
+  // order, and re-heated to T0/2 every 100 rejections.
+  //
+  // With the *raw* rate order and the reported IV as objective, the exact DP
+  // overfitted sparse high-cardinality features: with 200 categories of
+  // about 10 rows, the categories that had no event by chance sit together
+  // at the bottom of the raw order and the DP isolated them (winner's curse;
+  // hold-out log-loss +5% to +8% in 20/20 seeds). Therefore:
+  //  - categories are ordered by their posterior-mean rate
+  //    (pos + m r0) / (n + m) under a beta prior centred on the overall rate
+  //    r0 with m = kEvidenceM pseudo-observations (Gelman et al., BDA ch. 5;
+  //    the Bayesian form of the contiguity argument with estimated rates):
+  //    large categories keep their raw-rate rank, a tiny one is ranked near
+  //    r0 unless its data say otherwise;
+  //  - for every k in [min_bins, max_bins] the DP maximizes the IV under the
+  //    same prior (ob::eb_woe_iv), so a bin earns IV in proportion to its
+  //    evidence;
+  //  - among those k partitions the one with the largest *reported* IV is
+  //    kept (smallest k on ties), as before.
+  // bin_cutoff is a hard constraint when feasible. No random numbers.
   void fit() {
-    double temperature = initial_temperature;
-    // Best IV at the last iteration where it improved by more than
-    // convergence_threshold, and that iteration.
-    double best_iv_at_improvement = best_iv;
-    int last_improvement_iter = 0;
-    
-    // Keep track of best solution found
-    std::vector<int> global_best_solution = best_solution;
-    double global_best_iv = best_iv;
-    
-    for (int iter = 0; iter < max_iterations; ++iter) {
-      // Generate and evaluate neighbor
-      std::vector<int> neighbor = generate_neighbor(current_solution);
-      double neighbor_iv = calculate_iv(neighbor);
-      
-      // Decide whether to accept the new solution
-      if (neighbor_iv > current_iv) {
-        // Always accept better solutions
-        current_solution = neighbor;
-        current_iv = neighbor_iv;
-        iterations_without_improvement = 0;
-        
-        // Update best solution if improved
-        if (current_iv > best_iv) {
-          best_solution = current_solution;
-          best_iv = current_iv;
-          
-          // Update global best
-          if (best_iv > global_best_iv) {
-            global_best_solution = best_solution;
-            global_best_iv = best_iv;
-          }
-        }
-      } else {
-        // Consider accepting worse solutions based on temperature
-        double acceptance_probability = calculate_acceptance_probability(
-          current_iv, neighbor_iv, temperature);
-        
-        if (R::unif_rand() < acceptance_probability) {
-          current_solution = neighbor;
-          current_iv = neighbor_iv;
-        }
-        
-        iterations_without_improvement++;
-      }
-      
-      // Adjust temperature based on cooling schedule
-      if (adaptive_cooling && iterations_without_improvement > 30) {
-        // Adjust cooling rate to escape local optima
-        temperature *= std::pow(cooling_rate, 0.9);
-      } else {
-        temperature *= cooling_rate;
-      }
-      
-      // Periodically restart from the best known solution to avoid getting stuck
-      if (iterations_without_improvement > 100) {
-        current_solution = best_solution;
-        current_iv = best_iv;
-        temperature = initial_temperature * 0.5; // Restart with lower temperature
-        iterations_without_improvement = 0;
-      }
-      
-      if (best_iv - best_iv_at_improvement >= convergence_threshold) {
-        best_iv_at_improvement = best_iv;
-        last_improvement_iter = iter;
-      }
-
-      // Converged once the best IV has not improved by convergence_threshold
-      // for kConvergenceWindow iterations (checked every 10). The old rule
-      // compared the best IV with its value 10 iterations earlier and was
-      // also evaluated at iter == 0, i.e. after a single neighbour: whenever
-      // that neighbour was rejected the search stopped after one iteration
-      // and returned the (partly random) initial assignment, and in general
-      // it stopped long before the restart-from-best logic above (100
-      // non-improving iterations) could ever run.
-      if (iter % 10 == 0 &&
-          iter - last_improvement_iter >= kConvergenceWindow &&
-          is_monotonic(best_solution)) {
-        converged = true;
-        iterations_run = iter + 1;
-        break;
-      }
+    const int m = static_cast<int>(unique_categories.size());
+    const double r0 = static_cast<double>(total_positive) / total_count;
+    std::vector<double> shrunk(m);
+    for (int t = 0; t < m; ++t) {
+      shrunk[t] = (cat_pos_[t] + kEvidenceM * r0) / (cat_count_[t] + kEvidenceM);
     }
-    
-    if (!converged) {
-      iterations_run = max_iterations;
-    }
-    
-    // Use global best solution
-    best_solution = global_best_solution;
-    best_iv = global_best_iv;
-    
-    // Ensure monotonicity as a final step
-    ensure_monotonicity();
-  }
-  
-  // Ensure monotonicity post-hoc if needed
-  void ensure_monotonicity() {
-    if (actual_bins <= 2 || is_monotonic(best_solution)) {
-      return; // Already monotonic or trivial case
-    }
-    
-    // Calculate event rates for each bin
-    std::vector<double> bin_rates(actual_bins, 0.0);
-    std::vector<int> bin_counts(actual_bins, 0);
-    std::vector<int> bin_index_map(actual_bins); // To keep track of original indices
-    
-    for (int i = 0; i < actual_bins; ++i) {
-      bin_index_map[i] = i;
-    }
-    
-    // Calculate bin event rates
-    for (size_t i = 0; i < unique_categories.size(); ++i) {
-      int bin = best_solution[i];
-      bin_counts[bin] += cat_count_[i];
-      bin_rates[bin] += cat_pos_[i];
-    }
-    
-    for (int i = 0; i < actual_bins; ++i) {
-      if (bin_counts[i] > 0) {
-        bin_rates[i] /= bin_counts[i];
-      }
-    }
-    
-    // Sort bins by event rate
-    std::vector<int> indices(actual_bins);
-    std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-      return bin_rates[a] < bin_rates[b];
+    // Shrunk rate; ties by ascending count, then name (the categories are
+    // already name-sorted and the sort is stable).
+    std::vector<int> ord(m);
+    std::iota(ord.begin(), ord.end(), 0);
+    std::stable_sort(ord.begin(), ord.end(), [this, &shrunk](int a, int b) {
+      if (shrunk[a] != shrunk[b]) return shrunk[a] < shrunk[b];
+      return cat_count_[a] < cat_count_[b];
     });
-    
-    // Create a remapping from old bins to new sorted bins
-    std::vector<int> bin_remap(actual_bins);
-    for (int i = 0; i < actual_bins; ++i) {
-      bin_remap[indices[i]] = i;
+    // Pre-bins: contiguous runs of the ordered categories. With more than
+    // max_n_prebins categories, the smallest run is merged into the
+    // neighbour with the closer shrunk rate (the left one on ties) until
+    // max_n_prebins remain -- the pre-binning of OBC_MBA. It bounds the DP
+    // at O(k max_n_prebins^2): on all m categories it cost O(k^2 m^2) over
+    // the k range (15 s for 20 000 categories). A heap keyed by (size,
+    // leftmost category) keeps the merge sequence identical to repeatedly
+    // scanning for the smallest run, in O(m log m).
+    const std::vector<int> start = prebin_runs(ord, r0);
+    const int g = static_cast<int>(start.size());
+    std::vector<int64_t> C(g + 1, 0), P(g + 1, 0);
+    for (int q = 0; q < g; ++q) {
+      const int end = (q + 1 < g) ? start[q + 1] : m;
+      int64_t c = 0, pp = 0;
+      for (int t = start[q]; t < end; ++t) {
+        c += cat_count_[ord[t]];
+        pp += cat_pos_[ord[t]];
+      }
+      C[q + 1] = C[q] + c;
+      P[q + 1] = P[q] + pp;
     }
-    
-    // Apply remapping to create a monotonic solution
-    std::vector<int> monotonic_solution = best_solution;
-    for (size_t i = 0; i < monotonic_solution.size(); ++i) {
-      monotonic_solution[i] = bin_remap[monotonic_solution[i]];
-    }
-    
-    // Check if new solution is better
-    double monotonic_iv = calculate_iv(monotonic_solution);
-    if (monotonic_iv > best_iv || !is_monotonic(best_solution)) {
-      best_solution = monotonic_solution;
-      best_iv = monotonic_iv;
-    } else {
-      // Try an alternative approach if the first one didn't work well
-      int max_attempts = 100;
-      for (int attempt = 0; attempt < max_attempts; ++attempt) {
-        std::vector<int> alt_solution = generate_neighbor(best_solution);
-        double alt_iv = calculate_iv(alt_solution);
-        
-        if (is_monotonic(alt_solution) && alt_iv > best_iv) {
-          best_solution = alt_solution;
-          best_iv = alt_iv;
-          break;
+
+    const int k_hi = std::max(1, std::min(actual_bins, g));
+    const int k_lo = std::max(1, std::min(min_bins, k_hi));
+    const double NEG = -std::numeric_limits<double>::infinity();
+    std::vector<std::vector<double>> f;
+    std::vector<std::vector<int>> bp;
+    int best_k = -1;
+    std::vector<int> best;
+    for (int pass = 0; pass < 2 && best_k < 0; ++pass) {
+      // Pass 0 enforces bin_cutoff; pass 1 (only when no k is feasible
+      // under it) drops the constraint rather than failing.
+      double best_rep = NEG;
+      for (int k = k_lo; k <= k_hi; ++k) {
+        run_dp(C, P, k, pass == 0, f, bp);
+        if (f[k][g] == NEG) continue;
+        std::vector<int> sol(m, 0);
+        double rep = 0.0;
+        for (int kk = k, i = g; kk >= 1; --kk) {
+          const int j = bp[kk][i];
+          const int t_end = (i < g) ? start[i] : m;
+          for (int t = start[j]; t < t_end; ++t) sol[ord[t]] = kk - 1;
+          rep += bin_iv(static_cast<int>(C[i] - C[j]),
+                        static_cast<int>(P[i] - P[j]));
+          i = j;
+        }
+        if (rep > best_rep) {
+          best_rep = rep;
+          best_k = k;
+          best = std::move(sol);
         }
       }
+      if (best_k >= 0) best_iv = best_rep;
     }
+
+    best_solution = best_k >= 0 ? best : std::vector<int>(m, 0);
+    converged = true;      // exact: no iteration budget can cut it short
+    iterations_run = 0;    // no iterative search runs
   }
-  
+
+  // Start positions (in `ord`) of the pre-bin runs; see fit().
+  std::vector<int> prebin_runs(const std::vector<int>& ord,
+                               double r0) const {
+    const int m = static_cast<int>(ord.size());
+    std::vector<int> start(m);
+    std::iota(start.begin(), start.end(), 0);
+    if (m <= max_n_prebins || m <= min_bins) return start;
+    const int target = std::max(max_n_prebins, min_bins);
+    // Runs as a doubly linked list over their leftmost position.
+    std::vector<int> prv(m), nxt(m);
+    std::vector<int64_t> cnt(m), pos(m);
+    std::vector<char> alive(m, 1);
+    for (int t = 0; t < m; ++t) {
+      prv[t] = t - 1;
+      nxt[t] = (t + 1 < m) ? t + 1 : -1;
+      cnt[t] = cat_count_[ord[t]];
+      pos[t] = cat_pos_[ord[t]];
+    }
+    auto rate = [&](int t) {
+      return (static_cast<double>(pos[t]) + kEvidenceM * r0) /
+             (static_cast<double>(cnt[t]) + kEvidenceM);
+    };
+    using Item = std::tuple<int64_t, int>;  // (size, leftmost position)
+    std::priority_queue<Item, std::vector<Item>, std::greater<Item>> heap;
+    for (int t = 0; t < m; ++t) heap.emplace(cnt[t], t);
+    int alive_n = m;
+    while (alive_n > target && !heap.empty()) {
+      const int64_t c = std::get<0>(heap.top());
+      const int i = std::get<1>(heap.top());
+      heap.pop();
+      if (!alive[i] || cnt[i] != c) continue;  // stale entry
+      int left;
+      if (prv[i] < 0) {
+        left = i;
+      } else if (nxt[i] < 0) {
+        left = prv[i];
+      } else {
+        const double s = rate(i);
+        left = (std::fabs(s - rate(prv[i])) <= std::fabs(s - rate(nxt[i])))
+                   ? prv[i] : i;
+      }
+      const int right = nxt[left];
+      cnt[left] += cnt[right];
+      pos[left] += pos[right];
+      alive[right] = 0;
+      nxt[left] = nxt[right];
+      if (nxt[right] >= 0) prv[nxt[right]] = left;
+      --alive_n;
+      heap.emplace(cnt[left], left);
+    }
+    start.clear();
+    for (int t = 0; t >= 0; t = nxt[t]) start.push_back(t);
+    return start;
+  }
+
   // Get final binning results with enhanced statistics
   List get_results() const {
     // Create bins with correct statistics
@@ -713,10 +510,10 @@ public:
       }
     }
     
-    // The search keeps the bins monotone in the raw event rate; the smoothed
-    // WoE of two pure bins of different sizes can still come out in the
-    // other order, so the bins are reported in WoE order (a stable sort,
-    // which leaves an already monotone result untouched).
+    // The bins are contiguous in the raw event rate; the smoothed WoE of two
+    // pure bins of different sizes can still come out in the other order, so
+    // the bins are reported in WoE order (a stable sort, which leaves an
+    // already monotone result untouched).
     std::vector<size_t> order(bins.size());
     std::iota(order.begin(), order.end(), 0);
     std::stable_sort(order.begin(), order.end(),
@@ -827,10 +624,7 @@ Rcpp::List optimal_binning_categorical_sab(Rcpp::IntegerVector target,
                    na_feature_count);
    }
    
-   // Every random draw of the search comes from R's RNG, so set.seed() makes
-   // this function reproducible. RNGScope reads the RNG state here and writes
-   // it back on scope exit.
-   Rcpp::RNGScope rng_scope;
+   // The fit is deterministic (exact DP): no RNG state is read or written.
 
    // Create and run the binning algorithm
    OBC_SAB binner(feature_vec, target_vec,

@@ -205,7 +205,12 @@ public:
     // 4) Loop de otimização
     double prev_iv = total_iv();
     for(int iter = 0; iter < max_iterations_; iter++) {
-      enforce_monotonicity();
+      // Audit D-03 / X-17: monotonic WoE is a requirement for a BINARY
+      // target. With K >= 3 classes the one-vs-rest WoE of a middle class is
+      // typically unimodal in x, and forcing all K curves to be monotone at
+      // once merged bins until one held most of the data. With K = 2 the two
+      // curves mirror each other, so the constraint is the binary one.
+      if(n_classes_ == 2) enforce_monotonicity();
       merge_until_max_bins();
       compute_mwoe_iv();
 
@@ -531,22 +536,39 @@ private:
   }
 
   // --------------------------------------------------------------------
-  // Identifica o par de bins adjacentes cuja soma de IV seja menor
+  // Left index of the adjacent pair whose merge loses the least IV, summed
+  // over the K one-vs-rest problems (audit D-02 / X-08). The pair used to be
+  // the one with the smallest SUM of IV, which never merges two neighbours
+  // with the same extreme WoE (nothing to lose) and swallows informative
+  // bins. The loss is the change of the REPORTED total IV (compute_mwoe_iv()
+  // is unsmoothed, so only the merged pair changes). Ties keep the leftmost
+  // pair.
   // --------------------------------------------------------------------
+  double class_iv(size_t k, double in_bin, double bin_total) const {
+    const double n_all = static_cast<double>(n_obs_);
+    const double tk = total_class_counts_[k];
+    const double class_rate = in_bin / tk;
+    const double others_rate = (bin_total - in_bin) / (n_all - tk);
+    const double woe = std::log(std::max(class_rate, EPS) / std::max(others_rate, EPS));
+    return (class_rate - others_rate) * woe;
+  }
+
   size_t find_min_iv_merge() const {
     if(bins_.size() < 2) return bins_.size();
 
-    double min_iv_sum = std::numeric_limits<double>::max();
+    double best = std::numeric_limits<double>::infinity();
     size_t best_idx = bins_.size();
 
-    for(size_t i = 0; i < bins_.size() - 1; i++) {
-      double local_sum = 0.0;
+    for(size_t i = 0; i + 1 < bins_.size(); i++) {
+      const double na = bins_[i].total_count, nb = bins_[i+1].total_count;
+      double loss = 0.0;
       for(size_t k = 0; k < n_classes_; k++) {
-        local_sum += bins_[i].ivs[k];
-        local_sum += bins_[i+1].ivs[k];
+        const double ca = bins_[i].class_counts[k];
+        const double cb = bins_[i+1].class_counts[k];
+        loss += class_iv(k, ca, na) + class_iv(k, cb, nb) - class_iv(k, ca + cb, na + nb);
       }
-      if(local_sum < min_iv_sum) {
-        min_iv_sum = local_sum;
+      if(loss < best) {
+        best = loss;
         best_idx = i;
       }
     }

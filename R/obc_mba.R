@@ -17,8 +17,10 @@
 #'   \code{min_bins}. The algorithm reduces bins until this constraint is met.
 #'   Defaults to 5.
 #' @param bin_cutoff Numeric. Minimum proportion of total observations required
-#'   for a category to remain separate. Categories below this threshold are
-#'   pre-merged with similar categories. Must be in (0, 1). Defaults to 0.05.
+#'   for a bin to remain separate. Bins below this threshold are merged with
+#'   the neighbouring bin of closest shrunk event rate (see Details). Only the
+#'   share of observations counts, not the number of events. Must be in (0, 1).
+#'   Defaults to 0.05.
 #' @param max_n_prebins Integer. Maximum number of initial bins before the
 #'   main optimization phase. Controls computational complexity. Must be >=
 #'   \code{max_bins}. Defaults to 20.
@@ -53,9 +55,12 @@
 #' \strong{Algorithm Workflow:}
 #' \enumerate{
 #'   \item Input validation and preprocessing
-#'   \item Initial bin creation (one category per bin)
-#'   \item Pre-binning limitation to \code{max_n_prebins}
-#'   \item Rare category merging (frequencies < \code{bin_cutoff})
+#'   \item Initial bin creation (one category per bin), ordered by the
+#'         empirical-Bayes shrunk event rate (see below)
+#'   \item Pre-binning limitation to \code{max_n_prebins}: the smallest bin
+#'         joins its neighbour with the closer shrunk rate
+#'   \item Rare bin merging (share of observations < \code{bin_cutoff}), with
+#'         the same rule
 #'   \item Bayesian-smoothed WoE calculation
 #'   \item Strict monotonicity enforcement with adaptive thresholds
 #'   \item IV-optimized bin merging to meet \code{max_bins} constraint
@@ -92,13 +97,29 @@
 #'
 #' \strong{Intelligent Bin Merging:}
 #'
-#' When reducing bins to meet the \code{max_bins} constraint, MBA employs an
-#' IV-loss minimization strategy:
+#' When reducing bins to meet the \code{max_bins} constraint, MBA merges the
+#' adjacent pair with the smallest IV loss
 #'
 #' \deqn{\Delta IV_{i,j} = IV_i + IV_j - IV_{merged}(i,j)}
 #'
-#' The pair with minimum \eqn{\Delta IV} is merged to preserve maximum
-#' predictive information.
+#' where, for this decision only, each bin's IV is computed under an
+#' empirical-Bayes beta prior centred on the overall event rate
+#' \eqn{r_0} with \eqn{m = 20} pseudo-observations per bin:
+#' \eqn{p_i = (n_{i,pos} + m r_0)/(N_{pos} + K m r_0)},
+#' \eqn{q_i = (n_{i,neg} + m (1 - r_0))/(N_{neg} + K m (1 - r_0))}.
+#' The reported WoE and IV keep the smoothing described above.
+#'
+#' \strong{Minimum evidence (shrunk event rates):}
+#'
+#' Categories are ordered, and rare ones are pooled, by their posterior-mean
+#' event rate \eqn{(n_{pos} + m r_0)/(n + m)} rather than the raw rate
+#' (Gelman et al., 2013, ch. 5). A category with a few rows is ranked near the
+#' overall rate unless its data say otherwise, so categories that had no event
+#' by chance are not pooled into a bin whose training rate badly understates
+#' the rate on new data (winner's curse). Large categories are ranked by their
+#' raw rate. Up to version 1.14.1, \code{bin_cutoff} also required each bin to
+#' hold that share of the \emph{events}; that undocumented rule merged large
+#' low-risk categories and every pure category, and was removed.
 #'
 #' \strong{Computational Complexity:}
 #' \itemize{
@@ -133,6 +154,10 @@
 #'
 #' Zeng, G. (2014). A necessary condition for a good binning algorithm in
 #' credit scoring. \emph{Applied Mathematical Sciences}, 8(65), 3229-3242.
+#'
+#' Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+#' Rubin, D. B. (2013). \emph{Bayesian Data Analysis} (3rd ed.), ch. 5.
+#' Chapman & Hall/CRC.
 #'
 #' @seealso
 #' \code{\link{ob_categorical_jedi}} for joint entropy-driven optimization,

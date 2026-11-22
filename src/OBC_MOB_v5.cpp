@@ -635,7 +635,20 @@ List OBC_MOB::fit() {
       bin.calculate_metrics(total_good, total_bad);
       bins.push_back(std::move(bin));
     }
-    
+
+    // Rare categories are merged here too (audit D-05 / X-16). This branch
+    // used to keep one bin per category, so with few categories (the wrapper
+    // caps max_bins at the number of categories) bin_cutoff was ignored and a
+    // category with 3 rows out of 10 000 became its own bin with an extreme,
+    // unstable WoE. handleRareCategories() stops at min_bins. Bins are put in
+    // name order first so that its tie-breaks do not depend on the hash-map
+    // (row) order.
+    std::sort(bins.begin(), bins.end(),
+              [](const CategoricalBin& a, const CategoricalBin& b) {
+                return a.categories.front() < b.categories.front();
+              });
+    handleRareCategories();
+
     // Sort bins by WoE
     std::sort(bins.begin(), bins.end(),
               [](const CategoricalBin& a, const CategoricalBin& b) {

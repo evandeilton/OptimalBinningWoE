@@ -306,6 +306,7 @@ private:
    * @param neg Count of negatives
    * @param total_pos Total count of positives
    * @param total_neg Total count of negatives
+   * @param num_bins Number of bins used by calculate_woe() for this WoE
    * @return IV contribution
    */
   double calculate_iv(
@@ -313,7 +314,8 @@ private:
       int pos,
       int neg,
       int total_pos,
-      int total_neg) const;
+      int total_neg,
+      int num_bins) const;
 
   /**
    * Format bin interval as string for output
@@ -539,7 +541,7 @@ Rcpp::List OBN_LPDB::handle_special_cases(
     // Calculate WoE and IV
     int num_bins = 1;
     bin.woe = calculate_woe(bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
-    bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg);
+    bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
 
     // Create output
     std::vector<std::string> bin_labels;
@@ -614,7 +616,7 @@ Rcpp::List OBN_LPDB::handle_special_cases(
     for (auto& bin : bins) {
       // bin.event_rate() assignment removed (calculated dynamically)
       bin.woe = calculate_woe(bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
-      bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg);
+      bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
     }
 
     // Determine monotonicity
@@ -723,7 +725,7 @@ Rcpp::List OBN_LPDB::handle_special_cases(
     for (auto& bin : bins) {
       // bin.event_rate() assignment removed (calculated dynamically)
       bin.woe = calculate_woe(bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
-      bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg);
+      bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
     }
 
     // Apply monotonicity if requested and possible
@@ -1099,7 +1101,7 @@ void OBN_LPDB::calculate_woe_iv(
 
   for (auto& bin : bins) {
     bin.woe = calculate_woe(bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
-    bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg);
+    bin.iv = calculate_iv(bin.woe, bin.count_pos, bin.count_neg, total_pos, total_neg, num_bins);
   }
 }
 
@@ -1135,10 +1137,21 @@ double OBN_LPDB::calculate_iv(
     int pos,
     int neg,
     int total_pos,
-    int total_neg) const {
+    int total_neg,
+    int num_bins) const {
 
-  double dist_pos = static_cast<double>(pos) / static_cast<double>(total_pos);
-  double dist_neg = static_cast<double>(neg) / static_cast<double>(total_neg);
+  // Audit E-06 / C-14 / B-09 (theme T3): the IV used the RAW shares
+  // pos/total_pos - neg/total_neg times the SMOOTHED WoE, so a bin could get a
+  // negative IV (e.g. a bin without events whose smoothed WoE is positive).
+  // The same smoothed shares now enter WoE and IV, IV = (p - q) * ln(p / q) >=
+  // 0; the WoE estimator is unchanged.
+  // Same shares, smoothing and floor as calculate_woe() with the same K.
+  double dist_pos = (static_cast<double>(pos) + ALPHA) /
+    (static_cast<double>(total_pos) + num_bins * ALPHA);
+  double dist_neg = (static_cast<double>(neg) + ALPHA) /
+    (static_cast<double>(total_neg) + num_bins * ALPHA);
+  if (dist_pos < EPSILON) dist_pos = EPSILON;
+  if (dist_neg < EPSILON) dist_neg = EPSILON;
 
   return (dist_pos - dist_neg) * woe;
 }
@@ -1292,7 +1305,8 @@ void OBN_LPDB::optimize_bins(
         merged_pos, merged_neg, total_pos, total_neg, static_cast<int>(bins.size()) - 1);
 
       double merged_iv = calculate_iv(
-        merged_woe, merged_pos, merged_neg, total_pos, total_neg);
+        merged_woe, merged_pos, merged_neg, total_pos, total_neg,
+        static_cast<int>(bins.size()) - 1);
 
       // Calculate IV loss
       double iv_loss = current_iv - merged_iv;
@@ -1391,6 +1405,60 @@ std::string OBN_LPDB::format_bin_interval(
   return oss.str();
 }
 
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+// +1 / -1 / 0 for a reported direction label ("increasing"/"ascending",
+// "decreasing"/"descending", anything else).
+static int monotone_direction_of(const std::string &label) {
+  if (label == "increasing" || label == "ascending") return 1;
+  if (label == "decreasing" || label == "descending") return -1;
+  return 0;
+}
+
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_lpdb(
    Rcpp::IntegerVector target,
@@ -1413,7 +1481,11 @@ Rcpp::List optimal_binning_numerical_lpdb(
        convergence_threshold, max_iterations);
 
    // Execute binning
-   return binning.fit(feature, target);
+   Rcpp::List res = binning.fit(feature, target);
+   flag_monotonic_result(res, enforce_monotonic,
+                         monotone_direction_of(Rcpp::as<std::string>(res["monotonicity"])),
+                         "ob_numerical_lpdb");
+   return res;
  } catch(std::exception &e) {
    forward_exception_to_r(e);
  } catch(...) {

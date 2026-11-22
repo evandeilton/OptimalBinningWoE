@@ -42,6 +42,11 @@
 #'     \item \code{cutpoints}: Numeric vector of upper boundaries (excluding Inf).
 #'     \item \code{total_iv}: The total Information Value of the binned variable.
 #'     \item \code{converged}: Logical indicating if the algorithm converged.
+#'     \item \code{monotonic}: Logical. TRUE when the final WoE of the regular bins is
+#'       monotone (in the reported direction when one is fixed), checked on the reported
+#'       WoE and on the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}.
+#'       When monotonicity was requested and this is FALSE (the merges stop at
+#'       \code{min_bins}), a warning is raised. Up to version 1.14.1 nothing signalled it.
 #'   }
 #'
 #' @details
@@ -64,7 +69,9 @@
 #'   If \code{is_monotonic = TRUE}, the algorithm checks for non-monotonic trends
 #'   in the Weight of Evidence (WoE). Violating adjacent bins are iteratively merged
 #'   to ensure a strictly increasing or decreasing relationship, which is a key
-#'   requirement for interpretable Logistic Regression scorecards.
+#'   requirement for interpretable Logistic Regression scorecards. Both directions
+#'   are tried and the one that reaches a monotone WoE (else the larger total IV)
+#'   is kept; up to version 1.14.1 the first two bins decided the direction.
 #'
 #'   \item \strong{Phase 4: IV-Based Optimization}
 #'   If the number of bins exceeds \code{max_bins}, the algorithm applies a
@@ -79,7 +86,10 @@
 #' Because the initialization is based on the range, extreme outliers can compress
 #' the majority of the data into a single initial bin. If your data is highly
 #' skewed or contains outliers, consider using \code{\link{ob_numerical_cm}} (Quantile/ChiMerge)
-#' or winsorizing the data before using this function.
+#' or winsorizing the data before using this function. Intervals left empty are dropped;
+#' if that leaves fewer than \code{min_bins} bins, the most populous bin holding at least
+#' two distinct values is split at the midpoint of its values until \code{min_bins} is
+#' reached (up to version 1.14.1 a single outlier could leave 2 bins).
 #'
 #' @references
 #' Dougherty, J., Kohavi, R., & Sahami, M. (1995). Supervised and unsupervised

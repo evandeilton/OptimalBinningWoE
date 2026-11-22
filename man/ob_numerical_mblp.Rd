@@ -71,6 +71,11 @@ A list containing:
     -Inf and +Inf).}
   \item{converged}{Logical flag indicating whether the algorithm converged within
     \code{max_iterations}.}
+  \item{monotonic}{Logical. TRUE when the final WoE of the regular bins is monotone
+    (in the reported direction when one is fixed), checked on the reported WoE and on
+    the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}. When
+    monotonicity was requested and this is FALSE (the merges stop at \code{min_bins}), a
+    warning is raised. Up to version 1.14.1 nothing signalled it.}
   \item{iterations}{Integer count of iterations performed during optimization.}
   \item{total_iv}{Numeric scalar representing the total Information Value
     (sum of all bin IVs).}
@@ -80,7 +85,9 @@ A list containing:
 }
 \description{
 Implements a greedy optimization algorithm for supervised discretization of
-numerical features with **guaranteed monotonicity** in Weight of Evidence (WoE).
+numerical features with **enforced monotonicity** in Weight of Evidence (WoE).
+Monotonicity is not guaranteed: the merges stop at \code{min_bins}, and the
+\code{monotonic} field (with a warning) reports when it was not reached.
 Despite the "Linear Programming" designation, this method employs an iterative
 heuristic based on quantile pre-binning, Information Value (IV) optimization,
 and monotonicity enforcement through adaptive bin merging.

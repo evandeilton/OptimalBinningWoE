@@ -324,28 +324,40 @@ private:
 
     // Limit number of pre-bins if necessary.
     //
-    // The excess bins are folded into the smallest of the retained ones (they
-    // used to be dropped, silently losing their observations). Which
-    // categories are kept as separate identities: the max_n_prebins largest.
+    // The bins are in event-rate order here, so the reduction merges, one
+    // pair at a time, the adjacent pair (in that order) whose merge leaves the
+    // highest total IV as this engine reports it (its own Bayesian-smoothed
+    // estimator, ivContribution(); the same criterion greedyMerge() uses
+    // next), until max_n_prebins bins remain. Only the merged pair's terms
+    // change, so the pair maximising contribution(merged) - contribution(a)
+    // - contribution(b) is the one-step optimum; ties go to the leftmost pair.
+    // The baseline kept the max_n_prebins largest bins and folded every other
+    // one into the smallest kept bin, whatever its event rate (audit E-04 /
+    // X-16): with 60 equal-size categories the 40 highest-rate ones became a
+    // single bin and the IV fell by 22% before greedyMerge() even started.
     if (static_cast<int>(bins.size()) > max_n_prebins) {
-      // validateInput() enforces min_bins >= 2 and max_n_prebins >= min_bins,
-      // so keep is at least 2 and the absorber index below is always in range.
-      const size_t keep = static_cast<size_t>(max_n_prebins);
-      const size_t n_bins = bins.size();
-
-      // Descending count; equal counts keep the event-rate order.
-      std::stable_sort(bins.begin(), bins.end(), [](const CategoricalBin& a, const CategoricalBin& b) {
-        return a.count > b.count;
-      });
-
-      CategoricalBin& absorber = bins[keep - 1];
-      for (size_t i = keep; i < n_bins; ++i) {
-        absorber.merge_with(bins[i]);
-      }
-
-      bins.resize(keep);
-
       std::stable_sort(bins.begin(), bins.end(), rate_then_count);
+      for (auto& bin : bins) bin.calculate_metrics(total_pos, total_neg);
+      while (static_cast<int>(bins.size()) > max_n_prebins && bins.size() > 1) {
+        size_t best = 0;
+        double best_gain = NEG_INFINITY;
+        for (size_t i = 0; i + 1 < bins.size(); ++i) {
+          CategoricalBin merged;
+          merged.count_pos = bins[i].count_pos + bins[i + 1].count_pos;
+          merged.count_neg = bins[i].count_neg + bins[i + 1].count_neg;
+          merged.update_count();
+          merged.calculate_metrics(total_pos, total_neg);
+          const double gain = ivContribution(merged) - ivContribution(bins[i]) -
+                              ivContribution(bins[i + 1]);
+          if (gain > best_gain) {
+            best_gain = gain;
+            best = i;
+          }
+        }
+        bins[best].merge_with(bins[best + 1]);
+        bins[best].calculate_metrics(total_pos, total_neg);
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best) + 1);
+      }
     }
 
     // Calculate metrics for all bins

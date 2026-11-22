@@ -70,20 +70,35 @@
 #'
 #' @details
 #' This algorithm implements the "Metric Divergence Measures" framework. Unlike
-#' standard ChiMerge which uses statistical significance, this method uses a
-#' branch-and-bound approach to minimize the loss of a specific divergence
-#' metric when merging bins.
+#' standard ChiMerge which uses statistical significance, this method merges
+#' adjacent bins greedily to minimize the loss of a specific divergence metric
+#' when merging bins.
 #'
 #' \strong{The Process:}
 #' \enumerate{
 #'   \item \strong{Pre-binning:} Generates granular bins based on quantiles.
 #'   \item \strong{Rare Merging:} Merges bins smaller than \code{bin_cutoff}.
+#'   \item \strong{Pure bins:} A bin with no events (or no non-events) stays
+#'         isolated only if its purity is significant at the 5\% level under the
+#'         overall event rate \eqn{r_0}: \eqn{(1 - r_0)^n \le 0.05} for a bin of
+#'         \eqn{n} observations without events (\eqn{r_0^n \le 0.05} without
+#'         non-events). Otherwise it is merged with the neighbour whose merge keeps
+#'         the larger total divergence, while more than \code{min_bins} bins remain.
 #'   \item \strong{Monotonicity:} If \code{is_monotonic = TRUE}, forces the WoE trend
 #'         to be monotonic by merging "violating" bins in the direction that
 #'         maximizes the total divergence.
-#'   \item \strong{Optimization:} Iteratively merges the pair of adjacent bins that
-#'         results in the smallest loss of total divergence, until \code{max_bins}
-#'         is reached.
+#'   \item \strong{Optimization:} Iteratively merges a pair of adjacent bins until
+#'         \code{max_bins} is reached. For the divergences \code{"he"},
+#'         \code{"kl"}, \code{"tr"}, \code{"klj"}, \code{"sc"} and \code{"js"}
+#'         it is the pair whose merge keeps the largest total of the selected
+#'         divergence. The distances \code{"l1"}, \code{"l2"} and \code{"ln"}
+#'         are norms of the per-bin differences \eqn{p_i - q_i}, and merging two
+#'         bins on the same side of \eqn{p = q} never lowers them (L1 and
+#'         L-infinity are unchanged, L2 grows), so the distance cannot rank those
+#'         merges: among such pairs the engine merges the one whose event rates
+#'         are least distinguishable (smallest Pearson chi-square of the
+#'         \eqn{2 \times 2}{2 x 2} table), and the selected distance decides only when
+#'         every adjacent pair lies on opposite sides of \eqn{p = q}.
 #' }
 #'
 #' @references

@@ -13,8 +13,8 @@
 #'   \item \strong{Provable approximation guarantees}: Quantile error \eqn{\epsilon \approx O(1/k)}
 #' }
 #'
-#' The method combines KLL Sketch for candidate generation with either Dynamic Programming
-#' (for small N <= 50) or greedy IV-based selection (for larger datasets), followed by
+#' The method combines KLL Sketch for candidate generation (every distinct value for
+#' N <= 50) with an exact Dynamic Programming selection of the cutpoints, followed by
 #' monotonicity enforcement via the Pool Adjacent Violators Algorithm (PAVA).
 #'
 #' @param feature Numeric vector of feature values. Missing values (NA/NaN) are
@@ -27,15 +27,17 @@
 #' @param target Integer vector of binary target values (must contain only 0 and 1).
 #'   Must have the same length as \code{feature}. Missing values are not permitted.
 #' @param min_bins Minimum number of bins (default: 3). Must be at least 2.
-#' @param max_bins Maximum number of bins (default: 5). Must be >= \code{min_bins}.
+#' @param max_bins Maximum number of bins (default: 5). Must be >= \code{min_bins}. It is a
+#'   ceiling, not a target: the number of bins is chosen by BIC in
+#'   \code{[min_bins, max_bins]} (see Details, Phase 3).
 #' @param bin_cutoff Minimum fraction of total observations per bin (default: 0.05).
 #'   Must be in (0, 1). Bins with fewer observations will be merged with neighbors.
 #' @param max_n_prebins Accepted for compatibility with the other binning functions
 #'   (default: 20; must be in [2, 1000]). The candidate grid is a fixed set of about 40
 #'   sketch quantiles.
 #' @param monotonic Logical flag to enforce WoE monotonicity (default: TRUE). Uses
-#'   PAVA (Pool Adjacent Violators Algorithm) for enforcement. Direction (increasing/
-#'   decreasing) is automatically detected from the data.
+#'   a monotone constraint inside the cutpoint optimization, then pools adjacent
+#'   violators. Direction (increasing/decreasing) is the one with the larger BIC.
 #' @param convergence_threshold Convergence threshold (default: 1e-6). Accepted for
 #'   compatibility: the selected cutpoints never exceed \code{max_bins - 1}, so no
 #'   iterative bin-count reduction is needed.
@@ -66,6 +68,11 @@
 #'   \item{cutpoints}{Numeric vector of bin split points (length = number of bins - 1).
 #'     These are the internal boundaries between bins.}
 #'   \item{converged}{Logical flag indicating whether optimization converged.}
+#'   \item{monotonic}{Logical. TRUE when the final WoE of the regular bins is monotone
+#'     (in the reported direction when one is fixed), checked on the reported WoE and on
+#'     the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}. When
+#'     monotonicity was requested and this is FALSE (the merges stop at \code{min_bins}),
+#'     a warning is raised. Up to version 1.14.1 nothing signalled it.}
 #'   \item{iterations}{Integer number of optimization iterations performed.}
 #' }
 #'
@@ -104,8 +111,24 @@
 #'
 #' \strong{Phase 3: Optimal Cutpoint Selection}
 #'
-#' For small datasets (N <= 50), Dynamic Programming maximizes total IV. For larger
-#' datasets, a greedy IV-based selection is used.
+#' An exact Dynamic Programming over the intervals between consecutive candidates
+#' (about 40 sketch quantiles; for N <= 50, the boundaries between consecutive distinct
+#' values) returns the partition with the largest total IV for each number of bins
+#' \eqn{K} between \code{min_bins} and \code{max_bins}. Among them, the one with the
+#' largest Schwarz (1978) BIC of the binned event-rate model,
+#' \deqn{\mathrm{BIC} = \sum_j \left[ n^+_j \log \hat p_j + n^-_j \log (1 - \hat p_j) \right] - \frac{K - 1}{2} \log N,}
+#' is kept (ties: fewer bins): a bin is added only when it raises the log-likelihood
+#' by more than \eqn{\log(N) / 2}, so \code{max_bins} is a ceiling, not a target.
+#' Picking the \eqn{K} with the largest training IV over-split small samples and rare
+#' events. With \code{monotonic = TRUE} the optimization is restricted to partitions
+#' with a monotone (smoothed) WoE, in both directions, and the BIC decides between
+#' them. The objective is
+#' the IV with normalized Jeffreys smoothing (0.5 per bin and class), and every bin must
+#' hold at least \code{ceiling(bin_cutoff * N)} observations inside the optimization.
+#' (Up to version 1.14.1 the larger datasets used the \code{max_bins - 1} candidates
+#' with the largest single-cut IV, which clustered next to each other.) When no number
+#' of bins in that range can give every bin that many observations, \code{min_bins} bins
+#' as large as possible are used.
 #'
 #' \strong{Phase 4: Bin Refinement}
 #'

@@ -525,13 +525,22 @@ test_that("the shared KDE keeps ldb and udt bit-identical to the double loop", {
 
   udt <- suppressWarnings(suppressMessages(
     obwoe(d, target = "target", feature = "x", algorithm = "udt")))$results$x
-  expect_equal(length(udt$bin), 3L)
-  expect_equal(sum(udt$iv), 0.6877321502, tolerance = 1e-8)
+  # Forensic audit X-13 / C-01: udt pre-bins are now grown as a best-first
+  # tree (gain recomputed in each leaf, min_leaf = ceil(bin_cutoff * n))
+  # instead of the top root gains, which all sat next to one cut and left 3
+  # bins with IV 0.6877321502, and K is chosen by BIC in [min_bins, max_bins]
+  # (audit Section 15.5). The pinned values below are the new partition
+  # (7 bins, all >= 5% of the rows); the KDE guard for ldb is unchanged.
+  expect_equal(length(udt$bin), 7L)
+  expect_equal(sum(udt$iv), 0.9614803417, tolerance = 1e-8)
 
   ldb <- suppressWarnings(suppressMessages(
     obwoe(d, target = "target", feature = "x", algorithm = "ldb")))$results$x
   expect_equal(length(ldb$bin), 2L)
-  expect_equal(sum(ldb$iv), 0.6267022265, tolerance = 1e-8)
+  # Forensic audit E-06 (C-14, B-09): ldb's IV now uses the same smoothed
+  # shares as its WoE (it multiplied the raw shares by the smoothed WoE). The
+  # partition is unchanged; the IV of the same two bins was 0.6267022265.
+  expect_equal(sum(ldb$iv), 0.6265942896, tolerance = 1e-8)
 })
 
 test_that("categorical engines represent every observation in their bins", {
