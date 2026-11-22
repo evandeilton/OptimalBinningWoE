@@ -172,10 +172,10 @@ binning
 #> 
 #> Top features by IV:
 #>   collections_after_booking: IV = 12.3276 (4 bins, jedi)
-#>   bureau_score: IV = 0.2695 (6 bins, jedi)
-#>   income_declared: IV = 0.1989 (6 bins, jedi)
-#>   bureau_alt: IV = 0.1946 (6 bins, jedi)
-#>   income: IV = 0.1941 (6 bins, jedi)
+#>   bureau_score: IV = 0.3040 (6 bins, jedi)
+#>   income: IV = 0.2340 (6 bins, jedi)
+#>   bureau_alt: IV = 0.2202 (6 bins, jedi)
+#>   income_declared: IV = 0.2142 (6 bins, jedi)
 #>   ... and 24 more
 ```
 
@@ -200,16 +200,16 @@ head(sel[, c("feature", "type", "n_bins", "total_iv", "iv_class",
              "ks", "monotonic", "quality", "selected")], 12)
 #>             feature        type n_bins total_iv iv_class      ks monotonic   quality selected
 #>              <char>      <char>  <int>    <num>   <fctr>   <num>    <lgcl>    <fctr>   <lgcl>
-#>  1:    bureau_score   numerical      6  0.26948   Medium 0.16386      TRUE Excellent     TRUE
-#>  2: income_declared   numerical      6  0.19894   Medium 0.16228      TRUE Excellent     TRUE
-#>  3:      bureau_alt   numerical      6  0.19459   Medium 0.13558      TRUE Excellent     TRUE
-#>  4:          income   numerical      6  0.19410   Medium 0.16319      TRUE Excellent     TRUE
+#>  1:    bureau_score   numerical      6  0.30397   Strong 0.22454      TRUE Excellent     TRUE
+#>  2:          income   numerical      6  0.23397   Medium 0.20638      TRUE Excellent     TRUE
+#>  3:      bureau_alt   numerical      6  0.22018   Medium 0.19191      TRUE Excellent     TRUE
+#>  4: income_declared   numerical      6  0.21424   Medium 0.19096      TRUE Excellent     TRUE
 #>  5:      occupation categorical      6  0.08244     Weak 0.10269      TRUE      Fair     TRUE
-#>  6:    inquiries_6m   numerical      4  0.04894     Weak 0.09378      TRUE      Fair     TRUE
-#>  7:     utilisation   numerical      6  0.04827     Weak 0.09009      TRUE      Fair     TRUE
-#>  8:             ltv   numerical      6  0.04740     Weak 0.07193      TRUE      Fair     TRUE
-#>  9:      delinq_12m   numerical      2  0.04733     Weak 0.10143      TRUE      Fair     TRUE
-#> 10:             age   numerical      6  0.04596     Weak 0.07903      TRUE      Fair     TRUE
+#>  6:             age   numerical      6  0.05159     Weak 0.09450      TRUE      Fair     TRUE
+#>  7:    inquiries_6m   numerical      4  0.04894     Weak 0.09378      TRUE      Fair     TRUE
+#>  8:     utilisation   numerical      6  0.04856     Weak 0.09316      TRUE      Fair     TRUE
+#>  9:             ltv   numerical      6  0.04844     Weak 0.07606      TRUE      Fair     TRUE
+#> 10:      delinq_12m   numerical      2  0.04733     Weak 0.10143      TRUE      Fair     TRUE
 #> 11:   tenure_months   numerical      5  0.03185     Weak 0.07106      TRUE      Fair     TRUE
 #> 12:         housing categorical      4  0.02908     Weak 0.08201      TRUE      Fair     TRUE
 ```
@@ -235,7 +235,7 @@ sel[sel$reason != "OK" & sel$total_iv > 0.05,
     c("feature", "total_iv", "iv_class", "n_degenerate_bins", "reason")]
 #>                      feature total_iv   iv_class n_degenerate_bins                       reason
 #>                       <char>    <num>     <fctr>             <int>                       <char>
-#> 1: collections_after_booking    3.829 Suspicious                 1 IV_SUSPICIOUS;DEGENERATE_BIN
+#> 1: collections_after_booking    7.459 Suspicious                 1 IV_SUSPICIOUS;DEGENERATE_BIN
 ```
 
 `collections_after_booking` is the leak, and it is not subtle: an IV of
@@ -264,8 +264,8 @@ support a stable estimate, and `min_bin_pct` says so.
 
 shortlist <- sel$feature[sel$selected]
 shortlist
-#>  [1] "bureau_score"    "income_declared" "bureau_alt"      "income"          "occupation"     
-#>  [6] "inquiries_6m"    "utilisation"     "ltv"             "delinq_12m"      "age"            
+#>  [1] "bureau_score"    "income"          "bureau_alt"      "income_declared" "occupation"     
+#>  [6] "age"             "inquiries_6m"    "utilisation"     "ltv"             "delinq_12m"     
 #> [11] "tenure_months"   "housing"         "channel"
 ```
 
@@ -280,14 +280,14 @@ behind its WoE.
 evidence <- obwoe_select(binning, detail = "full")
 evidence[evidence$feature == "bureau_score",
          c("bin", "count", "pos", "pos_rate", "woe", "iv", "lift")]
-#>                        bin count   pos pos_rate      woe        iv   lift
-#>                     <char> <num> <num>    <num>    <num>     <num>  <num>
-#> 1:       (-Inf;533.000000]  2041   762  0.37335  0.92047 0.1100126 1.9465
-#> 2: (533.000000;561.000000]  1447   415  0.28680  0.52738 0.0233841 1.4953
-#> 3: (561.000000;696.000000] 11416  2159  0.18912 -0.01738 0.0001715 0.9860
-#> 4: (696.000000;723.000000]  1807   235  0.13005 -0.46216 0.0166339 0.6780
-#> 5: (723.000000;751.000000]  1377   125  0.09078 -0.86583 0.0388497 0.4733
-#> 6:       (751.000000;+Inf]  1912   140  0.07322 -1.09987 0.0804331 0.3818
+#>                        bin count   pos pos_rate     woe       iv   lift
+#>                     <char> <num> <num>    <num>   <num>    <num>  <num>
+#> 1:       (-Inf;533.000000]  2041   762  0.37335  0.9205 0.110013 1.9465
+#> 2: (533.000000;588.000000]  3378   908  0.26880  0.4376 0.036715 1.4014
+#> 3: (588.000000;615.000000]  2208   489  0.22147  0.1812 0.003829 1.1547
+#> 4: (615.000000;669.000000]  5045   869  0.17225 -0.1314 0.004181 0.8981
+#> 5: (669.000000;723.000000]  4039   543  0.13444 -0.4239 0.031678 0.7009
+#> 6:       (723.000000;+Inf]  3289   265  0.08057 -0.9962 0.117557 0.4201
 ```
 
 The event rate falls monotonically across the bureau score, which is the
@@ -309,12 +309,12 @@ woe_dev <- obwoe_apply(dev, binning, keep_original = FALSE)
 pairs <- obcorr(woe_dev[, paste0(shortlist, "_woe")], method = "pearson")
 
 head(pairs[order(-abs(pairs$pearson)), ], 5)
-#>                      x               y  pearson
-#> 14 income_declared_woe      income_woe  0.82444
-#> 2     bureau_score_woe  bureau_alt_woe  0.76716
-#> 12    bureau_score_woe     channel_woe -0.01681
-#> 44      occupation_woe utilisation_woe  0.01511
-#> 38          income_woe  delinq_12m_woe  0.01429
+#>                      x                   y  pearson
+#> 14          income_woe income_declared_woe  0.92086
+#> 2     bureau_score_woe      bureau_alt_woe  0.81588
+#> 45      occupation_woe     utilisation_woe  0.01498
+#> 12    bureau_score_woe         channel_woe -0.01398
+#> 39 income_declared_woe      delinq_12m_woe  0.01317
 ```
 
 Pruning is a greedy pass: for every pair above the cutoff, drop
@@ -335,7 +335,7 @@ dropped <- prune(pairs, ranking, cutoff = 0.70)
 
 final_vars <- setdiff(shortlist, sub("_woe$", "", dropped))
 dropped
-#> [1] "bureau_alt_woe" "income_woe"
+#> [1] "bureau_alt_woe"      "income_declared_woe"
 c(shortlist = length(shortlist), dropped = length(dropped),
   final = length(final_vars))
 #> shortlist   dropped     final 
@@ -370,7 +370,7 @@ rec <- recipe(form, data = dev) |>
 
 prepped <- prep(rec, training = dev)
 prepped
-#> Optimal Binning WoE [trained, 11 features, total IV=0.8165, algorithm='jedi']
+#> Optimal Binning WoE [trained, 11 features, total IV=0.9492, algorithm='jedi']
 ```
 
 [`tidy()`](https://generics.r-lib.org/reference/tidy.html) exposes what
@@ -381,16 +381,16 @@ the step learned — the artefact to archive alongside the model.
 rules <- tidy(prepped, number = 1)
 head(rules, 8)
 #> # A tibble: 8 × 5
-#>   terms           bin                           woe      iv id         
-#>   <chr>           <chr>                       <dbl>   <dbl> <chr>      
-#> 1 bureau_score    (-Inf;506.000000]          1.05   0.0808  obwoe_bpVzn
-#> 2 bureau_score    (506.000000;533.000000]    0.757  0.0321  obwoe_bpVzn
-#> 3 bureau_score    (533.000000;561.000000]    0.527  0.0234  obwoe_bpVzn
-#> 4 bureau_score    (561.000000;723.000000]   -0.0709 0.00325 obwoe_bpVzn
-#> 5 bureau_score    (723.000000;778.000000]   -0.840  0.0596  obwoe_bpVzn
-#> 6 bureau_score    (778.000000;+Inf]         -1.41   0.0664  obwoe_bpVzn
-#> 7 income_declared (-Inf;1154.000000]         1.06   0.0451  obwoe_bpVzn
-#> 8 income_declared (1154.000000;1528.000000]  0.585  0.0233  obwoe_bpVzn
+#>   terms        bin                          woe      iv id         
+#>   <chr>        <chr>                      <dbl>   <dbl> <chr>      
+#> 1 bureau_score (-Inf;506.000000]          1.05  0.0808  obwoe_bpVzn
+#> 2 bureau_score (506.000000;561.000000]    0.619 0.0537  obwoe_bpVzn
+#> 3 bureau_score (561.000000;615.000000]    0.271 0.0164  obwoe_bpVzn
+#> 4 bureau_score (615.000000;669.000000]   -0.131 0.00418 obwoe_bpVzn
+#> 5 bureau_score (669.000000;723.000000]   -0.424 0.0317  obwoe_bpVzn
+#> 6 bureau_score (723.000000;+Inf]         -0.996 0.118   obwoe_bpVzn
+#> 7 income       (-Inf;1181.000000]         1.08  0.0460  obwoe_bpVzn
+#> 8 income       (1181.000000;2264.000000]  0.484 0.0578  obwoe_bpVzn
 nrow(rules)
 #> [1] 54
 ```
@@ -406,12 +406,12 @@ oot_woe   <- bake(prepped, new_data = oot)
 
 head(train_woe, 3)
 #> # A tibble: 3 × 12
-#>   bureau_score income_declared occupation inquiries_6m utilisation    ltv delinq_12m     age
-#>          <dbl>           <dbl>      <dbl>        <dbl>       <dbl>  <dbl>      <dbl>   <dbl>
-#> 1       1.05            1.06      -0.0442      -0.294      -0.202  0.0132      0.276 -0.0641
-#> 2      -0.0709         -0.0765    -0.0248      -0.0570      0.0330 0.0132     -0.150 -0.0641
-#> 3      -0.0709          0.512     -0.0442      -0.0570      0.278  0.0132     -0.150  0.207 
-#> # ℹ 4 more variables: tenure_months <dbl>, housing <dbl>, channel <dbl>, default_f <fct>
+#>   bureau_score income occupation     age inquiries_6m utilisation     ltv delinq_12m tenure_months
+#>          <dbl>  <dbl>      <dbl>   <dbl>        <dbl>       <dbl>   <dbl>      <dbl>         <dbl>
+#> 1        1.05   1.08     -0.0442 -0.0789      -0.294       -0.202 -0.0146      0.276        0.0159
+#> 2        0.271 -0.165    -0.0248 -0.0789      -0.0570       0.140 -0.0146     -0.150        0.0159
+#> 3        0.271  0.484    -0.0442  0.207       -0.0570       0.278 -0.0146     -0.150        0.0159
+#> # ℹ 3 more variables: housing <dbl>, channel <dbl>, default_f <fct>
 ```
 
 ## The model
@@ -424,19 +424,19 @@ what remains is weighting.
 
 fit <- glm(default_f ~ ., data = train_woe, family = binomial())
 round(coef(summary(fit)), 4)
-#>                 Estimate Std. Error z value Pr(>|z|)
-#> (Intercept)       -1.443     0.0200 -72.308        0
-#> bureau_score       1.105     0.0394  28.051        0
-#> income_declared    1.107     0.0492  22.513        0
-#> occupation         1.099     0.0672  16.360        0
-#> inquiries_6m       1.140     0.0834  13.673        0
-#> utilisation        1.107     0.0863  12.821        0
-#> ltv                1.184     0.0903  13.117        0
-#> delinq_12m         1.140     0.0848  13.444        0
-#> age                1.108     0.0928  11.939        0
-#> tenure_months      1.189     0.2671   4.451        0
-#> housing            1.180     0.1124  10.492        0
-#> channel            1.230     0.1148  10.717        0
+#>               Estimate Std. Error z value Pr(>|z|)
+#> (Intercept)     -1.443     0.0203 -70.995        0
+#> bureau_score     1.121     0.0367  30.538        0
+#> income           1.112     0.0414  26.882        0
+#> occupation       1.126     0.0682  16.510        0
+#> age              1.128     0.0867  13.017        0
+#> inquiries_6m     1.169     0.0846  13.812        0
+#> utilisation      1.104     0.0851  12.969        0
+#> ltv              1.236     0.0901  13.712        0
+#> delinq_12m       1.166     0.0861  13.547        0
+#> tenure_months    1.144     0.2694   4.247        0
+#> housing          1.212     0.1140  10.630        0
+#> channel          1.266     0.1165  10.863        0
 ```
 
 The sign check is the first thing to look at. A WoE of $`+1`$ means one
@@ -486,7 +486,7 @@ oot$score <- to_score(predict(fit, newdata = oot_woe, type = "link"))
 
 summary(dev$score)
 #>    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#>     415     517     537     537     556     650
+#>     425     516     539     538     560     654
 ```
 
 Because the model is linear in WoE, the points decompose additively per
@@ -502,14 +502,14 @@ lead_var
 #> [1] "bureau_score"
 per_bin
 #> # A tibble: 6 × 3
-#>   bin                         woe points
-#>   <chr>                     <dbl>  <dbl>
-#> 1 (-Inf;506.000000]        1.05      -33
-#> 2 (506.000000;533.000000]  0.757     -24
-#> 3 (533.000000;561.000000]  0.527     -17
-#> 4 (561.000000;723.000000] -0.0709      2
-#> 5 (723.000000;778.000000] -0.840      27
-#> 6 (778.000000;+Inf]       -1.41       45
+#>   bin                        woe points
+#>   <chr>                    <dbl>  <dbl>
+#> 1 (-Inf;506.000000]        1.05     -34
+#> 2 (506.000000;561.000000]  0.619    -20
+#> 3 (561.000000;615.000000]  0.271     -9
+#> 4 (615.000000;669.000000] -0.131      4
+#> 5 (669.000000;723.000000] -0.424     14
+#> 6 (723.000000;+Inf]       -0.996     32
 ```
 
 ## Validation
@@ -525,24 +525,24 @@ gains_oot
 #> ================================================== 
 #> 
 #> Observations: 8000  |  Bins: 10
-#> Total IV: 0.8580
+#> Total IV: 0.9814
 #> 
 #> Performance Metrics:
-#>   KS Statistic: 36.19%
-#>   Gini Coefficient: 48.78%
-#>   AUC: 0.7439
+#>   KS Statistic: 38.64%
+#>   Gini Coefficient: 51.90%
+#>   AUC: 0.7595
 #> 
 #>  bin count pos_rate     woe     iv cum_pos_pct    ks lift
-#>  G01   823   51.03%  1.5085 0.3291       28.0% 21.8% 2.72
-#>  G02   781   33.16%  0.7663 0.0709       45.3% 31.1% 1.77
-#>  G03   878   23.58%  0.2911 0.0102       59.1% 34.6% 1.26
-#>  G04   748   21.39%  0.1656 0.0027       69.8% 36.2% 1.14
-#>  G05   889   16.76% -0.1355 0.0020       79.7% 34.7% 0.89
-#>  G06   773   12.42% -0.4862 0.0195       86.1% 30.7% 0.66
-#>  G07   715    9.37% -0.8020 0.0441       90.6% 25.2% 0.50
-#>  G08   818    8.92% -0.8558 0.0564       95.5% 18.6% 0.48
-#>  G09   819    5.74% -1.3317 0.1164       98.6%  9.9% 0.31
-#>  G10   756    2.78% -2.0882 0.2068      100.0%  0.0% 0.15
+#>  G01   820   53.17%  1.5942 0.3695       29.1% 23.2% 2.84
+#>  G02   815   34.48%  0.8251 0.0869       47.8% 33.7% 1.84
+#>  G03   816   26.10%  0.4265 0.0210       62.0% 38.6% 1.39
+#>  G04   844   18.72% -0.0011 0.0000       72.6% 38.6% 1.00
+#>  G05   751   15.31% -0.2431 0.0051       80.3% 36.5% 0.82
+#>  G06   809   12.11% -0.5145 0.0226       86.8% 32.1% 0.65
+#>  G07   802    9.85% -0.7468 0.0437       92.1% 26.3% 0.53
+#>  G08   785    7.52% -1.0429 0.0754       96.0% 19.0% 0.40
+#>  G09   760    5.39% -1.3971 0.1163       98.7% 10.7% 0.29
+#>  G10   798    2.38% -2.2464 0.2407      100.0%  0.0% 0.13
 ```
 
 Three things to check, in order. The event rate must fall monotonically
@@ -562,8 +562,8 @@ data.frame(
   auc    = round(c(gains_dev$metrics$auc, gains_oot$metrics$auc), 4)
 )
 #>        sample    ks  gini    auc
-#> 1 development 36.38 49.04 0.7452
-#> 2 out-of-time 36.19 48.78 0.7439
+#> 1 development 39.94 53.29 0.7664
+#> 2 out-of-time 38.64 51.90 0.7595
 ```
 
 A drop of more than a few points from development to out-of-time is the
@@ -630,19 +630,19 @@ psi_table <- data.frame(
 psi_table <- psi_table[order(-psi_table$psi), ]
 row.names(psi_table) <- NULL
 psi_table
-#>           variable    psi
-#> 1              ltv 0.0022
-#> 2     bureau_score 0.0017
-#> 3      utilisation 0.0014
-#> 4            SCORE 0.0012
-#> 5  income_declared 0.0010
-#> 6              age 0.0008
-#> 7          housing 0.0007
-#> 8       occupation 0.0006
-#> 9     inquiries_6m 0.0004
-#> 10      delinq_12m 0.0004
-#> 11   tenure_months 0.0002
-#> 12         channel 0.0002
+#>         variable    psi
+#> 1          SCORE 0.0026
+#> 2            ltv 0.0021
+#> 3   bureau_score 0.0015
+#> 4    utilisation 0.0011
+#> 5        housing 0.0007
+#> 6     occupation 0.0006
+#> 7         income 0.0005
+#> 8            age 0.0005
+#> 9   inquiries_6m 0.0004
+#> 10    delinq_12m 0.0004
+#> 11 tenure_months 0.0002
+#> 12       channel 0.0002
 ```
 
 Comparing bin shares rather than raw quantiles is deliberate: the bins
@@ -678,21 +678,21 @@ sql <- obwoe_sql(
 writeLines(head(strsplit(as.character(sql), "\n")[[1]], 28))
 #> -- ---------------------------------------------------------------
 #> -- Weight of Evidence transformation
-#> -- Generated by OptimalBinningWoE 1.14.1
+#> -- Generated by OptimalBinningWoE 1.15.0
 #> -- Algorithm(s): jedi
 #> -- Dialect: postgres
 #> -- Interval convention: (lower, upper]  -- upper bound inclusive
 #> -- Variables: 11
 #> --
 #> -- Variable                 Type          Bins        IV
-#> --   bureau_score           numerical        6   0.26948
-#> --   income_declared        numerical        6   0.19894
+#> --   bureau_score           numerical        6   0.30397
+#> --   income                 numerical        6   0.23397
 #> --   occupation             categorical      6   0.08242
+#> --   age                    numerical        6   0.05159
 #> --   inquiries_6m           numerical        4   0.04894
-#> --   utilisation            numerical        6   0.04827
-#> --   ltv                    numerical        6   0.04740
+#> --   utilisation            numerical        6   0.04856
+#> --   ltv                    numerical        6   0.04844
 #> --   delinq_12m             numerical        2   0.04733
-#> --   age                    numerical        6   0.04596
 #> --   tenure_months          numerical        5   0.03185
 #> --   housing                categorical      4   0.02907
 #> --   channel                categorical      4   0.02778
@@ -730,19 +730,19 @@ data.frame(
   beta     = round(as.numeric(coef(fit)), 6),
   row.names = NULL
 )
-#>           variable   beta
-#> 1      (Intercept) -1.443
-#> 2     bureau_score  1.105
-#> 3  income_declared  1.107
-#> 4       occupation  1.099
-#> 5     inquiries_6m  1.140
-#> 6      utilisation  1.107
-#> 7              ltv  1.184
-#> 8       delinq_12m  1.140
-#> 9              age  1.108
-#> 10   tenure_months  1.189
-#> 11         housing  1.180
-#> 12         channel  1.230
+#>         variable   beta
+#> 1    (Intercept) -1.443
+#> 2   bureau_score  1.121
+#> 3         income  1.112
+#> 4     occupation  1.126
+#> 5            age  1.128
+#> 6   inquiries_6m  1.169
+#> 7    utilisation  1.104
+#> 8            ltv  1.236
+#> 9     delinq_12m  1.166
+#> 10 tenure_months  1.144
+#> 11       housing  1.212
+#> 12       channel  1.265
 ```
 
 ### To R
@@ -870,15 +870,15 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] recipes_1.4.0            dplyr_1.2.1              OptimalBinningWoE_1.14.1
+#> [1] recipes_1.4.0            dplyr_1.2.1              OptimalBinningWoE_1.15.0
 #> 
 #> loaded via a namespace (and not attached):
 #>  [1] xfun_0.62           bslib_0.12.0        lattice_0.23-1      vctrs_0.7.3        
 #>  [5] tools_4.6.2         generics_0.1.4      parallel_4.6.2      tibble_3.3.1       
 #>  [9] pkgconfig_2.0.3     Matrix_1.7-6        data.table_1.18.6.1 RColorBrewer_1.1-3 
 #> [13] desc_1.4.3          lifecycle_1.0.5     compiler_4.6.2      farver_2.1.2       
-#> [17] textshaping_1.0.5   codetools_0.2-20    DiceDesign_1.10     htmltools_0.5.9    
-#> [21] class_7.3-24        sass_0.4.10         yaml_2.3.12         prodlim_2026.03.11 
+#> [17] textshaping_1.1.0   codetools_0.2-20    DiceDesign_1.10     htmltools_0.5.9    
+#> [21] class_7.3-24        sass_0.5.0          yaml_2.3.12         prodlim_2026.03.11 
 #> [25] pillar_1.11.1       pkgdown_2.2.1       jquerylib_0.1.4     MASS_7.3-66        
 #> [29] cachem_1.1.0        gower_1.0.2         rpart_4.1.27        parallelly_1.50.0  
 #> [33] lava_1.11           dials_1.4.5         tidyselect_1.2.1    digest_0.6.39      
@@ -889,5 +889,5 @@ sessionInfo()
 #> [53] globals_0.20.0      otel_0.3.0          nnet_7.3-21         timeDate_4052.112  
 #> [57] ragg_1.5.2          evaluate_1.0.5      knitr_1.52          hardhat_1.4.3      
 #> [61] rlang_1.3.0         Rcpp_1.1.2          glue_1.8.1          ipred_0.9-16       
-#> [65] jsonlite_2.0.0      R6_2.6.1            systemfonts_1.3.3   fs_2.1.0
+#> [65] jsonlite_2.0.0      R6_2.6.1            systemfonts_1.3.4   fs_2.1.0
 ```

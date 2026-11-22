@@ -344,7 +344,7 @@ sel <- obwoe_select(model)
 sel[, c("feature", "total_iv", "iv_class", "ks", "monotonic", "selected", "reason")]
 #>    feature    total_iv     iv_class         ks monotonic selected       reason
 #>     <char>       <num>       <fctr>      <num>    <lgcl>   <lgcl>       <char>
-#> 1:     age 0.229744253       Medium 0.13648979      TRUE     TRUE           OK
+#> 1:     age 0.227899270       Medium 0.18635558      TRUE     TRUE           OK
 #> 2:   noise 0.005735885 Unpredictive 0.01852158      TRUE    FALSE IV_BELOW_MIN
 #> 3:  income 0.002517288 Unpredictive 0.02450547      TRUE    FALSE IV_BELOW_MIN
 #> 4:  region 0.001436911 Unpredictive 0.01814545      TRUE    FALSE IV_BELOW_MIN
@@ -352,14 +352,14 @@ sel[, c("feature", "total_iv", "iv_class", "ks", "monotonic", "selected", "reaso
 # Full gains detail for every optimised bin
 det <- obwoe_select(model, detail = "full")
 head(det[, c("feature", "bin", "count", "pos_rate", "woe", "iv", "selected")])
-#>    feature                   bin count  pos_rate         woe           iv
-#>     <char>                <char> <num>     <num>       <num>        <num>
-#> 1:     age      (-Inf;20.248542]   100 0.0600000 -1.52620628 0.0726263739
-#> 2:     age (20.248542;24.835653]   100 0.1300000 -0.67562973 0.0186743347
-#> 3:     age (24.835653;29.663522]   200 0.1350000 -0.63212570 0.0331425501
-#> 4:     age (29.663522;52.019257]  1300 0.2246154 -0.01364062 0.0001204926
-#> 5:     age (52.019257;58.908730]   200 0.3750000  0.71450341 0.0602643766
-#> 6:     age      (58.908730;+Inf]   100 0.4100000  0.86136365 0.0449161254
+#>    feature                   bin count  pos_rate        woe          iv
+#>     <char>                <char> <num>     <num>      <num>       <num>
+#> 1:     age      (-Inf;29.663522]   400 0.1150000 -0.8153265 0.104081662
+#> 2:     age (29.663522;31.961509]   100 0.1800000 -0.2910185 0.003897472
+#> 3:     age (31.961509;35.305335]   200 0.2000000 -0.1609653 0.002476799
+#> 4:     age (35.305335;42.561023]   500 0.2060000 -0.1238783 0.003706372
+#> 5:     age (42.561023;52.019257]   500 0.2620000  0.1897297 0.009461022
+#> 6:     age      (52.019257;+Inf]   300 0.3866667  0.7639835 0.104275943
 #>    selected
 #>      <lgcl>
 #> 1:     TRUE

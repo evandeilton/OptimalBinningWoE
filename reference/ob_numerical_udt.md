@@ -50,7 +50,8 @@ ob_numerical_udt(
 - max_bins:
 
   Maximum number of bins (default: 5). Must be greater than or equal to
-  `min_bins`.
+  `min_bins`. It is a ceiling, not a target: the number of bins is
+  chosen by BIC in `[min_bins, max_bins]` (see Details, Phase 4).
 
 - bin_cutoff:
 
@@ -59,11 +60,11 @@ ob_numerical_udt(
 
 - max_n_prebins:
 
-  Maximum number of pre-bins (default: 20). The algorithm will select
-  the top `max_n_prebins` cutpoints with highest Information Gain.
+  Maximum number of pre-bins (default: 20). The algorithm grows a tree
+  of at most `max_n_prebins` cutpoints chosen by Information Gain.
   **Performance Note**: High values (\>50) may significantly slow down
-  processing for large datasets due to the O(N^2) nature of cutpoint
-  selection.
+  processing for large datasets: every tree split rescans its leaf (O(N)
+  per split).
 
 - laplace_smoothing:
 
@@ -145,6 +146,15 @@ A list containing:
 
   Logical convergence flag.
 
+- monotonic:
+
+  Logical. TRUE when the final WoE of the regular bins is monotone (in
+  the reported direction when one is fixed), checked on the reported WoE
+  and on the reference WoE `log((count_pos + 0.5) / (count_neg + 0.5))`.
+  When monotonicity was requested and this is FALSE (the merges stop at
+  `min_bins`), a warning is raised. Up to version 1.14.1 nothing
+  signalled it.
+
 - iterations:
 
   Integer iteration count.
@@ -162,9 +172,17 @@ sorted unique values) using Information Gain (IG): \$\$IG(S, c) = H(S) -
 \left( \frac{\|S_L\|}{\|S\|} H(S_L) + \frac{\|S_R\|}{\|S\|} H(S_R)
 \right)\$\$
 
-The top `max_n_prebins` cutpoints with the highest IG are selected to
-form the initial bins. This ensures that the starting bins capture the
-most discriminative regions of the feature space.
+Pre-bins are grown as a best-first recursive tree: the IG of every
+cutpoint is recomputed inside each current leaf, the leaf whose best
+split removes the most entropy (\\\|S\| \cdot IG\\) is split next, and
+both children must hold at least
+`max(ceiling(bin_cutoff * N), min(7, N %/% min_bins))` observations (7
+is the usual minimum leaf size of CART, `rpart`'s `minbucket`; it only
+binds for small samples). Splitting stops at `max_n_prebins` cutpoints
+or when no split has a positive gain (if fewer than `min_bins` leaves
+exist at that point, the largest leaf is split at its median). Up to
+version 1.14.1 the `max_n_prebins` cutpoints with the highest IG at the
+root were used, and they piled up next to a single change point.
 
 **Phase 2: Rare Bin Merging**
 
@@ -184,16 +202,20 @@ correlation between feature and target.
 **Phase 4: Constraint Satisfaction**
 
 If \\k \> \text{max\\bins}\\, bins are merged minimizing IV loss until
-the constraint is met.
+the constraint is met. The merges then continue down to `min_bins`, and
+the partition with the largest Schwarz (1978) BIC of the binned
+event-rate model, \$\$\mathrm{BIC} = \sum_j \left\[ n^+\_j \log \hat
+p_j + n^-\_j \log (1 - \hat p_j) \right\] - \frac{K - 1}{2} \log N,\$\$
+is kept (ties: fewer bins). A bin is kept only when it raises the
+log-likelihood by more than \\\log(N) / 2\\, so `max_bins` is a ceiling,
+not a target; always returning `max_bins` bins over-split small samples
+and rare events.
 
 **Warning on Complexity**
 
 The pre-binning phase evaluates Information Gain for *all* unique
-values. For continuous features with many unique values (e.g., \\N \>
-10,000\\), this step can be computationally intensive (\\O(N^2)\\).
-Consider rounding or using
-[`ob_numerical_sketch`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_sketch.md)
-for very large datasets.
+values, once per tree split: \\O(N \log N + N \cdot P)\\ for \\P\\
+pre-bins.
 
 ## References
 

@@ -329,16 +329,16 @@ cat("\nPerformance comparison (high cardinality):\n")
 #> 
 #> Performance comparison (high cardinality):
 cat("  GMB time:", round(time_gmb[3], 3), "seconds\n")
-#>   GMB time: 0.001 seconds
+#>   GMB time: 0 seconds
 cat("  DP time:", round(time_dp[3], 3), "seconds\n")
 #>   DP time: 0 seconds
 cat("  Speedup:", round(time_dp[3] / time_gmb[3], 1), "x\n")
-#>   Speedup: 0 x
+#>   Speedup: NaN x
 cat("\n  GMB IV:", round(result_gmb_hc$total_iv, 4), "\n")
 #> 
 #>   GMB IV: 0.0431 
 cat("  DP IV:", round(result_dp_hc$total_iv, 4), "\n")
-#>   DP IV: 0.0579 
+#>   DP IV: 0.0555 
 
 # Example 3: Convergence behavior
 set.seed(789)

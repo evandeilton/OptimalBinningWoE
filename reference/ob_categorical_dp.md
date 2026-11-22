@@ -272,13 +272,13 @@ print(data.frame(
   EventRate = round(result_dp$event_rate, 3)
 ))
 #>            Bin    WoE     IV Count EventRate
-#> 1 PhD%;%Master -1.080 0.1538   198     0.045
-#> 2     Bachelor -0.372 0.0314   261     0.088
-#> 3    Associate -0.167 0.0064   245     0.106
-#> 4  High School  0.696 0.1846   296     0.220
+#> 1 PhD%;%Master -1.043 0.1455   198     0.045
+#> 2     Bachelor -0.367 0.0306   261     0.088
+#> 3    Associate -0.164 0.0062   245     0.106
+#> 4  High School  0.688 0.1793   296     0.220
 
 cat("Total IV:", round(result_dp$total_iv, 4), "\n")
-#> Total IV: 0.3761 
+#> Total IV: 0.3616 
 cat("Converged:", result_dp$converged, "\n")
 #> Converged: TRUE 
 
@@ -301,7 +301,7 @@ cat("\nWith monotonicity:\n")
 cat("  Bins:", length(result_dp_asc$bin), "\n")
 #>   Bins: 3 
 cat("  Total IV:", round(result_dp_asc$total_iv, 4), "\n")
-#>   Total IV: 0.3713 
+#>   Total IV: 0.3597 
 
 cat("\nWithout monotonicity:\n")
 #> 
@@ -309,7 +309,7 @@ cat("\nWithout monotonicity:\n")
 cat("  Bins:", length(result_dp_none$bin), "\n")
 #>   Bins: 3 
 cat("  Total IV:", round(result_dp_none$total_iv, 4), "\n")
-#>   Total IV: 0.3713 
+#>   Total IV: 0.3597 
 
 # Example 3: High cardinality with pre-binning
 set.seed(456)

@@ -117,9 +117,15 @@ stages:
     the binning sequence with respect to the target.
 
 4.  **IV Optimization:** If the number of bins exceeds `max_bins`, the
-    algorithm repeatedly merges the pair of adjacent bins with the
-    smallest combined Information Value, a greedy proxy for the merge
-    that loses the least total IV.
+    algorithm repeatedly merges the pair of adjacent bins whose fusion
+    loses the least total Information Value (all bins renormalized after
+    the merge). The IV that decides the merge is an empirical-Bayes IV:
+    each bin's event rate is shrunk towards the overall rate by a beta
+    prior worth 50 pseudo-observations, so a bin isolating a handful of
+    rows with an extreme observed rate earns little IV (minimum evidence
+    per bin). The reported WoE and IV are not shrunk. Up to version
+    1.14.1 it merged the pair with the smallest combined IV, which never
+    merges two neighbouring bins without events.
 
 This joint approach (Entropy/IV + Stability constraints) makes JEDI
 particularly effective for datasets with noise or non-monotonic initial
@@ -158,6 +164,6 @@ result <- ob_numerical_jedi(feature, target,
 )
 
 print(result$bin)
-#> [1] "(-Inf;-1.052513]"      "(-1.052513;-0.097412]" "(-0.097412;0.840540]" 
-#> [4] "(0.840540;1.253815]"   "(1.253815;1.675697]"   "(1.675697;+Inf]"      
+#> [1] "(-Inf;-1.052513]"      "(-1.052513;-0.097412]" "(-0.097412;0.126316]" 
+#> [4] "(0.126316;0.373241]"   "(0.373241;0.664416]"   "(0.664416;+Inf]"      
 ```

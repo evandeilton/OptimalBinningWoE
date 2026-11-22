@@ -112,6 +112,13 @@ A list containing the binning results:
 - `monotonicity`: Character string indicating the final WoE trend
   ("increasing", "decreasing", or "none").
 
+- `monotonic`: Logical. TRUE when the final WoE of the regular bins is
+  monotone (in the reported direction when one is fixed), checked on the
+  reported WoE and on the reference WoE
+  `log((count_pos + 0.5) / (count_neg + 0.5))`. When monotonicity was
+  requested and this is FALSE (the merges stop at `min_bins`), a warning
+  is raised. Up to version 1.14.1 nothing signalled it.
+
 ## Details
 
 The **Local Polynomial Density Binning (LPDB)** algorithm is a two-stage

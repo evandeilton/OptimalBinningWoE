@@ -352,7 +352,7 @@ cat("  IVB total IV:", round(result_ivb_comp$total_iv, 4), "\n")
 cat("  GMB total IV:", round(result_gmb_comp$total_iv, 4), "\n")
 #>   GMB total IV: 0.053 
 cat("  DP total IV:", round(result_dp_comp$total_iv, 4), "\n")
-#>   DP total IV: 0.0531 
+#>   DP total IV: 0.053 
 cat("\nIVB typically achieves highest IV due to explicit optimization\n")
 #> 
 #> IVB typically achieves highest IV due to explicit optimization

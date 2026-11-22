@@ -12,8 +12,8 @@
 <link rel="manifest" href="../site.webmanifest">
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_3-0.4.10/font.css" rel="stylesheet">
-<link href="../deps/Source_Serif_4-0.4.10/font.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_3-0.5.0/font.css" rel="stylesheet">
+<link href="../deps/Source_Serif_4-0.5.0/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,9 +75,9 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-11-21</h4>
+            <h4 data-toc-skip class="date">2026-11-22</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.14.1/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/introduction.Rmd" class="external-link"><code>vignettes/introduction.Rmd</code></a></small>
       <div class="d-none name"><code>introduction.Rmd</code></div>
     </div>
 
@@ -261,7 +261,7 @@ right algorithm and returns a fitted binning.</p>
 <span><span class="co">#&gt; Results:  1  successful</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Top features by IV:</span></span>
-<span><span class="co">#&gt;   duration: IV = 0.2727 (6 bins, jedi)</span></span></code></pre></div>
+<span><span class="co">#&gt;   duration: IV = 0.2641 (6 bins, jedi)</span></span></code></pre></div>
 <p>The per-variable result carries everything the transformation
 needs.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
@@ -278,9 +278,9 @@ needs.</p>
 <span><span class="co">#&gt; 1       (-Inf;7.000000]    87   9 0.1034 -1.3122 0.1068</span></span>
 <span><span class="co">#&gt; 2  (7.000000;10.000000]    84  18 0.2143 -0.4520 0.0155</span></span>
 <span><span class="co">#&gt; 3 (10.000000;16.000000]   262  63 0.2405 -0.3029 0.0225</span></span>
-<span><span class="co">#&gt; 4 (16.000000;33.000000]   397 128 0.3224  0.1046 0.0044</span></span>
-<span><span class="co">#&gt; 5 (33.000000;39.000000]    88  38 0.4318  0.5729 0.0316</span></span>
-<span><span class="co">#&gt; 6      (39.000000;+Inf]    82  44 0.5366  0.9939 0.0918</span></span></code></pre></div>
+<span><span class="co">#&gt; 4 (16.000000;24.000000]   337 108 0.3205  0.0957 0.0031</span></span>
+<span><span class="co">#&gt; 5 (24.000000;33.000000]    60  20 0.3333  0.1542 0.0015</span></span>
+<span><span class="co">#&gt; 6      (33.000000;+Inf]   170  82 0.4824  0.7767 0.1147</span></span></code></pre></div>
 <p>Two things to read here. The event rate climbs from 10% to 54% across
 the bins — longer loans default more, and the ordering never reverses.
 And the IV column shows where the information sits: the two extreme bins
@@ -290,7 +290,7 @@ portfolio, contributes almost nothing.</p>
 labels are for humans.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res</span><span class="op">$</span><span class="va">cutpoints</span></span>
-<span><span class="co">#&gt; [1]  7 10 16 33 39</span></span></code></pre></div>
+<span><span class="co">#&gt; [1]  7 10 16 24 33</span></span></code></pre></div>
 <p>Intervals are half-open on the right,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>,</mo><mspace width="0.167em"></mspace><mi>b</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">(a,\,b]</annotation></semantics></math>,
 throughout the package: a loan of exactly 10 months falls in the bin
@@ -311,17 +311,17 @@ credit analyst actually reviews: cumulative capture, KS, lift.</p>
 <span><span class="co">#&gt; ================================================== </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Observations: 1000  |  Bins: 6</span></span>
-<span><span class="co">#&gt; Total IV: 0.2727</span></span>
+<span><span class="co">#&gt; Total IV: 0.2641</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Performance Metrics:</span></span>
 <span><span class="co">#&gt;   KS Statistic: 19.00%</span></span>
-<span><span class="co">#&gt;   Gini Coefficient: 26.65%</span></span>
-<span><span class="co">#&gt;   AUC: 0.6332</span></span>
+<span><span class="co">#&gt;   Gini Coefficient: 26.41%</span></span>
+<span><span class="co">#&gt;   AUC: 0.6321</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;                    bin count pos_rate     woe     iv cum_pos_pct    ks lift</span></span>
-<span><span class="co">#&gt;       (39.000000;+Inf]    82   53.66%  0.9939 0.0918       14.7%  9.2% 1.79</span></span>
-<span><span class="co">#&gt;  (33.000000;39.000000]    88   43.18%  0.5729 0.0316       27.3% 14.8% 1.44</span></span>
-<span><span class="co">#&gt;  (16.000000;33.000000]   397   32.24%  0.1046 0.0044       70.0% 19.0% 1.07</span></span>
+<span><span class="co">#&gt;       (33.000000;+Inf]   170   48.24%  0.7767 0.1147       27.3% 14.8% 1.61</span></span>
+<span><span class="co">#&gt;  (24.000000;33.000000]    60   33.33%  0.1542 0.0015       34.0% 15.7% 1.11</span></span>
+<span><span class="co">#&gt;  (16.000000;24.000000]   337   32.05%  0.0957 0.0031       70.0% 19.0% 1.07</span></span>
 <span><span class="co">#&gt;  (10.000000;16.000000]   262   24.05% -0.3029 0.0225       91.0% 11.6% 0.80</span></span>
 <span><span class="co">#&gt;   (7.000000;10.000000]    84   21.43% -0.4520 0.0155       97.0%  8.1% 0.71</span></span>
 <span><span class="co">#&gt;        (-Inf;7.000000]    87   10.34% -1.3122 0.1068      100.0%  0.0% 0.34</span></span></code></pre></div>
@@ -370,7 +370,7 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt; Top features by IV:</span></span>
 <span><span class="co">#&gt;   status: IV = 0.6640 (4 bins, jedi)</span></span>
 <span><span class="co">#&gt;   credit_history: IV = 0.2908 (5 bins, jedi)</span></span>
-<span><span class="co">#&gt;   duration: IV = 0.2727 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   duration: IV = 0.2641 (6 bins, jedi)</span></span>
 <span><span class="co">#&gt;   savings: IV = 0.1946 (5 bins, jedi)</span></span>
 <span><span class="co">#&gt;   purpose: IV = 0.1544 (6 bins, jedi)</span></span>
 <span><span class="co">#&gt;   ... and 15 more</span></span></code></pre></div>
@@ -383,8 +383,8 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Aggregate Statistics:</span></span>
 <span><span class="co">#&gt;   Features: 20 total, 20 successful, 0 errors</span></span>
-<span><span class="co">#&gt;   Total IV: 2.1777</span></span>
-<span><span class="co">#&gt;   Mean IV: 0.1089 (SD: 0.1570)</span></span>
+<span><span class="co">#&gt;   Total IV: 2.1691</span></span>
+<span><span class="co">#&gt;   Mean IV: 0.1085 (SD: 0.1565)</span></span>
 <span><span class="co">#&gt;   Median IV: 0.0509</span></span>
 <span><span class="co">#&gt;   IV Range: [0.0000, 0.6640]</span></span>
 <span><span class="co">#&gt;   Mean Bins: 3.6</span></span>
@@ -399,7 +399,7 @@ Numerical and categorical variables are routed automatically.</p>
 <span><span class="co">#&gt;                  feature        type n_bins  total_iv     iv_class</span></span>
 <span><span class="co">#&gt;                   status categorical      4 6.640e-01   Suspicious</span></span>
 <span><span class="co">#&gt;           credit_history categorical      5 2.908e-01       Medium</span></span>
-<span><span class="co">#&gt;                 duration   numerical      6 2.727e-01       Medium</span></span>
+<span><span class="co">#&gt;                 duration   numerical      6 2.641e-01       Medium</span></span>
 <span><span class="co">#&gt;                  savings categorical      5 1.946e-01       Medium</span></span>
 <span><span class="co">#&gt;                  purpose categorical      6 1.544e-01       Medium</span></span>
 <span><span class="co">#&gt;                 property categorical      4 1.122e-01       Medium</span></span>
@@ -431,7 +431,7 @@ reason attached.</p>
 <span><span class="co">#&gt;                     feature        type n_bins total_iv iv_class      ks    gini monotonic</span></span>
 <span><span class="co">#&gt;                      &lt;char&gt;      &lt;char&gt;  &lt;int&gt;    &lt;num&gt;   &lt;fctr&gt;   &lt;num&gt;   &lt;num&gt;    &lt;lgcl&gt;</span></span>
 <span><span class="co">#&gt;  1:          credit_history categorical      5  0.29323   Medium 0.18048 0.25361      TRUE</span></span>
-<span><span class="co">#&gt;  2:                duration   numerical      6  0.27274   Medium 0.19000 0.26647      TRUE</span></span>
+<span><span class="co">#&gt;  2:                duration   numerical      6  0.26411   Medium 0.19000 0.26411      TRUE</span></span>
 <span><span class="co">#&gt;  3:                 savings categorical      5  0.19601   Medium 0.18667 0.19826     FALSE</span></span>
 <span><span class="co">#&gt;  4:                 purpose categorical      6  0.15528   Medium 0.17095 0.21354      TRUE</span></span>
 <span><span class="co">#&gt;  5:                property categorical      4  0.11264   Medium 0.11714 0.17066      TRUE</span></span>
@@ -696,9 +696,9 @@ on next month’s file.</p>
 <span>                <span class="st">"purpose_bin"</span>, <span class="st">"purpose_woe"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   default          duration_bin duration_woe</span></span>
 <span><span class="co">#&gt; 1       0       (-Inf;7.000000]      -1.3122</span></span>
-<span><span class="co">#&gt; 2       1      (39.000000;+Inf]       0.9939</span></span>
+<span><span class="co">#&gt; 2       1      (33.000000;+Inf]       0.7767</span></span>
 <span><span class="co">#&gt; 3       0 (10.000000;16.000000]      -0.3029</span></span>
-<span><span class="co">#&gt; 4       0      (39.000000;+Inf]       0.9939</span></span>
+<span><span class="co">#&gt; 4       0      (33.000000;+Inf]       0.7767</span></span>
 <span><span class="co">#&gt;                                                   purpose_bin purpose_woe</span></span>
 <span><span class="co">#&gt; 1                                         domestic appliances    -0.41020</span></span>
 <span><span class="co">#&gt; 2                                         domestic appliances    -0.41020</span></span>
@@ -721,7 +721,7 @@ means “portfolio average”.</p>
 <span><span class="co">#&gt;   duration         duration_bin duration_woe         purpose        purpose_bin purpose_woe</span></span>
 <span><span class="co">#&gt; 1        4      (-Inf;7.000000]      -1.3122       car (new)          car (new)      0.3575</span></span>
 <span><span class="co">#&gt; 2       10 (7.000000;10.000000]      -0.4520 unseen category               &lt;NA&gt;      0.0000</span></span>
-<span><span class="co">#&gt; 3      200     (39.000000;+Inf]       0.9939       education others%;%education      0.2392</span></span>
+<span><span class="co">#&gt; 3      200     (33.000000;+Inf]       0.7767       education others%;%education      0.2392</span></span>
 <span><span class="co">#&gt; 4       NA                 &lt;NA&gt;       0.0000            &lt;NA&gt;               &lt;NA&gt;      0.0000</span></span></code></pre></div>
 <p>A WoE-transformed frame is exactly what a logistic regression
 wants:</p>
@@ -733,12 +733,12 @@ wants:</p>
 <span><span class="va">glm_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">default</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">train</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">glm_fit</span><span class="op">)</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                    Estimate Std. Error z value Pr(&gt;|z|)</span></span>
-<span><span class="co">#&gt; (Intercept)         -0.8534     0.0802 -10.642   0.0000</span></span>
-<span><span class="co">#&gt; credit_history_woe   0.8256     0.1513   5.455   0.0000</span></span>
-<span><span class="co">#&gt; duration_woe         0.9642     0.1666   5.789   0.0000</span></span>
-<span><span class="co">#&gt; savings_woe          0.9823     0.1916   5.128   0.0000</span></span>
-<span><span class="co">#&gt; purpose_woe          1.1243     0.2078   5.411   0.0000</span></span>
-<span><span class="co">#&gt; property_woe         0.5197     0.2716   1.914   0.0557</span></span></code></pre></div>
+<span><span class="co">#&gt; (Intercept)         -0.8530     0.0801 -10.644   0.0000</span></span>
+<span><span class="co">#&gt; credit_history_woe   0.8310     0.1511   5.501   0.0000</span></span>
+<span><span class="co">#&gt; duration_woe         0.9700     0.1695   5.724   0.0000</span></span>
+<span><span class="co">#&gt; savings_woe          0.9744     0.1912   5.096   0.0000</span></span>
+<span><span class="co">#&gt; purpose_woe          1.1196     0.2072   5.404   0.0000</span></span>
+<span><span class="co">#&gt; property_woe         0.5174     0.2719   1.903   0.0571</span></span></code></pre></div>
 <p>Coefficients on WoE predictors should all come out positive: a WoE of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">+1</annotation></semantics></math>
 means one log-odds more risk, so a negative coefficient signals a
@@ -760,14 +760,14 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; -- Weight of Evidence transformation</span></span>
-<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.14.1</span></span>
+<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.15.0</span></span>
 <span><span class="co">#&gt; -- Algorithm(s): jedi</span></span>
 <span><span class="co">#&gt; -- Dialect: postgres</span></span>
 <span><span class="co">#&gt; -- Interval convention: (lower, upper]  -- upper bound inclusive</span></span>
 <span><span class="co">#&gt; -- Variables: 2</span></span>
 <span><span class="co">#&gt; --</span></span>
 <span><span class="co">#&gt; -- Variable                 Type          Bins        IV</span></span>
-<span><span class="co">#&gt; --   duration               numerical        6   0.27274</span></span>
+<span><span class="co">#&gt; --   duration               numerical        6   0.26411</span></span>
 <span><span class="co">#&gt; --   purpose                categorical      6   0.15442</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; SELECT</span></span>
@@ -777,9 +777,9 @@ the scoring can run in the warehouse instead of in R.</p>
 <span><span class="co">#&gt;     WHEN duration &lt;= 7 THEN -1.3121863889661687</span></span>
 <span><span class="co">#&gt;     WHEN duration &gt; 7 AND duration &lt;= 10 THEN -0.45198512374305744</span></span>
 <span><span class="co">#&gt;     WHEN duration &gt; 10 AND duration &lt;= 16 THEN -0.3028722379457563</span></span>
-<span><span class="co">#&gt;     WHEN duration &gt; 16 AND duration &lt;= 33 THEN 0.10461674470498177</span></span>
-<span><span class="co">#&gt;     WHEN duration &gt; 33 AND duration &lt;= 39 THEN 0.5728610146854435</span></span>
-<span><span class="co">#&gt;     WHEN duration &gt; 39 THEN 0.993901334579079</span></span>
+<span><span class="co">#&gt;     WHEN duration &gt; 16 AND duration &lt;= 24 THEN 0.095707083957183775</span></span>
+<span><span class="co">#&gt;     WHEN duration &gt; 24 AND duration &lt;= 33 THEN 0.15415067982725836</span></span>
+<span><span class="co">#&gt;     WHEN duration &gt; 33 THEN 0.77668029317325</span></span>
 <span><span class="co">#&gt;     ELSE 0</span></span>
 <span><span class="co">#&gt; END AS duration_woe,</span></span>
 <span><span class="co">#&gt; CASE</span></span>
@@ -898,15 +898,15 @@ Machine Learning Repository.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] OptimalBinningWoE_1.14.1</span></span>
+<span><span class="co">#&gt; [1] OptimalBinningWoE_1.15.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] future_1.82.0       sass_0.4.10         generics_0.1.4      class_7.3-24       </span></span>
+<span><span class="co">#&gt;  [1] future_1.82.0       sass_0.5.0          generics_0.1.4      class_7.3-24       </span></span>
 <span><span class="co">#&gt;  [5] lattice_0.23-1      DiceDesign_1.10     listenv_1.1.0       digest_0.6.39      </span></span>
 <span><span class="co">#&gt;  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.2         </span></span>
 <span><span class="co">#&gt; [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-6       </span></span>
 <span><span class="co">#&gt; [17] nnet_7.3-21         survival_3.8-12     purrr_1.2.2         scales_1.4.0       </span></span>
-<span><span class="co">#&gt; [21] codetools_0.2-20    textshaping_1.0.5   jquerylib_0.1.4     lava_1.11          </span></span>
+<span><span class="co">#&gt; [21] codetools_0.2-20    textshaping_1.1.0   jquerylib_0.1.4     lava_1.11          </span></span>
 <span><span class="co">#&gt; [25] cli_3.6.6           rlang_1.3.0         hardhat_1.4.3       parallelly_1.50.0  </span></span>
 <span><span class="co">#&gt; [29] future.apply_1.21.0 splines_4.6.2       withr_3.0.3         cachem_1.1.0       </span></span>
 <span><span class="co">#&gt; [33] dials_1.4.5         yaml_2.3.12         prodlim_2026.03.11  otel_0.3.0         </span></span>
@@ -915,7 +915,7 @@ Machine Learning Repository.</p>
 <span><span class="co">#&gt; [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-66        </span></span>
 <span><span class="co">#&gt; [49] ragg_1.5.2          pkgconfig_2.0.3     desc_1.4.3          pkgdown_2.2.1      </span></span>
 <span><span class="co">#&gt; [53] pillar_1.11.1       bslib_0.12.0        data.table_1.18.6.1 glue_1.8.1         </span></span>
-<span><span class="co">#&gt; [57] Rcpp_1.1.2          systemfonts_1.3.3   xfun_0.62           tibble_3.3.1       </span></span>
+<span><span class="co">#&gt; [57] Rcpp_1.1.2          systemfonts_1.3.4   xfun_0.62           tibble_3.3.1       </span></span>
 <span><span class="co">#&gt; [61] tidyselect_1.2.1    knitr_1.52          farver_2.1.2        htmltools_0.5.9    </span></span>
 <span><span class="co">#&gt; [65] rmarkdown_2.32      ipred_0.9-16        timeDate_4052.112   gower_1.0.2        </span></span>
 <span><span class="co">#&gt; [69] compiler_4.6.2</span></span></code></pre></div>

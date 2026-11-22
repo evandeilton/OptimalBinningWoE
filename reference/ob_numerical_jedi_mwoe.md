@@ -103,16 +103,20 @@ Y=k)}{P(X \in bin_i \| Y \neq k)}\right)\$\$
     quantile-based bins and computes the initial event rates for all
     \\K\\ classes.
 
-2.  **Joint Monotonicity:** The algorithm attempts to enforce
-    monotonicity for *all* classes. If bin \\i\\ violates the trend for
-    Class 1 OR Class 2, it may be merged. This ensures the variable is
-    predictive across the entire spectrum of outcomes.
+2.  **Monotonicity (binary target only):** With \\K = 2\\ classes the
+    WoE is made monotonic by merging violating neighbours (the two
+    one-vs-rest curves mirror each other). With \\K \ge 3\\ no
+    monotonicity is imposed: the one-vs-rest WoE of a middle class of an
+    ordinal target is typically unimodal, and forcing all \\K\\ curves
+    to be monotone at once (as versions up to 1.14.1 did) merged bins
+    until one held most of the data.
 
 3.  **Global IV Optimization:** When reducing the number of bins to
     `max_bins`, the algorithm repeatedly merges the adjacent pair of
-    bins with the smallest combined IV summed over all classes,
-    \\\sum\_{k=0}^{K-1} (IV\_{i,k} + IV\_{i+1,k})\\, a greedy proxy for
-    the merge that loses the least total IV.
+    bins whose fusion loses the least IV summed over all classes,
+    \\\sum\_{k=0}^{K-1} (IV\_{i,k} + IV\_{i+1,k} - IV\_{i \cup i+1,k})\\
+    (versions up to 1.14.1 used the smallest combined IV, without
+    subtracting the merged bin).
 
 This method is ideal for use cases like:
 
@@ -146,5 +150,5 @@ result <- ob_numerical_jedi_mwoe(feature, target,
 
 # Check WoE for Class 2 (High values)
 print(result$woe[, 3]) # Column 3 corresponds to Class 2
-#> [1] -20.4501899 -20.4501899 -20.4501899 -20.4501899   0.3630006
+#> [1] -20.4501899 -21.5488022  -0.6263399   2.5074083  21.1001435
 ```

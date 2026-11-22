@@ -368,7 +368,8 @@ MIT License © 2026 José Evandeilton Lopes
   : Optimal Binning for Categorical Variables using Monotonic Optimal
   Binning (MOB)
 - [`ob_categorical_sab()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sab.md)
-  : Optimal Binning for Categorical Variables using Simulated Annealing
+  : Optimal Binning for Categorical Variables (SAB interface, exact
+  search)
 - [`ob_categorical_sblp()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sblp.md)
   : Optimal Binning for Categorical Variables using SBLP
 - [`ob_categorical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_categorical_sketch.md)

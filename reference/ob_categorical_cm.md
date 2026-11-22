@@ -67,8 +67,10 @@ ob_categorical_cm(
 
 - convergence_threshold:
 
-  Numeric. Convergence tolerance for iterative merging process. Smaller
-  values require stricter convergence. Must be \> 0. Defaults to 1e-6.
+  Numeric. Must be \> 0. Kept for compatibility; it does not stop the
+  merging: ChiMerge stops only when every adjacent pair differs
+  significantly at `chi_merge_threshold` or `min_bins` is reached.
+  Defaults to 1e-6.
 
 - max_iterations:
 

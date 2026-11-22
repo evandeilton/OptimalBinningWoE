@@ -102,6 +102,13 @@ A list containing the binning results:
 
 - `converged`: Logical indicating if the algorithm converged.
 
+- `monotonic`: Logical. TRUE when the final WoE of the regular bins is
+  monotone (in the reported direction when one is fixed), checked on the
+  reported WoE and on the reference WoE
+  `log((count_pos + 0.5) / (count_neg + 0.5))`. When monotonicity was
+  requested and this is FALSE (the merges stop at `min_bins`), a warning
+  is raised. Up to version 1.14.1 nothing signalled it.
+
 ## Details
 
 The KMB algorithm offers a unique initialization strategy compared to
@@ -128,7 +135,10 @@ standard binning methods:
       warning).
 
     - **Monotonicity:** If `enforce_monotonic = TRUE`, adjacent bins
-      violating the dominant WoE trend are merged.
+      violating the WoE trend are merged. Both directions are tried and
+      the one that reaches a monotone WoE (else the larger total IV) is
+      kept; up to version 1.14.1 the first two bins decided the
+      direction.
 
     - **Bin Count Adjustment:** If the number of bins exceeds
       `max_bins`, the algorithm greedily merges adjacent bins with the
@@ -156,5 +166,5 @@ print(result_kmb$bin)
 #> [1] "(-Inf;20.025318]"      "(20.025318;40.004102]" "(40.004102;59.982886]"
 #> [4] "(59.982886;79.961669]" "(79.961669;+Inf]"     
 print(paste("KMB Total IV:", round(result_kmb$total_iv, 4)))
-#> [1] "KMB Total IV: 0.4792"
+#> [1] "KMB Total IV: 0.4755"
 ```

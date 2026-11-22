@@ -263,10 +263,10 @@ print(data.frame(
   EventRate = round(result_fetb$count_pos / result_fetb$count, 3)
 ))
 #>              Bin    WoE     IV Count EventRate
-#> 1        Premium -1.360 0.1485   106     0.038
-#> 2       Standard -0.424 0.0421   220     0.091
-#> 3 Basic%;%Budget  0.170 0.0147   385     0.153
-#> 4        Economy  0.825 0.1005    89     0.258
+#> 1        Premium -1.263 0.1333   106     0.038
+#> 2       Standard -0.417 0.0410   220     0.091
+#> 3 Basic%;%Budget  0.161 0.0132   385     0.153
+#> 4        Economy  0.823 0.1004    89     0.258
 
 cat("\nAlgorithm converged:", result_fetb$converged, "\n")
 #> 
@@ -288,7 +288,7 @@ cat("\nFisher's Exact Test:\n")
 cat("  Final bins:", length(result_fetb$bin), "\n")
 #>   Final bins: 4 
 cat("  Total IV:", round(sum(result_fetb$iv), 4), "\n")
-#>   Total IV: 0.3059 
+#>   Total IV: 0.2879 
 
 cat("\nChiMerge:\n")
 #> 
@@ -376,8 +376,8 @@ for (i in seq_along(result_fetb_hc$bin)) {
     cat("  Bin", i, "contains", n_merged, "merged categories\n")
   }
 }
-#>   Bin 1 contains 3 merged categories
-#>   Bin 2 contains 5 merged categories
+#>   Bin 2 contains 3 merged categories
+#>   Bin 3 contains 5 merged categories
 #>   Bin 4 contains 12 merged categories
 #>   Bin 5 contains 7 merged categories
 #>   Bin 6 contains 2 merged categories
@@ -407,6 +407,6 @@ if (length(na_bin_idx) > 0) {
 #> Missing value handling:
 #>   NA bin: Budget%;%NA%;%Economy 
 #>   NA count: 260 
-#>   NA WoE: 0.54 
+#>   NA WoE: 0.531 
 # }
 ```

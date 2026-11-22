@@ -49,10 +49,11 @@ ob_categorical_mba(
 
 - bin_cutoff:
 
-  Numeric. Minimum proportion of total observations required for a
-  category to remain separate. Categories below this threshold are
-  pre-merged with similar categories. Must be in (0, 1). Defaults to
-  0.05.
+  Numeric. Minimum proportion of total observations required for a bin
+  to remain separate. Bins below this threshold are merged with the
+  neighbouring bin of closest shrunk event rate (see Details). Only the
+  share of observations counts, not the number of events. Must be in (0,
+  1). Defaults to 0.05.
 
 - max_n_prebins:
 
@@ -131,11 +132,14 @@ mechanisms.
 
 1.  Input validation and preprocessing
 
-2.  Initial bin creation (one category per bin)
+2.  Initial bin creation (one category per bin), ordered by the
+    empirical-Bayes shrunk event rate (see below)
 
-3.  Pre-binning limitation to `max_n_prebins`
+3.  Pre-binning limitation to `max_n_prebins`: the smallest bin joins
+    its neighbour with the closer shrunk rate
 
-4.  Rare category merging (frequencies \< `bin_cutoff`)
+4.  Rare bin merging (share of observations \< `bin_cutoff`), with the
+    same rule
 
 5.  Bayesian-smoothed WoE calculation
 
@@ -181,13 +185,30 @@ with \\\alpha\_{total} = 0.5\\ as the prior strength parameter.
 
 **Intelligent Bin Merging:**
 
-When reducing bins to meet the `max_bins` constraint, MBA employs an
-IV-loss minimization strategy:
+When reducing bins to meet the `max_bins` constraint, MBA merges the
+adjacent pair with the smallest IV loss
 
 \$\$\Delta IV\_{i,j} = IV_i + IV_j - IV\_{merged}(i,j)\$\$
 
-The pair with minimum \\\Delta IV\\ is merged to preserve maximum
-predictive information.
+where, for this decision only, each bin's IV is computed under an
+empirical-Bayes beta prior centred on the overall event rate \\r_0\\
+with \\m = 20\\ pseudo-observations per bin: \\p_i = (n\_{i,pos} + m
+r_0)/(N\_{pos} + K m r_0)\\, \\q_i = (n\_{i,neg} + m (1 -
+r_0))/(N\_{neg} + K m (1 - r_0))\\. The reported WoE and IV keep the
+smoothing described above.
+
+**Minimum evidence (shrunk event rates):**
+
+Categories are ordered, and rare ones are pooled, by their
+posterior-mean event rate \\(n\_{pos} + m r_0)/(n + m)\\ rather than the
+raw rate (Gelman et al., 2013, ch. 5). A category with a few rows is
+ranked near the overall rate unless its data say otherwise, so
+categories that had no event by chance are not pooled into a bin whose
+training rate badly understates the rate on new data (winner's curse).
+Large categories are ranked by their raw rate. Up to version 1.14.1,
+`bin_cutoff` also required each bin to hold that share of the *events*;
+that undocumented rule merged large low-risk categories and every pure
+category, and was removed.
 
 **Computational Complexity:**
 
@@ -228,6 +249,10 @@ Bayesian Methods*. MIT Press.
 
 Zeng, G. (2014). A necessary condition for a good binning algorithm in
 credit scoring. *Applied Mathematical Sciences*, 8(65), 3229-3242.
+
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+Rubin, D. B. (2013). *Bayesian Data Analysis* (3rd ed.), ch. 5. Chapman
+& Hall/CRC.
 
 ## See also
 
@@ -274,23 +299,23 @@ print(data.frame(
   Count = result_mba$count,
   EventRate = round(result_mba$count_pos / result_mba$count, 3)
 ))
-#>            Bin    WoE     IV Count EventRate
-#> 1 A%;%AA%;%AAA -1.305 0.3529   486     0.053
-#> 2          BBB -0.700 0.1015   394     0.094
-#> 3           BB  0.211 0.0098   307     0.205
-#> 4            B  1.045 0.2117   217     0.373
-#> 5          CCC  1.725 0.2845    96     0.542
+#>        Bin    WoE     IV Count EventRate
+#> 1 AA%;%AAA -2.959 0.4348   194     0.010
+#> 2  A%;%BBB -0.761 0.2042   686     0.089
+#> 3       BB  0.211 0.0098   307     0.205
+#> 4        B  1.045 0.2117   217     0.373
+#> 5      CCC  1.725 0.2845    96     0.542
 
 cat("\nMonotonicity check (WoE differences):\n")
 #> 
 #> Monotonicity check (WoE differences):
 woe_diffs <- diff(result_mba$woe)
 cat("  Differences:", paste(round(woe_diffs, 4), collapse = ", "), "\n")
-#>   Differences: 0.6051, 0.9113, 0.8342, 0.6795 
+#>   Differences: 2.1981, 0.9718, 0.8342, 0.6795 
 cat("  All positive (increasing):", all(woe_diffs >= -1e-10), "\n")
 #>   All positive (increasing): TRUE 
 cat("  Total IV:", round(result_mba$total_iv, 4), "\n")
-#>   Total IV: 0.9604 
+#>   Total IV: 1.1449 
 cat("  Converged:", result_mba$converged, "\n")
 #>   Converged: TRUE 
 
@@ -410,7 +435,7 @@ cat(
   "  Largest merged bin contains:",
   max(sapply(strsplit(result_mba_hc$bin, "%;%"), length)), "categories\n"
 )
-#>   Largest merged bin contains: 11 categories
+#>   Largest merged bin contains: 14 categories
 
 # Verify monotonicity in high-cardinality case
 woe_monotonic <- all(diff(result_mba_hc$woe) >= -1e-10)
@@ -502,10 +527,10 @@ if (length(na_bin_idx) > 0) {
 }
 #> 
 #> Missing value treatment:
-#>   NA bin: NA%;%BB 
-#>   NA count: 367 
-#>   NA event rate: 0.202 
-#>   NA WoE: 0.189 
+#>   NA bin: NA 
+#>   NA count: 75 
+#>   NA event rate: 0.173 
+#>   NA WoE: 0.003 
 #>   Monotonicity preserved: TRUE 
 # }
 ```

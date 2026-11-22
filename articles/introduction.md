@@ -152,7 +152,7 @@ fit
 #> Results:  1  successful
 #> 
 #> Top features by IV:
-#>   duration: IV = 0.2727 (6 bins, jedi)
+#>   duration: IV = 0.2641 (6 bins, jedi)
 ```
 
 The per-variable result carries everything the transformation needs.
@@ -172,9 +172,9 @@ data.frame(
 #> 1       (-Inf;7.000000]    87   9 0.1034 -1.3122 0.1068
 #> 2  (7.000000;10.000000]    84  18 0.2143 -0.4520 0.0155
 #> 3 (10.000000;16.000000]   262  63 0.2405 -0.3029 0.0225
-#> 4 (16.000000;33.000000]   397 128 0.3224  0.1046 0.0044
-#> 5 (33.000000;39.000000]    88  38 0.4318  0.5729 0.0316
-#> 6      (39.000000;+Inf]    82  44 0.5366  0.9939 0.0918
+#> 4 (16.000000;24.000000]   337 108 0.3205  0.0957 0.0031
+#> 5 (24.000000;33.000000]    60  20 0.3333  0.1542 0.0015
+#> 6      (33.000000;+Inf]   170  82 0.4824  0.7767 0.1147
 ```
 
 Two things to read here. The event rate climbs from 10% to 54% across
@@ -189,7 +189,7 @@ humans.
 ``` r
 
 res$cutpoints
-#> [1]  7 10 16 33 39
+#> [1]  7 10 16 24 33
 ```
 
 Intervals are half-open on the right, $`(a,\,b]`$, throughout the
@@ -216,17 +216,17 @@ gains
 #> ================================================== 
 #> 
 #> Observations: 1000  |  Bins: 6
-#> Total IV: 0.2727
+#> Total IV: 0.2641
 #> 
 #> Performance Metrics:
 #>   KS Statistic: 19.00%
-#>   Gini Coefficient: 26.65%
-#>   AUC: 0.6332
+#>   Gini Coefficient: 26.41%
+#>   AUC: 0.6321
 #> 
 #>                    bin count pos_rate     woe     iv cum_pos_pct    ks lift
-#>       (39.000000;+Inf]    82   53.66%  0.9939 0.0918       14.7%  9.2% 1.79
-#>  (33.000000;39.000000]    88   43.18%  0.5729 0.0316       27.3% 14.8% 1.44
-#>  (16.000000;33.000000]   397   32.24%  0.1046 0.0044       70.0% 19.0% 1.07
+#>       (33.000000;+Inf]   170   48.24%  0.7767 0.1147       27.3% 14.8% 1.61
+#>  (24.000000;33.000000]    60   33.33%  0.1542 0.0015       34.0% 15.7% 1.11
+#>  (16.000000;24.000000]   337   32.05%  0.0957 0.0031       70.0% 19.0% 1.07
 #>  (10.000000;16.000000]   262   24.05% -0.3029 0.0225       91.0% 11.6% 0.80
 #>   (7.000000;10.000000]    84   21.43% -0.4520 0.0155       97.0%  8.1% 0.71
 #>        (-Inf;7.000000]    87   10.34% -1.3122 0.1068      100.0%  0.0% 0.34
@@ -278,7 +278,7 @@ model
 #> Top features by IV:
 #>   status: IV = 0.6640 (4 bins, jedi)
 #>   credit_history: IV = 0.2908 (5 bins, jedi)
-#>   duration: IV = 0.2727 (6 bins, jedi)
+#>   duration: IV = 0.2641 (6 bins, jedi)
 #>   savings: IV = 0.1946 (5 bins, jedi)
 #>   purpose: IV = 0.1544 (6 bins, jedi)
 #>   ... and 15 more
@@ -294,8 +294,8 @@ summary(model)
 #> 
 #> Aggregate Statistics:
 #>   Features: 20 total, 20 successful, 0 errors
-#>   Total IV: 2.1777
-#>   Mean IV: 0.1089 (SD: 0.1570)
+#>   Total IV: 2.1691
+#>   Mean IV: 0.1085 (SD: 0.1565)
 #>   Median IV: 0.0509
 #>   IV Range: [0.0000, 0.6640]
 #>   Mean Bins: 3.6
@@ -310,7 +310,7 @@ summary(model)
 #>                  feature        type n_bins  total_iv     iv_class
 #>                   status categorical      4 6.640e-01   Suspicious
 #>           credit_history categorical      5 2.908e-01       Medium
-#>                 duration   numerical      6 2.727e-01       Medium
+#>                 duration   numerical      6 2.641e-01       Medium
 #>                  savings categorical      5 1.946e-01       Medium
 #>                  purpose categorical      6 1.544e-01       Medium
 #>                 property categorical      4 1.122e-01       Medium
@@ -346,7 +346,7 @@ head(sel[, c("feature", "type", "n_bins", "total_iv", "iv_class",
 #>                     feature        type n_bins total_iv iv_class      ks    gini monotonic
 #>                      <char>      <char>  <int>    <num>   <fctr>   <num>   <num>    <lgcl>
 #>  1:          credit_history categorical      5  0.29323   Medium 0.18048 0.25361      TRUE
-#>  2:                duration   numerical      6  0.27274   Medium 0.19000 0.26647      TRUE
+#>  2:                duration   numerical      6  0.26411   Medium 0.19000 0.26411      TRUE
 #>  3:                 savings categorical      5  0.19601   Medium 0.18667 0.19826     FALSE
 #>  4:                 purpose categorical      6  0.15528   Medium 0.17095 0.21354      TRUE
 #>  5:                property categorical      4  0.11264   Medium 0.11714 0.17066      TRUE
@@ -579,9 +579,9 @@ head(scored[, c("default", "duration_bin", "duration_woe",
                 "purpose_bin", "purpose_woe")], 4)
 #>   default          duration_bin duration_woe
 #> 1       0       (-Inf;7.000000]      -1.3122
-#> 2       1      (39.000000;+Inf]       0.9939
+#> 2       1      (33.000000;+Inf]       0.7767
 #> 3       0 (10.000000;16.000000]      -0.3029
-#> 4       0      (39.000000;+Inf]       0.9939
+#> 4       0      (33.000000;+Inf]       0.7767
 #>                                                   purpose_bin purpose_woe
 #> 1                                         domestic appliances    -0.41020
 #> 2                                         domestic appliances    -0.41020
@@ -607,7 +607,7 @@ obwoe_apply(new_data, two, keep_original = TRUE)
 #>   duration         duration_bin duration_woe         purpose        purpose_bin purpose_woe
 #> 1        4      (-Inf;7.000000]      -1.3122       car (new)          car (new)      0.3575
 #> 2       10 (7.000000;10.000000]      -0.4520 unseen category               <NA>      0.0000
-#> 3      200     (39.000000;+Inf]       0.9939       education others%;%education      0.2392
+#> 3      200     (33.000000;+Inf]       0.7767       education others%;%education      0.2392
 #> 4       NA                 <NA>       0.0000            <NA>               <NA>      0.0000
 ```
 
@@ -622,12 +622,12 @@ train <- scored[, c("default", woe_cols)]
 glm_fit <- glm(default ~ ., data = train, family = binomial())
 round(head(coef(summary(glm_fit)), 6), 4)
 #>                    Estimate Std. Error z value Pr(>|z|)
-#> (Intercept)         -0.8534     0.0802 -10.642   0.0000
-#> credit_history_woe   0.8256     0.1513   5.455   0.0000
-#> duration_woe         0.9642     0.1666   5.789   0.0000
-#> savings_woe          0.9823     0.1916   5.128   0.0000
-#> purpose_woe          1.1243     0.2078   5.411   0.0000
-#> property_woe         0.5197     0.2716   1.914   0.0557
+#> (Intercept)         -0.8530     0.0801 -10.644   0.0000
+#> credit_history_woe   0.8310     0.1511   5.501   0.0000
+#> duration_woe         0.9700     0.1695   5.724   0.0000
+#> savings_woe          0.9744     0.1912   5.096   0.0000
+#> purpose_woe          1.1196     0.2072   5.404   0.0000
+#> property_woe         0.5174     0.2719   1.903   0.0571
 ```
 
 Coefficients on WoE predictors should all come out positive: a WoE of
@@ -651,14 +651,14 @@ obwoe_sql(
 )
 #> -- ---------------------------------------------------------------
 #> -- Weight of Evidence transformation
-#> -- Generated by OptimalBinningWoE 1.14.1
+#> -- Generated by OptimalBinningWoE 1.15.0
 #> -- Algorithm(s): jedi
 #> -- Dialect: postgres
 #> -- Interval convention: (lower, upper]  -- upper bound inclusive
 #> -- Variables: 2
 #> --
 #> -- Variable                 Type          Bins        IV
-#> --   duration               numerical        6   0.27274
+#> --   duration               numerical        6   0.26411
 #> --   purpose                categorical      6   0.15442
 #> -- ---------------------------------------------------------------
 #> SELECT
@@ -668,9 +668,9 @@ obwoe_sql(
 #>     WHEN duration <= 7 THEN -1.3121863889661687
 #>     WHEN duration > 7 AND duration <= 10 THEN -0.45198512374305744
 #>     WHEN duration > 10 AND duration <= 16 THEN -0.3028722379457563
-#>     WHEN duration > 16 AND duration <= 33 THEN 0.10461674470498177
-#>     WHEN duration > 33 AND duration <= 39 THEN 0.5728610146854435
-#>     WHEN duration > 39 THEN 0.993901334579079
+#>     WHEN duration > 16 AND duration <= 24 THEN 0.095707083957183775
+#>     WHEN duration > 24 AND duration <= 33 THEN 0.15415067982725836
+#>     WHEN duration > 33 THEN 0.77668029317325
 #>     ELSE 0
 #> END AS duration_woe,
 #> CASE
@@ -802,15 +802,15 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] OptimalBinningWoE_1.14.1
+#> [1] OptimalBinningWoE_1.15.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] future_1.82.0       sass_0.4.10         generics_0.1.4      class_7.3-24       
+#>  [1] future_1.82.0       sass_0.5.0          generics_0.1.4      class_7.3-24       
 #>  [5] lattice_0.23-1      DiceDesign_1.10     listenv_1.1.0       digest_0.6.39      
 #>  [9] magrittr_2.0.5      timechange_0.4.0    evaluate_1.0.5      grid_4.6.2         
 #> [13] RColorBrewer_1.1-3  fastmap_1.2.0       jsonlite_2.0.0      Matrix_1.7-6       
 #> [17] nnet_7.3-21         survival_3.8-12     purrr_1.2.2         scales_1.4.0       
-#> [21] codetools_0.2-20    textshaping_1.0.5   jquerylib_0.1.4     lava_1.11          
+#> [21] codetools_0.2-20    textshaping_1.1.0   jquerylib_0.1.4     lava_1.11          
 #> [25] cli_3.6.6           rlang_1.3.0         hardhat_1.4.3       parallelly_1.50.0  
 #> [29] future.apply_1.21.0 splines_4.6.2       withr_3.0.3         cachem_1.1.0       
 #> [33] dials_1.4.5         yaml_2.3.12         prodlim_2026.03.11  otel_0.3.0         
@@ -819,7 +819,7 @@ sessionInfo()
 #> [45] lubridate_1.9.5     lifecycle_1.0.5     fs_2.1.0            MASS_7.3-66        
 #> [49] ragg_1.5.2          pkgconfig_2.0.3     desc_1.4.3          pkgdown_2.2.1      
 #> [53] pillar_1.11.1       bslib_0.12.0        data.table_1.18.6.1 glue_1.8.1         
-#> [57] Rcpp_1.1.2          systemfonts_1.3.3   xfun_0.62           tibble_3.3.1       
+#> [57] Rcpp_1.1.2          systemfonts_1.3.4   xfun_0.62           tibble_3.3.1       
 #> [61] tidyselect_1.2.1    knitr_1.52          farver_2.1.2        htmltools_0.5.9    
 #> [65] rmarkdown_2.32      ipred_0.9-16        timeDate_4052.112   gower_1.0.2        
 #> [69] compiler_4.6.2

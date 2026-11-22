@@ -124,6 +124,15 @@ A list containing:
   Logical flag indicating whether the algorithm converged within
   `max_iterations`.
 
+- monotonic:
+
+  Logical. TRUE when the final WoE of the regular bins is monotone (in
+  the reported direction when one is fixed), checked on the reported WoE
+  and on the reference WoE `log((count_pos + 0.5) / (count_neg + 0.5))`.
+  When monotonicity was requested and this is FALSE (the merges stop at
+  `min_bins`), a warning is raised. Up to version 1.14.1 nothing
+  signalled it.
+
 - iterations:
 
   Integer count of iterations performed during optimization.
@@ -185,11 +194,12 @@ K\alpha}\$\$
 and \\K\\ is the total number of bins. The Information Value for bin
 \\i\\ is:
 
-\$\$\text{IV}\_i = \left(\frac{n_i^{+}}{n^{+}} -
-\frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}\_i\$\$
+\$\$\text{IV}\_i = \left(\text{DistGood}\_i - \text{DistBad}\_i\right)
+\times \text{WoE}\_i \ge 0\$\$
 
-(the unsmoothed class distributions; smoothing enters through the WoE
-only).
+(the same smoothed distributions as the WoE; up to version 1.14.1 the
+unsmoothed distributions were used here, which could make a bin's IV
+negative).
 
 Total IV aggregates discriminatory power: \\\text{IV}\_{\text{total}} =
 \sum\_{i=1}^{K} \text{IV}\_i\\.
@@ -319,7 +329,7 @@ result <- ob_numerical_ldb(
 
 # Inspect binning quality
 print(result$total_iv) # Should be > 0.1 for predictive features
-#> [1] 0.1912603
+#> [1] 0.1909584
 print(result$monotonicity) # Should indicate direction
 #> [1] "decreasing"
 
@@ -337,9 +347,9 @@ bin_mapping <- data.frame(
   iv = result$iv
 )
 print(bin_mapping)
-#>                       bin        woe          iv
-#> 1       (-Inf;660.733735]  0.4823607 0.094709827
-#> 2 (660.733735;726.780204] -0.1320751 0.005514779
-#> 3       (726.780204;+Inf] -0.5888786 0.091035700
+#>                       bin        woe         iv
+#> 1       (-Inf;660.733735]  0.4823607 0.09456033
+#> 2 (660.733735;726.780204] -0.1320751 0.00550607
+#> 3       (726.780204;+Inf] -0.5888786 0.09089202
 # }
 ```

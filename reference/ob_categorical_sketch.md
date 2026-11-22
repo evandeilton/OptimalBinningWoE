@@ -70,8 +70,8 @@ ob_categorical_sketch(
 
 - max_iterations:
 
-  Integer. Maximum number of iterations for the optimization process.
-  Default is 1000.
+  Integer. Maximum number of merges of the optimization phase. Default
+  is 1000.
 
 - sketch_width:
 
@@ -151,11 +151,24 @@ The Sketch-based algorithm follows these steps:
     IV are computed from the exact category counts, so `count` always
     sums to the number of observations.
 
-4.  **Optimization**: Applies iterative merging based on statistical
-    divergence measures to optimize Information Value (IV) while
-    respecting bin count constraints (`min_bins`, `max_bins`).
+4.  **Rare bins**: a bin holding less than `bin_cutoff` of the
+    observations joins the bin with the closest shrunk event rate
+    \\(n\_{pos} + m r_0)/(n + m)\\ (posterior mean under a beta prior
+    centred on the overall rate \\r_0\\, \\m = 20\\; Gelman et al.,
+    2013, ch. 5). Only the share of observations counts: up to version
+    1.14.1 each bin also had to hold `bin_cutoff` of the *events*, an
+    undocumented rule that merged large low-risk categories and every
+    pure category.
 
-5.  **Monotonicity Enforcement**: Ensures the final binning has
+5.  **Optimization**: bins are sorted by WoE and, while there are more
+    than `max_bins`, the adjacent pair with the smallest IV loss is
+    merged. For this decision each bin's IV is computed under the same
+    empirical-Bayes prior (\\m = 20\\ pseudo-observations per bin), so a
+    small bin with an extreme observed rate does not look more
+    informative than its evidence supports; the reported WoE and IV keep
+    the Laplace smoothing below.
+
+6.  **Monotonicity Enforcement**: Ensures the final binning has
     monotonic Weight of Evidence (WoE).
 
 Key advantages of this approach:
@@ -181,9 +194,10 @@ sketch width.
 Frequency estimates are obtained by taking the minimum across all
 counters: \$\$\hat{f}(x) = \min\_{i} CMS\[i\]\[h_i(x)\]\$\$
 
-Statistical divergence between bins is measured using Jensen-Shannon
-divergence: \$\$JSD(P\|\|Q) = \frac{1}{2} \left\[ KL(P\|\|M) +
-KL(Q\|\|M) \right\]\$\$ where \\M = \frac{1}{2}(P+Q)\\ and \\KL\\ is the
+Statistical divergence between bins (used when `max_iterations` runs out
+before `max_bins` is met) is the Jensen-Shannon divergence:
+\$\$JSD(P\|\|Q) = \frac{1}{2} \left\[ KL(P\|\|M) + KL(Q\|\|M)
+\right\]\$\$ where \\M = \frac{1}{2}(P+Q)\\ and \\KL\\ is the
 Kullback-Leibler divergence.
 
 Laplace smoothing is applied to WoE and IV calculations:
@@ -221,6 +235,10 @@ Lin, J., & Keogh, E., Wei, L., & Lonardi, S. (2007). Experiencing SAX: a
 novel symbolic representation of time series. Data Mining and Knowledge
 Discovery, 15(2), 107-144.
 
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+Rubin, D. B. (2013). *Bayesian Data Analysis* (3rd ed.), ch. 5. Chapman
+& Hall/CRC.
+
 ## Examples
 
 ``` r
@@ -236,18 +254,20 @@ target <- rbinom(n, 1, prob = target_probs)
 result <- ob_categorical_sketch(feature, target)
 print(result[c("bin", "woe", "iv", "count")])
 #> $bin
-#> [1] "k%;%z%;%o%;%t"             "n%;%p%;%q%;%r%;%s%;%w%;%x"
-#> [3] "u%;%v%;%y%;%l%;%m%;%h%;%j" "a%;%e%;%f%;%g"            
-#> [5] "b%;%d%;%c%;%i"            
+#> [1] "k%;%o%;%t%;%u"                            
+#> [2] "n%;%p%;%q%;%r%;%s%;%w%;%x%;%v%;%z%;%y%;%m"
+#> [3] "l"                                        
+#> [4] "h%;%b%;%a%;%j"                            
+#> [5] "f%;%g%;%e%;%d%;%c%;%i"                    
 #> 
 #> $woe
-#> [1] -1.0034757 -0.8511470 -0.2273163  0.8348822  0.8848772
+#> [1] -1.0309974 -0.8551615 -0.7056248  0.7754985  0.8878692
 #> 
 #> $iv
-#> [1] 0.12596961 0.11500632 0.01506567 0.13680931 0.14428996
+#> [1] 0.13066232 0.20699678 0.02651321 0.11885882 0.22471622
 #> 
 #> $count
-#> [1] 1354 1682 2928 2075 1961
+#> [1] 1336 3001  554 2074 3035
 #> 
 
 # With custom sketch parameters for higher accuracy

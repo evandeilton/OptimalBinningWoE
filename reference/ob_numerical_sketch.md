@@ -16,10 +16,10 @@ The sketch-based approach enables:
 - **Provable approximation guarantees**: Quantile error \\\epsilon
   \approx O(1/k)\\
 
-The method combines KLL Sketch for candidate generation with either
-Dynamic Programming (for small N \<= 50) or greedy IV-based selection
-(for larger datasets), followed by monotonicity enforcement via the Pool
-Adjacent Violators Algorithm (PAVA).
+The method combines KLL Sketch for candidate generation (every distinct
+value for N \<= 50) with an exact Dynamic Programming selection of the
+cutpoints, followed by monotonicity enforcement via the Pool Adjacent
+Violators Algorithm (PAVA).
 
 ## Usage
 
@@ -62,7 +62,9 @@ ob_numerical_sketch(
 
 - max_bins:
 
-  Maximum number of bins (default: 5). Must be \>= `min_bins`.
+  Maximum number of bins (default: 5). Must be \>= `min_bins`. It is a
+  ceiling, not a target: the number of bins is chosen by BIC in
+  `[min_bins, max_bins]` (see Details, Phase 3).
 
 - bin_cutoff:
 
@@ -78,9 +80,10 @@ ob_numerical_sketch(
 
 - monotonic:
 
-  Logical flag to enforce WoE monotonicity (default: TRUE). Uses PAVA
-  (Pool Adjacent Violators Algorithm) for enforcement. Direction
-  (increasing/ decreasing) is automatically detected from the data.
+  Logical flag to enforce WoE monotonicity (default: TRUE). Uses a
+  monotone constraint inside the cutpoint optimization, then pools
+  adjacent violators. Direction (increasing/decreasing) is the one with
+  the larger BIC.
 
 - convergence_threshold:
 
@@ -160,6 +163,15 @@ containing:
 
   Logical flag indicating whether optimization converged.
 
+- monotonic:
+
+  Logical. TRUE when the final WoE of the regular bins is monotone (in
+  the reported direction when one is fixed), checked on the reported WoE
+  and on the reference WoE `log((count_pos + 0.5) / (count_neg + 0.5))`.
+  When monotonicity was requested and this is FALSE (the merges stop at
+  `min_bins`), a warning is raised. Up to version 1.14.1 nothing
+  signalled it.
+
 - iterations:
 
   Integer number of optimization iterations performed.
@@ -205,8 +217,26 @@ non-uniform grid with higher resolution in distribution tails.
 
 **Phase 3: Optimal Cutpoint Selection**
 
-For small datasets (N \<= 50), Dynamic Programming maximizes total IV.
-For larger datasets, a greedy IV-based selection is used.
+An exact Dynamic Programming over the intervals between consecutive
+candidates (about 40 sketch quantiles; for N \<= 50, the boundaries
+between consecutive distinct values) returns the partition with the
+largest total IV for each number of bins \\K\\ between `min_bins` and
+`max_bins`. Among them, the one with the largest Schwarz (1978) BIC of
+the binned event-rate model, \$\$\mathrm{BIC} = \sum_j \left\[ n^+\_j
+\log \hat p_j + n^-\_j \log (1 - \hat p_j) \right\] - \frac{K - 1}{2}
+\log N,\$\$ is kept (ties: fewer bins): a bin is added only when it
+raises the log-likelihood by more than \\\log(N) / 2\\, so `max_bins` is
+a ceiling, not a target. Picking the \\K\\ with the largest training IV
+over-split small samples and rare events. With `monotonic = TRUE` the
+optimization is restricted to partitions with a monotone (smoothed) WoE,
+in both directions, and the BIC decides between them. The objective is
+the IV with normalized Jeffreys smoothing (0.5 per bin and class), and
+every bin must hold at least `ceiling(bin_cutoff * N)` observations
+inside the optimization. (Up to version 1.14.1 the larger datasets used
+the `max_bins - 1` candidates with the largest single-cut IV, which
+clustered next to each other.) When no number of bins in that range can
+give every bin that many observations, `min_bins` bins as large as
+possible are used.
 
 **Phase 4: Bin Refinement**
 
@@ -279,9 +309,10 @@ print(data.frame(
   IV = round(result$iv, 4)
 ))
 #>   Bin Count     WoE     IV
-#> 1   1   199 -1.1027 0.4361
-#> 2   2    24  0.0391 0.0001
-#> 3   3   277  0.7370 0.2900
+#> 1   1   102 -1.6296 0.4423
+#> 2   2    97 -0.6650 0.0825
+#> 3   3   225  0.3892 0.0676
+#> 4   4    76  1.7973 0.3985
 
 # Example 2: Comparing different sketch_k values
 set.seed(456)
@@ -292,8 +323,8 @@ result_k50 <- ob_numerical_sketch(x, y, sketch_k = 50)
 result_k200 <- ob_numerical_sketch(x, y, sketch_k = 200)
 
 cat("K=50 IV:", sum(result_k50$iv), "\n")
-#> K=50 IV: 0.0126231 
+#> K=50 IV: 0.00906071 
 cat("K=200 IV:", sum(result_k200$iv), "\n")
-#> K=200 IV: 0.008483146 
+#> K=200 IV: 0.01046609 
 # }
 ```

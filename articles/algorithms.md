@@ -65,7 +65,7 @@ fit <- obwoe(gc_data, target = "target", feature = c("duration", "purpose"),
              algorithm = "jedi", min_bins = 2, max_bins = 5)
 fit$summary[, c("feature", "type", "algorithm", "n_bins", "total_iv")]
 #>    feature        type algorithm n_bins total_iv
-#> 1 duration   numerical      jedi      5   0.2474
+#> 1 duration   numerical      jedi      5   0.2628
 #> 2  purpose categorical      jedi      5   0.1533
 ```
 
@@ -81,10 +81,10 @@ data.frame(bin = direct$bin, count = direct$count,
            woe = round(direct$woe, 4), iv = round(direct$iv, 4))
 #>                     bin count     woe     iv
 #> 1       (-Inf;7.000000]    87 -1.3122 0.1068
-#> 2  (7.000000;10.000000]    84 -0.4520 0.0155
-#> 3 (10.000000;33.000000]   659 -0.0489 0.0016
-#> 4 (33.000000;39.000000]    88  0.5729 0.0316
-#> 5      (39.000000;+Inf]    82  0.9939 0.0918
+#> 2  (7.000000;16.000000]   346 -0.3380 0.0367
+#> 3 (16.000000;24.000000]   337  0.0957 0.0031
+#> 4 (24.000000;33.000000]    60  0.1542 0.0015
+#> 5      (33.000000;+Inf]   170  0.7767 0.1147
 ```
 
 ### `obwoe()` does not forward algorithm-specific parameters
@@ -726,26 +726,26 @@ knitr::kable(num_res[order(-num_res$total_iv), ], row.names = FALSE,
 
 | algorithm | bins | total_iv |
 |:----------|-----:|---------:|
-| jedi_mwoe |    5 |   0.4947 |
-| udt       |    5 |   0.2781 |
+| jedi_mwoe |    5 |   0.5429 |
 | ewb       |    5 |   0.2747 |
+| oslp      |    5 |   0.2728 |
 | ubsd      |    5 |   0.2680 |
-| lpdb      |    5 |   0.2626 |
-| dp        |    5 |   0.2568 |
+| sketch    |    4 |   0.2656 |
+| udt       |    4 |   0.2631 |
+| jedi      |    5 |   0.2628 |
+| lpdb      |    5 |   0.2609 |
+| dp        |    5 |   0.2565 |
 | mblp      |    5 |   0.2537 |
+| dmiv      |    5 |   0.2531 |
 | fetb      |    5 |   0.2531 |
 | mob       |    5 |   0.2531 |
+| bb        |    5 |   0.2531 |
 | mrblp     |    5 |   0.2531 |
 | cm        |    4 |   0.2487 |
-| jedi      |    5 |   0.2474 |
-| oslp      |    5 |   0.2458 |
-| dmiv      |    5 |   0.2395 |
 | ir        |    5 |   0.2338 |
-| kmb       |    4 |   0.2290 |
-| bb        |    5 |   0.2281 |
-| sketch    |    4 |   0.2134 |
+| kmb       |    4 |   0.2291 |
 | mdlp      |    3 |   0.1910 |
-| ldb       |    4 |   0.1807 |
+| ldb       |    4 |   0.1811 |
 | fast_mdlp |    2 |   0.1556 |
 
 Numerical engines on `duration` {.table}
@@ -761,16 +761,16 @@ knitr::kable(cat_res[order(-cat_res$total_iv), ], row.names = FALSE,
 |:----------|-----:|---------:|
 | mob       |    5 |   0.1656 |
 | gmb       |    5 |   0.1656 |
-| mba       |    5 |   0.1656 |
 | milp      |    5 |   0.1656 |
-| sab       |    5 |   0.1656 |
+| dmiv      |    5 |   0.1635 |
 | sblp      |    5 |   0.1629 |
-| dmiv      |    5 |   0.1549 |
-| dp        |    5 |   0.1533 |
-| fetb      |    5 |   0.1533 |
+| sab       |    5 |   0.1611 |
+| mba       |    5 |   0.1596 |
 | jedi      |    5 |   0.1533 |
 | ivb       |    5 |   0.1525 |
-| sketch    |    5 |   0.1464 |
+| sketch    |    5 |   0.1510 |
+| dp        |    5 |   0.1507 |
+| fetb      |    5 |   0.1505 |
 | udt       |    5 |   0.1464 |
 | swb       |    5 |   0.1464 |
 | cm        |    2 |   0.1414 |

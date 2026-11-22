@@ -151,8 +151,8 @@ A list containing the binning results:
 
 This algorithm implements the "Metric Divergence Measures" framework.
 Unlike standard ChiMerge which uses statistical significance, this
-method uses a branch-and-bound approach to minimize the loss of a
-specific divergence metric when merging bins.
+method merges adjacent bins greedily to minimize the loss of a specific
+divergence metric when merging bins.
 
 **The Process:**
 
@@ -160,13 +160,30 @@ specific divergence metric when merging bins.
 
 2.  **Rare Merging:** Merges bins smaller than `bin_cutoff`.
 
-3.  **Monotonicity:** If `is_monotonic = TRUE`, forces the WoE trend to
+3.  **Pure bins:** A bin with no events (or no non-events) stays
+    isolated only if its purity is significant at the 5% level under the
+    overall event rate \\r_0\\: \\(1 - r_0)^n \le 0.05\\ for a bin of
+    \\n\\ observations without events (\\r_0^n \le 0.05\\ without
+    non-events). Otherwise it is merged with the neighbour whose merge
+    keeps the larger total divergence, while more than `min_bins` bins
+    remain.
+
+4.  **Monotonicity:** If `is_monotonic = TRUE`, forces the WoE trend to
     be monotonic by merging "violating" bins in the direction that
     maximizes the total divergence.
 
-4.  **Optimization:** Iteratively merges the pair of adjacent bins that
-    results in the smallest loss of total divergence, until `max_bins`
-    is reached.
+5.  **Optimization:** Iteratively merges a pair of adjacent bins until
+    `max_bins` is reached. For the divergences `"he"`, `"kl"`, `"tr"`,
+    `"klj"`, `"sc"` and `"js"` it is the pair whose merge keeps the
+    largest total of the selected divergence. The distances `"l1"`,
+    `"l2"` and `"ln"` are norms of the per-bin differences \\p_i -
+    q_i\\, and merging two bins on the same side of \\p = q\\ never
+    lowers them (L1 and L-infinity are unchanged, L2 grows), so the
+    distance cannot rank those merges: among such pairs the engine
+    merges the one whose event rates are least distinguishable (smallest
+    Pearson chi-square of the \\2 \times 2\\ table), and the selected
+    distance decides only when every adjacent pair lies on opposite
+    sides of \\p = q\\.
 
 ## References
 
@@ -190,10 +207,10 @@ result <- ob_numerical_dmiv(feature, target,
 )
 
 print(result$bin)
-#> [1] "(-Inf;-1.622584]"      "(-1.622584;-1.049677]" "(-1.049677;0.664602]" 
-#> [4] "(0.664602;1.254752]"   "(1.254752;+Inf]"      
+#> [1] "(-Inf;-1.049677]"      "(-1.049677;-0.486452]" "(-0.486452;0.373732]" 
+#> [4] "(0.373732;1.254752]"   "(1.254752;+Inf]"      
 print(result$divergence)
-#> [1] 0.013425252 0.017370581 0.002093325 0.011379313 0.039855640
+#> [1] 0.0306124252 0.0126253512 0.0005722359 0.0156672829 0.0398556402
 print(paste("Total Hellinger Distance:", round(result$total_divergence, 4)))
-#> [1] "Total Hellinger Distance: 0.0841"
+#> [1] "Total Hellinger Distance: 0.0993"
 ```

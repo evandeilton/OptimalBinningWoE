@@ -12,8 +12,8 @@
 <link rel="manifest" href="../site.webmanifest">
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_3-0.4.10/font.css" rel="stylesheet">
-<link href="../deps/Source_Serif_4-0.4.10/font.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_3-0.5.0/font.css" rel="stylesheet">
+<link href="../deps/Source_Serif_4-0.5.0/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">OptimalBinningWoE</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.14.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,9 +75,9 @@
                         <h4 data-toc-skip class="author">José
 Evandeilton Lopes</h4>
             
-            <h4 data-toc-skip class="date">2026-11-21</h4>
+            <h4 data-toc-skip class="date">2026-11-22</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/v1.14.1/vignettes/industrial-pipeline.Rmd" class="external-link"><code>vignettes/industrial-pipeline.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/evandeilton/OptimalBinningWoE/blob/main/vignettes/industrial-pipeline.Rmd" class="external-link"><code>vignettes/industrial-pipeline.Rmd</code></a></small>
       <div class="d-none name"><code>industrial-pipeline.Rmd</code></div>
     </div>
 
@@ -246,10 +246,10 @@ pre-filter by intuition.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Top features by IV:</span></span>
 <span><span class="co">#&gt;   collections_after_booking: IV = 12.3276 (4 bins, jedi)</span></span>
-<span><span class="co">#&gt;   bureau_score: IV = 0.2695 (6 bins, jedi)</span></span>
-<span><span class="co">#&gt;   income_declared: IV = 0.1989 (6 bins, jedi)</span></span>
-<span><span class="co">#&gt;   bureau_alt: IV = 0.1946 (6 bins, jedi)</span></span>
-<span><span class="co">#&gt;   income: IV = 0.1941 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   bureau_score: IV = 0.3040 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   income: IV = 0.2340 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   bureau_alt: IV = 0.2202 (6 bins, jedi)</span></span>
+<span><span class="co">#&gt;   income_declared: IV = 0.2142 (6 bins, jedi)</span></span>
 <span><span class="co">#&gt;   ... and 24 more</span></span></code></pre></div>
 <p><code><a href="../reference/obwoe_select.html">obwoe_select()</a></code> turns the fitted binning into a decision.
 The policy below is a defensible default for origination: drop the
@@ -270,16 +270,16 @@ base.</p>
 <span>             <span class="st">"ks"</span>, <span class="st">"monotonic"</span>, <span class="st">"quality"</span>, <span class="st">"selected"</span><span class="op">)</span><span class="op">]</span>, <span class="fl">12</span><span class="op">)</span></span>
 <span><span class="co">#&gt;             feature        type n_bins total_iv iv_class      ks monotonic   quality selected</span></span>
 <span><span class="co">#&gt;              &lt;char&gt;      &lt;char&gt;  &lt;int&gt;    &lt;num&gt;   &lt;fctr&gt;   &lt;num&gt;    &lt;lgcl&gt;    &lt;fctr&gt;   &lt;lgcl&gt;</span></span>
-<span><span class="co">#&gt;  1:    bureau_score   numerical      6  0.26948   Medium 0.16386      TRUE Excellent     TRUE</span></span>
-<span><span class="co">#&gt;  2: income_declared   numerical      6  0.19894   Medium 0.16228      TRUE Excellent     TRUE</span></span>
-<span><span class="co">#&gt;  3:      bureau_alt   numerical      6  0.19459   Medium 0.13558      TRUE Excellent     TRUE</span></span>
-<span><span class="co">#&gt;  4:          income   numerical      6  0.19410   Medium 0.16319      TRUE Excellent     TRUE</span></span>
+<span><span class="co">#&gt;  1:    bureau_score   numerical      6  0.30397   Strong 0.22454      TRUE Excellent     TRUE</span></span>
+<span><span class="co">#&gt;  2:          income   numerical      6  0.23397   Medium 0.20638      TRUE Excellent     TRUE</span></span>
+<span><span class="co">#&gt;  3:      bureau_alt   numerical      6  0.22018   Medium 0.19191      TRUE Excellent     TRUE</span></span>
+<span><span class="co">#&gt;  4: income_declared   numerical      6  0.21424   Medium 0.19096      TRUE Excellent     TRUE</span></span>
 <span><span class="co">#&gt;  5:      occupation categorical      6  0.08244     Weak 0.10269      TRUE      Fair     TRUE</span></span>
-<span><span class="co">#&gt;  6:    inquiries_6m   numerical      4  0.04894     Weak 0.09378      TRUE      Fair     TRUE</span></span>
-<span><span class="co">#&gt;  7:     utilisation   numerical      6  0.04827     Weak 0.09009      TRUE      Fair     TRUE</span></span>
-<span><span class="co">#&gt;  8:             ltv   numerical      6  0.04740     Weak 0.07193      TRUE      Fair     TRUE</span></span>
-<span><span class="co">#&gt;  9:      delinq_12m   numerical      2  0.04733     Weak 0.10143      TRUE      Fair     TRUE</span></span>
-<span><span class="co">#&gt; 10:             age   numerical      6  0.04596     Weak 0.07903      TRUE      Fair     TRUE</span></span>
+<span><span class="co">#&gt;  6:             age   numerical      6  0.05159     Weak 0.09450      TRUE      Fair     TRUE</span></span>
+<span><span class="co">#&gt;  7:    inquiries_6m   numerical      4  0.04894     Weak 0.09378      TRUE      Fair     TRUE</span></span>
+<span><span class="co">#&gt;  8:     utilisation   numerical      6  0.04856     Weak 0.09316      TRUE      Fair     TRUE</span></span>
+<span><span class="co">#&gt;  9:             ltv   numerical      6  0.04844     Weak 0.07606      TRUE      Fair     TRUE</span></span>
+<span><span class="co">#&gt; 10:      delinq_12m   numerical      2  0.04733     Weak 0.10143      TRUE      Fair     TRUE</span></span>
 <span><span class="co">#&gt; 11:   tenure_months   numerical      5  0.03185     Weak 0.07106      TRUE      Fair     TRUE</span></span>
 <span><span class="co">#&gt; 12:         housing categorical      4  0.02908     Weak 0.08201      TRUE      Fair     TRUE</span></span></code></pre></div>
 <p>The screening reduces the candidates to a shortlist and records why
@@ -299,7 +299,7 @@ each of the others went.</p>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"feature"</span>, <span class="st">"total_iv"</span>, <span class="st">"iv_class"</span>, <span class="st">"n_degenerate_bins"</span>, <span class="st">"reason"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;                      feature total_iv   iv_class n_degenerate_bins                       reason</span></span>
 <span><span class="co">#&gt;                       &lt;char&gt;    &lt;num&gt;     &lt;fctr&gt;             &lt;int&gt;                       &lt;char&gt;</span></span>
-<span><span class="co">#&gt; 1: collections_after_booking    3.829 Suspicious                 1 IV_SUSPICIOUS;DEGENERATE_BIN</span></span></code></pre></div>
+<span><span class="co">#&gt; 1: collections_after_booking    7.459 Suspicious                 1 IV_SUSPICIOUS;DEGENERATE_BIN</span></span></code></pre></div>
 <p><code>collections_after_booking</code> is the leak, and it is not
 subtle: an IV of about 7 against a best-real-variable IV of 0.36, and a
 KS above 0.84. No genuine application variable behaves like that. This
@@ -322,8 +322,8 @@ says so.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">shortlist</span> <span class="op">&lt;-</span> <span class="va">sel</span><span class="op">$</span><span class="va">feature</span><span class="op">[</span><span class="va">sel</span><span class="op">$</span><span class="va">selected</span><span class="op">]</span></span>
 <span><span class="va">shortlist</span></span>
-<span><span class="co">#&gt;  [1] "bureau_score"    "income_declared" "bureau_alt"      "income"          "occupation"     </span></span>
-<span><span class="co">#&gt;  [6] "inquiries_6m"    "utilisation"     "ltv"             "delinq_12m"      "age"            </span></span>
+<span><span class="co">#&gt;  [1] "bureau_score"    "income"          "bureau_alt"      "income_declared" "occupation"     </span></span>
+<span><span class="co">#&gt;  [6] "age"             "inquiries_6m"    "utilisation"     "ltv"             "delinq_12m"     </span></span>
 <span><span class="co">#&gt; [11] "tenure_months"   "housing"         "channel"</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -336,14 +336,14 @@ counts and rates behind its WoE.</p>
 <code class="sourceCode R"><span><span class="va">evidence</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obwoe_select.html">obwoe_select</a></span><span class="op">(</span><span class="va">binning</span>, detail <span class="op">=</span> <span class="st">"full"</span><span class="op">)</span></span>
 <span><span class="va">evidence</span><span class="op">[</span><span class="va">evidence</span><span class="op">$</span><span class="va">feature</span> <span class="op">==</span> <span class="st">"bureau_score"</span>,</span>
 <span>         <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bin"</span>, <span class="st">"count"</span>, <span class="st">"pos"</span>, <span class="st">"pos_rate"</span>, <span class="st">"woe"</span>, <span class="st">"iv"</span>, <span class="st">"lift"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                        bin count   pos pos_rate      woe        iv   lift</span></span>
-<span><span class="co">#&gt;                     &lt;char&gt; &lt;num&gt; &lt;num&gt;    &lt;num&gt;    &lt;num&gt;     &lt;num&gt;  &lt;num&gt;</span></span>
-<span><span class="co">#&gt; 1:       (-Inf;533.000000]  2041   762  0.37335  0.92047 0.1100126 1.9465</span></span>
-<span><span class="co">#&gt; 2: (533.000000;561.000000]  1447   415  0.28680  0.52738 0.0233841 1.4953</span></span>
-<span><span class="co">#&gt; 3: (561.000000;696.000000] 11416  2159  0.18912 -0.01738 0.0001715 0.9860</span></span>
-<span><span class="co">#&gt; 4: (696.000000;723.000000]  1807   235  0.13005 -0.46216 0.0166339 0.6780</span></span>
-<span><span class="co">#&gt; 5: (723.000000;751.000000]  1377   125  0.09078 -0.86583 0.0388497 0.4733</span></span>
-<span><span class="co">#&gt; 6:       (751.000000;+Inf]  1912   140  0.07322 -1.09987 0.0804331 0.3818</span></span></code></pre></div>
+<span><span class="co">#&gt;                        bin count   pos pos_rate     woe       iv   lift</span></span>
+<span><span class="co">#&gt;                     &lt;char&gt; &lt;num&gt; &lt;num&gt;    &lt;num&gt;   &lt;num&gt;    &lt;num&gt;  &lt;num&gt;</span></span>
+<span><span class="co">#&gt; 1:       (-Inf;533.000000]  2041   762  0.37335  0.9205 0.110013 1.9465</span></span>
+<span><span class="co">#&gt; 2: (533.000000;588.000000]  3378   908  0.26880  0.4376 0.036715 1.4014</span></span>
+<span><span class="co">#&gt; 3: (588.000000;615.000000]  2208   489  0.22147  0.1812 0.003829 1.1547</span></span>
+<span><span class="co">#&gt; 4: (615.000000;669.000000]  5045   869  0.17225 -0.1314 0.004181 0.8981</span></span>
+<span><span class="co">#&gt; 5: (669.000000;723.000000]  4039   543  0.13444 -0.4239 0.031678 0.7009</span></span>
+<span><span class="co">#&gt; 6:       (723.000000;+Inf]  3289   265  0.08057 -0.9962 0.117557 0.4201</span></span></code></pre></div>
 <p>The event rate falls monotonically across the bureau score, which is
 the shape the business expects. A variable whose shape contradicts the
 business is a finding, not a nuisance.</p>
@@ -362,12 +362,12 @@ space — the space the model actually sees.</p>
 <span><span class="va">pairs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/obcorr.html">obcorr</a></span><span class="op">(</span><span class="va">woe_dev</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">shortlist</span>, <span class="st">"_woe"</span><span class="op">)</span><span class="op">]</span>, method <span class="op">=</span> <span class="st">"pearson"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">pairs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">pairs</span><span class="op">$</span><span class="va">pearson</span><span class="op">)</span><span class="op">)</span>, <span class="op">]</span>, <span class="fl">5</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                      x               y  pearson</span></span>
-<span><span class="co">#&gt; 14 income_declared_woe      income_woe  0.82444</span></span>
-<span><span class="co">#&gt; 2     bureau_score_woe  bureau_alt_woe  0.76716</span></span>
-<span><span class="co">#&gt; 12    bureau_score_woe     channel_woe -0.01681</span></span>
-<span><span class="co">#&gt; 44      occupation_woe utilisation_woe  0.01511</span></span>
-<span><span class="co">#&gt; 38          income_woe  delinq_12m_woe  0.01429</span></span></code></pre></div>
+<span><span class="co">#&gt;                      x                   y  pearson</span></span>
+<span><span class="co">#&gt; 14          income_woe income_declared_woe  0.92086</span></span>
+<span><span class="co">#&gt; 2     bureau_score_woe      bureau_alt_woe  0.81588</span></span>
+<span><span class="co">#&gt; 45      occupation_woe     utilisation_woe  0.01498</span></span>
+<span><span class="co">#&gt; 12    bureau_score_woe         channel_woe -0.01398</span></span>
+<span><span class="co">#&gt; 39 income_declared_woe      delinq_12m_woe  0.01317</span></span></code></pre></div>
 <p>Pruning is a greedy pass: for every pair above the cutoff, drop
 whichever member the screening ranked lower.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
@@ -384,7 +384,7 @@ whichever member the screening ranked lower.</p>
 <span></span>
 <span><span class="va">final_vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="va">shortlist</span>, <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"_woe$"</span>, <span class="st">""</span>, <span class="va">dropped</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">dropped</span></span>
-<span><span class="co">#&gt; [1] "bureau_alt_woe" "income_woe"</span></span>
+<span><span class="co">#&gt; [1] "bureau_alt_woe"      "income_declared_woe"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>shortlist <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">shortlist</span><span class="op">)</span>, dropped <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">dropped</span><span class="op">)</span>,</span>
 <span>  final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">final_vars</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; shortlist   dropped     final </span></span>
@@ -415,23 +415,23 @@ which validation data can influence the bins.</p>
 <span></span>
 <span><span class="va">prepped</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://recipes.tidymodels.org/reference/prep.html" class="external-link">prep</a></span><span class="op">(</span><span class="va">rec</span>, training <span class="op">=</span> <span class="va">dev</span><span class="op">)</span></span>
 <span><span class="va">prepped</span></span>
-<span><span class="co">#&gt; Optimal Binning WoE [trained, 11 features, total IV=0.8165, algorithm='jedi']</span></span></code></pre></div>
+<span><span class="co">#&gt; Optimal Binning WoE [trained, 11 features, total IV=0.9492, algorithm='jedi']</span></span></code></pre></div>
 <p><code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code> exposes what the step learned — the artefact to
 archive alongside the model.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rules</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">prepped</span>, number <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">rules</span>, <span class="fl">8</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 8 × 5</span></span></span>
-<span><span class="co">#&gt;   terms           bin                           woe      iv id         </span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> bureau_score    (-Inf;506.000000]          1.05   0.080<span style="text-decoration: underline;">8</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> bureau_score    (506.000000;533.000000]    0.757  0.032<span style="text-decoration: underline;">1</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> bureau_score    (533.000000;561.000000]    0.527  0.023<span style="text-decoration: underline;">4</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> bureau_score    (561.000000;723.000000]   -<span style="color: #BB0000;">0.070</span><span style="color: #BB0000; text-decoration: underline;">9</span> 0.003<span style="text-decoration: underline;">25</span> obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> bureau_score    (723.000000;778.000000]   -<span style="color: #BB0000;">0.840</span>  0.059<span style="text-decoration: underline;">6</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> bureau_score    (778.000000;+Inf]         -<span style="color: #BB0000;">1.41</span>   0.066<span style="text-decoration: underline;">4</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">7</span> income_declared (-Inf;1154.000000]         1.06   0.045<span style="text-decoration: underline;">1</span>  obwoe_bpVzn</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">8</span> income_declared (1154.000000;1528.000000]  0.585  0.023<span style="text-decoration: underline;">3</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt;   terms        bin                          woe      iv id         </span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> bureau_score (-Inf;506.000000]          1.05  0.080<span style="text-decoration: underline;">8</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> bureau_score (506.000000;561.000000]    0.619 0.053<span style="text-decoration: underline;">7</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> bureau_score (561.000000;615.000000]    0.271 0.016<span style="text-decoration: underline;">4</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> bureau_score (615.000000;669.000000]   -<span style="color: #BB0000;">0.131</span> 0.004<span style="text-decoration: underline;">18</span> obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> bureau_score (669.000000;723.000000]   -<span style="color: #BB0000;">0.424</span> 0.031<span style="text-decoration: underline;">7</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> bureau_score (723.000000;+Inf]         -<span style="color: #BB0000;">0.996</span> 0.118   obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">7</span> income       (-Inf;1181.000000]         1.08  0.046<span style="text-decoration: underline;">0</span>  obwoe_bpVzn</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">8</span> income       (1181.000000;2264.000000]  0.484 0.057<span style="text-decoration: underline;">8</span>  obwoe_bpVzn</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">rules</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 54</span></span></code></pre></div>
 <p><code><a href="https://recipes.tidymodels.org/reference/bake.html" class="external-link">bake()</a></code> applies it. The development and validation frames
@@ -443,12 +443,12 @@ construction.</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">train_woe</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 12</span></span></span>
-<span><span class="co">#&gt;   bureau_score income_declared occupation inquiries_6m utilisation    ltv delinq_12m     age</span></span>
-<span><span class="co">#&gt;          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>       1.05            1.06      -<span style="color: #BB0000;">0.044</span><span style="color: #BB0000; text-decoration: underline;">2</span>      -<span style="color: #BB0000;">0.294</span>      -<span style="color: #BB0000;">0.202</span>  0.013<span style="text-decoration: underline;">2</span>      0.276 -<span style="color: #BB0000;">0.064</span><span style="color: #BB0000; text-decoration: underline;">1</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>      -<span style="color: #BB0000;">0.070</span><span style="color: #BB0000; text-decoration: underline;">9</span>         -<span style="color: #BB0000;">0.076</span><span style="color: #BB0000; text-decoration: underline;">5</span>    -<span style="color: #BB0000;">0.024</span><span style="color: #BB0000; text-decoration: underline;">8</span>      -<span style="color: #BB0000;">0.057</span><span style="color: #BB0000; text-decoration: underline;">0</span>      0.033<span style="text-decoration: underline;">0</span> 0.013<span style="text-decoration: underline;">2</span>     -<span style="color: #BB0000;">0.150</span> -<span style="color: #BB0000;">0.064</span><span style="color: #BB0000; text-decoration: underline;">1</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>      -<span style="color: #BB0000;">0.070</span><span style="color: #BB0000; text-decoration: underline;">9</span>          0.512     -<span style="color: #BB0000;">0.044</span><span style="color: #BB0000; text-decoration: underline;">2</span>      -<span style="color: #BB0000;">0.057</span><span style="color: #BB0000; text-decoration: underline;">0</span>      0.278  0.013<span style="text-decoration: underline;">2</span>     -<span style="color: #BB0000;">0.150</span>  0.207 </span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 4 more variables: tenure_months &lt;dbl&gt;, housing &lt;dbl&gt;, channel &lt;dbl&gt;, default_f &lt;fct&gt;</span></span></span></code></pre></div>
+<span><span class="co">#&gt;   bureau_score income occupation     age inquiries_6m utilisation     ltv delinq_12m tenure_months</span></span>
+<span><span class="co">#&gt;          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>        1.05   1.08     -<span style="color: #BB0000;">0.044</span><span style="color: #BB0000; text-decoration: underline;">2</span> -<span style="color: #BB0000;">0.078</span><span style="color: #BB0000; text-decoration: underline;">9</span>      -<span style="color: #BB0000;">0.294</span>       -<span style="color: #BB0000;">0.202</span> -<span style="color: #BB0000;">0.014</span><span style="color: #BB0000; text-decoration: underline;">6</span>      0.276        0.015<span style="text-decoration: underline;">9</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>        0.271 -<span style="color: #BB0000;">0.165</span>    -<span style="color: #BB0000;">0.024</span><span style="color: #BB0000; text-decoration: underline;">8</span> -<span style="color: #BB0000;">0.078</span><span style="color: #BB0000; text-decoration: underline;">9</span>      -<span style="color: #BB0000;">0.057</span><span style="color: #BB0000; text-decoration: underline;">0</span>       0.140 -<span style="color: #BB0000;">0.014</span><span style="color: #BB0000; text-decoration: underline;">6</span>     -<span style="color: #BB0000;">0.150</span>        0.015<span style="text-decoration: underline;">9</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>        0.271  0.484    -<span style="color: #BB0000;">0.044</span><span style="color: #BB0000; text-decoration: underline;">2</span>  0.207       -<span style="color: #BB0000;">0.057</span><span style="color: #BB0000; text-decoration: underline;">0</span>       0.278 -<span style="color: #BB0000;">0.014</span><span style="color: #BB0000; text-decoration: underline;">6</span>     -<span style="color: #BB0000;">0.150</span>        0.015<span style="text-decoration: underline;">9</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 3 more variables: housing &lt;dbl&gt;, channel &lt;dbl&gt;, default_f &lt;fct&gt;</span></span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="the-model">The model<a class="anchor" aria-label="anchor" href="#the-model"></a>
@@ -459,19 +459,19 @@ what remains is weighting.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">default_f</span> <span class="op">~</span> <span class="va">.</span>, data <span class="op">=</span> <span class="va">train_woe</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 Estimate Std. Error z value Pr(&gt;|z|)</span></span>
-<span><span class="co">#&gt; (Intercept)       -1.443     0.0200 -72.308        0</span></span>
-<span><span class="co">#&gt; bureau_score       1.105     0.0394  28.051        0</span></span>
-<span><span class="co">#&gt; income_declared    1.107     0.0492  22.513        0</span></span>
-<span><span class="co">#&gt; occupation         1.099     0.0672  16.360        0</span></span>
-<span><span class="co">#&gt; inquiries_6m       1.140     0.0834  13.673        0</span></span>
-<span><span class="co">#&gt; utilisation        1.107     0.0863  12.821        0</span></span>
-<span><span class="co">#&gt; ltv                1.184     0.0903  13.117        0</span></span>
-<span><span class="co">#&gt; delinq_12m         1.140     0.0848  13.444        0</span></span>
-<span><span class="co">#&gt; age                1.108     0.0928  11.939        0</span></span>
-<span><span class="co">#&gt; tenure_months      1.189     0.2671   4.451        0</span></span>
-<span><span class="co">#&gt; housing            1.180     0.1124  10.492        0</span></span>
-<span><span class="co">#&gt; channel            1.230     0.1148  10.717        0</span></span></code></pre></div>
+<span><span class="co">#&gt;               Estimate Std. Error z value Pr(&gt;|z|)</span></span>
+<span><span class="co">#&gt; (Intercept)     -1.443     0.0203 -70.995        0</span></span>
+<span><span class="co">#&gt; bureau_score     1.121     0.0367  30.538        0</span></span>
+<span><span class="co">#&gt; income           1.112     0.0414  26.882        0</span></span>
+<span><span class="co">#&gt; occupation       1.126     0.0682  16.510        0</span></span>
+<span><span class="co">#&gt; age              1.128     0.0867  13.017        0</span></span>
+<span><span class="co">#&gt; inquiries_6m     1.169     0.0846  13.812        0</span></span>
+<span><span class="co">#&gt; utilisation      1.104     0.0851  12.969        0</span></span>
+<span><span class="co">#&gt; ltv              1.236     0.0901  13.712        0</span></span>
+<span><span class="co">#&gt; delinq_12m       1.166     0.0861  13.547        0</span></span>
+<span><span class="co">#&gt; tenure_months    1.144     0.2694   4.247        0</span></span>
+<span><span class="co">#&gt; housing          1.212     0.1140  10.630        0</span></span>
+<span><span class="co">#&gt; channel          1.266     0.1165  10.863        0</span></span></code></pre></div>
 <p>The sign check is the first thing to look at. A WoE of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>+</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">+1</annotation></semantics></math>
 means one more log-odds of risk, so <strong>every coefficient should be
@@ -517,7 +517,7 @@ With 600 points at 50:1 odds and 20 points to double them:</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">dev</span><span class="op">$</span><span class="va">score</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. </span></span>
-<span><span class="co">#&gt;     415     517     537     537     556     650</span></span></code></pre></div>
+<span><span class="co">#&gt;     425     516     539     538     560     654</span></span></code></pre></div>
 <p>Because the model is linear in WoE, the points decompose additively
 per bin, which is what makes a scorecard a table a branch officer can
 read.</p>
@@ -530,14 +530,14 @@ read.</p>
 <span><span class="co">#&gt; [1] "bureau_score"</span></span>
 <span><span class="va">per_bin</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 3</span></span></span>
-<span><span class="co">#&gt;   bin                         woe points</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> (-Inf;506.000000]        1.05      -<span style="color: #BB0000;">33</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> (506.000000;533.000000]  0.757     -<span style="color: #BB0000;">24</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> (533.000000;561.000000]  0.527     -<span style="color: #BB0000;">17</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> (561.000000;723.000000] -<span style="color: #BB0000;">0.070</span><span style="color: #BB0000; text-decoration: underline;">9</span>      2</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> (723.000000;778.000000] -<span style="color: #BB0000;">0.840</span>      27</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> (778.000000;+Inf]       -<span style="color: #BB0000;">1.41</span>       45</span></span></code></pre></div>
+<span><span class="co">#&gt;   bin                        woe points</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> (-Inf;506.000000]        1.05     -<span style="color: #BB0000;">34</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> (506.000000;561.000000]  0.619    -<span style="color: #BB0000;">20</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> (561.000000;615.000000]  0.271     -<span style="color: #BB0000;">9</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> (615.000000;669.000000] -<span style="color: #BB0000;">0.131</span>      4</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> (669.000000;723.000000] -<span style="color: #BB0000;">0.424</span>     14</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> (723.000000;+Inf]       -<span style="color: #BB0000;">0.996</span>     32</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a>
@@ -553,24 +553,24 @@ read.</p>
 <span><span class="co">#&gt; ================================================== </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Observations: 8000  |  Bins: 10</span></span>
-<span><span class="co">#&gt; Total IV: 0.8580</span></span>
+<span><span class="co">#&gt; Total IV: 0.9814</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Performance Metrics:</span></span>
-<span><span class="co">#&gt;   KS Statistic: 36.19%</span></span>
-<span><span class="co">#&gt;   Gini Coefficient: 48.78%</span></span>
-<span><span class="co">#&gt;   AUC: 0.7439</span></span>
+<span><span class="co">#&gt;   KS Statistic: 38.64%</span></span>
+<span><span class="co">#&gt;   Gini Coefficient: 51.90%</span></span>
+<span><span class="co">#&gt;   AUC: 0.7595</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  bin count pos_rate     woe     iv cum_pos_pct    ks lift</span></span>
-<span><span class="co">#&gt;  G01   823   51.03%  1.5085 0.3291       28.0% 21.8% 2.72</span></span>
-<span><span class="co">#&gt;  G02   781   33.16%  0.7663 0.0709       45.3% 31.1% 1.77</span></span>
-<span><span class="co">#&gt;  G03   878   23.58%  0.2911 0.0102       59.1% 34.6% 1.26</span></span>
-<span><span class="co">#&gt;  G04   748   21.39%  0.1656 0.0027       69.8% 36.2% 1.14</span></span>
-<span><span class="co">#&gt;  G05   889   16.76% -0.1355 0.0020       79.7% 34.7% 0.89</span></span>
-<span><span class="co">#&gt;  G06   773   12.42% -0.4862 0.0195       86.1% 30.7% 0.66</span></span>
-<span><span class="co">#&gt;  G07   715    9.37% -0.8020 0.0441       90.6% 25.2% 0.50</span></span>
-<span><span class="co">#&gt;  G08   818    8.92% -0.8558 0.0564       95.5% 18.6% 0.48</span></span>
-<span><span class="co">#&gt;  G09   819    5.74% -1.3317 0.1164       98.6%  9.9% 0.31</span></span>
-<span><span class="co">#&gt;  G10   756    2.78% -2.0882 0.2068      100.0%  0.0% 0.15</span></span></code></pre></div>
+<span><span class="co">#&gt;  G01   820   53.17%  1.5942 0.3695       29.1% 23.2% 2.84</span></span>
+<span><span class="co">#&gt;  G02   815   34.48%  0.8251 0.0869       47.8% 33.7% 1.84</span></span>
+<span><span class="co">#&gt;  G03   816   26.10%  0.4265 0.0210       62.0% 38.6% 1.39</span></span>
+<span><span class="co">#&gt;  G04   844   18.72% -0.0011 0.0000       72.6% 38.6% 1.00</span></span>
+<span><span class="co">#&gt;  G05   751   15.31% -0.2431 0.0051       80.3% 36.5% 0.82</span></span>
+<span><span class="co">#&gt;  G06   809   12.11% -0.5145 0.0226       86.8% 32.1% 0.65</span></span>
+<span><span class="co">#&gt;  G07   802    9.85% -0.7468 0.0437       92.1% 26.3% 0.53</span></span>
+<span><span class="co">#&gt;  G08   785    7.52% -1.0429 0.0754       96.0% 19.0% 0.40</span></span>
+<span><span class="co">#&gt;  G09   760    5.39% -1.3971 0.1163       98.7% 10.7% 0.29</span></span>
+<span><span class="co">#&gt;  G10   798    2.38% -2.2464 0.2407      100.0%  0.0% 0.13</span></span></code></pre></div>
 <p>Three things to check, in order. The event rate must fall
 monotonically from the worst decile to the best — a break means the
 score does not rank. KS and Gini must be close to their development
@@ -587,8 +587,8 @@ quote.</p>
 <span>  auc    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">gains_dev</span><span class="op">$</span><span class="va">metrics</span><span class="op">$</span><span class="va">auc</span>, <span class="va">gains_oot</span><span class="op">$</span><span class="va">metrics</span><span class="op">$</span><span class="va">auc</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;        sample    ks  gini    auc</span></span>
-<span><span class="co">#&gt; 1 development 36.38 49.04 0.7452</span></span>
-<span><span class="co">#&gt; 2 out-of-time 36.19 48.78 0.7439</span></span></code></pre></div>
+<span><span class="co">#&gt; 1 development 39.94 53.29 0.7664</span></span>
+<span><span class="co">#&gt; 2 out-of-time 38.64 51.90 0.7595</span></span></code></pre></div>
 <p>A drop of more than a few points from development to out-of-time is
 the usual signature of overfitting; holding steady, as here, is what a
 stable model looks like.</p>
@@ -648,19 +648,19 @@ act.</p>
 <span><span class="va">psi_table</span> <span class="op">&lt;-</span> <span class="va">psi_table</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="op">-</span><span class="va">psi_table</span><span class="op">$</span><span class="va">psi</span><span class="op">)</span>, <span class="op">]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/row.names.html" class="external-link">row.names</a></span><span class="op">(</span><span class="va">psi_table</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span><span class="va">psi_table</span></span>
-<span><span class="co">#&gt;           variable    psi</span></span>
-<span><span class="co">#&gt; 1              ltv 0.0022</span></span>
-<span><span class="co">#&gt; 2     bureau_score 0.0017</span></span>
-<span><span class="co">#&gt; 3      utilisation 0.0014</span></span>
-<span><span class="co">#&gt; 4            SCORE 0.0012</span></span>
-<span><span class="co">#&gt; 5  income_declared 0.0010</span></span>
-<span><span class="co">#&gt; 6              age 0.0008</span></span>
-<span><span class="co">#&gt; 7          housing 0.0007</span></span>
-<span><span class="co">#&gt; 8       occupation 0.0006</span></span>
-<span><span class="co">#&gt; 9     inquiries_6m 0.0004</span></span>
-<span><span class="co">#&gt; 10      delinq_12m 0.0004</span></span>
-<span><span class="co">#&gt; 11   tenure_months 0.0002</span></span>
-<span><span class="co">#&gt; 12         channel 0.0002</span></span></code></pre></div>
+<span><span class="co">#&gt;         variable    psi</span></span>
+<span><span class="co">#&gt; 1          SCORE 0.0026</span></span>
+<span><span class="co">#&gt; 2            ltv 0.0021</span></span>
+<span><span class="co">#&gt; 3   bureau_score 0.0015</span></span>
+<span><span class="co">#&gt; 4    utilisation 0.0011</span></span>
+<span><span class="co">#&gt; 5        housing 0.0007</span></span>
+<span><span class="co">#&gt; 6     occupation 0.0006</span></span>
+<span><span class="co">#&gt; 7         income 0.0005</span></span>
+<span><span class="co">#&gt; 8            age 0.0005</span></span>
+<span><span class="co">#&gt; 9   inquiries_6m 0.0004</span></span>
+<span><span class="co">#&gt; 10    delinq_12m 0.0004</span></span>
+<span><span class="co">#&gt; 11 tenure_months 0.0002</span></span>
+<span><span class="co">#&gt; 12       channel 0.0002</span></span></code></pre></div>
 <p>Comparing bin shares rather than raw quantiles is deliberate: the
 bins are what the model consumes, the comparison works for numerical and
 categorical variables alike, and a shift that does not cross a cut point
@@ -693,21 +693,21 @@ exactly.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strsplit.html" class="external-link">strsplit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="va">sql</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="fl">28</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- ---------------------------------------------------------------</span></span>
 <span><span class="co">#&gt; -- Weight of Evidence transformation</span></span>
-<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.14.1</span></span>
+<span><span class="co">#&gt; -- Generated by OptimalBinningWoE 1.15.0</span></span>
 <span><span class="co">#&gt; -- Algorithm(s): jedi</span></span>
 <span><span class="co">#&gt; -- Dialect: postgres</span></span>
 <span><span class="co">#&gt; -- Interval convention: (lower, upper]  -- upper bound inclusive</span></span>
 <span><span class="co">#&gt; -- Variables: 11</span></span>
 <span><span class="co">#&gt; --</span></span>
 <span><span class="co">#&gt; -- Variable                 Type          Bins        IV</span></span>
-<span><span class="co">#&gt; --   bureau_score           numerical        6   0.26948</span></span>
-<span><span class="co">#&gt; --   income_declared        numerical        6   0.19894</span></span>
+<span><span class="co">#&gt; --   bureau_score           numerical        6   0.30397</span></span>
+<span><span class="co">#&gt; --   income                 numerical        6   0.23397</span></span>
 <span><span class="co">#&gt; --   occupation             categorical      6   0.08242</span></span>
+<span><span class="co">#&gt; --   age                    numerical        6   0.05159</span></span>
 <span><span class="co">#&gt; --   inquiries_6m           numerical        4   0.04894</span></span>
-<span><span class="co">#&gt; --   utilisation            numerical        6   0.04827</span></span>
-<span><span class="co">#&gt; --   ltv                    numerical        6   0.04740</span></span>
+<span><span class="co">#&gt; --   utilisation            numerical        6   0.04856</span></span>
+<span><span class="co">#&gt; --   ltv                    numerical        6   0.04844</span></span>
 <span><span class="co">#&gt; --   delinq_12m             numerical        2   0.04733</span></span>
-<span><span class="co">#&gt; --   age                    numerical        6   0.04596</span></span>
 <span><span class="co">#&gt; --   tenure_months          numerical        5   0.03185</span></span>
 <span><span class="co">#&gt; --   housing                categorical      4   0.02907</span></span>
 <span><span class="co">#&gt; --   channel                categorical      4   0.02778</span></span>
@@ -737,19 +737,19 @@ would otherwise fall through to <code>ELSE</code>.</p>
 <span>  beta     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>,</span>
 <span>  row.names <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt;           variable   beta</span></span>
-<span><span class="co">#&gt; 1      (Intercept) -1.443</span></span>
-<span><span class="co">#&gt; 2     bureau_score  1.105</span></span>
-<span><span class="co">#&gt; 3  income_declared  1.107</span></span>
-<span><span class="co">#&gt; 4       occupation  1.099</span></span>
-<span><span class="co">#&gt; 5     inquiries_6m  1.140</span></span>
-<span><span class="co">#&gt; 6      utilisation  1.107</span></span>
-<span><span class="co">#&gt; 7              ltv  1.184</span></span>
-<span><span class="co">#&gt; 8       delinq_12m  1.140</span></span>
-<span><span class="co">#&gt; 9              age  1.108</span></span>
-<span><span class="co">#&gt; 10   tenure_months  1.189</span></span>
-<span><span class="co">#&gt; 11         housing  1.180</span></span>
-<span><span class="co">#&gt; 12         channel  1.230</span></span></code></pre></div>
+<span><span class="co">#&gt;         variable   beta</span></span>
+<span><span class="co">#&gt; 1    (Intercept) -1.443</span></span>
+<span><span class="co">#&gt; 2   bureau_score  1.121</span></span>
+<span><span class="co">#&gt; 3         income  1.112</span></span>
+<span><span class="co">#&gt; 4     occupation  1.126</span></span>
+<span><span class="co">#&gt; 5            age  1.128</span></span>
+<span><span class="co">#&gt; 6   inquiries_6m  1.169</span></span>
+<span><span class="co">#&gt; 7    utilisation  1.104</span></span>
+<span><span class="co">#&gt; 8            ltv  1.236</span></span>
+<span><span class="co">#&gt; 9     delinq_12m  1.166</span></span>
+<span><span class="co">#&gt; 10 tenure_months  1.144</span></span>
+<span><span class="co">#&gt; 11       housing  1.212</span></span>
+<span><span class="co">#&gt; 12       channel  1.265</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="to-r">To R<a class="anchor" aria-label="anchor" href="#to-r"></a>
@@ -919,15 +919,15 @@ dialects.</li>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] recipes_1.4.0            dplyr_1.2.1              OptimalBinningWoE_1.14.1</span></span>
+<span><span class="co">#&gt; [1] recipes_1.4.0            dplyr_1.2.1              OptimalBinningWoE_1.15.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] xfun_0.62           bslib_0.12.0        lattice_0.23-1      vctrs_0.7.3        </span></span>
 <span><span class="co">#&gt;  [5] tools_4.6.2         generics_0.1.4      parallel_4.6.2      tibble_3.3.1       </span></span>
 <span><span class="co">#&gt;  [9] pkgconfig_2.0.3     Matrix_1.7-6        data.table_1.18.6.1 RColorBrewer_1.1-3 </span></span>
 <span><span class="co">#&gt; [13] desc_1.4.3          lifecycle_1.0.5     compiler_4.6.2      farver_2.1.2       </span></span>
-<span><span class="co">#&gt; [17] textshaping_1.0.5   codetools_0.2-20    DiceDesign_1.10     htmltools_0.5.9    </span></span>
-<span><span class="co">#&gt; [21] class_7.3-24        sass_0.4.10         yaml_2.3.12         prodlim_2026.03.11 </span></span>
+<span><span class="co">#&gt; [17] textshaping_1.1.0   codetools_0.2-20    DiceDesign_1.10     htmltools_0.5.9    </span></span>
+<span><span class="co">#&gt; [21] class_7.3-24        sass_0.5.0          yaml_2.3.12         prodlim_2026.03.11 </span></span>
 <span><span class="co">#&gt; [25] pillar_1.11.1       pkgdown_2.2.1       jquerylib_0.1.4     MASS_7.3-66        </span></span>
 <span><span class="co">#&gt; [29] cachem_1.1.0        gower_1.0.2         rpart_4.1.27        parallelly_1.50.0  </span></span>
 <span><span class="co">#&gt; [33] lava_1.11           dials_1.4.5         tidyselect_1.2.1    digest_0.6.39      </span></span>
@@ -938,7 +938,7 @@ dialects.</li>
 <span><span class="co">#&gt; [53] globals_0.20.0      otel_0.3.0          nnet_7.3-21         timeDate_4052.112  </span></span>
 <span><span class="co">#&gt; [57] ragg_1.5.2          evaluate_1.0.5      knitr_1.52          hardhat_1.4.3      </span></span>
 <span><span class="co">#&gt; [61] rlang_1.3.0         Rcpp_1.1.2          glue_1.8.1          ipred_0.9-16       </span></span>
-<span><span class="co">#&gt; [65] jsonlite_2.0.0      R6_2.6.1            systemfonts_1.3.3   fs_2.1.0</span></span></code></pre></div>
+<span><span class="co">#&gt; [65] jsonlite_2.0.0      R6_2.6.1            systemfonts_1.3.4   fs_2.1.0</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

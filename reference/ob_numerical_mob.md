@@ -177,16 +177,19 @@ per bin) with granularity (ability to detect local patterns).
 
 Bins with total count below `bin_cutoff` \\\times N\\ are iteratively
 merged. The merge direction (left or right) is chosen to minimize
-Information Value loss:
+Information Value loss, i.e. to keep the largest total IV over all \\k -
+1\\ bins after the merge:
 
-\$\$\text{direction} = \arg\min\_{d \in \\\text{left}, \text{right}\\}
-\left( \text{IV}\_{\text{before}} - \text{IV}\_{\text{after merge}}
-\right)\$\$
+\$\$\text{direction} = \arg\max\_{d \in \\\text{left}, \text{right}\\}
+\sum\_{j=1}^{k-1} \text{IV}^{EB}\_j(\text{merge } i, i+d)\$\$
 
-where: \$\$\text{IV}\_{\text{before}} = \text{IV}\_i +
-\text{IV}\_{i+d}\$\$ \$\$\text{IV}\_{\text{after}} =
-(\text{DistGood}\_{\text{merged}} - \text{DistBad}\_{\text{merged}})
-\times \text{WoE}\_{\text{merged}}\$\$
+where \\\text{IV}^{EB}\\ is an empirical-Bayes IV: each bin's event rate
+is shrunk towards the overall rate by a beta prior worth 50
+pseudo-observations, so a few rows with an extreme observed rate are not
+kept apart on weak evidence. The shrinkage only decides the direction;
+reported WoE and IV are unchanged. (Up to version 1.14.1 the loss was
+\\\text{IV}\_i + \text{IV}\_{i+d}\\, which never subtracted the IV of
+the merged bin.)
 
 Merging continues until all bins meet the frequency threshold or
 `min_bins` is reached.

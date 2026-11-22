@@ -166,6 +166,27 @@ merge direction (left or right) is chosen to minimize IV loss:
 \left( \text{IV}\_i + \text{IV}\_{i+d} - \text{IV}\_{\text{merged}}
 \right)\$\$
 
+**Phase 2b: Evidence for Pure Bins**
+
+A bin with no events (or no non-events) has a large smoothed IV, so the
+IV criterion alone would never merge it. Two rules apply after Phase 2,
+always respecting `min_bins`:
+
+1.  adjacent pure bins of the same class are merged (the binomial
+    likelihood is unchanged, \\G^2 = 0\\);
+
+2.  a pure bin with \\n\\ rows stays alone only if the exact binomial
+    test of zero occurrences under the overall event rate \\r_0\\
+    rejects chance, \$\$P_0 = (1 - r_0)^{n} \le 0.01\$\$ (\\r_0^{n}\\
+    for a bin without non-events), roughly \\n r_0 \ge 4.6\\. Otherwise
+    the least supported pure bin is merged with the neighbour whose
+    merge keeps the largest total IV, and the test is repeated.
+
+With rare events (a handful of training events) this keeps blocks that
+are empty of events only by chance from staying as separate bins; a
+perfect separator (\\n r_0\\ large) is unaffected. Versions up to 1.14.1
+had no such rule.
+
 **Phase 3: Initial WoE/IV Calculation**
 
 Weight of Evidence for bin \\i\\:
@@ -200,18 +221,19 @@ Violating bins are merged iteratively until monotonicity is achieved or
 
 **Phase 5: Bin Count Reduction**
 
-If the number of bins exceeds `max_bins`, the algorithm merges bins with
-the **smallest absolute IV difference**:
+If the number of bins exceeds `max_bins`, the algorithm merges the
+adjacent pair whose fusion keeps the **largest total IV**:
 
-\$\$\text{merge\\idx} = \arg\min\_{i=0}^{k-2} \|\text{IV}\_i -
-\text{IV}\_{i+1}\|\$\$
+\$\$\text{merge\\idx} = \arg\max\_{i=0}^{k-2}
+\text{IV}\_{\text{total}}\left(\text{bins after merging } i,
+i+1\right)\$\$
 
-**Critique**: This criterion assumes bins with similar IVs are
-redundant, which is not theoretically justified. A more rigorous
-approach (used in MBLP) minimizes IV loss **after merge**:
-
-\$\$\Delta \text{IV} = \text{IV}\_i + \text{IV}\_{i+1} -
-\text{IV}\_{\text{merged}}\$\$
+where the total is computed exactly as reported (`laplace_smoothing` per
+bin, all \\k-1\\ bins renormalized), i.e. a greedy step on the reported
+objective. (Versions up to 1.14.1 merged the pair with the smallest
+\\\|\text{IV}\_i - \text{IV}\_{i+1}\|\\, which is 0 for two bins with
+opposite WoE and equal IV, the most distinct pair.) The same IV change
+chooses the neighbour of a rare bin in Phase 2.
 
 **Theoretical Foundations**
 
@@ -232,7 +254,7 @@ approach (used in MBLP) minimizes IV loss **after merge**:
 |            |                 |                         |                     |
 |------------|-----------------|-------------------------|---------------------|
 | **Method** | **Pre-binning** | **Direction Detection** | **Merge Criterion** |
-| MRBLP      | Equal-frequency | Majority vote           | Min IV difference   |
+| MRBLP      | Equal-frequency | Majority vote           | Min IV loss         |
 | MOB        | Equal-frequency | First two bins          | Min IV loss         |
 | MBLP       | Quantile-based  | Pearson correlation     | Min IV loss         |
 | MDLP       | Equal-frequency | N/A (optional)          | MDL cost            |
@@ -244,7 +266,7 @@ Identical to MOB: \\O(N \log N + k^2 \times \text{max\\iterations})\\
 **When to Use MRBLP vs Alternatives**
 
 - **Use MRBLP**: If you specifically need majority-vote direction
-  detection and can tolerate the non-standard merge criterion.
+  detection.
 
 - **Use MOB**: For simplicity and slightly faster direction detection.
 
@@ -277,6 +299,15 @@ Identical to MOB: \\O(N \log N + k^2 \times \text{max\\iterations})\\
 
 - Hosmer, D. W., Lemeshow, S., & Sturdivant, R. X. (2013). *Applied
   Logistic Regression* (3rd ed.). Wiley.
+
+- Clopper, C. J., & Pearson, E. S. (1934). "The use of confidence or
+  fiducial limits illustrated in the case of the binomial".
+  *Biometrika*, 26(4), 404-413. \[Exact binomial test behind the
+  pure-bin rule\]
+
+- Hanley, J. A., & Lippman-Hand, A. (1983). "If nothing goes wrong, is
+  everything all right? Interpreting zero numerators". *JAMA*, 249(13),
+  1743-1745.
 
 ## See also
 
@@ -333,7 +364,7 @@ data.frame(
   Iterations = c(result$iterations, result_mob$iterations)
 )
 #>   Method N_Bins  Total_IV Iterations
-#> 1  MRBLP      5 0.1654134         16
+#> 1  MRBLP      5 0.1744501         16
 #> 2    MOB      5 0.1744501         15
 # }
 ```

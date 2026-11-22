@@ -62,13 +62,13 @@ ob_categorical_sblp(
 
 - convergence_threshold:
 
-  Numeric. Threshold for determining algorithm convergence based on
-  changes in total Information Value. Default is 1e-6.
+  Numeric. Kept for backward compatibility; the exact DP does not
+  iterate. Must be positive. Default is 1e-6.
 
 - max_iterations:
 
-  Integer. Maximum number of iterations for the optimization process.
-  Default is 1000.
+  Integer. Kept for backward compatibility; the exact DP does not
+  iterate. Must be positive. Default is 1000.
 
 - bin_separator:
 
@@ -124,11 +124,13 @@ A list containing the results of the optimal binning procedure:
 
 - `converged`:
 
-  Logical. Whether the algorithm converged
+  Logical. `TRUE`: the DP is exact and no iteration budget can stop it
+  early
 
 - `iterations`:
 
-  Integer. Number of iterations performed
+  Integer. 1 when the DP ran, 0 when every (pre-merged) category already
+  forms its own bin
 
 ## Details
 
@@ -142,14 +144,21 @@ The SBLP algorithm follows these steps:
     on their target rates.
 
 3.  **Sorting**: Unique categories (or merged groups) are sorted by
-    their empirical event rate (probability of target=1).
+    their exact empirical event rate (probability of target=1).
 
-4.  **Dynamic Programming**: An optimal partitioning algorithm (similar
-    to Jenks Natural Breaks but optimizing IV) is applied to the sorted
-    sequence to determine the cutpoints that maximize the total IV.
+4.  **Dynamic Programming**: for every number of bins \\K\\ in
+    `[min_bins, max_bins]`, an exact DP over the sorted sequence finds
+    the contiguous partition that maximizes the total IV computed with
+    the same smoothing (`alpha`, \\K\\) as the reported IV; the \\K\\
+    with the largest IV is kept (the smallest on ties).
 
-5.  **Refinement**: Post-processing ensures constraints like
-    monotonicity and minimum bin size are met.
+Since the forensic audit (finding B-02) the DP optimizes exactly the
+reported `total_iv` (it used to normalize the smoothing by the number of
+categories in each segment and to try only `max_bins`), categories are
+ordered by their exact event rate instead of a smoothed one, and the
+former post-processing (merging non-monotone bins, or re-chunking the
+categories into groups of equal size) was removed: bins contiguous in
+event-rate order are monotone by construction.
 
 A key feature of this implementation is the use of **Laplace Smoothing**
 (controlled by the `alpha` parameter) to prevent infinite WoE values and
@@ -175,12 +184,13 @@ on the platform.
 
 - Target variable must contain both 0 and 1 values.
 
-- Unlike heuristic methods, this algorithm uses Dynamic Programming
-  which guarantees an optimal partition given the sorted order of
-  categories.
+- For a binary target the IV-optimal grouping of categories is
+  contiguous in event-rate order (Fisher, 1958; Breiman et al., 1984,
+  Theorem 4.5), so the DP returns the IV-optimal partition of the
+  (pre-merged) categories for each number of bins.
 
-- Monotonicity is generally enforced by the sorting step, but strictly
-  checked and corrected in the final output.
+- The bins are reported in WoE order; their event rates are monotone by
+  construction.
 
 ## Examples
 

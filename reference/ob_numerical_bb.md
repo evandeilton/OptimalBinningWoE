@@ -123,11 +123,15 @@ and optimality:
     the path that preserves the maximum possible Information Value while
     satisfying the monotonicity constraint.
 
-4.  **Optimization Phase:** The algorithm iteratively merges adjacent
-    bins that have the lowest contribution to the total Information
-    Value (IV). This process continues until the number of bins is
-    reduced to `max_bins`. With `is_monotonic = TRUE` the returned WoE
-    is monotonic unless that would require fewer than `min_bins` bins.
+4.  **Optimization Phase:** The algorithm iteratively merges the
+    adjacent pair of bins whose fusion keeps the largest total
+    Information Value (the total as reported, all bins renormalized
+    after the merge): a greedy merge, not an exhaustive branch-and-bound
+    search. With `is_monotonic = TRUE` only merges that add no WoE
+    violation compete, unless none qualifies. This process continues
+    until the number of bins is reduced to `max_bins`. With
+    `is_monotonic = TRUE` the returned WoE is monotonic unless that
+    would require fewer than `min_bins` bins.
 
 **Information Value (IV) Interpretation:**
 
@@ -168,13 +172,13 @@ print(data.frame(
   WoE = round(result$woe, 4),
   IV = round(result$iv, 4)
 ))
-#>                    Bin Count     WoE     IV
-#> 1     (-Inf;-1.622584]    50 -3.4487 0.3213
-#> 2 (-1.622584;0.841413]   750 -0.3461 0.0882
-#> 3  (0.841413;1.254752]   100  1.9167 0.2916
-#> 4  (1.254752;1.676134]    50  3.5443 0.3473
-#> 5      (1.676134;+Inf]    50  3.5443 0.3473
+#>                     Bin Count     WoE     IV
+#> 1      (-Inf;-1.267328]   100 -3.2793 0.5980
+#> 2 (-1.267328;-0.486452]   200 -1.6732 0.4504
+#> 3  (-0.486452;0.373732]   350 -0.1696 0.0100
+#> 4   (0.373732;1.254752]   250  1.4516 0.4567
+#> 5       (1.254752;+Inf]   100  3.7215 0.7293
 
 cat("Total IV:", result$total_iv, "\n")
-#> Total IV: 1.395824 
+#> Total IV: 2.244419 
 ```

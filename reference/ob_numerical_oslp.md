@@ -164,6 +164,27 @@ direction minimizes IV loss:
 
 where \\d \in \\-1, +1\\\\ (left or right neighbor).
 
+**Phase 2b: Evidence for Pure Bins**
+
+A bin with no events (or no non-events) has a large smoothed IV, so the
+IV criterion alone would never merge it. Two rules apply after Phase 2,
+always respecting `min_bins`:
+
+1.  adjacent pure bins of the same class are merged (the binomial
+    likelihood is unchanged, \\G^2 = 0\\);
+
+2.  a pure bin with \\n\\ rows stays alone only if the exact binomial
+    test of zero occurrences under the overall event rate \\r_0\\
+    rejects chance, \$\$P_0 = (1 - r_0)^{n} \le 0.01\$\$ (\\r_0^{n}\\
+    for a bin without non-events), roughly \\n r_0 \ge 4.6\\. Otherwise
+    the least supported pure bin is merged with the neighbour whose
+    merge keeps the largest total IV, and the test is repeated.
+
+With rare events (a handful of training events) this keeps blocks that
+are empty of events only by chance from staying as separate bins; a
+perfect separator (\\n r_0\\ large) is unaffected. Versions up to 1.14.1
+had no such rule.
+
 **Phase 3: Initial WoE/IV Calculation**
 
 Standard WoE with Laplace smoothing:
@@ -184,15 +205,19 @@ Violations are merged iteratively.
 
 **Phase 5: Bin Count Reduction**
 
-If \\k \> \text{max\\bins}\\, merge bins with the **smallest combined
-IV**:
+If \\k \> \text{max\\bins}\\, merge the adjacent pair whose fusion keeps
+the **largest total IV**:
 
-\$\$\text{merge\\idx} = \arg\min\_{i=0}^{k-2} \left( \text{IV}\_i +
-\text{IV}\_{i+1} \right)\$\$
+\$\$\text{merge\\idx} = \arg\max\_{i=0}^{k-2}
+\text{IV}\_{\text{total}}\left(\text{bins after merging } i,
+i+1\right)\$\$
 
-**Rationale**: Assumes bins with low total IV contribute least to
-predictive power. However, this ignores the interaction between bins; a
-low-IV bin may be essential for monotonicity or preventing gaps.
+where the total is computed exactly as reported (`laplace_smoothing` per
+bin, all \\k-1\\ bins renormalized), i.e. a greedy step on the reported
+objective. (Versions up to 1.14.1 merged the pair with the smallest
+*sum* \\\text{IV}\_i + \text{IV}\_{i+1}\\, which never merges two
+neighbours with the same extreme WoE.) The same IV change chooses the
+neighbour of a rare bin in Phase 2.
 
 **Theoretical Foundations**
 
@@ -224,8 +249,8 @@ Gurobi) and is intractable for \\N \> 10^4\\.
 |  |  |  |  |  |
 |----|----|----|----|----|
 | **Method** | **Pre-binning** | **Direction** | **Merge (max_bins)** | **Target Type** |
-| OSLP | Quantile (unique vals) | Majority vote | Min (IV(i) + IV(i+1)) | double |
-| MRBLP | Equal-frequency | Majority vote | Min \|IV(i) - IV(i+1)\| | int |
+| OSLP | Quantile (unique vals) | Majority vote | Min IV loss | double |
+| MRBLP | Equal-frequency | Majority vote | Min IV loss | int |
 | MOB | Equal-frequency | First two bins | Min IV loss | int |
 | MBLP | Quantile (data) | Correlation | Min IV loss | int |
 
@@ -257,6 +282,15 @@ Gurobi) and is intractable for \\N \> 10^4\\.
   Statistical Society B*, 14(1), 107-114.
 
 - Siddiqi, N. (2006). *Credit Risk Scorecards*. Wiley.
+
+- Clopper, C. J., & Pearson, E. S. (1934). "The use of confidence or
+  fiducial limits illustrated in the case of the binomial".
+  *Biometrika*, 26(4), 404-413. \[Exact binomial test behind the
+  pure-bin rule\]
+
+- Hanley, J. A., & Lippman-Hand, A. (1983). "If nothing goes wrong, is
+  everything all right? Interpreting zero numerators". *JAMA*, 249(13),
+  1743-1745.
 
 ## See also
 
@@ -296,9 +330,9 @@ result <- ob_numerical_oslp(
 )
 
 print(result$woe)
-#> [1]  0.91838635  0.58910541 -0.07046574 -1.27431365 -1.39250961
+#> [1]  0.91838635  0.54328305  0.07707107 -0.49113613 -1.36667625
 print(result$total_iv)
-#> [1] 0.2926024
+#> [1] 0.406261
 
 # Compare with MRBLP (should be nearly identical)
 result_mrblp <- ob_numerical_mrblp(
@@ -313,8 +347,8 @@ data.frame(
   Total_IV = c(result$total_iv, result_mrblp$total_iv),
   N_Bins = c(length(result$woe), length(result_mrblp$woe))
 )
-#>   Method  Total_IV N_Bins
-#> 1   OSLP 0.2926024      5
-#> 2  MRBLP 0.3847959      5
+#>   Method Total_IV N_Bins
+#> 1   OSLP 0.406261      5
+#> 2  MRBLP 0.406261      5
 # }
 ```

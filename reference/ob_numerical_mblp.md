@@ -1,8 +1,10 @@
 # Optimal Binning for Numerical Features Using Monotonic Binning via Linear Programming
 
 Implements a greedy optimization algorithm for supervised discretization
-of numerical features with \*\*guaranteed monotonicity\*\* in Weight of
-Evidence (WoE). Despite the "Linear Programming" designation, this
+of numerical features with \*\*enforced monotonicity\*\* in Weight of
+Evidence (WoE). Monotonicity is not guaranteed: the merges stop at
+`min_bins`, and the `monotonic` field (with a warning) reports when it
+was not reached. Despite the "Linear Programming" designation, this
 method employs an iterative heuristic based on quantile pre-binning,
 Information Value (IV) optimization, and monotonicity enforcement
 through adaptive bin merging.
@@ -137,6 +139,15 @@ A list containing:
 
   Logical flag indicating whether the algorithm converged within
   `max_iterations`.
+
+- monotonic:
+
+  Logical. TRUE when the final WoE of the regular bins is monotone (in
+  the reported direction when one is fixed), checked on the reported WoE
+  and on the reference WoE `log((count_pos + 0.5) / (count_neg + 0.5))`.
+  When monotonicity was requested and this is FALSE (the merges stop at
+  `min_bins`), a warning is raised. Up to version 1.14.1 nothing
+  signalled it.
 
 - iterations:
 

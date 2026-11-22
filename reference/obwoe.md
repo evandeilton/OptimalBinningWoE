@@ -485,7 +485,7 @@ cat("\nAlgorithm Comparison (IV for 'income'):\n")
 #> Algorithm Comparison (IV for 'income'):
 print(sort(iv_comparison, decreasing = TRUE))
 #>         jedi          mob          ewb         mdlp 
-#> 0.0092022973 0.0079960821 0.0028174937 0.0003402702 
+#> 0.0092022973 0.0079960821 0.0036604566 0.0003402702 
 
 # =============================================================================
 # Example 5: Feature Selection Based on IV

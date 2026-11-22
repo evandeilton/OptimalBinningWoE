@@ -137,9 +137,18 @@ classic MDLP algorithm with modern monotonicity constraints.
       most `max_bins - 1` of them are kept. When `max_bins` is not
       binding this yields exactly the MDLP partition.
 
-    - **Min Bins:** When MDLP accepts fewer splits, additional ones are
-      placed between distinct values, spread evenly over the distinct
-      values and then over the largest runs of observations.
+    - **Min Bins:** When MDLP accepts fewer splits, the accepted splits
+      are kept and each missing split bisects the bin with the most
+      observations at a boundary between distinct values (the target is
+      not used to place them: they are splits the MDL test rejected).
+      This completion is used only if, against the completion that
+      ignores the target altogether (all splits spread evenly over the
+      distinct values, as up to version 1.14.1), it shortens the
+      class-label code length \\N \cdot H(Y \mid \mathrm{bins})\\ by
+      more than \\\log_2(N - 1)\\ bits per kept MDL split, the cost of
+      transmitting a cut position in the Fayyad-Irani two-part code;
+      otherwise, and when MDLP accepts no split, the evenly spread
+      splits are used.
 
     - **Monotonicity (if enabled):** Iteratively merges adjacent bins
       with the most similar WoE values until a strictly increasing or

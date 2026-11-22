@@ -114,6 +114,13 @@ A list containing the binning results:
 - `monotonic_trend`: The actual trend enforced ("ascending",
   "descending", or "none").
 
+- `monotonic`: Logical. TRUE when the final WoE of the regular bins is
+  monotone (in the reported direction when one is fixed), checked on the
+  reported WoE and on the reference WoE
+  `log((count_pos + 0.5) / (count_neg + 0.5))`. When monotonicity was
+  requested and this is FALSE (the merges stop at `min_bins`), a warning
+  is raised. Up to version 1.14.1 nothing signalled it.
+
 - `execution_time_ms`: Execution time in milliseconds.
 
 ## Details
@@ -164,6 +171,7 @@ result <- ob_numerical_dp(feature, target,
   max_bins = 5,
   monotonic_trend = "descending"
 )
+#> Warning: ob_numerical_dp: a monotonic WoE was requested but the returned WoE (or its reference estimate, 0.5 per bin and class) is not monotonic; see $monotonic.
 
 print(result$bin)
 #> [1] "(-Inf;89.189612]"      "(89.189612;95.310121]" "(95.310121;+Inf]"     

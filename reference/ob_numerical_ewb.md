@@ -98,6 +98,13 @@ A list containing the binning results:
 
 - `converged`: Logical indicating if the algorithm converged.
 
+- `monotonic`: Logical. TRUE when the final WoE of the regular bins is
+  monotone (in the reported direction when one is fixed), checked on the
+  reported WoE and on the reference WoE
+  `log((count_pos + 0.5) / (count_neg + 0.5))`. When monotonicity was
+  requested and this is FALSE (the merges stop at `min_bins`), a warning
+  is raised. Up to version 1.14.1 nothing signalled it.
+
 ## Details
 
 Unlike standard Equal-Width binning which is purely unsupervised, this
@@ -119,7 +126,10 @@ function implements a **Hybrid Discretization Pipeline**:
     algorithm checks for non-monotonic trends in the Weight of Evidence
     (WoE). Violating adjacent bins are iteratively merged to ensure a
     strictly increasing or decreasing relationship, which is a key
-    requirement for interpretable Logistic Regression scorecards.
+    requirement for interpretable Logistic Regression scorecards. Both
+    directions are tried and the one that reaches a monotone WoE (else
+    the larger total IV) is kept; up to version 1.14.1 the first two
+    bins decided the direction.
 
 4.  **Phase 4: IV-Based Optimization** If the number of bins exceeds
     `max_bins`, the algorithm applies a hierarchical bottom-up merging
@@ -135,6 +145,10 @@ single initial bin. If your data is highly skewed or contains outliers,
 consider using
 [`ob_numerical_cm`](https://evandeilton.github.io/OptimalBinningWoE/reference/ob_numerical_cm.md)
 (Quantile/ChiMerge) or winsorizing the data before using this function.
+Intervals left empty are dropped; if that leaves fewer than `min_bins`
+bins, the most populous bin holding at least two distinct values is
+split at the midpoint of its values until `min_bins` is reached (up to
+version 1.14.1 a single outlier could leave 2 bins).
 
 ## References
 
@@ -177,6 +191,8 @@ target_outlier <- c(target, 0)
 
 # Note: The algorithm tries to recover, but the initial split is distorted
 res_outlier <- ob_numerical_ewb(feature_outlier, target_outlier, max_bins = 5)
+#> Warning: ob_numerical_ewb: a monotonic WoE was requested but the returned WoE (or its reference estimate, 0.5 per bin and class) is not monotonic; see $monotonic.
 print(res_outlier$bin)
-#> [1] "(-Inf;9500.002327]" "(9500.002327;+Inf]"
+#> [1] "(-Inf;49.993494]"        "(49.993494;9500.002327]"
+#> [3] "(9500.002327;+Inf]"     
 ```
