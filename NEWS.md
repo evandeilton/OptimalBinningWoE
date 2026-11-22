@@ -1,4 +1,4 @@
-# OptimalBinningWoE (development version)
+# OptimalBinningWoE 1.15.0
 
 Fixes from the forensic audit of the C++ binning engines
 (`audit/AUDITORIA_FORENSE_BINNING_CPP.md`). Every change was validated by the
