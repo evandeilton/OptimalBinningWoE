@@ -106,6 +106,28 @@ minimizes IV loss:
 
 where \eqn{d \in \{-1, +1\}} (left or right neighbor).
 
+\strong{Phase 2b: Evidence for Pure Bins}
+
+A bin with no events (or no non-events) has a large smoothed IV, so the IV
+criterion alone would never merge it. Two rules apply after Phase 2, always
+respecting \code{min_bins}:
+\enumerate{
+  \item adjacent pure bins of the same class are merged (the binomial
+    likelihood is unchanged, \eqn{G^2 = 0});
+  \item a pure bin with \eqn{n} rows stays alone only if the exact binomial
+    test of zero occurrences under the overall event rate \eqn{r_0} rejects
+    chance,
+    \deqn{P_0 = (1 - r_0)^{n} \le 0.01}
+    (\eqn{r_0^{n}} for a bin without non-events), roughly
+    \eqn{n r_0 \ge 4.6}. Otherwise the least supported pure bin is merged with
+    the neighbour whose merge keeps the largest total IV, and the test is
+    repeated.
+}
+With rare events (a handful of training events) this keeps blocks that are
+empty of events only by chance from staying as separate bins; a perfect
+separator (\eqn{n r_0} large) is unaffected. Versions up to 1.14.1 had no such
+rule.
+
 \strong{Phase 3: Initial WoE/IV Calculation}
 
 Standard WoE with Laplace smoothing:
@@ -122,13 +144,17 @@ Violations are merged iteratively.
 
 \strong{Phase 5: Bin Count Reduction}
 
-If \eqn{k > \text{max\_bins}}, merge bins with the \strong{smallest combined IV}:
+If \eqn{k > \text{max\_bins}}, merge the adjacent pair whose fusion keeps the
+\strong{largest total IV}:
 
-\deqn{\text{merge\_idx} = \arg\min_{i=0}^{k-2} \left( \text{IV}_i + \text{IV}_{i+1} \right)}
+\deqn{\text{merge\_idx} = \arg\max_{i=0}^{k-2} \text{IV}_{\text{total}}\left(\text{bins after merging } i, i+1\right)}
 
-\strong{Rationale}: Assumes bins with low total IV contribute least to predictive
-power. However, this ignores the interaction between bins; a low-IV bin may be
-essential for monotonicity or preventing gaps.
+where the total is computed exactly as reported (\code{laplace_smoothing} per
+bin, all \eqn{k-1} bins renormalized), i.e. a greedy step on the reported
+objective. (Versions up to 1.14.1 merged the pair with the smallest
+\emph{sum} \eqn{\text{IV}_i + \text{IV}_{i+1}}, which never merges two neighbours
+with the same extreme WoE.) The same IV change chooses the neighbour of a rare
+bin in Phase 2.
 
 \strong{Theoretical Foundations}
 
@@ -156,8 +182,8 @@ and is intractable for \eqn{N > 10^4}.
 
 \tabular{lllll}{
   \strong{Method} \tab \strong{Pre-binning} \tab \strong{Direction} \tab \strong{Merge (max_bins)} \tab \strong{Target Type} \cr
-  OSLP \tab Quantile (unique vals) \tab Majority vote \tab Min (IV(i) + IV(i+1)) \tab double \cr
-  MRBLP \tab Equal-frequency \tab Majority vote \tab Min |IV(i) - IV(i+1)| \tab int \cr
+  OSLP \tab Quantile (unique vals) \tab Majority vote \tab Min IV loss \tab double \cr
+  MRBLP \tab Equal-frequency \tab Majority vote \tab Min IV loss \tab int \cr
   MOB \tab Equal-frequency \tab First two bins \tab Min IV loss \tab int \cr
   MBLP \tab Quantile (data) \tab Correlation \tab Min IV loss \tab int \cr
 }
@@ -225,6 +251,12 @@ data.frame(
   \item Good, I. J. (1952). "Rational Decisions". \emph{Journal of the Royal
     Statistical Society B}, 14(1), 107-114.
   \item Siddiqi, N. (2006). \emph{Credit Risk Scorecards}. Wiley.
+  \item Clopper, C. J., & Pearson, E. S. (1934). "The use of confidence or
+    fiducial limits illustrated in the case of the binomial". \emph{Biometrika},
+    26(4), 404-413. [Exact binomial test behind the pure-bin rule]
+  \item Hanley, J. A., & Lippman-Hand, A. (1983). "If nothing goes wrong, is
+    everything all right? Interpreting zero numerators". \emph{JAMA}, 249(13),
+    1743-1745.
 }
 }
 \seealso{

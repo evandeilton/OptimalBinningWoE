@@ -602,8 +602,14 @@ private:
       iterations_run++;
     }
     
-    // Then merge statistically similar bins
-    double prev_min_chi = -1.0;
+    // Then merge statistically similar bins. The only stopping rules are those
+    // of Kerber (1992): every adjacent pair differs significantly
+    // (min chi-square above the critical value) or no merge is left
+    // (min_bins). A former extra rule stopped when two consecutive minimum
+    // chi-squares differed by less than convergence_threshold; with the Yates
+    // term clamped at zero many pairs score exactly 0, so the loop stopped
+    // after one merge and left categories with identical rates apart (audit
+    // X-05 / A-07: 10 levels at 20% + 2 at 80% gave 11 bins instead of 3).
     while (can_merge_further() && iterations_run < max_iterations) {
       auto [min_chi, idx] = find_min_chi_square_pair();
       
@@ -613,14 +619,6 @@ private:
         break;
       }
       
-      // Check convergence
-      if (prev_min_chi >= 0 && 
-          std::abs(min_chi - prev_min_chi) < convergence_threshold) {
-        converged = true;
-        break;
-      }
-      
-      prev_min_chi = min_chi;
       merge_adjacent_bins(idx);
       update_cache_after_merge(idx);
       iterations_run++;

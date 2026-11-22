@@ -51,15 +51,19 @@
 #' \enumerate{
 #'   \item \strong{Multiclass Initialization:} The algorithm starts with quantile-based bins
 #'         and computes the initial event rates for all \eqn{K} classes.
-#'   \item \strong{Joint Monotonicity:} The algorithm attempts to enforce monotonicity for
-#'         \emph{all} classes. If bin \eqn{i} violates the trend for Class 1 OR Class 2,
-#'         it may be merged. This ensures the variable is predictive across the entire
-#'         spectrum of outcomes.
+#'   \item \strong{Monotonicity (binary target only):} With \eqn{K = 2} classes the
+#'         WoE is made monotonic by merging violating neighbours (the two
+#'         one-vs-rest curves mirror each other). With \eqn{K \ge 3} no
+#'         monotonicity is imposed: the one-vs-rest WoE of a middle class of an
+#'         ordinal target is typically unimodal, and forcing all \eqn{K} curves to
+#'         be monotone at once (as versions up to 1.14.1 did) merged bins until one
+#'         held most of the data.
 #'   \item \strong{Global IV Optimization:} When reducing the number of bins to \code{max_bins},
-#'         the algorithm repeatedly merges the adjacent pair of bins with the
-#'         smallest combined IV summed over all classes,
-#'         \eqn{\sum_{k=0}^{K-1} (IV_{i,k} + IV_{i+1,k})}, a greedy proxy for the
-#'         merge that loses the least total IV.
+#'         the algorithm repeatedly merges the adjacent pair of bins whose fusion
+#'         loses the least IV summed over all classes,
+#'         \eqn{\sum_{k=0}^{K-1} (IV_{i,k} + IV_{i+1,k} - IV_{i \cup i+1,k})}
+#'         (versions up to 1.14.1 used the smallest combined IV, without
+#'         subtracting the merged bin).
 #' }
 #'
 #' This method is ideal for use cases like:

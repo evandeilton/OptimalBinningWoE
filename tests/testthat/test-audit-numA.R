@@ -8,6 +8,18 @@
 # fewer than bins), counts consistent with the cutpoints under the (a, b]
 # rule, finite WoE/IV, and no warning of any kind.
 
+# Forensic audit X-11 (B-05, C-09, E-14): the numerical engines now warn when
+# a requested monotonic WoE is not reached (the merges stop at min_bins) and
+# report it in `$monotonic`. That warning is the documented signal, not a
+# defect, so the "no warning" checks in this file let it through and still
+# fail on any other warning.
+allow_x11_warning <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("monotonic WoE was requested", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
+}
+
 ob_num <- function(algo) {
   get(paste0("ob_numerical_", algo), envir = asNamespace("OptimalBinningWoE"))
 }
@@ -83,7 +95,7 @@ test_that("invariants hold for bb, cm, dmiv, dp, ewb and fetb", {
         fn <- ob_num(sub("_.*", "", a))
         info <- paste(a, nm, n)
         r <- NULL
-        expect_no_warning(r <- do.call(fn, c(list(feature = x, target = y), params[[a]])))
+        expect_no_warning(r <- allow_x11_warning(do.call(fn, c(list(feature = x, target = y), params[[a]]))))
         # equal-width EWB cannot always produce bins on a range dominated by
         # outliers; everything else must satisfy the contract.
         expect_valid_binning(r, x, y, max_bins = 5, info = info)
@@ -100,7 +112,7 @@ test_that("invariants hold on the German credit numerical features", {
   for (v in num) {
     for (a in c("bb", "cm", "dmiv", "dp", "ewb", "fetb")) {
       r <- NULL
-      expect_no_warning(r <- ob_num(a)(gc[[v]], gc$target))
+      expect_no_warning(r <- allow_x11_warning(ob_num(a)(gc[[v]], gc$target)))
       expect_valid_binning(r, gc[[v]], gc$target, max_bins = 5, info = paste(a, v))
     }
   }

@@ -23,9 +23,10 @@
 #'   categories into a single bin label. Defaults to "\%;\%". A warning is
 #'   issued when a category name contains it, since such labels cannot be split
 #'   back into categories.
-#' @param convergence_threshold Numeric. Convergence tolerance for iterative
-#'   merging process. Smaller values require stricter convergence. Must be > 0.
-#'   Defaults to 1e-6.
+#' @param convergence_threshold Numeric. Must be > 0. Kept for compatibility;
+#'   it does not stop the merging: ChiMerge stops only when every adjacent pair
+#'   differs significantly at \code{chi_merge_threshold} or \code{min_bins} is
+#'   reached. Defaults to 1e-6.
 #' @param max_iterations Integer. Maximum iterations for the merging algorithm.
 #'   Prevents infinite loops. Must be > 0. Defaults to 1000.
 #' @param chi_merge_threshold Numeric. Significance level \eqn{\alpha} of the

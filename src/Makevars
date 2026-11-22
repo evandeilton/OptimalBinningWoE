@@ -14,6 +14,12 @@
 ## set the appropriate value, possibly CXX17.
 #CXX_STD = CXX11
 
+# The sources use C++17 (structured bindings, if constexpr, fold expressions)
+# and DESCRIPTION declares SystemRequirements: C++17. R >= 4.3 defaults to
+# C++17 already; this makes R 4.1/4.2 (default C++14) build it too
+# (forensic audit E-20b).
+CXX_STD = CXX17
+
 PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
 PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
 

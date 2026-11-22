@@ -14,6 +14,7 @@
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
 #include "common/monotonicity_utils.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -74,21 +75,14 @@ constexpr double NEGATIVE_INFINITY = -std::numeric_limits<double>::infinity();
  * @param iv Output parameter for Information Value
  */
 inline void compute_woe_iv(double count_pos, double count_neg, double total_pos, double total_neg,
-                           double &woe, double &iv) {
-  // Prevent division by zero and log of zero
-  if (count_pos <= EPSILON || count_neg <= EPSILON) {
-    woe = 0.0;
-    iv = 0.0;
-    return;
-  }
-
-  // Calculate distribution ratios
-  const double dist_pos = count_pos / total_pos;
-  const double dist_neg = count_neg / total_neg;
-
-  // Calculate WoE and IV
-  woe = std::log(dist_pos / dist_neg);
-  iv = (dist_pos - dist_neg) * woe;
+                           int n_bins, double &woe, double &iv) {
+  // Normalized Jeffreys smoothing (audit B-01 / Section 7.1): a bin without
+  // events (or non-events) is the most informative one and gets the most
+  // extreme finite WoE. It used to get WoE = IV = 0, which made the DP
+  // maximise the wrong objective and broke the reported WoE order.
+  const ob::WoeIv r = ob::woe_iv(count_pos, count_neg, total_pos, total_neg, n_bins);
+  woe = r.woe;
+  iv = r.iv;
 }
 
 /**
@@ -260,6 +254,8 @@ private:
   // DP structures
   std::vector<std::vector<double>> dp;
   std::vector<std::vector<int>> prev_bin;
+  std::vector<int> best_cuts;   // start index of bins 2..K (pre-bin order)
+  int best_k_found = -1;
   std::vector<double> cum_count_pos;
   std::vector<double> cum_count_neg;
 
@@ -374,7 +370,8 @@ private:
   void compute_bins_no_optimization() {
     for (const auto& [cat, info] : categories_by_name()) {
       double woe, iv;
-      compute_woe_iv(info->count_pos, info->count_neg, total_pos, total_neg, woe, iv);
+      compute_woe_iv(info->count_pos, info->count_neg, total_pos, total_neg,
+                     static_cast<int>(category_info.size()), woe, iv);
 
       bin_results.emplace_back(cat, woe, iv, info->count, info->count_pos, info->count_neg);
     }
@@ -577,30 +574,27 @@ private:
     // partitions were discarded, and the fit returned fewer bins than
     // min_bins or failed with "Failed to find optimal binning".
 
-    // Precompute the IV of every (j, i) segment -- O(n^2), done once
-    std::vector<std::vector<double>> seg_iv(n + 1);
-    for (size_t i = 1; i <= n; ++i) {
-      seg_iv[i].resize(i);
-      for (size_t j = 0; j < i; ++j) {
-        double cp = cum_count_pos[i] - cum_count_pos[j];
-        double cn = cum_count_neg[i] - cum_count_neg[j];
-        double woe, iv;
-        compute_woe_iv(cp, cn, total_pos, total_neg, woe, iv);
-        seg_iv[i][j] = iv;
-      }
+    // Exact DP once per number of bins K (audit B-01, Section 7.2). The
+    // smoothed IV of a bin depends on K (normalization T + K * alpha), so the
+    // objective is only additive for a fixed K: running one DP per K makes
+    // the optimised value equal to the IV that is reported for the output.
+    std::vector<int64_t> pos(n), neg(n);
+    for (size_t i = 0; i < n; ++i) {
+      pos[i] = static_cast<int64_t>(cum_count_pos[i + 1] - cum_count_pos[i]);
+      neg[i] = static_cast<int64_t>(cum_count_neg[i + 1] - cum_count_neg[i]);
     }
-
-    // Main DP pass -- O(n^2 * k)
-    for (size_t i = 1; i <= n; ++i) {
-      for (int k = 1; k <= max_bins && k <= static_cast<int>(i); ++k) {
-        const size_t ku = static_cast<size_t>(k);
-        for (size_t j = (k > 1 ? ku - 1 : 0); j < i; ++j) {
-          double candidate = dp[j][ku - 1] + seg_iv[i][j];
-          if (candidate > dp[i][ku]) {
-            dp[i][ku] = candidate;
-            prev_bin[i][ku] = static_cast<int>(j);
-          }
-        }
+    best_cuts.clear();
+    best_k_found = -1;
+    double best_iv = NEGATIVE_INFINITY;
+    const int k_lo = std::max(1, std::min(min_bins, static_cast<int>(n)));
+    const int k_hi = std::min(max_bins, static_cast<int>(n));
+    for (int k = k_lo; k <= k_hi; ++k) {
+      const ob::DpResult r = ob::partition_dp(pos, neg, k, /*monotone=*/false,
+                                              /*asc=*/true, /*min_count=*/0);
+      if (r.iv > best_iv) {
+        best_iv = r.iv;
+        best_k_found = k;
+        best_cuts = r.cuts;
       }
     }
   }
@@ -610,50 +604,11 @@ private:
    */
   void backtrack_optimal_bins() {
     const size_t n = sorted_bins.size();
-    double max_total_iv = NEGATIVE_INFINITY;
-    int best_k = -1;
-
-    // A partition of n pre-bins has at most n bins. When max_n_prebins is
-    // below min_bins, no k in [min_bins, max_bins] is feasible; that used to
-    // abort with "Failed to find optimal binning with the given constraints."
-    // The search now starts at min(min_bins, n), i.e. it returns every
-    // pre-bin as a bin. Every dp[n][k] with k <= n is finite, so a k is
-    // always found.
-    const int k_lo = std::min(min_bins, static_cast<int>(n));
-    for (int k = k_lo; k <= max_bins; ++k) {
-      const size_t ku = static_cast<size_t>(k);
-      if (dp[n][ku] > max_total_iv) {
-        max_total_iv = dp[n][ku];
-        best_k = k;
-      }
-    }
-
-    if (best_k == -1) { // # nocov start (unreachable, see above)
+    if (best_k_found < 1) { // # nocov start (k_lo <= k_hi always holds)
       throw std::runtime_error("Failed to find optimal binning with the given constraints.");
     } // # nocov end
-
-    // Determine bin edges using backtracking
-    std::vector<size_t> bin_edges;
-    bin_edges.reserve(static_cast<size_t>(best_k));
-
-    size_t idx = n;
-    int k = best_k;
-
-    // Guard against the -1 sentinel in prev_bin before casting to size_t.
-    while (k > 0) {
-      int prev_j = prev_bin[idx][static_cast<size_t>(k)];
-      if (prev_j < 0 || static_cast<size_t>(prev_j) > n) { // # nocov start (defensive: every dp[n][k] used here is finite)
-        throw std::runtime_error(
-          "DP backtracking failed: invalid predecessor index (" +
-          std::to_string(prev_j) + "). The DP table may be incomplete."
-        );
-      } // # nocov end
-      bin_edges.push_back(static_cast<size_t>(prev_j));
-      idx = static_cast<size_t>(prev_j);
-      k -= 1;
-    }
-
-    std::reverse(bin_edges.begin(), bin_edges.end());
+    const int best_k = best_k_found;
+    std::vector<size_t> bin_edges(best_cuts.begin(), best_cuts.end());
 
     // Build final bins
     bin_results.clear();
@@ -680,7 +635,7 @@ private:
 
       if (bin_count > 0) {
         double woe, iv;
-        compute_woe_iv(bin_count_pos, bin_count_neg, total_pos, total_neg, woe, iv);
+        compute_woe_iv(bin_count_pos, bin_count_neg, total_pos, total_neg, best_k, woe, iv);
         bin_results.emplace_back(bin_name, woe, iv, bin_count, bin_count_pos, bin_count_neg);
       }
 

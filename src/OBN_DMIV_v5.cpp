@@ -16,6 +16,25 @@ using namespace Rcpp;
 using namespace OptimalBinning;
 
 
+namespace {
+
+// Per-bin contribution of an additive divergence measure (the same formulas
+// as compute_bin_metrics()) for smoothed shares p (events) and q (non-events).
+double dmiv_term(const std::string& m, double p, double q) {
+  if (m == "he") return 0.5 * std::pow(std::sqrt(p) - std::sqrt(q), 2);
+  if (m == "kl") return p * std::log(p / q);
+  if (m == "tr") return std::pow(p - q, 2) / (p + q);
+  if (m == "klj") return (p - q) * std::log(p / q);
+  if (m == "sc") return std::pow(p - q, 2) * (p + q) / (p * q);
+  if (m == "js") {
+    const double mid = (p + q) / 2.0;
+    return 0.5 * (p * std::log(p / mid) + q * std::log(q / mid));
+  }
+  return std::abs(p - q);  // "l1" (also the per-bin |p - q| of "l2" / "ln")
+}
+
+}  // namespace
+
 /**
  * Core class implementing Optimal Binning for numerical variables using various Divergence Measures.
  * Based on the theoretical framework from Zeng (2013) "Metric Divergence Measures and Information Value in Credit Scoring".
@@ -640,6 +659,220 @@ private:
   
 
   /**
+   * Total divergence of the partition given by the counts pos/neg, with
+   * compute_bin_metrics()'s smoothing (0.5 per bin, K = pos.size()): the sum
+   * of the per-bin values for the additive measures, sqrt(sum of squares) for
+   * "l2" (the plain sum when that is <= EPSILON, as reported), and the
+   * L-infinity distance max_j |p_j - q_j| for "ln". (The reported
+   * total_divergence for "ln" adds the maximum once per bin attaining it;
+   * greedily maximizing that count would favour many equal bins, e.g. a row
+   * of pure pre-bins, over a genuinely larger maximum.)
+   */
+  double reported_divergence(const std::vector<double>& pos,
+                             const std::vector<double>& neg,
+                             const std::string& method) const {
+    const size_t nb = pos.size();
+    double tp = 0.0, tn = 0.0;
+    for (size_t i = 0; i < nb; ++i) { tp += pos[i]; tn += neg[i]; }
+    const double k = static_cast<double>(nb);
+    double sum = 0.0, sum_sq = 0.0, mx = 0.0;
+    std::vector<double> ad(nb);
+    for (size_t i = 0; i < nb; ++i) {
+      const double p = (pos[i] + 0.5) / (tp + 0.5 * k);
+      const double q = (neg[i] + 0.5) / (tn + 0.5 * k);
+      if (method == "l2") {
+        sum_sq += (p - q) * (p - q);
+      } else if (method == "ln") {
+        ad[i] = std::abs(p - q);
+        mx = std::max(mx, ad[i]);
+      } else {
+        sum += dmiv_term(method, p, q);
+      }
+    }
+    if (method == "l2") return sum_sq > EPSILON ? std::sqrt(sum_sq) : sum_sq;
+    if (method == "ln") return mx;
+    return sum;
+  }
+
+  /**
+   * Counts of the partition obtained by merging bins i and i+1 (K - 1 bins).
+   */
+  void merged_counts(size_t i, std::vector<double>& pos,
+                     std::vector<double>& neg) const {
+    pos.clear();
+    neg.clear();
+    for (size_t j = 0; j < bins.size(); ++j) {
+      if (j == i) {
+        pos.push_back(bins[j].count_pos + bins[j + 1].count_pos);
+        neg.push_back(bins[j].count_neg + bins[j + 1].count_neg);
+        ++j;
+      } else {
+        pos.push_back(bins[j].count_pos);
+        neg.push_back(bins[j].count_neg);
+      }
+    }
+  }
+
+  /** Selected total divergence after merging bins i and i+1. */
+  double merged_divergence(size_t i) const {
+    std::vector<double> pos, neg;
+    merged_counts(i, pos, neg);
+    return reported_divergence(pos, neg, divergence_method);
+  }
+
+  /**
+   * Left index of the adjacent pair whose merge keeps the largest total of
+   * the divergence selected by divergence_method (audit D-01).
+   *
+   * Each candidate is scored by the total divergence (reported_divergence())
+   * after the merge (K - 1 bins, every bin renormalized): the exact one-step
+   * greedy on the selected objective. For "ln" most merges leave the maximum
+   * untouched and tie; ties are broken by the larger l1 total after the
+   * merge, then by the leftmost pair.
+   */
+  size_t find_min_divergence_loss_merge() const {
+    const size_t nb = bins.size();
+    const bool is_ln = divergence_method == "ln";
+    std::vector<double> pos, neg;
+    pos.reserve(nb);
+    neg.reserve(nb);
+    size_t best = 0;
+    double best_val = -std::numeric_limits<double>::infinity();
+    double best_tie = -std::numeric_limits<double>::infinity();
+    for (size_t i = 0; i + 1 < nb; ++i) {
+      merged_counts(i, pos, neg);
+      const double val = reported_divergence(pos, neg, divergence_method);
+      const double tie = is_ln ? reported_divergence(pos, neg, "l1") : 0.0;
+      if (val > best_val + 1e-15 ||
+          (is_ln && std::abs(val - best_val) <= 1e-15 && tie > best_tie)) {
+        best_val = val;
+        best_tie = tie;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /** True for the distance measures l1 / l2 / ln (norms of p - q). */
+  bool is_distance_measure() const {
+    return divergence_method == "l1" || divergence_method == "l2" ||
+           divergence_method == "ln";
+  }
+
+  /**
+   * Pearson chi-square of the 2 x 2 table (bin a, bin b) x (event, non-event):
+   * the squared z statistic of the difference between the two event rates
+   * under the pooled rate. 0 when the rates are equal or both bins are pure
+   * of the same class.
+   */
+  static double pair_chi2(double pa, double na, double pb, double nb) {
+    const double ca = pa + na, cb = pb + nb;
+    if (ca <= 0.0 || cb <= 0.0) return 0.0;
+    const double r = (pa + pb) / (ca + cb);
+    if (r <= 0.0 || r >= 1.0) return 0.0;
+    const double d = pa / ca - pb / cb;
+    return d * d / (r * (1.0 - r) * (1.0 / ca + 1.0 / cb));
+  }
+
+  /**
+   * Left index of the adjacent pair to merge in the reduction to max_bins.
+   *
+   * The f-divergences (he, kl, tr, klj, sc, js) use the one-step greedy on
+   * the selected total, find_min_divergence_loss_merge() (audit D-01).
+   *
+   * The distance measures l1 / l2 / ln are norms of the vector d = p - q of
+   * per-bin class shares, and d of a merged bin is d_a + d_b. Merging two
+   * bins whose d have the same sign never lowers the distance
+   * (|d_a + d_b| = |d_a| + |d_b|: L1 and L-infinity cannot drop, L2 grows),
+   * so the selected distance cannot rank those merges: maximizing it
+   * greedily (the held D-01 patch) merged the two bins with the LARGEST
+   * same-sign d first, piling the mass into a few large bins and leaving
+   * small bins around p = q, which was significantly worse out of sample.
+   * Among the same-sign pairs the engine merges the one whose event rates
+   * are least distinguishable (smallest pair_chi2(): the evidence-weighted
+   * difference of rates, audit 15.5); the selected distance decides only
+   * when every adjacent pair straddles the sign of p - q.
+   */
+  size_t choose_merge() const {
+    if (!is_distance_measure()) return find_min_divergence_loss_merge();
+    double tp = 0.0, tn = 0.0;
+    for (const auto& b : bins) { tp += b.count_pos; tn += b.count_neg; }
+    const double k = static_cast<double>(bins.size());
+    auto d = [&](size_t i) {
+      return (bins[i].count_pos + 0.5) / (tp + 0.5 * k) -
+             (bins[i].count_neg + 0.5) / (tn + 0.5 * k);
+    };
+    bool found = false;
+    size_t best = 0;
+    double best_c = std::numeric_limits<double>::infinity();
+    for (size_t i = 0; i + 1 < bins.size(); ++i) {
+      if (d(i) * d(i + 1) < 0.0) continue;
+      const double c = pair_chi2(bins[i].count_pos, bins[i].count_neg,
+                                 bins[i + 1].count_pos, bins[i + 1].count_neg);
+      if (c < best_c) { best_c = c; best = i; found = true; }
+    }
+    return found ? best : find_min_divergence_loss_merge();
+  }
+
+  /**
+   * Minimum-evidence rule for pure bins (audit 15.5).
+   *
+   * A bin with no events (or no non-events) gets the most extreme smoothed
+   * share ratio and, for the f-divergences, an outsized contribution, so the
+   * divergence-driven merges keep it isolated even when it holds a handful
+   * of rows. It stays isolated only if its purity is significant at 5%
+   * under the overall event rate r0: (1 - r0)^n <= 0.05 for a bin of n rows
+   * without events, r0^n <= 0.05 without non-events. Otherwise the smallest
+   * such bin is merged with the neighbour whose merge keeps the larger
+   * selected divergence, while more than min_bins bins remain.
+   */
+  void merge_insignificant_pure_bins() {
+    double tp = 0.0, tn = 0.0;
+    for (const auto& b : bins) { tp += b.count_pos; tn += b.count_neg; }
+    if (tp <= 0.0 || tn <= 0.0) return;
+    const double r0 = tp / (tp + tn);
+    bool merged = false;
+    while (bins.size() > static_cast<size_t>(min_bins) && bins.size() > 1) {
+      bool found = false;
+      size_t w = 0;
+      double wn = std::numeric_limits<double>::infinity();
+      for (size_t i = 0; i < bins.size(); ++i) {
+        const double n = static_cast<double>(bins[i].count_pos + bins[i].count_neg);
+        if (n <= 0.0) continue;
+        double p_pure;
+        if (bins[i].count_pos == 0) {
+          p_pure = std::pow(1.0 - r0, n);
+        } else if (bins[i].count_neg == 0) {
+          p_pure = std::pow(r0, n);
+        } else {
+          continue;
+        }
+        if (p_pure > 0.05 && n < wn) { wn = n; w = i; found = true; }
+      }
+      if (!found) break;
+      size_t j;
+      if (w == 0) {
+        j = 0;
+      } else if (w + 1 == bins.size()) {
+        j = w - 1;
+      } else {
+        j = merged_divergence(w - 1) >= merged_divergence(w) ? w - 1 : w;
+      }
+      merge_bins(j);
+      merged = true;
+    }
+    if (merged) compute_bin_metrics();
+  }
+
+  /** Merge bins i and i+1 into bin i (counts only; metrics are recomputed). */
+  void merge_bins(size_t i) {
+    bins[i].upper_bound = bins[i + 1].upper_bound;
+    bins[i].count_pos += bins[i + 1].count_pos;
+    bins[i].count_neg += bins[i + 1].count_neg;
+    bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i + 1));
+  }
+
+  /**
    * Remove bins that received no observation.
    *
    * Interpolated quantiles on heavily tied data can put two boundaries between
@@ -709,6 +942,8 @@ public:
       // Step 2: Merge rare bins
       merge_rare_bins();
       compute_bin_metrics();
+      // A pure bin must be significant to stay isolated (audit 15.5)
+      merge_insignificant_pure_bins();
       
       // Step 3: Enforce monotonicity if requested
       if (is_monotonic) {
@@ -717,34 +952,18 @@ public:
       
       iterations_run = 0;
       
-      // Step 4: Branch and Bound optimization
-      // Iteratively merge bins with smallest divergence until max_bins constraint is met
+      // Step 4: greedy reduction to max_bins
       while (bins.size() > static_cast<size_t>(max_bins) && iterations_run < max_iterations) {
-        // Find bin with minimum divergence contribution
-        auto min_div_it = std::min_element(bins.begin(), bins.end(),
-                                           [](const NumericalBin &a, const NumericalBin &b) { 
-                                             return std::abs(a.divergence) < std::abs(b.divergence); 
-                                           });
-        
-        // Merge the minimum divergence bin with an adjacent bin
-        if (min_div_it != bins.begin()) {
-          // Prefer merging with previous bin
-          auto prev = std::prev(min_div_it);
-          prev->upper_bound = min_div_it->upper_bound;
-          prev->count_pos += min_div_it->count_pos;
-          prev->count_neg += min_div_it->count_neg;
-          bins.erase(min_div_it);
-        } else if (std::next(min_div_it) != bins.end()) {
-          // If it's the first bin, merge with the next one
-          auto nxt = std::next(min_div_it);
-          nxt->lower_bound = min_div_it->lower_bound;
-          nxt->count_pos += min_div_it->count_pos;
-          nxt->count_neg += min_div_it->count_neg;
-          bins.erase(min_div_it);
-        } else {
-          // Edge case: only one bin left
-          break;
-        }
+        // Merge the ADJACENT PAIR whose fusion loses the least of the
+        // selected total divergence (audit D-01 / X-08). The former rule took
+        // the bin with the smallest |contribution| and always folded it into
+        // its left neighbour: it ignored what the merged bin would contribute,
+        // "abs" has no meaning for KL contributions (which can be negative),
+        // and for "ln" every bin but the maximum contributes 0, so the
+        // leftmost bins were consumed regardless of the data. For l1/l2/ln
+        // the same-sign pairs, which the distance cannot rank, go first by
+        // the smallest chi-square (see choose_merge()).
+        merge_bins(choose_merge());
         
         // Recompute metrics after merge
         compute_bin_metrics();

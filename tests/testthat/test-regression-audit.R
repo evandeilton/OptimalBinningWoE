@@ -119,13 +119,15 @@ test_that("ob_categorical_sab is reproducible under set.seed()", {
   })
   expect_length(unique(runs), 1)
 
-  # and the search must still respond to the seed, i.e. not be degenerate
+  # Forensic audit C-02 (X-12): the simulated annealing was replaced by an
+  # exact DP in event-rate order, so the result no longer depends on the seed
+  # at all (it used to vary with it because the search stopped early).
   varied <- vapply(1:4, function(s) {
     set.seed(s)
     res <- ob_categorical_sab(feature = feature, target = target)
     sum(res$iv)
   }, numeric(1))
-  expect_gt(length(unique(varied)), 1)
+  expect_length(unique(varied), 1)
 })
 
 # ---------------------------------------------------------------------------

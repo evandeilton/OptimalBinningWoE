@@ -46,8 +46,8 @@ multiple categories are merged into a single bin. Default is "\%;\%".}
 \item{convergence_threshold}{Numeric. Threshold for determining algorithm
 convergence based on changes in total Information Value. Default is 1e-6.}
 
-\item{max_iterations}{Integer. Maximum number of iterations for the
-optimization process. Default is 1000.}
+\item{max_iterations}{Integer. Maximum number of merges of the optimization
+phase. Default is 1000.}
 
 \item{sketch_width}{Integer. Width of the Count-Min Sketch (number of
 counters per hash function). Larger values reduce estimation error but
@@ -95,10 +95,21 @@ The Sketch-based algorithm follows these steps:
         decides which categories are heavy hitters; the bin counts, WoE and
         IV are computed from the exact category counts, so \code{count}
         always sums to the number of observations.
-  \item \strong{Optimization}: Applies iterative merging based on
-        statistical divergence measures to optimize Information Value (IV)
-        while respecting bin count constraints (\code{min_bins},
-        \code{max_bins}).
+  \item \strong{Rare bins}: a bin holding less than \code{bin_cutoff} of
+        the observations joins the bin with the closest shrunk event rate
+        \eqn{(n_{pos} + m r_0)/(n + m)} (posterior mean under a beta prior
+        centred on the overall rate \eqn{r_0}, \eqn{m = 20}; Gelman et al.,
+        2013, ch. 5). Only the share of observations counts: up to version
+        1.14.1 each bin also had to hold \code{bin_cutoff} of the
+        \emph{events}, an undocumented rule that merged large low-risk
+        categories and every pure category.
+  \item \strong{Optimization}: bins are sorted by WoE and, while there are
+        more than \code{max_bins}, the adjacent pair with the smallest IV
+        loss is merged. For this decision each bin's IV is computed under the
+        same empirical-Bayes prior (\eqn{m = 20} pseudo-observations per
+        bin), so a small bin with an extreme observed rate does not look more
+        informative than its evidence supports; the reported WoE and IV keep
+        the Laplace smoothing below.
   \item \strong{Monotonicity Enforcement}: Ensures the final binning has
         monotonic Weight of Evidence (WoE).
 }
@@ -125,8 +136,8 @@ Frequency estimates are obtained by taking the minimum across all counters:
 \deqn{\hat{f}(x) = \min_{i} CMS[i][h_i(x)]}{
 f_hat(x) = min_i CMS[i][h_i(x)]}
 
-Statistical divergence between bins is measured using Jensen-Shannon
-divergence:
+Statistical divergence between bins (used when \code{max_iterations} runs
+out before \code{max_bins} is met) is the Jensen-Shannon divergence:
 \deqn{JSD(P||Q) = \frac{1}{2} \left[ KL(P||M) + KL(Q||M) \right]}{
 JSD(P||Q) = (1/2) * [KL(P||M) + KL(Q||M)]}
 where \eqn{M = \frac{1}{2}(P+Q)} and \eqn{KL} is the Kullback-Leibler
@@ -190,4 +201,8 @@ the count-min sketch and its applications. Journal of Algorithms, 55(1), 58-75.
 Lin, J., & Keogh, E., Wei, L., & Lonardi, S. (2007). Experiencing SAX:
 a novel symbolic representation of time series. Data Mining and Knowledge
 Discovery, 15(2), 107-144.
+
+Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., &
+Rubin, D. B. (2013). \emph{Bayesian Data Analysis} (3rd ed.), ch. 5.
+Chapman & Hall/CRC.
 }

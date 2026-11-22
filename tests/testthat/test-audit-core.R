@@ -3,6 +3,18 @@
 # regression (OB_LogisticRegression.cpp), ob_numerical_udt() (OBN_UDT_v5.cpp)
 # and the shared header src/common/optimal_binning_common.h.
 
+# Forensic audit X-11 (B-05, C-09, E-14): the numerical engines now warn when
+# a requested monotonic WoE is not reached (the merges stop at min_bins) and
+# report it in `$monotonic`. That warning is the documented signal, not a
+# defect, so the "no warning" checks in this file let it through and still
+# fail on any other warning.
+allow_x11_warning <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("monotonic WoE was requested", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
+}
+
 # ---------------------------------------------------------------------------
 # Gains tables
 # ---------------------------------------------------------------------------
@@ -10,9 +22,16 @@ gains_reference <- function(id, cnt, pos, neg) {
   o <- order(id, method = "radix") # stable, NA last
   cnt <- cnt[o]; pos <- pos[o]; neg <- neg[o]
   pp <- pos / sum(pos); np <- neg / sum(neg)
-  woe <- ifelse(pp > 0 & np > 0, log(pp / np), 0)
+  # Pure bins (no events or no non-events): normalized Jeffreys smoothing with
+  # K = number of bins and WoE capped at +/-20, since the forensic audit (T2);
+  # they used to get WoE = IV = 0, the value of a neutral bin.
+  K <- length(pos)
+  ps <- (pos + 0.5) / (sum(pos) + 0.5 * K); ns <- (neg + 0.5) / (sum(neg) + 0.5 * K)
+  ws <- pmin(pmax(log(ps / ns), -20), 20)
+  pure <- !(pp > 0 & np > 0) & (pos + neg) > 0
+  woe <- ifelse(pp > 0 & np > 0, log(pp / np), ifelse(pure, ws, 0))
   list(
-    woe = woe, iv = ifelse(pp > 0 & np > 0, (pp - np) * woe, 0),
+    woe = woe, iv = ifelse(pp > 0 & np > 0, (pp - np) * woe, ifelse(pure, (ps - ns) * ws, 0)),
     ks = abs(cumsum(pos) / sum(pos) - cumsum(neg) / sum(neg)),
     lift = (pos / cnt) / (sum(pos) / sum(cnt))
   )
@@ -325,9 +344,16 @@ test_that("UDT merges the adjacent pair with the smallest IV loss", {
   v <- rep(1:5, each = 200)
   rate <- c(0.50, 0.52, 0.10, 0.10, 0.90)
   y <- unlist(lapply(rate, function(r) c(rep(1, r * 200), rep(0, 200 - r * 200))))
-  r <- ob_numerical_udt(v, y, min_bins = 2, max_bins = 4, bin_cutoff = 0.01)
+  # Forensic audit X-13 / Section 15.5: K is now chosen by BIC in
+  # [min_bins, max_bins], so with min_bins = 2 the merges continue and bins 1
+  # and 2 (rates 0.50 / 0.52, no evidence for two bins) are merged as well.
+  # min_bins = 4 pins K = 4 and keeps testing which pair is merged first.
+  r <- ob_numerical_udt(v, y, min_bins = 4, max_bins = 4, bin_cutoff = 0.01)
   expect_equal(r$cutpoints, c(1.5, 2.5, 4.5))
   udt_invariants(r, 1000, 4)
+  r2 <- ob_numerical_udt(v, y, min_bins = 2, max_bins = 4, bin_cutoff = 0.01)
+  expect_equal(r2$cutpoints, c(2.5, 4.5))
+  udt_invariants(r2, 1000, 4)
 })
 
 test_that("UDT handles an all-missing feature and zero smoothing", {
@@ -375,8 +401,9 @@ test_that("UDT invariants hold across random and adversarial inputs", {
     )
     y <- rbinom(n, 1, 0.35); y[1:2] <- c(0L, 1L)
     mb <- sample(3:6, 1)
-    expect_no_warning(r <- ob_numerical_udt(x, y, min_bins = 2, max_bins = mb,
-      monotonicity_direction = c("none", "auto", "increasing")[k %% 3 + 1]))
+    # The honest-monotonicity warning (audit X-11) is allowed; any other is not.
+    expect_no_warning(r <- allow_x11_warning(ob_numerical_udt(x, y, min_bins = 2, max_bins = mb,
+      monotonicity_direction = c("none", "auto", "increasing")[k %% 3 + 1])))
     udt_invariants(r, n, mb)
   }
 })
@@ -391,7 +418,7 @@ test_that("KDE-based binning copes with a feature range that overflows", {
   x <- c(rnorm(300), -1.5e308, 1.5e308)
   y <- rbinom(302, 1, 0.4)
   for (f in list(ob_numerical_ldb, ob_numerical_lpdb)) {
-    expect_no_warning(r <- f(x, y))
+    expect_no_warning(r <- allow_x11_warning(f(x, y)))
     expect_equal(sum(r$count), 302)
   }
 })

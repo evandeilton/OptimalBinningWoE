@@ -19,3 +19,4 @@
 ^.*\.tar\.gz$
 ^.*\.Rcheck$
 ^CRAN-SUBMISSION$
+^audit$

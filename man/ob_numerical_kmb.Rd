@@ -65,6 +65,11 @@ A list containing the binning results:
     \item \code{cutpoints}: Numeric vector of upper boundaries (excluding Inf).
     \item \code{total_iv}: The total Information Value of the binned variable.
     \item \code{converged}: Logical indicating if the algorithm converged.
+    \item \code{monotonic}: Logical. TRUE when the final WoE of the regular bins is
+      monotone (in the reported direction when one is fixed), checked on the reported
+      WoE and on the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}.
+      When monotonicity was requested and this is FALSE (the merges stop at
+      \code{min_bins}), a warning is raised. Up to version 1.14.1 nothing signalled it.
   }
 }
 \description{
@@ -98,7 +103,9 @@ binning methods:
           feature with fewer distinct values than \code{min_bins} ends below
           it (with a warning).
     \item \strong{Monotonicity:} If \code{enforce_monotonic = TRUE}, adjacent bins
-          violating the dominant WoE trend are merged.
+          violating the WoE trend are merged. Both directions are tried and the one
+          that reaches a monotone WoE (else the larger total IV) is kept; up to version
+          1.14.1 the first two bins decided the direction.
     \item \strong{Bin Count Adjustment:} If the number of bins exceeds \code{max_bins},
           the algorithm greedily merges adjacent bins with the smallest absolute
           difference in Information Value.

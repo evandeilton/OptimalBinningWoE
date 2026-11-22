@@ -1,6 +1,7 @@
 // [[Rcpp::depends(Rcpp)]]
 
 #include <Rcpp.h>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -75,10 +76,11 @@ private:
   void sort_categories();
   std::vector<std::vector<size_t>> perform_binning();
   double calculate_bin_iv(const std::vector<size_t>& bin) const;
-  double iv_from_counts(int bin_pos, int bin_neg, size_t n_members) const;
+  double iv_from_counts(int bin_pos, int bin_neg, size_t n_bins) const;
   double smoothed_rate(const std::vector<size_t>& bin) const;
   void compact(const std::vector<bool>& alive);
   bool rate_less(size_t i, size_t j) const;
+  bool exact_rate_less(size_t i, size_t j) const;
   bool is_monotonic(const std::vector<std::vector<size_t>>& bins) const;
   void initialize_cache() const;
   List prepare_output(const std::vector<std::vector<size_t>>& bins, bool converged, int iterations) const;
@@ -287,6 +289,17 @@ bool OBC_SBLP::rate_less(size_t i, size_t j) const {
   return count_total[i] < count_total[j];
 }
 
+// Ascending exact event rate count_pos / count_total (integer cross
+// products, no rounding); equal rates by ascending count. This is the order
+// in which the IV-optimal partition is contiguous (likelihood-ratio order;
+// audit B-02). The smoothed key above can reorder small categories.
+bool OBC_SBLP::exact_rate_less(size_t i, size_t j) const {
+  const int64_t a = static_cast<int64_t>(count_pos[i]) * count_total[j];
+  const int64_t b = static_cast<int64_t>(count_pos[j]) * count_total[i];
+  if (a != b) return a < b;
+  return count_total[i] < count_total[j];
+}
+
 // Drops the groups flagged as merged away and recomputes the target rates.
 void OBC_SBLP::compact(const std::vector<bool>& alive) {
   std::vector<std::vector<std::string>> new_unique_categories;
@@ -460,16 +473,22 @@ void OBC_SBLP::sort_categories() {
   sorted_indices.resize(unique_categories.size());
   std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
   std::stable_sort(sorted_indices.begin(), sorted_indices.end(),
-                   [this](size_t i, size_t j) { return rate_less(i, j); });
+                   [this](size_t i, size_t j) { return exact_rate_less(i, j); });
 }
 
 // Executa o binning via programação dinâmica
 //
-// dp[j][i] = max over s of dp[j-1][s] + IV(sorted[s..i)). The IV of a
-// contiguous segment only needs its positive/negative totals, which come from
-// prefix sums in O(1): the recurrence costs O(k n^2) instead of the O(k n^3)
-// of materialising every candidate segment as a vector. Integer sums are
-// exact, so the values (and the chosen partition) are unchanged.
+// dp[j][i] = max over s of dp[j-1][s] + IV_K(sorted[s..i)), from prefix sums
+// in O(1) per segment, O(K n^2) per K.
+//
+// Audit B-02 (X-10): the segment IV used to normalise the smoothed totals by
+// the number of pre-bins inside the segment (e - s), while the reported IV
+// normalises by the final number of bins K, so the DP maximised a different
+// quantity from the one reported (24.9% of small-sample cases not optimal
+// for the reported IV, gap up to 80%), and it only ever tried K = max_bins.
+// The DP now runs once per K in [min_bins, max_bins] with exactly the
+// reported estimator (alpha, K) and keeps the K with the largest reported IV
+// (the smallest K on ties).
 std::vector<std::vector<size_t>> OBC_SBLP::perform_binning() {
   const size_t n = sorted_indices.size();
 
@@ -482,64 +501,74 @@ std::vector<std::vector<size_t>> OBC_SBLP::perform_binning() {
   }
 
   initialize_cache();
-  const size_t k = std::min(static_cast<size_t>(max_bins), n);
 
   std::vector<int> pre_pos(n + 1, 0), pre_neg(n + 1, 0);
   for (size_t i = 0; i < n; ++i) {
     pre_pos[i + 1] = pre_pos[i] + count_pos[sorted_indices[i]];
     pre_neg[i + 1] = pre_neg[i] + count_neg[sorted_indices[i]];
   }
-  auto segment_iv = [&](size_t s, size_t e) {
-    return iv_from_counts(pre_pos[e] - pre_pos[s], pre_neg[e] - pre_neg[s], e - s);
-  };
 
   const double NEG_INF = -std::numeric_limits<double>::infinity();
-  std::vector<double> prev_dp(n + 1, NEG_INF);
-  std::vector<double> curr_dp(n + 1, NEG_INF);
-  std::vector<std::vector<size_t>> split(n + 1, std::vector<size_t>(k + 1, 0));
+  const size_t k_hi = std::min(static_cast<size_t>(max_bins), n);
+  const size_t k_lo = std::max<size_t>(1, std::min(static_cast<size_t>(min_bins), k_hi));
 
-  for (size_t i = 1; i <= n; ++i) {
-    prev_dp[i] = segment_iv(0, i);
-  }
+  double best_total = NEG_INF;
+  std::vector<std::vector<size_t>> best_bins;
 
-  for (size_t j = 2; j <= k; ++j) {
-    for (size_t i = j; i <= n; ++i) {
-      curr_dp[i] = NEG_INF;
-      for (size_t s = j - 1; s < i; ++s) {
-        double current_iv = prev_dp[s] + segment_iv(s, i);
-        if (current_iv > curr_dp[i]) {
-          curr_dp[i] = current_iv;
-          split[i][j] = s;
+  for (size_t k = k_lo; k <= k_hi; ++k) {
+    auto segment_iv = [&](size_t s, size_t e) {
+      return iv_from_counts(pre_pos[e] - pre_pos[s], pre_neg[e] - pre_neg[s], k);
+    };
+    std::vector<double> prev_dp(n + 1, NEG_INF);
+    std::vector<double> curr_dp(n + 1, NEG_INF);
+    std::vector<std::vector<size_t>> split(n + 1, std::vector<size_t>(k + 1, 0));
+
+    for (size_t i = 1; i <= n; ++i) {
+      prev_dp[i] = segment_iv(0, i);
+    }
+    for (size_t j = 2; j <= k; ++j) {
+      std::fill(curr_dp.begin(), curr_dp.end(), NEG_INF);
+      for (size_t i = j; i <= n; ++i) {
+        for (size_t s = j - 1; s < i; ++s) {
+          double current_iv = prev_dp[s] + segment_iv(s, i);
+          if (current_iv > curr_dp[i]) {
+            curr_dp[i] = current_iv;
+            split[i][j] = s;
+          }
         }
       }
+      prev_dp.swap(curr_dp);
     }
-    prev_dp.swap(curr_dp);
-  }
 
-  // Traceback: exactly k non-empty contiguous bins
-  std::vector<std::vector<size_t>> bins;
-  size_t i = n, j = k;
-  while (j > 0) {
-    size_t s = split[i][j];
-    bins.emplace_back(sorted_indices.begin() + static_cast<std::ptrdiff_t>(s),
-                      sorted_indices.begin() + static_cast<std::ptrdiff_t>(i));
-    i = s;
-    --j;
-  }
-  if (i > 0) {
+    if (!(prev_dp[n] > best_total)) continue;
+    best_total = prev_dp[n];
+
+    // Traceback: exactly k non-empty contiguous bins
+    std::vector<std::vector<size_t>> bins;
+    size_t i = n, j = k;
+    while (j > 1) {
+      size_t s = split[i][j];
+      bins.emplace_back(sorted_indices.begin() + static_cast<std::ptrdiff_t>(s),
+                        sorted_indices.begin() + static_cast<std::ptrdiff_t>(i));
+      i = s;
+      --j;
+    }
     bins.emplace_back(sorted_indices.begin(), sorted_indices.begin() + static_cast<std::ptrdiff_t>(i));
+    std::reverse(bins.begin(), bins.end());
+    best_bins = std::move(bins);
   }
-  std::reverse(bins.begin(), bins.end());
-  return bins;
+  return best_bins;
 }
 
-// IV contribution of a bin with Laplace smoothing. The smoothed totals add
-// alpha once per member group, as the original implementation did.
-double OBC_SBLP::iv_from_counts(int bin_pos, int bin_neg, size_t n_members) const {
+// IV contribution of a bin with Laplace smoothing, exactly as
+// prepare_output() reports it for a partition of n_bins bins: the smoothed
+// totals add alpha once per bin of the partition (audit B-02; this used to
+// be the number of pre-bins in the segment).
+double OBC_SBLP::iv_from_counts(int bin_pos, int bin_neg, size_t n_bins) const {
   double smoothed_bin_pos = bin_pos + alpha;
   double smoothed_bin_neg = bin_neg + alpha;
-  double smoothed_total_pos = total_pos_all + alpha * static_cast<double>(n_members);
-  double smoothed_total_neg = total_neg_all + alpha * static_cast<double>(n_members);
+  double smoothed_total_pos = total_pos_all + alpha * static_cast<double>(n_bins);
+  double smoothed_total_neg = total_neg_all + alpha * static_cast<double>(n_bins);
 
   double pos_rate = smoothed_bin_pos / smoothed_total_pos;
   double neg_rate = smoothed_bin_neg / smoothed_total_neg;
@@ -708,74 +737,14 @@ List OBC_SBLP::fit() {
         best_bins[i] = {sorted_indices[i]};
       }
     } else {
-      // The partition is a deterministic function of the counts, so the old
-      // refinement loop recomputed the identical DP solution on its second
-      // pass and stopped with |IV change| = 0: one pass gives the same bins,
-      // iterations = 1, and converged unless max_iterations == 1.
+      // One exact DP per K (see perform_binning()). The bins are contiguous
+      // in exact event-rate order, so their raw event rates are monotone by
+      // construction; the former "monotonic_bins" merges and the "chunked"
+      // fallback (groups of equal numbers of *categories*) could only move
+      // the result away from the optimum and were removed (audit B-02).
+      // converged is TRUE: no iteration budget can cut an exact search short.
       best_bins = perform_binning();
       iterations = 1;
-      converged = max_iterations > 1;
-
-      // Adjust for monotonicity if needed: merge adjacent bins whose raw
-      // event rate drops.
-      if (!is_monotonic(best_bins) && best_bins.size() > static_cast<size_t>(min_bins)) {
-        std::vector<double> bin_rates;
-        for (const auto& bin : best_bins) {
-          int bin_total = 0, bin_pos_count = 0;
-          for (size_t idx : bin) {
-            bin_total += count_total[idx];
-            bin_pos_count += count_pos[idx];
-          }
-          bin_rates.push_back(static_cast<double>(bin_pos_count) / std::max(bin_total, 1));
-        }
-
-        std::vector<std::vector<size_t>> monotonic_bins;
-        std::vector<size_t> current_bin;
-        for (size_t i = 0; i < best_bins.size(); ++i) {
-          if (i == 0 || bin_rates[i] >= bin_rates[i-1] || monotonic_bins.size() < static_cast<size_t>(min_bins)) {
-            if (!current_bin.empty()) {
-              monotonic_bins.push_back(current_bin);
-              current_bin.clear();
-            }
-            current_bin = best_bins[i];
-          } else {
-            current_bin.insert(current_bin.end(), best_bins[i].begin(), best_bins[i].end());
-          }
-        }
-        if (!current_bin.empty()) {
-          monotonic_bins.push_back(current_bin);
-        }
-
-        if (is_monotonic(monotonic_bins)) {
-          best_bins = std::move(monotonic_bins);
-        } else {
-          // Second attempt: re-chunk the categories, in rate order, into
-          // groups of size floor(N / min_bins). This can produce more than
-          // max_bins groups (e.g. N = 7, min_bins = 4 gives 7 groups) and
-          // is not guaranteed to be monotonic either, so it is only accepted
-          // when it satisfies both; otherwise the optimal DP partition is
-          // kept and its bins are put in WoE order below.
-          std::vector<size_t> all_indices;
-          for (const auto& bin : best_bins) {
-            all_indices.insert(all_indices.end(), bin.begin(), bin.end());
-          }
-          std::stable_sort(all_indices.begin(), all_indices.end(),
-                           [this](size_t a, size_t b) { return rate_less(a, b); });
-
-          std::vector<std::vector<size_t>> chunked;
-          size_t bin_size = all_indices.size() / std::max(static_cast<size_t>(min_bins), static_cast<size_t>(1));
-          bin_size = std::max(bin_size, static_cast<size_t>(1));
-          for (size_t i = 0; i < all_indices.size(); i += bin_size) {
-            size_t end_idx = std::min(i + bin_size, all_indices.size());
-            chunked.emplace_back(all_indices.begin() + static_cast<std::ptrdiff_t>(i),
-                                 all_indices.begin() + static_cast<std::ptrdiff_t>(end_idx));
-          }
-
-          if (chunked.size() <= static_cast<size_t>(max_bins) && is_monotonic(chunked)) {
-            best_bins = std::move(chunked);
-          }
-        }
-      }
     }
 
     // Categorical bins have no natural order: listing them by smoothed event

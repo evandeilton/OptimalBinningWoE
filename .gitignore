@@ -25,3 +25,4 @@ inst/paper/
 # Build artifacts must never be packaged or committed
 *.tar.gz
 *.Rcheck/
+audit/diffs/

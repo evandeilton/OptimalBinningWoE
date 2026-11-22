@@ -29,15 +29,16 @@ Must have the same length as \code{feature}.}
 \item{min_bins}{Minimum number of bins (default: 3). Must be at least 2.}
 
 \item{max_bins}{Maximum number of bins (default: 5). Must be greater than or
-equal to \code{min_bins}.}
+equal to \code{min_bins}. It is a ceiling, not a target: the number of bins is
+chosen by BIC in \code{[min_bins, max_bins]} (see Details, Phase 4).}
 
 \item{bin_cutoff}{Minimum fraction of total observations per bin (default: 0.05).
 Bins below this threshold are merged based on Event Rate similarity.}
 
 \item{max_n_prebins}{Maximum number of pre-bins (default: 20). The algorithm
-will select the top \code{max_n_prebins} cutpoints with highest Information Gain.
+grows a tree of at most \code{max_n_prebins} cutpoints chosen by Information Gain.
 \strong{Performance Note}: High values (>50) may significantly slow down
-processing for large datasets due to the O(N^2) nature of cutpoint selection.}
+processing for large datasets: every tree split rescans its leaf (O(N) per split).}
 
 \item{laplace_smoothing}{Laplace smoothing parameter (default: 0.5) for WoE calculation.}
 
@@ -69,6 +70,11 @@ A list containing:
   \item{gini}{Gini index (2*AUC - 1) calculated on the binned data.}
   \item{ks}{Kolmogorov-Smirnov statistic calculated on the binned data.}
   \item{converged}{Logical convergence flag.}
+  \item{monotonic}{Logical. TRUE when the final WoE of the regular bins is monotone
+    (in the reported direction when one is fixed), checked on the reported WoE and on
+    the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}. When
+    monotonicity was requested and this is FALSE (the merges stop at \code{min_bins}), a
+    warning is raised. Up to version 1.14.1 nothing signalled it.}
   \item{iterations}{Integer iteration count.}
 }
 }
@@ -94,9 +100,16 @@ The algorithm evaluates every possible cutpoint \eqn{c} (midpoints between sorte
 unique values) using Information Gain (IG):
 \deqn{IG(S, c) = H(S) - \left( \frac{|S_L|}{|S|} H(S_L) + \frac{|S_R|}{|S|} H(S_R) \right)}
 
-The top \code{max_n_prebins} cutpoints with the highest IG are selected to form
-the initial bins. This ensures that the starting bins capture the most discriminative
-regions of the feature space.
+Pre-bins are grown as a best-first recursive tree: the IG of every cutpoint is
+recomputed inside each current leaf, the leaf whose best split removes the most
+entropy (\eqn{|S| \cdot IG}) is split next, and both children must hold at least
+\code{max(ceiling(bin_cutoff * N), min(7, N \%/\% min_bins))} observations (7 is the
+usual minimum leaf size of CART, \code{rpart}'s \code{minbucket}; it only binds for
+small samples). Splitting stops at \code{max_n_prebins}
+cutpoints or when no split has a positive gain (if fewer than \code{min_bins} leaves
+exist at that point, the largest leaf is split at its median). Up to version 1.14.1
+the \code{max_n_prebins} cutpoints with the highest IG at the root were used, and
+they piled up next to a single change point.
 
 \strong{Phase 2: Rare Bin Merging}
 
@@ -116,14 +129,17 @@ feature and target.
 \strong{Phase 4: Constraint Satisfaction}
 
 If \eqn{k > \text{max\_bins}}, bins are merged minimizing IV loss until the
-constraint is met.
+constraint is met. The merges then continue down to \code{min_bins}, and the
+partition with the largest Schwarz (1978) BIC of the binned event-rate model,
+\deqn{\mathrm{BIC} = \sum_j \left[ n^+_j \log \hat p_j + n^-_j \log (1 - \hat p_j) \right] - \frac{K - 1}{2} \log N,}
+is kept (ties: fewer bins). A bin is kept only when it raises the log-likelihood by
+more than \eqn{\log(N) / 2}, so \code{max_bins} is a ceiling, not a target; always
+returning \code{max_bins} bins over-split small samples and rare events.
 
 \strong{Warning on Complexity}
 
-The pre-binning phase evaluates Information Gain for \emph{all} unique values.
-For continuous features with many unique values (e.g., \eqn{N > 10,000}), this
-step can be computationally intensive (\eqn{O(N^2)}). Consider rounding or using
-\code{\link{ob_numerical_sketch}} for very large datasets.
+The pre-binning phase evaluates Information Gain for \emph{all} unique values,
+once per tree split: \eqn{O(N \log N + N \cdot P)} for \eqn{P} pre-bins.
 }
 \references{
 \itemize{

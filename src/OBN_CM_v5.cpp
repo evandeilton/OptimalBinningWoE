@@ -214,34 +214,63 @@ private:
   /**
    * @brief Merge bins with zero counts in any class
    *
-   * This step is important to avoid invalid WoE/IV calculations
+   * A bin without events (or without non-events) is the MOST informative bin,
+   * not an invalid one: its WoE is finite thanks to the +0.5 smoothing and the
+   * MIN_WOE/MAX_WOE clamp of calculate_woe_iv(). Merging pure bins is therefore
+   * optional and must never take the bin count below min_bins (audit X-03 /
+   * A-06): the former guard was bins.size() > 1, so a perfectly separating
+   * feature such as y = 1[x > 0] collapsed into a single bin with IV = 0 and
+   * a binary flag whose level 0 has no events was reported as useless.
    */
   void merge_zero_bins() {
     bool merged = true;
     int merge_attempts = 0;
     const int max_merge_attempts = static_cast<int>(bins.size());
+    const size_t floor_bins = static_cast<size_t>(std::max(min_bins, 1));
 
-    while (merged && bins.size() > 1 && merge_attempts < max_merge_attempts) {
+    while (merged && bins.size() > floor_bins &&
+           merge_attempts < max_merge_attempts) {
       merged = false;
 
-      for (size_t i = 0; i < bins.size(); ++i) {
-        if (bins[i].count_pos == 0 || bins[i].count_neg == 0) {
-          // For edge bins, merge with adjacent bin
-          if (i == 0) {
-            merge_bins(i);
-          } else if (i == bins.size() - 1) {
-            merge_bins(i - 1);
-          } else {
-            // Otherwise, merge with more similar bin based on chi-square
-            const double chi_left = calculate_chi_square(bins[i - 1], bins[i]);
-            const double chi_right = calculate_chi_square(bins[i], bins[i + 1]);
-            merge_bins(chi_left < chi_right ? i - 1 : i);
-          }
-
-          merged = true;
-          merge_attempts++;
+      // Two adjacent pure bins of the same class have the same empirical
+      // rate, so merging them loses nothing: do those merges first. The former
+      // rule only took the leftmost pure bin, which, once min_bins stops the
+      // collapse, could leave two pure event bins side by side next to a bin
+      // that had absorbed the class boundary.
+      size_t best_idx = bins.size();
+      for (size_t i = 0; i + 1 < bins.size(); ++i) {
+        const bool both_no_events =
+            bins[i].count_pos == 0 && bins[i + 1].count_pos == 0;
+        const bool both_no_nonevents =
+            bins[i].count_neg == 0 && bins[i + 1].count_neg == 0;
+        if (both_no_events || both_no_nonevents) {
+          best_idx = i;
           break;
         }
+      }
+      // Otherwise the former rule: the leftmost pure bin goes to its only
+      // neighbour (edge bins) or to the neighbour with the smaller chi-square.
+      if (best_idx == bins.size()) {
+        for (size_t i = 0; i < bins.size(); ++i) {
+          if (bins[i].count_pos == 0 || bins[i].count_neg == 0) {
+            if (i == 0) {
+              best_idx = 0;
+            } else if (i == bins.size() - 1) {
+              best_idx = i - 1;
+            } else {
+              const double chi_left = calculate_chi_square(bins[i - 1], bins[i]);
+              const double chi_right = calculate_chi_square(bins[i], bins[i + 1]);
+              best_idx = chi_left < chi_right ? i - 1 : i;
+            }
+            break;
+          }
+        }
+      }
+
+      if (best_idx < bins.size()) {
+        merge_bins(best_idx);
+        merged = true;
+        merge_attempts++;
       }
     }
   }
@@ -1077,10 +1106,11 @@ public:
       }
     }
 
-    // Special case for very few unique values
+    // Special case for very few unique values. One bin per value; pure bins
+    // are kept (audit X-03 / A-06): merging them here left a binary flag
+    // whose level 0 has no events as a single bin with IV = 0.
     if (unique_values.size() <= 2) {
       initial_binning_unique_values();
-      merge_zero_bins();
       calculate_woe_iv();
       add_iv_warning();
       converged = true;

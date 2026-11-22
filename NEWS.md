@@ -1,3 +1,127 @@
+# OptimalBinningWoE 1.15.0
+
+Fixes from the forensic audit of the C++ binning engines
+(`audit/AUDITORIA_FORENSE_BINNING_CPP.md`). Every change was validated by the
+differential harness in `audit/harness/` against the frozen 1.14.1 baseline.
+**Results change for the engines listed below; every other engine is
+bit-identical to 1.14.1.**
+
+## Bug fixes (numerical results change)
+
+*   **Pure bins are no longer reported as neutral** (`ob_categorical_dp()`,
+    `ob_categorical_fetb()`; audit B-01, A-09). A bin without events (or
+    without non-events) used to get WoE = IV = 0, the value of an
+    uninformative bin, although it is the most informative one. WoE and IV now
+    use normalized Jeffreys smoothing, `(count + 0.5) / (total + 0.5 K)` with
+    K the number of bins, so the shares sum to one, IV >= 0, and a pure bin
+    gets the most extreme finite WoE. `ob_categorical_dp()` optimizes exactly
+    that objective (one exact DP per number of bins K), so it no longer
+    discards the partition that isolates pure categories;
+    `ob_categorical_fetb()` orders categories by their exact event rate.
+*   **`ob_numerical_cm()`** no longer merges bins without events (or without
+    non-events) below `min_bins`, and a feature with two distinct values keeps
+    one bin per value. A perfect separator, or a binary flag whose level has no
+    events, now gives two or more bins with a large finite WoE instead of one
+    bin with IV = 0 (audit X-03).
+*   **`ob_categorical_cm()`** no longer stops when two consecutive minimum
+    chi-square values differ by less than `convergence_threshold`; it stops when
+    every adjacent pair differs significantly or `min_bins` is reached. Ten
+    levels with identical rates are now merged (audit X-05).
+*   **`ob_categorical_gmb()`** reduces the pre-bins to `max_n_prebins` by merging
+    adjacent bins in event-rate order (the merge that keeps the largest reported
+    IV) instead of folding every extra bin into the smallest kept one (E-04).
+*   **`ob_categorical_mob()`** merges categories below `bin_cutoff` also when the
+    feature has no more categories than `max_bins` (D-05).
+*   **`ob_categorical_dmiv()`** now applies `bin_cutoff` (it was ignored): rare
+    categories are pooled with their event-rate neighbours, and at most
+    `max_n_prebins` bins enter the merge phase (D-06).
+*   **`ob_categorical_sblp()`**: the dynamic program optimizes the reported IV
+    (smoothing with the final number of bins, best K in `[min_bins, max_bins]`)
+    and orders categories by exact event rate; the "chunked" post-processing is
+    removed (B-02).
+*   **`ob_numerical_jedi_mwoe()`** no longer forces a monotone WoE when the
+    target has three or more classes (it still does for two) and merges by the
+    IV loss summed over classes (D-03).
+*   **`ob_numerical_ewb()`** no longer returns fewer than `min_bins` bins when an
+    outlier leaves equal-width intervals empty; the most populous bin is split
+    at the midpoint of its values (C-06).
+*   **`ob_numerical_dp()`, `_kmb()`, `_ldb()` and `_lpdb()`** compute the IV with
+    the same smoothed distributions as the WoE, so a bin's IV is never negative
+    (E-06, C-14, B-09).
+*   **`obwoe_gains_score()` / `obwoe_select()`**: bins without events (or
+    non-events) get the most extreme finite WoE (normalized Jeffreys smoothing)
+    instead of WoE = IV = 0, so a perfectly separating feature is no longer
+    reported as "Weak".
+
+## New features
+
+*   **Honest monotonicity flag.** `ob_numerical_mblp()`, `_dp()`, `_lpdb()`,
+    `_udt()`, `_kmb()`, `_ewb()`, `_ldb()`, `_sketch()` and `_ir()` return a
+    logical `monotonic` (verified on the final WoE) and warn when a requested
+    monotone WoE could not be reached because merging stops at `min_bins`. The
+    result used to be labelled monotone (and `converged = TRUE`) regardless
+    (audit X-11).
+
+## Minimum-evidence regularization
+
+Several faithful fixes (exact DP, IV-loss merge criteria) raised training IV
+but overfitted small samples and rare events. They are released together with
+a minimum-evidence rule chosen per engine with the paired 20-seed gate:
+
+*   **`ob_numerical_bb()`** merges the adjacent pair that keeps the largest
+    reported IV instead of folding the smallest-IV bin into its left
+    neighbour (C-05).
+*   **`ob_numerical_jedi()`** and **`ob_numerical_mob()`** decide merges by the
+    loss of an empirical-Bayes IV (beta prior centred on the overall rate, 50
+    pseudo-observations per bin) instead of the sum of IV (D-02, D-12).
+    Reported WoE/IV are unchanged.
+*   **`ob_numerical_sketch()`** selects cutpoints with an exact dynamic program
+    over the sketch candidates for every number of bins in
+    `[min_bins, max_bins]` and keeps the one with the largest BIC;
+    `max_bins` is a ceiling, not a target (X-09, E-01, E-05).
+*   **`ob_numerical_udt()`** grows its pre-bins as a best-first tree (leaves of
+    at least `max(ceiling(bin_cutoff * n), min(7, n / min_bins))` rows) and
+    chooses the number of bins by BIC (X-13, C-01).
+*   **`ob_numerical_fast_mdlp()`** keeps the Fayyad-Irani cuts when `min_bins`
+    asks for more bins only if they pay their MDL code length; otherwise the
+    1.14.1 completion is returned (X-07, A-04).
+*   **`ob_numerical_kmb()`** and **`ob_numerical_ewb()`** try both monotone
+    directions and keep the one that reaches a monotone WoE, or the larger IV
+    (C-08).
+*   **`ob_categorical_mba()`** and **`ob_categorical_sketch()`**: `bin_cutoff` is
+    a share of observations only, as documented (E-03); categories are ranked
+    and pooled by their empirical-Bayes rate and the reduction to `max_bins`
+    merges the adjacent pair with the smallest empirical-Bayes IV loss.
+    `ob_categorical_sketch()` no longer leaves a bin below `bin_cutoff` (E-02).
+*   **`ob_categorical_sab()`**: an exact dynamic program over categories in
+    empirical-Bayes rate order replaces the simulated annealing (C-02, C-03,
+    C-04). Results no longer depend on `set.seed()`; the annealing arguments
+    are accepted but unused.
+
+*   **`ob_numerical_oslp()`** and **`ob_numerical_mrblp()`** reduce to
+    `max_bins` by merging the adjacent pair that keeps the largest reported IV,
+    instead of the smallest sum of IV (OSLP) or the smallest
+    |IV_i - IV_{i+1}| (MRBLP); the neighbour of a rare bin is chosen by the
+    same IV change (B-03, B-04). Adjacent pure bins of the same class are
+    merged, and a bin without events (or without non-events) stays on its own
+    only when the exact binomial test of zero occurrences rejects chance at
+    1%: `(1 - r0)^n <= 0.01`, with `r0` the overall event rate.
+*   **`ob_numerical_dmiv()`** reduces to `max_bins` by merging the adjacent pair
+    that keeps the largest total of the selected `divergence_method`, instead
+    of folding the bin with the smallest |contribution| into its left
+    neighbour; `divergence_method` now changes the result (D-01). For the
+    distances `"l1"`, `"l2"` and `"ln"`, which merges of two bins on the same
+    side of p = q cannot lower, those merges go first, by the smallest Pearson
+    chi-square between the two bins. The same pure-bin significance rule (at
+    5%) applies.
+
+## Held back (not in this release)
+
+`audit/pending/` keeps, with their evidence, two fixes that are faithful to
+the literature but predict worse out of sample on small or rare-event
+samples: Kerber/Chi2 significance for `ob_numerical_cm()` (X-04) and
+Fayyad-Irani `ob_numerical_mdlp()` (X-06).
+
 # OptimalBinningWoE 1.14.1
 
 ## Bug fixes

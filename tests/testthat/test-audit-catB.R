@@ -320,9 +320,11 @@ test_that("sab actually searches and is reproducible under set.seed()", {
   r2 <- ob_categorical_sab(d$f, d$y)
   expect_identical(r1, r2)
   catb_check_binary(r1, d$f, d$y, 5)
-  # the convergence check ran from iteration 0 and on a 10-iteration window,
-  # so the search typically stopped after 1-120 iterations
-  expect_gt(r1$iterations, 200)
+  # Forensic audit C-02 (X-12): the annealing search was replaced by an exact
+  # DP, so no iterative search runs (iterations = 0) and the result is the
+  # optimum by construction; the stopping-window bug this checked is gone.
+  expect_identical(r1$iterations, 0L)
+  expect_true(r1$converged)
   expect_gt(r1$total_iv, 0.95)
 })
 
