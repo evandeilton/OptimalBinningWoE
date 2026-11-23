@@ -57,7 +57,8 @@ data provided to \code{prep()}. The outcome should be encoded as a factor
 
   \strong{Universal (numerical and categorical):}
   \code{"auto"}, \code{"jedi"}, \code{"jedi_mwoe"}, \code{"cm"}, \code{"dp"},
-  \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"sketch"}, \code{"udt"}
+  \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"orbe"}, \code{"sketch"},
+  \code{"udt"}
 
   \strong{Numerical only:}
   \code{"bb"}, \code{"ewb"}, \code{"fast_mdlp"}, \code{"ir"}, \code{"kmb"},
@@ -133,7 +134,7 @@ An updated \code{recipe} object with the new step appended.
 }
 \description{
 \code{step_obwoe()} creates a \emph{specification} of a recipe step that
-discretizes predictor variables using one of 28 state-of-the-art optimal
+discretizes predictor variables using one of 29 state-of-the-art optimal
 binning algorithms and transforms them into Weight of Evidence (WoE) values.
 This step fully integrates the \strong{OptimalBinningWoE} package into the
 \code{tidymodels} framework, supporting supervised discretization for both
@@ -157,7 +158,7 @@ lower risk.
 
 \subsection{Algorithm Selection Strategy}{
 
-The \code{algorithm} parameter provides access to 28 binning algorithms:
+The \code{algorithm} parameter provides access to 29 binning algorithms:
 
 \itemize{
   \item Use \code{algorithm = "auto"} (default) for automatic selection:

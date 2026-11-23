@@ -13,7 +13,7 @@
 <!-- badges: end -->
 
 Optimal binning and Weight of Evidence transformation for credit scoring and
-risk modelling, with 37 C++ binning algorithms behind one R interface.
+risk modeling, with 39 C++ binning algorithms behind one R interface.
 
 The package covers the whole path from a raw feature store to a deployed
 scorecard: fit the binning, screen the variables against IV strength and bin
@@ -22,7 +22,7 @@ scoring runs where the data lives.
 
 | | |
 |---|---|
-| **37 algorithms** | 21 numerical, 16 categorical — entropy, $\chi^2$, exact optimisation, shape-constrained and streaming methods |
+| **39 algorithms** | 22 numerical, 17 categorical — entropy, $\chi^2$, exact optimization, Bayesian scoring, shape-constrained and streaming methods |
 | **C++ engine** | Rcpp throughout, no linear-algebra dependency; 500 variables over 20,000 rows bin and screen in about two seconds |
 | **Automated screening** | `obwoe_select()` returns a verdict and a reason for every candidate, never dropping a row |
 | **In-database scoring** | `obwoe_sql()` emits exact `CASE` expressions for 14 SQL dialects |
@@ -224,11 +224,12 @@ Bold entries are the defaults worth trying first. `algorithm = "auto"` picks
 | Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` | entropy or IV gain per split, with an MDL stopping rule |
 | Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $\chi^2$ or Fisher test |
 | Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp`, `gmb` | best fit subject to a monotonicity constraint |
-| Exact optimisation | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Exact optimization | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Bayesian score | `orbe` | bins and their number by exact maximization of a predictive score or the evidence, under a monotone, peak or valley WoE; posterior WoE with credible intervals |
 | Metaheuristic | `sab`, `mba`, `swb`, `udt` | simulated annealing, agglomerative or tree-based search |
 | Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 
-`obwoe_algorithms()` lists all 37 with the feature types each supports; every
+`obwoe_algorithms()` lists all 39 with the feature types each supports; every
 one is also callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
 
 ## Key functions

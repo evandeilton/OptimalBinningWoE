@@ -48,7 +48,8 @@ data provided to \code{prep()}. The outcome should be encoded as a factor
 
   \strong{Universal (numerical and categorical):}
   \code{"auto"}, \code{"jedi"}, \code{"jedi_mwoe"}, \code{"cm"}, \code{"dp"},
-  \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"sketch"}, \code{"udt"}
+  \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"orbe"}, \code{"sketch"},
+  \code{"udt"}
 
   \strong{Numerical only:}
   \code{"bb"}, \code{"ewb"}, \code{"fast_mdlp"}, \code{"ir"}, \code{"kmb"},
