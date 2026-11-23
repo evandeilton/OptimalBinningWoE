@@ -1,9 +1,9 @@
 # Optimal Binning for Categorical Variables using Order-Restricted Bayesian Evidence
 
-Groups the categories of a feature so that the grouping and the number
-of groups maximize a Bayesian score of a constant event rate per group.
-A category keeps a group of its own only when the data support it.
-Reports posterior-mean WoE with credible intervals.
+Groups the categories of a feature by exact search on a Bayesian score
+of a constant event rate per group. Categories are merged when the score
+supports it beyond its sampling error. Reports posterior-mean WoE with
+credible intervals.
 
 ## Usage
 
@@ -19,7 +19,8 @@ ob_categorical_orbe(
   prior_strength = 1,
   credible_level = 0.95,
   bin_penalty = 0,
-  criterion = "predictive"
+  criterion = "predictive",
+  se_rule = 1
 )
 ```
 
@@ -40,8 +41,8 @@ ob_categorical_orbe(
   Minimum number of bins (default: 2). It is honored whenever a grouping
   with that many bins satisfies `bin_cutoff` and has strictly increasing
   WoE; otherwise the largest feasible number of bins is returned. With
-  `min_bins = 1` a single bin is returned when the score does not
-  support any split.
+  `min_bins = 1` and `se_rule = 0` a single bin is returned when the
+  score does not support any split.
 
 - max_bins:
 
@@ -94,6 +95,15 @@ ob_categorical_orbe(
   likelihood. `"predictive"` favors out-of-sample accuracy and returns
   more bins; `"evidence"` is more parsimonious. See Details.
 
+- se_rule:
+
+  Tolerance of the selection of the number of bins, in standard errors,
+  in \\\[0, 10^6\]\\ (default: 1). Among the groupings whose score is
+  within `se_rule` standard errors of the best score, the one with the
+  most bins is returned. With `se_rule = 0` the grouping with the best
+  score is returned. Used only with `criterion = "predictive"`. See
+  Details.
+
 ## Value
 
 A list with one element per bin in the vectors below, in increasing
@@ -145,7 +155,7 @@ and the following:
 
 - log_score:
 
-  Score of the selected grouping.
+  Score of the grouping returned.
 
 - log_score_by_bins:
 
@@ -193,6 +203,26 @@ can still be split. A positive `bin_penalty` controls this: it
 multiplies the prior weight of a grouping by \\e^{-\mathrm{penalty}}\\
 for each additional group.
 
+**Selection.** Let \\S_K\\ be the score of the best grouping with \\K\\
+bins and \\K^\*\\ the number of bins with the largest score between
+`min_bins` and `max_bins`. Two groupings that differ in score by less
+than the sampling error of that difference predict equally well, and the
+one with fewer bins discards differences between categories that the
+other one keeps. With `criterion = "predictive"` the score is, apart
+from the bin penalty, a sum over the rows, so the difference between the
+scores of two groupings is a sum of row-wise differences \\d_1, \ldots,
+d_N\\ with standard error \\\sqrt{N}\\ \mathrm{sd}(d)\\. The grouping
+returned is the one with the largest \\K \ge K^\*\\ such that \$\$S_K
+\ge S\_{K^\*} - \mathtt{se\\rule} \times \mathrm{se}(S_K - S\_{K^\*})
+.\$\$ With the default `se_rule = 1`, categories are merged when keeping
+them apart lowers the score by more than one standard error, and are
+kept apart otherwise. `log_score` is the score of the grouping returned,
+which can be below `max(log_score_by_bins)`. The standard error is large
+in small samples, where the rule keeps more groups. A positive `se_rule`
+also returns more groups for a feature unrelated to the target;
+`se_rule = 0` or a positive `bin_penalty` gives the most parsimonious
+grouping.
+
 **Search.** Categories are ordered by their posterior-mean event rate
 \\(a + e)/(a + b + n)\\, which shrinks rare categories toward \\\pi_0\\
 before they are ordered. Ties are broken by count and then by name, so
@@ -205,9 +235,10 @@ contiguous are not examined.
 
 **Rare categories.** Merging two groups changes the score by \\f(n_g +
 n_h, e_g + e_h) - f(n_g, e_g) - f(n_h, e_h)\\. A category with few rows
-rarely carries enough information for a group of its own, so with
-`bin_cutoff = 0` it is merged by the score, not by a frequency
-threshold.
+rarely raises the score as a group of its own, so with `bin_cutoff = 0`
+and `se_rule = 0` it is merged by the score, not by a frequency
+threshold. With a positive `se_rule` it is kept apart when the loss in
+score is within the tolerance.
 
 **WoE.** As in
 [`ob_numerical_orbe`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_orbe.md),
@@ -242,8 +273,8 @@ feature <- sample(levels, 3000, replace = TRUE, prob = prob)
 rate <- c(0.05, 0.06, 0.10, 0.11, 0.20, 0.21, 0.35, 0.36, 0.15, 0.15)
 target <- rbinom(3000, 1, rate[match(feature, levels)])
 
-# bin_cutoff = 0 leaves the fate of the rare categories to the score
-fit <- ob_categorical_orbe(feature, target, bin_cutoff = 0)
+# bin_cutoff = 0 and se_rule = 0 leave the rare categories to the score
+fit <- ob_categorical_orbe(feature, target, bin_cutoff = 0, se_rule = 0)
 
 data.frame(
   bin = fit$bin, count = fit$count,
@@ -256,4 +287,8 @@ data.frame(
 #> 2          region_3%;%region_4   713 -0.809 -1.073 -0.558
 #> 3 rare_a%;%region_6%;%region_5   771  0.040 -0.143  0.219
 #> 4 rare_b%;%region_8%;%region_7   778  0.946  0.800  1.092
+
+# The default se_rule = 1 keeps more categories apart
+length(ob_categorical_orbe(feature, target, bin_cutoff = 0)$bin)
+#> [1] 6
 ```

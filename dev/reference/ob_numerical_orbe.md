@@ -19,7 +19,8 @@ ob_numerical_orbe(
   prior_strength = 1,
   credible_level = 0.95,
   bin_penalty = 0,
-  criterion = "predictive"
+  criterion = "predictive",
+  se_rule = 0
 )
 ```
 
@@ -97,6 +98,15 @@ ob_numerical_orbe(
   more bins; `"evidence"` is more parsimonious and, with a positive
   `bin_penalty`, recovers the number of distinct event-rate levels more
   often. See Details.
+
+- se_rule:
+
+  Tolerance of the selection of the number of bins, in standard errors,
+  in \\\[0, 10^6\]\\ (default: 0). With `se_rule = 0` the partition with
+  the best score is returned. With a positive value, the partition with
+  the most bins among those whose score is within `se_rule` standard
+  errors of the best score is returned. Used only with
+  `criterion = "predictive"`. See Details.
 
 ## Value
 
@@ -221,6 +231,19 @@ peak or a valley. The logarithm of this ratio is added to the score of
 the best partition of each size before the number of bins and, for
 `"auto"`, the direction are selected. `order_probability` is the
 posterior probability in that ratio.
+
+**Selection.** Let \\S_K\\ be the score of the best partition with \\K\\
+bins and \\K^\*\\ the number of bins with the largest score between
+`min_bins` and `max_bins`. With `criterion = "predictive"` and a
+positive `se_rule`, the partition returned is the one with the largest
+\\K \ge K^\*\\ such that \\S_K \ge S\_{K^\*} - \mathtt{se\\rule} \times
+\mathrm{se}\\, where \\\mathrm{se} = \sqrt{N}\\ \mathrm{sd}(d)\\ and
+\\d_1, \ldots, d_N\\ are the row-wise differences between the
+leave-one-out log predictive probabilities of the two partitions. The
+bin penalty and the order-restriction term enter \\S_K\\ but not the
+standard error. For `"auto"` the best partition of each direction is a
+candidate for each \\K\\, the one with the larger score first, and the
+direction returned is that of the selected partition.
 
 **WoE.** The reported WoE is the posterior mean \$\$\mathrm{WoE}\_i =
 \psi(A_i) - \psi(B_i) - \log\frac{\pi_0}{1 - \pi_0},\$\$ where \\\psi\\

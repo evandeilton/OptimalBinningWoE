@@ -324,6 +324,20 @@ samples. The cuts are chosen among many candidates, so with the default
 `bin_penalty` subtracts a cost per additional bin under either criterion
 and controls this.
 
+With the predictive criterion the score is, apart from the bin penalty
+and the order-restriction factor, a sum over the rows, so the difference
+between two partitions has a standard error. `se_rule` returns the
+partition with the most bins among those within `se_rule` standard
+errors of the best score. The default is 1 in
+[`ob_categorical_orbe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_orbe.md),
+where categories are merged only when keeping them apart lowers the
+score by more than one standard error, and 0 in
+[`ob_numerical_orbe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_orbe.md),
+which returns the partition with the best score. A positive `se_rule`
+also returns more bins for a feature unrelated to the target.
+[`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe.md)
+uses these defaults.
+
 The atoms of the search are the distinct values of a numerical feature,
 or the categories ordered by posterior-mean event rate. With more than
 `max_n_prebins` of them (at most 1000, fewer when `max_bins` is large),
@@ -335,11 +349,11 @@ passes its control value, 20 by default, so raise `max_n_prebins` in
 for a finer search.
 [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe.md)
 does not forward `monotonic_trend`, `prior_strength`, `credible_level`,
-`bin_penalty` or `criterion`; call the engine directly to set them. For
-categorical features the search is exact among groupings contiguous in
-the rate order only. The order-restriction factor of the numerical
-engine is applied to the best partition of each size, not inside the
-recursion.
+`bin_penalty`, `criterion` or `se_rule`; call the engine directly to set
+them. For categorical features the search is exact among groupings
+contiguous in the rate order only. The order-restriction factor of the
+numerical engine is applied to the best partition of each size, not
+inside the recursion.
 
 The reported WoE is the posterior mean
 $`\psi(a + e_i) - \psi(b + n_i - e_i) - \mathrm{logit}(\pi_0)`$, finite
@@ -814,13 +828,13 @@ knitr::kable(cat_res[order(-cat_res$total_iv), ], row.names = FALSE,
 | mob       |    5 |   0.1656 |
 | gmb       |    5 |   0.1656 |
 | milp      |    5 |   0.1656 |
+| orbe      |    5 |   0.1640 |
 | dmiv      |    5 |   0.1635 |
 | sblp      |    5 |   0.1629 |
 | sab       |    5 |   0.1611 |
 | mba       |    5 |   0.1596 |
 | jedi      |    5 |   0.1533 |
 | ivb       |    5 |   0.1525 |
-| orbe      |    3 |   0.1516 |
 | sketch    |    5 |   0.1510 |
 | dp        |    5 |   0.1507 |
 | fetb      |    5 |   0.1505 |

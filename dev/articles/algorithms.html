@@ -502,6 +502,17 @@ many candidates, so with the default <code>bin_penalty = 0</code> a
 feature unrelated to the target can still be split;
 <code>bin_penalty</code> subtracts a cost per additional bin under
 either criterion and controls this.</p>
+<p>With the predictive criterion the score is, apart from the bin
+penalty and the order-restriction factor, a sum over the rows, so the
+difference between two partitions has a standard error.
+<code>se_rule</code> returns the partition with the most bins among
+those within <code>se_rule</code> standard errors of the best score. The
+default is 1 in <code><a href="../reference/ob_categorical_orbe.html">ob_categorical_orbe()</a></code>, where categories are
+merged only when keeping them apart lowers the score by more than one
+standard error, and 0 in <code><a href="../reference/ob_numerical_orbe.html">ob_numerical_orbe()</a></code>, which returns
+the partition with the best score. A positive <code>se_rule</code> also
+returns more bins for a feature unrelated to the target.
+<code><a href="../reference/obwoe.html">obwoe()</a></code> uses these defaults.</p>
 <p>The atoms of the search are the distinct values of a numerical
 feature, or the categories ordered by posterior-mean event rate. With
 more than <code>max_n_prebins</code> of them (at most 1000, fewer when
@@ -511,12 +522,12 @@ passes its control value, 20 by default, so raise
 <code>max_n_prebins</code> in <code><a href="../reference/control.obwoe.html">control.obwoe()</a></code> for a finer
 search. <code><a href="../reference/obwoe.html">obwoe()</a></code> does not forward
 <code>monotonic_trend</code>, <code>prior_strength</code>,
-<code>credible_level</code>, <code>bin_penalty</code> or
-<code>criterion</code>; call the engine directly to set them. For
-categorical features the search is exact among groupings contiguous in
-the rate order only. The order-restriction factor of the numerical
-engine is applied to the best partition of each size, not inside the
-recursion.</p>
+<code>credible_level</code>, <code>bin_penalty</code>,
+<code>criterion</code> or <code>se_rule</code>; call the engine directly
+to set them. For categorical features the search is exact among
+groupings contiguous in the rate order only. The order-restriction
+factor of the numerical engine is applied to the best partition of each
+size, not inside the recursion.</p>
 <p>The reported WoE is the posterior mean
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ψ</mi><mo stretchy="false" form="prefix">(</mo><mi>a</mi><mo>+</mo><msub><mi>e</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>ψ</mi><mo stretchy="false" form="prefix">(</mo><mi>b</mi><mo>+</mo><msub><mi>n</mi><mi>i</mi></msub><mo>−</mo><msub><mi>e</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mrow><mi mathvariant="normal">l</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>π</mi><mn>0</mn></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\psi(a + e_i) - \psi(b + n_i - e_i) - \mathrm{logit}(\pi_0)</annotation></semantics></math>,
 finite in bins without events, and comes with a posterior standard
@@ -1248,39 +1259,39 @@ constraints:</p>
 <td align="right">0.1656</td>
 </tr>
 <tr class="even">
+<td align="left">orbe</td>
+<td align="right">5</td>
+<td align="right">0.1640</td>
+</tr>
+<tr class="odd">
 <td align="left">dmiv</td>
 <td align="right">5</td>
 <td align="right">0.1635</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">sblp</td>
 <td align="right">5</td>
 <td align="right">0.1629</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">sab</td>
 <td align="right">5</td>
 <td align="right">0.1611</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">mba</td>
 <td align="right">5</td>
 <td align="right">0.1596</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td align="left">jedi</td>
 <td align="right">5</td>
 <td align="right">0.1533</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td align="left">ivb</td>
 <td align="right">5</td>
 <td align="right">0.1525</td>
-</tr>
-<tr class="even">
-<td align="left">orbe</td>
-<td align="right">3</td>
-<td align="right">0.1516</td>
 </tr>
 <tr class="odd">
 <td align="left">sketch</td>

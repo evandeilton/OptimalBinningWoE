@@ -69,7 +69,8 @@ program. Reports posterior-mean WoE with credible intervals.</p>
 <span>  prior_strength <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  credible_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  bin_penalty <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  criterion <span class="op">=</span> <span class="st">"predictive"</span></span>
+<span>  criterion <span class="op">=</span> <span class="st">"predictive"</span>,</span>
+<span>  se_rule <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -150,6 +151,15 @@ favors out-of-sample accuracy and returns more bins;
 <code>"evidence"</code> is more parsimonious and, with a positive
 <code>bin_penalty</code>, recovers the number of distinct event-rate levels
 more often. See Details.</p></dd>
+
+
+<dt id="arg-se-rule">se_rule<a class="anchor" aria-label="anchor" href="#arg-se-rule"></a></dt>
+<dd><p>Tolerance of the selection of the number of bins, in standard
+errors, in \([0, 10^6]\) (default: 0). With <code>se_rule = 0</code> the
+partition with the best score is returned. With a positive value, the
+partition with the most bins among those whose score is within
+<code>se_rule</code> standard errors of the best score is returned. Used only
+with <code>criterion = "predictive"</code>. See Details.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -258,6 +268,20 @@ for a given monotone direction, \(2/K!\) for <code>"auto"</code> and
 added to the score of the best partition of each size before the number of
 bins and, for <code>"auto"</code>, the direction are selected.
 <code>order_probability</code> is the posterior probability in that ratio.</p>
+<p><strong>Selection.</strong> Let \(S_K\) be the score of the best partition with
+\(K\) bins and \(K^*\) the
+number of bins with the largest score between <code>min_bins</code> and
+<code>max_bins</code>. With <code>criterion = "predictive"</code> and a positive
+<code>se_rule</code>, the partition returned is the one with the largest
+\(K \ge K^*\) such that
+\(S_K \ge S_{K^*} - \mathtt{se\_rule} \times \mathrm{se}\), where
+\(\mathrm{se} = \sqrt{N}\, \mathrm{sd}(d)\) and \(d_1, \ldots, d_N\)
+are the row-wise differences between the leave-one-out log predictive
+probabilities of the two partitions. The bin penalty and the
+order-restriction term enter \(S_K\) but not the standard error. For
+<code>"auto"</code> the best partition of each direction is a candidate for
+each \(K\), the one with the larger score first, and the direction
+returned is that of the selected partition.</p>
 <p><strong>WoE.</strong> The reported WoE is the posterior mean
 $$\mathrm{WoE}_i = \psi(A_i) - \psi(B_i) - \log\frac{\pi_0}{1 - \pi_0},$$
 where \(\psi\) is the digamma function. Its posterior variance is
