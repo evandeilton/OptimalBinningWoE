@@ -45,8 +45,8 @@ optimal_binning_categorical_mob <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_categorical_mob`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, convergence_threshold, max_iterations)
 }
 
-optimal_binning_categorical_orbe <- function(target, feature, min_bins = 2L, max_bins = 10L, bin_cutoff = 0.05, max_n_prebins = 200L, bin_separator = "%;%", prior_strength = 1.0, credible_level = 0.95, bin_penalty = 0.0, criterion = "predictive") {
-    .Call(`_OptimalBinningWoE_optimal_binning_categorical_orbe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, prior_strength, credible_level, bin_penalty, criterion)
+optimal_binning_categorical_orbe <- function(target, feature, min_bins = 2L, max_bins = 10L, bin_cutoff = 0.05, max_n_prebins = 200L, bin_separator = "%;%", prior_strength = 1.0, credible_level = 0.95, bin_penalty = 0.0, criterion = "predictive", se_rule = 1.0) {
+    .Call(`_OptimalBinningWoE_optimal_binning_categorical_orbe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, prior_strength, credible_level, bin_penalty, criterion, se_rule)
 }
 
 optimal_binning_categorical_sab <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, bin_separator = "%;%", initial_temperature = 1.0, cooling_rate = 0.995, max_iterations = 1000L, convergence_threshold = 1e-6, adaptive_cooling = TRUE) {
@@ -137,8 +137,8 @@ optimal_binning_numerical_mrblp <- function(target, feature, min_bins = 3L, max_
     .Call(`_OptimalBinningWoE_optimal_binning_numerical_mrblp`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, convergence_threshold, max_iterations, laplace_smoothing)
 }
 
-optimal_binning_numerical_orbe <- function(target, feature, min_bins = 2L, max_bins = 10L, bin_cutoff = 0.05, max_n_prebins = 200L, monotonic_trend = "auto", prior_strength = 1.0, credible_level = 0.95, bin_penalty = 0.0, criterion = "predictive") {
-    .Call(`_OptimalBinningWoE_optimal_binning_numerical_orbe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic_trend, prior_strength, credible_level, bin_penalty, criterion)
+optimal_binning_numerical_orbe <- function(target, feature, min_bins = 2L, max_bins = 10L, bin_cutoff = 0.05, max_n_prebins = 200L, monotonic_trend = "auto", prior_strength = 1.0, credible_level = 0.95, bin_penalty = 0.0, criterion = "predictive", se_rule = 0.0) {
+    .Call(`_OptimalBinningWoE_optimal_binning_numerical_orbe`, target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic_trend, prior_strength, credible_level, bin_penalty, criterion, se_rule)
 }
 
 optimal_binning_numerical_oslp <- function(target, feature, min_bins = 3L, max_bins = 5L, bin_cutoff = 0.05, max_n_prebins = 20L, convergence_threshold = 1e-6, max_iterations = 1000L, laplace_smoothing = 0.5) {

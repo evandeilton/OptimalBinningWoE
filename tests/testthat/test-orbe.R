@@ -584,7 +584,7 @@ test_that("orbe matches exhaustive search with the predictive criterion", {
   e <- as.numeric(tapply(y, f, sum))
   ord <- order((ab[1] + e) / (sum(ab) + n), n, names(table(f)))
   ref <- orbe_brute(n[ord], e[ord], ab, 20, 6, strictly_increasing, orbe_f_loo)
-  fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 6)
+  fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 6, se_rule = 0)
   ok <- is.finite(ref$best)
   expect_equal(fit$log_score_by_bins[ok], ref$best[ok], tolerance = 1e-9)
   expect_equal(as.numeric(fit$count), ref$part[[which.max(ref$best)]])
@@ -603,4 +603,120 @@ test_that("orbe validates the criterion and the evidence is more parsimonious", 
   expect_equal(evid$criterion, "evidence")
   expect_gt(length(pred$bin), length(evid$bin))
   expect_gte(length(pred$bin), 5)
+})
+
+# ------------------------------------------------------------------------------
+# Selection within standard errors of the best score
+# ------------------------------------------------------------------------------
+
+# Row-wise leave-one-out log predictive probabilities of a partition given by
+# the row counts of its bins: one value per event row and per non-event row.
+orbe_row_scores <- function(n, e, bn, ab) {
+  g <- findInterval(cumsum(n), cumsum(bn), left.open = TRUE) + 1
+  gn <- as.numeric(tapply(n, g, sum))[g]
+  ge <- as.numeric(tapply(e, g, sum))[g]
+  den <- sum(ab) + gn - 1
+  list(ev = log((ab[1] + ge - 1) / den), ne = log((ab[2] + gn - ge - 1) / den))
+}
+
+# Bin count selected by the rule, from the exhaustive search `ref`
+orbe_se_select <- function(n, e, ab, ref, se_rule) {
+  k_best <- which.max(ref$best)
+  s_best <- orbe_row_scores(n, e, ref$part[[k_best]], ab)
+  w <- c(e, n - e)
+  for (k in rev(seq_along(ref$best))) {
+    if (k <= k_best) break
+    if (!is.finite(ref$best[k])) next
+    s_k <- orbe_row_scores(n, e, ref$part[[k]], ab)
+    d <- c(s_k$ev - s_best$ev, s_k$ne - s_best$ne)
+    d <- rep(d[w > 0], w[w > 0])
+    se <- sqrt(length(d) * stats::var(d))
+    if (ref$best[k] >= ref$best[k_best] - se_rule * se) return(k)
+  }
+  k_best
+}
+
+test_that("se_rule selects the finest grouping within the tolerance", {
+  moved <- 0L
+  for (seed in 61:72) {
+    set.seed(seed)
+    lev <- letters[1:8]
+    f <- sample(lev, 600, replace = TRUE)
+    y <- rbinom(600, 1, plogis(-1.2 + rnorm(8, 0, 0.5)[match(f, lev)]))
+    ab <- orbe_prior(mean(y))
+    n <- as.numeric(table(f))
+    e <- as.numeric(tapply(y, f, sum))
+    ord <- order((ab[1] + e) / (sum(ab) + n), n, names(table(f)))
+    n <- n[ord]
+    e <- e[ord]
+    ref <- orbe_brute(n, e, ab, 30, 7, strictly_increasing, orbe_f_loo)
+    for (rule in c(0, 0.5, 1, 2)) {
+      k <- orbe_se_select(n, e, ab, ref, rule)
+      fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 7, se_rule = rule)
+      expect_equal(length(fit$bin), k)
+      expect_equal(as.numeric(fit$count), ref$part[[k]])
+      expect_equal(fit$log_score, ref$best[k], tolerance = 1e-9)
+      expect_true(all(diff(fit$woe) > 0))
+      if (rule == 1 && k > which.max(ref$best)) moved <- moved + 1L
+    }
+  }
+  # The rule changes the selection in part of the cases
+  expect_gt(moved, 0L)
+})
+
+test_that("se_rule defaults, limits and scope", {
+  set.seed(81)
+  lev <- letters[1:8]
+  f <- sample(lev, 800, replace = TRUE)
+  y <- rbinom(800, 1, plogis(-1.2 + rnorm(8, 0, 0.5)[match(f, lev)]))
+  x <- match(f, lev) + 0
+
+  # Default is 1 for categorical features and 0 for numerical features
+  expect_identical(ob_categorical_orbe(f, y), ob_categorical_orbe(f, y, se_rule = 1))
+  expect_identical(ob_numerical_orbe(x, y), ob_numerical_orbe(x, y, se_rule = 0))
+
+  # The number of bins does not decrease with the tolerance
+  k <- vapply(c(0, 0.5, 1, 2, 1e6), function(r) {
+    length(ob_categorical_orbe(f, y, min_bins = 1, se_rule = r)$bin)
+  }, 0L)
+  expect_false(is.unsorted(k))
+  kn <- vapply(c(0, 1, 1e6), function(r) {
+    fit <- ob_numerical_orbe(x, y, min_bins = 1, se_rule = r)
+    expect_true(all(diff(fit$woe) > 0) || all(diff(fit$woe) < 0))
+    length(fit$bin)
+  }, 0L)
+  expect_false(is.unsorted(kn))
+
+  # The scores by bin count do not depend on the rule
+  expect_equal(
+    ob_categorical_orbe(f, y, se_rule = 0)$log_score_by_bins,
+    ob_categorical_orbe(f, y, se_rule = 3)$log_score_by_bins
+  )
+
+  # The evidence criterion ignores the rule
+  expect_identical(
+    ob_categorical_orbe(f, y, criterion = "evidence", se_rule = 0),
+    ob_categorical_orbe(f, y, criterion = "evidence", se_rule = 5)
+  )
+
+  expect_error(ob_categorical_orbe(f, y, se_rule = -1), "se_rule")
+  expect_error(ob_categorical_orbe(f, y, se_rule = NA), "se_rule")
+  expect_error(ob_numerical_orbe(x, y, se_rule = Inf), "se_rule")
+})
+
+test_that("se_rule searches both directions under monotonic_trend = \"auto\"", {
+  set.seed(5)
+  x <- sample(1:6, 400, replace = TRUE)
+  y <- rbinom(400, 1, plogis(-1 - 0.1 * x))
+  best <- ob_numerical_orbe(x, y, min_bins = 1)
+  expect_equal(length(best$bin), 1)
+
+  # A single bin has no direction: the rule may select either one
+  fit <- ob_numerical_orbe(x, y, min_bins = 1, se_rule = 1)
+  k <- length(fit$bin)
+  expect_gt(k, 1)
+  expect_equal(fit$monotonic_trend, "descending")
+  expect_true(all(diff(fit$woe) < 0))
+  expect_equal(fit$log_score, fit$log_score_by_bins[k])
+  expect_equal(sum(fit$count), 400)
 })

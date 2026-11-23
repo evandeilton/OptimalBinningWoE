@@ -13,7 +13,11 @@
     search, so `max_bins` is a limit and not a target. The fit reports
     posterior-mean WoE, finite in bins without events, with standard
     deviations and credible intervals, and an IV corrected for sampling
-    bias.
+    bias. With the predictive criterion, `se_rule` returns the partition with
+    the most bins among those within `se_rule` standard errors of the best
+    score; the default is 1 for categorical features, which keeps categories
+    apart unless merging them is clearly supported, and 0 for numerical
+    features.
 
 # OptimalBinningWoE 1.15.0
 
