@@ -64,7 +64,8 @@ Rcpp::List optimal_binning_numerical_orbe(
     double prior_strength = 1.0,
     double credible_level = 0.95,
     double bin_penalty = 0.0,
-    std::string criterion = "predictive") {
+    std::string criterion = "predictive",
+    double se_rule = 0.0) {
 
   try {
     // ---- Validation -------------------------------------------------------
@@ -92,6 +93,9 @@ Rcpp::List optimal_binning_numerical_orbe(
     }
     if (criterion != "predictive" && criterion != "evidence") {
       throw std::invalid_argument("criterion must be 'predictive' or 'evidence'.");
+    }
+    if (!(se_rule >= 0.0 && se_rule <= 1e6)) {
+      throw std::invalid_argument("se_rule must be in [0, 1e6].");
     }
     std::vector<orbe::Shape> shapes;
     const orbe::Shape first_shape = parse_trend(monotonic_trend, shapes);
@@ -173,7 +177,7 @@ Rcpp::List optimal_binning_numerical_orbe(
     const double n_min = orbe::min_bin_rows(bin_cutoff, tot_n);
     const orbe::Fit fit = orbe::fit(cum_n, cum_e, min_bins, max_bins, n_min, a, b,
                                     shapes, true, bin_penalty,
-                                    criterion == "predictive");
+                                    criterion == "predictive", se_rule);
     const size_t k = fit.ends.size();
 
     // ---- Output -----------------------------------------------------------

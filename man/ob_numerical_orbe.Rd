@@ -15,7 +15,8 @@ ob_numerical_orbe(
   prior_strength = 1,
   credible_level = 0.95,
   bin_penalty = 0,
-  criterion = "predictive"
+  criterion = "predictive",
+  se_rule = 0
 )
 }
 \arguments{
@@ -71,6 +72,13 @@ favors out-of-sample accuracy and returns more bins;
 \code{"evidence"} is more parsimonious and, with a positive
 \code{bin_penalty}, recovers the number of distinct event-rate levels
 more often. See Details.}
+
+\item{se_rule}{Tolerance of the selection of the number of bins, in standard
+errors, in \eqn{[0, 10^6]} (default: 0). With \code{se_rule = 0} the
+partition with the best score is returned. With a positive value, the
+partition with the most bins among those whose score is within
+\code{se_rule} standard errors of the best score is returned. Used only
+with \code{criterion = "predictive"}. See Details.}
 }
 \value{
 A list with one element per bin in the vectors below:
@@ -153,6 +161,21 @@ for a given monotone direction, \eqn{2/K!} for \code{"auto"} and
 added to the score of the best partition of each size before the number of
 bins and, for \code{"auto"}, the direction are selected.
 \code{order_probability} is the posterior probability in that ratio.
+
+\strong{Selection.} Let \eqn{S_K} be the score of the best partition with
+\eqn{K} bins and \eqn{K^*} the
+number of bins with the largest score between \code{min_bins} and
+\code{max_bins}. With \code{criterion = "predictive"} and a positive
+\code{se_rule}, the partition returned is the one with the largest
+\eqn{K \ge K^*} such that
+\eqn{S_K \ge S_{K^*} - \mathtt{se\_rule} \times \mathrm{se}}, where
+\eqn{\mathrm{se} = \sqrt{N}\, \mathrm{sd}(d)} and \eqn{d_1, \ldots, d_N}
+are the row-wise differences between the leave-one-out log predictive
+probabilities of the two partitions. The bin penalty and the
+order-restriction term enter \eqn{S_K} but not the standard error. For
+\code{"auto"} the best partition of each direction is a candidate for
+each \eqn{K}, the one with the larger score first, and the direction
+returned is that of the selected partition.
 
 \strong{WoE.} The reported WoE is the posterior mean
 \deqn{\mathrm{WoE}_i = \psi(A_i) - \psi(B_i) - \log\frac{\pi_0}{1 - \pi_0},}

@@ -372,10 +372,52 @@ inline DpResult run_dp(int u, int kmax, const std::vector<double>& score,
 struct Fit {
   std::vector<int> ends;           // bin ends as atom prefix indices
   Shape shape = Shape::None;       // shape of the selected model
-  double log_score = NEG_INF;   // score of the selected partition
+  double log_score = NEG_INF;      // score of the selected partition
   double order_probability = 1.0;  // posterior probability of the shape
   std::vector<double> score_by_k;  // score of the best partition of each size
 };
+
+// Standard error of the difference between the leave-one-out log predictive
+// scores of two partitions of the same atoms, from the row-wise differences.
+inline double predictive_se(const std::vector<double>& cum_n, const std::vector<double>& cum_e,
+                            const std::vector<int>& ends_x, const std::vector<int>& ends_y,
+                            double a, double b) {
+  const size_t u = cum_n.size() - 1;
+  // Log predictive probability of an event and of a non-event, per atom
+  auto row_scores = [&](const std::vector<int>& ends, std::vector<double>& ev,
+                        std::vector<double>& ne) {
+    ev.assign(u, 0.0);
+    ne.assign(u, 0.0);
+    int lo = 0;
+    for (int hi : ends) {
+      const double n = cum_n[static_cast<size_t>(hi)] - cum_n[static_cast<size_t>(lo)];
+      const double e = cum_e[static_cast<size_t>(hi)] - cum_e[static_cast<size_t>(lo)];
+      const double den = a + b + n - 1.0;
+      const double l1 = e > 0.0 ? std::log((a + e - 1.0) / den) : 0.0;
+      const double l0 = n - e > 0.0 ? std::log((b + n - e - 1.0) / den) : 0.0;
+      for (int t = lo; t < hi; ++t) {
+        ev[static_cast<size_t>(t)] = l1;
+        ne[static_cast<size_t>(t)] = l0;
+      }
+      lo = hi;
+    }
+  };
+  std::vector<double> ev_x, ne_x, ev_y, ne_y;
+  row_scores(ends_x, ev_x, ne_x);
+  row_scores(ends_y, ev_y, ne_y);
+
+  double sum = 0.0, sum_sq = 0.0;
+  for (size_t t = 0; t < u; ++t) {
+    const double n = cum_n[t + 1] - cum_n[t], e = cum_e[t + 1] - cum_e[t];
+    const double d1 = ev_x[t] - ev_y[t], d0 = ne_x[t] - ne_y[t];
+    sum += e * d1 + (n - e) * d0;
+    sum_sq += e * d1 * d1 + (n - e) * d0 * d0;
+  }
+  const double tot = cum_n[u];
+  if (tot < 2.0) return 0.0;
+  const double var = std::max(0.0, (sum_sq - sum * sum / tot) / (tot - 1.0));
+  return std::sqrt(tot * var);
+}
 
 /**
  * @param cum_n,cum_e prefix sums of rows and events over the atoms (size u + 1)
@@ -385,11 +427,13 @@ struct Fit {
  * @param bin_penalty cost of each bin beyond the first, in log-score units
  *   (0 makes every partition equally likely)
  * @param predictive score bins by leave-one-out prediction, else by evidence
+ * @param se_rule with the predictive score, prefer the partition with the most
+ *   bins whose score is within se_rule standard errors of the best (0 = best)
  */
 inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_e,
                int min_bins, int max_bins, double n_min, double a, double b,
                const std::vector<Shape>& shapes, bool order_factor,
-               double bin_penalty, bool predictive) {
+               double bin_penalty, bool predictive, double se_rule) {
   const int u = static_cast<int>(cum_n.size()) - 1;
   const int kmax = std::min(max_bins, u);
   const size_t w = static_cast<size_t>(u) + 1;
@@ -413,6 +457,9 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
   Fit best;
   bool have = false, best_in_range = false;
   int best_k = 0;
+  // Candidates of every shape, by bin count
+  std::vector<std::vector<double>> all_by_k, all_prob;
+  std::vector<std::vector<std::vector<int>>> all_ends;
 
   for (Shape shape : shapes) {
     int mode = 1;
@@ -423,6 +470,7 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
 
     const DpResult dp = run_dp(u, kmax, score, rate, mode, sign);
     std::vector<double> by_k(static_cast<size_t>(kmax), NA_REAL);
+    std::vector<double> prob_k(static_cast<size_t>(kmax) + 1, 1.0);
 
     for (int k = 1; k <= kmax; ++k) {
       const size_t ks = static_cast<size_t>(k);
@@ -453,6 +501,7 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
         }
       }
       by_k[ks - 1] = total;
+      prob_k[ks] = prob;
 
       // In-range bin counts win; below min_bins the largest count wins.
       const bool in_range = k >= min_bins;
@@ -473,6 +522,40 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
       }
     }
     if (have && best.shape == shape) best.score_by_k = by_k;
+    all_by_k.push_back(by_k);
+    all_prob.push_back(prob_k);
+    all_ends.push_back(dp.ends);
+  }
+
+  // Finest partition statistically indistinguishable from the best one
+  if (have && best_in_range && predictive && se_rule > 0.0) {
+    const std::vector<int> ref_ends = best.ends;
+    const double ref_total = best.log_score;
+    bool found = false;
+    for (int k = kmax; k > best_k && !found; --k) {
+      const size_t ks = static_cast<size_t>(k);
+      // Shapes with a partition of k bins, by decreasing score
+      std::vector<size_t> order;
+      for (size_t t = 0; t < shapes.size(); ++t) {
+        if (!ISNA(all_by_k[t][ks - 1]) && !all_ends[t][ks].empty()) order.push_back(t);
+      }
+      std::stable_sort(order.begin(), order.end(), [&](size_t x, size_t y) {
+        return all_by_k[x][ks - 1] > all_by_k[y][ks - 1];
+      });
+      for (size_t s : order) {
+        const double total = all_by_k[s][ks - 1];
+        const double se = predictive_se(cum_n, cum_e, all_ends[s][ks], ref_ends, a, b);
+        if (total >= ref_total - se_rule * se) {
+          best.ends = all_ends[s][ks];
+          best.shape = shapes[s];
+          best.log_score = total;
+          best.order_probability = all_prob[s][ks];
+          best.score_by_k = all_by_k[s];
+          found = true;
+          break;
+        }
+      }
+    }
   }
   return best;
 }

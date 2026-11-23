@@ -15,7 +15,8 @@ ob_categorical_orbe(
   prior_strength = 1,
   credible_level = 0.95,
   bin_penalty = 0,
-  criterion = "predictive"
+  criterion = "predictive",
+  se_rule = 1
 )
 }
 \arguments{
@@ -28,8 +29,8 @@ form the category \code{"NA"}.}
 \item{min_bins}{Minimum number of bins (default: 2). It is honored whenever
 a grouping with that many bins satisfies \code{bin_cutoff} and has
 strictly increasing WoE; otherwise the largest feasible number of bins is
-returned. With \code{min_bins = 1} a single bin is returned when the
-score does not support any split.}
+returned. With \code{min_bins = 1} and \code{se_rule = 0} a single bin
+is returned when the score does not support any split.}
 
 \item{max_bins}{Maximum number of bins (default: 10). The number of bins is
 selected by the score between \code{min_bins} and \code{max_bins}.}
@@ -66,6 +67,13 @@ leave-one-out log predictive probability of its rows, or
 \code{"evidence"}, its log marginal likelihood. \code{"predictive"}
 favors out-of-sample accuracy and returns more bins;
 \code{"evidence"} is more parsimonious. See Details.}
+
+\item{se_rule}{Tolerance of the selection of the number of bins, in standard
+errors, in \eqn{[0, 10^6]} (default: 1). Among the groupings whose score
+is within \code{se_rule} standard errors of the best score, the one with
+the most bins is returned. With \code{se_rule = 0} the grouping with the
+best score is returned. Used only with \code{criterion = "predictive"}.
+See Details.}
 }
 \value{
 A list with one element per bin in the vectors below, in increasing
@@ -88,7 +96,7 @@ and the following:
   \item{total_iv}{Sum of \code{iv}.}
   \item{total_iv_corrected}{\code{total_iv} minus the first-order sampling
     bias of a plug-in IV, floored at zero.}
-  \item{log_score}{Score of the selected grouping.}
+  \item{log_score}{Score of the grouping returned.}
   \item{log_score_by_bins}{Score of the best grouping with
     \eqn{1, 2, \ldots} bins; \code{NA} where no grouping is feasible.}
   \item{criterion}{The criterion used.}
@@ -99,10 +107,10 @@ and the following:
 }
 }
 \description{
-Groups the categories of a feature so that the grouping and the number of
-groups maximize a Bayesian score of a constant event rate per group. A
-category keeps a group of its own only when the data support it. Reports
-posterior-mean WoE with credible intervals.
+Groups the categories of a feature by exact search on a Bayesian score of a
+constant event rate per group. Categories are merged when the score
+supports it beyond its sampling error. Reports posterior-mean WoE with
+credible intervals.
 }
 \details{
 \strong{Model.} The event rates of the groups are independent
@@ -128,6 +136,28 @@ target can still be split. A positive \code{bin_penalty} controls this:
 it multiplies the prior weight of a grouping by
 \eqn{e^{-\mathrm{penalty}}} for each additional group.
 
+\strong{Selection.} Let \eqn{S_K} be the score of the best grouping with
+\eqn{K} bins and \eqn{K^*} the number of bins with the largest score
+between \code{min_bins} and \code{max_bins}. Two
+groupings that differ in score by less than the sampling error of that
+difference predict equally well, and the one with fewer bins discards
+differences between categories that the other one keeps. With
+\code{criterion = "predictive"} the score is, apart from the bin penalty,
+a sum over the rows, so the difference between the scores of two groupings
+is a sum of row-wise differences \eqn{d_1, \ldots, d_N} with standard
+error \eqn{\sqrt{N}\, \mathrm{sd}(d)}. The grouping returned is the one with the
+largest \eqn{K \ge K^*} such that
+\deqn{S_K \ge S_{K^*} - \mathtt{se\_rule} \times
+  \mathrm{se}(S_K - S_{K^*}) .}
+With the default \code{se_rule = 1}, categories are merged when keeping
+them apart lowers the score by more than one standard error, and are kept
+apart otherwise. \code{log_score} is the score of the grouping returned,
+which can be below \code{max(log_score_by_bins)}. The standard error is
+large in small samples, where the rule keeps more groups. A positive
+\code{se_rule} also returns more groups for a feature unrelated to the
+target; \code{se_rule = 0} or a positive \code{bin_penalty} gives the
+most parsimonious grouping.
+
 \strong{Search.} Categories are ordered by their posterior-mean event rate
 \eqn{(a + e)/(a + b + n)}, which shrinks rare categories toward
 \eqn{\pi_0} before they are ordered. Ties are broken by count and then by
@@ -140,9 +170,10 @@ contiguous are not examined.
 
 \strong{Rare categories.} Merging two groups changes the score by
 \eqn{f(n_g + n_h, e_g + e_h) - f(n_g, e_g) - f(n_h, e_h)}. A category
-with few rows rarely carries enough information for a group of its own, so
-with \code{bin_cutoff = 0} it is merged by the score, not by a frequency
-threshold.
+with few rows rarely raises the score as a group of its own, so with
+\code{bin_cutoff = 0} and \code{se_rule = 0} it is merged by the score,
+not by a frequency threshold. With a positive \code{se_rule} it is kept
+apart when the loss in score is within the tolerance.
 
 \strong{WoE.} As in \code{\link{ob_numerical_orbe}},
 \deqn{\mathrm{WoE}_i = \psi(A_i) - \psi(B_i) - \log\frac{\pi_0}{1 - \pi_0},}
@@ -157,8 +188,8 @@ feature <- sample(levels, 3000, replace = TRUE, prob = prob)
 rate <- c(0.05, 0.06, 0.10, 0.11, 0.20, 0.21, 0.35, 0.36, 0.15, 0.15)
 target <- rbinom(3000, 1, rate[match(feature, levels)])
 
-# bin_cutoff = 0 leaves the fate of the rare categories to the score
-fit <- ob_categorical_orbe(feature, target, bin_cutoff = 0)
+# bin_cutoff = 0 and se_rule = 0 leave the rare categories to the score
+fit <- ob_categorical_orbe(feature, target, bin_cutoff = 0, se_rule = 0)
 
 data.frame(
   bin = fit$bin, count = fit$count,
@@ -166,6 +197,9 @@ data.frame(
   lower = round(fit$woe_lower, 3),
   upper = round(fit$woe_upper, 3)
 )
+
+# The default se_rule = 1 keeps more categories apart
+length(ob_categorical_orbe(feature, target, bin_cutoff = 0)$bin)
 
 }
 \references{

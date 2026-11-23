@@ -225,8 +225,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // optimal_binning_categorical_orbe
-Rcpp::List optimal_binning_categorical_orbe(Rcpp::IntegerVector target, Rcpp::StringVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string bin_separator, double prior_strength, double credible_level, double bin_penalty, std::string criterion);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_orbe(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP bin_separatorSEXP, SEXP prior_strengthSEXP, SEXP credible_levelSEXP, SEXP bin_penaltySEXP, SEXP criterionSEXP) {
+Rcpp::List optimal_binning_categorical_orbe(Rcpp::IntegerVector target, Rcpp::StringVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string bin_separator, double prior_strength, double credible_level, double bin_penalty, std::string criterion, double se_rule);
+RcppExport SEXP _OptimalBinningWoE_optimal_binning_categorical_orbe(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP bin_separatorSEXP, SEXP prior_strengthSEXP, SEXP credible_levelSEXP, SEXP bin_penaltySEXP, SEXP criterionSEXP, SEXP se_ruleSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -241,7 +241,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type credible_level(credible_levelSEXP);
     Rcpp::traits::input_parameter< double >::type bin_penalty(bin_penaltySEXP);
     Rcpp::traits::input_parameter< std::string >::type criterion(criterionSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_categorical_orbe(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, prior_strength, credible_level, bin_penalty, criterion));
+    Rcpp::traits::input_parameter< double >::type se_rule(se_ruleSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimal_binning_categorical_orbe(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, bin_separator, prior_strength, credible_level, bin_penalty, criterion, se_rule));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -671,8 +672,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // optimal_binning_numerical_orbe
-Rcpp::List optimal_binning_numerical_orbe(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string monotonic_trend, double prior_strength, double credible_level, double bin_penalty, std::string criterion);
-RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_orbe(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP monotonic_trendSEXP, SEXP prior_strengthSEXP, SEXP credible_levelSEXP, SEXP bin_penaltySEXP, SEXP criterionSEXP) {
+Rcpp::List optimal_binning_numerical_orbe(Rcpp::IntegerVector target, Rcpp::NumericVector feature, int min_bins, int max_bins, double bin_cutoff, int max_n_prebins, std::string monotonic_trend, double prior_strength, double credible_level, double bin_penalty, std::string criterion, double se_rule);
+RcppExport SEXP _OptimalBinningWoE_optimal_binning_numerical_orbe(SEXP targetSEXP, SEXP featureSEXP, SEXP min_binsSEXP, SEXP max_binsSEXP, SEXP bin_cutoffSEXP, SEXP max_n_prebinsSEXP, SEXP monotonic_trendSEXP, SEXP prior_strengthSEXP, SEXP credible_levelSEXP, SEXP bin_penaltySEXP, SEXP criterionSEXP, SEXP se_ruleSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -687,7 +688,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type credible_level(credible_levelSEXP);
     Rcpp::traits::input_parameter< double >::type bin_penalty(bin_penaltySEXP);
     Rcpp::traits::input_parameter< std::string >::type criterion(criterionSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_orbe(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic_trend, prior_strength, credible_level, bin_penalty, criterion));
+    Rcpp::traits::input_parameter< double >::type se_rule(se_ruleSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimal_binning_numerical_orbe(target, feature, min_bins, max_bins, bin_cutoff, max_n_prebins, monotonic_trend, prior_strength, credible_level, bin_penalty, criterion, se_rule));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -920,7 +922,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_categorical_mba", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mba, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_milp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_milp, 9},
     {"_OptimalBinningWoE_optimal_binning_categorical_mob", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_mob, 9},
-    {"_OptimalBinningWoE_optimal_binning_categorical_orbe", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_orbe, 11},
+    {"_OptimalBinningWoE_optimal_binning_categorical_orbe", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_orbe, 12},
     {"_OptimalBinningWoE_optimal_binning_categorical_sab", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sab, 12},
     {"_OptimalBinningWoE_optimal_binning_categorical_sblp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_sblp, 10},
     {"_OptimalBinningWoE_optimal_binning_categorical_swb", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_categorical_swb, 9},
@@ -943,7 +945,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_OptimalBinningWoE_optimal_binning_numerical_mdlp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_mdlp, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_mob", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_mob, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_mrblp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_mrblp, 9},
-    {"_OptimalBinningWoE_optimal_binning_numerical_orbe", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_orbe, 11},
+    {"_OptimalBinningWoE_optimal_binning_numerical_orbe", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_orbe, 12},
     {"_OptimalBinningWoE_optimal_binning_numerical_oslp", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_oslp, 9},
     {"_OptimalBinningWoE_optimal_binning_numerical_sketch", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_sketch, 10},
     {"_OptimalBinningWoE_optimal_binning_numerical_ubsd", (DL_FUNC) &_OptimalBinningWoE_optimal_binning_numerical_ubsd, 9},

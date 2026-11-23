@@ -46,7 +46,8 @@ Rcpp::List optimal_binning_categorical_orbe(
     double prior_strength = 1.0,
     double credible_level = 0.95,
     double bin_penalty = 0.0,
-    std::string criterion = "predictive") {
+    std::string criterion = "predictive",
+    double se_rule = 1.0) {
 
   try {
     // ---- Validation -------------------------------------------------------
@@ -72,6 +73,9 @@ Rcpp::List optimal_binning_categorical_orbe(
     }
     if (criterion != "predictive" && criterion != "evidence") {
       throw std::invalid_argument("criterion must be 'predictive' or 'evidence'.");
+    }
+    if (!(se_rule >= 0.0 && se_rule <= 1e6)) {
+      throw std::invalid_argument("se_rule must be in [0, 1e6].");
     }
 
     // ---- Counts per category (a missing value is the category "NA") -------
@@ -160,7 +164,7 @@ Rcpp::List optimal_binning_categorical_orbe(
     const std::vector<orbe::Shape> shapes = {orbe::Shape::Ascending};
     const orbe::Fit fit = orbe::fit(cum_n, cum_e, min_bins, max_bins, n_min, a, b,
                                     shapes, false, bin_penalty,
-                                    criterion == "predictive");
+                                    criterion == "predictive", se_rule);
     const size_t k = fit.ends.size();
 
     // ---- Output -----------------------------------------------------------
