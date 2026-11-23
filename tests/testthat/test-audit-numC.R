@@ -6,9 +6,21 @@
 # four engines over a battery of ordinary and adversarial inputs.
 # ---------------------------------------------------------------------------#
 
+# Forensic audit X-11 (B-05, C-09, E-14): the numerical engines now warn when
+# a requested monotonic WoE is not reached (the merges stop at min_bins) and
+# report it in `$monotonic`. That warning is the documented signal, not a
+# defect, so the "no warning" checks in this file let it through and still
+# fail on any other warning.
+allow_x11_warning <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("monotonic WoE was requested", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
+}
+
 numc_capture <- function(expr) {
   w <- character()
-  r <- withCallingHandlers(expr, warning = function(e) {
+  r <- withCallingHandlers(allow_x11_warning(expr), warning = function(e) {
     w <<- c(w, conditionMessage(e))
     invokeRestart("muffleWarning")
   })
@@ -223,7 +235,7 @@ test_that("lpdb and ldb survive values near the double range limit", {
   x <- c(rnorm(200), 1.5e308, -1.5e308)
   y <- rbinom(202, 1, .3)
   for (f in list(ob_numerical_ldb, ob_numerical_lpdb)) {
-    expect_no_warning(r <- f(x, y))
+    expect_no_warning(r <- allow_x11_warning(f(x, y)))
     expect_equal(sum(r$count), 202)
     expect_true(all(is.finite(r$cutpoints)))
   }

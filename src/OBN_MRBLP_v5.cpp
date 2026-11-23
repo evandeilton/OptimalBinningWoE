@@ -40,6 +40,31 @@ inline double mrblp_safe_cut(double a, double b) {
   return std::numeric_limits<double>::lowest();
 }
 
+/**
+ * Significance level of the pure-bin evidence rule (audit B-03 / B-04).
+ * Chosen on the paired 20-seed differential gate among the pre-registered
+ * levels 0.10 / 0.05 / 0.01 (audit/diffs/54-*, 55-*): 0.05 and 0.10 still
+ * isolated chance-pure bins of 4-6 rows in samples of 28-42 rows.
+ */
+constexpr double kPureBinAlpha = 0.01;
+
+/**
+ * @brief Exact binomial test of zero occurrences for a pure bin.
+ *
+ * Under the global event rate r0 = tp / (tp + tn), the probability that a
+ * bin of n rows shows no event by chance is (1 - r0)^n, and no non-event
+ * r0^n. A bin with both classes returns 0 (nothing to test); so does a sample
+ * with one class only (no evidence either way).
+ */
+inline double pure_bin_pvalue(double pos, double neg, double tp, double tn) {
+  const double n = pos + neg;
+  if (n <= 0.0 || tp <= 0.0 || tn <= 0.0) return 0.0;
+  const double r0 = tp / (tp + tn);
+  if (pos == 0.0) return std::pow(1.0 - r0, n);
+  if (neg == 0.0) return std::pow(r0, n);
+  return 0.0;
+}
+
 } // namespace
 
 
@@ -143,6 +168,7 @@ public:
 
     performPreBinning(data, static_cast<int>(n_unique));
     mergeSmallBins();
+    mergeUnsupportedPureBins();
     enforceMonotonicity();
     computeWoEIV();
   }
@@ -400,14 +426,81 @@ private:
         } else if (smallest_idx == bins.size() - 1) {
           mergeBins(bins.size() - 2);
         } else {
-          const double iv_loss_left = bins[smallest_idx - 1].iv + bins[smallest_idx].iv;
-          const double iv_loss_right = bins[smallest_idx].iv + bins[smallest_idx + 1].iv;
+          // IV actually lost by each merge (audit X-08 / D-12): the former
+          // "loss" IV_a + IV_b never subtracted the IV of the merged bin.
+          const double iv_loss_left = mergeLoss(smallest_idx - 1);
+          const double iv_loss_right = mergeLoss(smallest_idx);
           mergeBins(iv_loss_left <= iv_loss_right ? smallest_idx - 1 : smallest_idx);
         }
         computeWoEIV();
         merged = true;
       }
 
+      iterations_run++;
+    }
+  }
+
+  /**
+   * @brief Pure bins must be supported by evidence (audit B-04 / X-08).
+   *
+   * The smoothed IV of a pure bin is large, so the IV-loss criterion never
+   * merges a block without events into a bin with events, and with a high
+   * max_bins it keeps runs of pure bins of one class apart. Two steps:
+   *  1. adjacent pure bins of the same class are merged: the binomial
+   *     likelihood is unchanged (G^2 = 0), only the bin count drops;
+   *  2. a pure bin may stay alone only if the exact binomial test of zero
+   *     occurrences under the global rate rejects chance,
+   *     P0 = (1 - r0)^n <= alpha (r0^n for a bin without non-events),
+   *     alpha = kPureBinAlpha, i.e. n * r0 >~ 4.6. Otherwise the least
+   *     supported pure bin is merged with the neighbour whose merge keeps the
+   *     largest reported IV, and the test is repeated.
+   * Perfect separation survives (n * r0 is large); min_bins is respected.
+   */
+  void mergeUnsupportedPureBins() {
+    double tp = 0.0, tn = 0.0;
+    for (const auto& b : bins) {
+      tp += b.count_pos;
+      tn += b.count_neg;
+    }
+    if (tp == 0.0 || tn == 0.0) return;  // one class: no evidence to weigh
+
+    // 1. Same-class pure neighbours.
+    size_t i = 0;
+    while (i + 1 < bins.size() && static_cast<int>(bins.size()) > min_bins &&
+           iterations_run < max_iterations) {
+      const bool no_pos = bins[i].count_pos == 0 && bins[i + 1].count_pos == 0;
+      const bool no_neg = bins[i].count_neg == 0 && bins[i + 1].count_neg == 0;
+      if (no_pos || no_neg) {
+        mergeBins(i);
+        computeWoEIV();
+        iterations_run++;
+      } else {
+        ++i;
+      }
+    }
+
+    // 2. Pure bins without significant evidence.
+    while (static_cast<int>(bins.size()) > min_bins && iterations_run < max_iterations) {
+      size_t idx = 0;
+      double worst = kPureBinAlpha;
+      bool found = false;
+      for (size_t b = 0; b < bins.size(); ++b) {
+        const double p = pure_bin_pvalue(bins[b].count_pos, bins[b].count_neg, tp, tn);
+        if (p > worst) {
+          worst = p;
+          idx = b;
+          found = true;
+        }
+      }
+      if (!found) break;
+      if (idx == 0) {
+        mergeBins(0);
+      } else if (idx == bins.size() - 1) {
+        mergeBins(idx - 1);
+      } else {
+        mergeBins(mergeLoss(idx - 1) <= mergeLoss(idx) ? idx - 1 : idx);
+      }
+      computeWoEIV();
       iterations_run++;
     }
   }
@@ -493,7 +586,7 @@ private:
     mergeViolations(increasing);
 
     while (static_cast<int>(bins.size()) > max_bins && iterations_run < max_iterations) {
-      mergeBins(findMinIVDiffMerge());
+      mergeBins(findMinIVLossMerge());
       computeWoEIV();
       iterations_run++;
     }
@@ -506,17 +599,62 @@ private:
     converged = !(iterations_run >= max_iterations && pending);
   }
 
-  size_t findMinIVDiffMerge() const {
-    double min_iv_diff = std::numeric_limits<double>::max();
-    size_t merge_idx = 0;
-    for (size_t i = 0; i + 1 < bins.size(); i++) {
-      const double iv_diff = std::fabs(bins[i].iv - bins[i + 1].iv);
-      if (iv_diff < min_iv_diff) {
-        min_iv_diff = iv_diff;
-        merge_idx = i;
+  /**
+   * @brief IV lost by merging bins i and i+1: the change of the REPORTED total
+   * IV (K bins before, K - 1 after, computeWoEIV()'s estimator with every bin
+   * renormalized). It can be negative (merging pure bins raises the smoothed
+   * IV). The exact one-step change of the reported objective was preferred
+   * over a fixed-K per-pair loss after a comparison on 1800 differential runs
+   * (audit/diffs/55-*).
+   */
+  double mergeLoss(size_t i) const {
+    double tp = 0.0, tn = 0.0, iv_now = 0.0;
+    for (const auto& b : bins) {
+      tp += b.count_pos;
+      tn += b.count_neg;
+      iv_now += b.iv;
+    }
+    if (tp == 0.0 || tn == 0.0) return 0.0;  // one class: WoE = IV = 0
+    const double k = static_cast<double>(bins.size() - 1);
+    const double sp = tp + k * laplace_smoothing;
+    const double sn = tn + k * laplace_smoothing;
+    auto term = [&](double pos, double neg) {
+      const double dp = (pos + laplace_smoothing) / sp;
+      const double dn = (neg + laplace_smoothing) / sn;
+      const double w = dp <= 0.0 ? -20.0 : (dn <= 0.0 ? 20.0 : std::log(dp / dn));
+      return (dp - dn) * w;
+    };
+    double after = 0.0;
+    for (size_t j = 0; j < bins.size(); ++j) {
+      if (j == i) {
+        after += term(bins[j].count_pos + bins[j + 1].count_pos,
+                      bins[j].count_neg + bins[j + 1].count_neg);
+        ++j;
+      } else {
+        after += term(bins[j].count_pos, bins[j].count_neg);
       }
     }
-    return merge_idx;
+    return iv_now - after;
+  }
+
+  /**
+   * @brief Left index of the adjacent pair whose merge loses the least IV.
+   *
+   * Audit B-04 / X-08: the pair used to be the one with the smallest
+   * |IV_i - IV_{i+1}|, which is 0 for two bins with opposite WoE and equal IV
+   * -- the most distinct pair. Ties keep the leftmost pair.
+   */
+  size_t findMinIVLossMerge() const {
+    double best = std::numeric_limits<double>::infinity();
+    size_t idx = 0;
+    for (size_t i = 0; i + 1 < bins.size(); i++) {
+      const double loss = mergeLoss(i);
+      if (loss < best) {
+        best = loss;
+        idx = i;
+      }
+    }
+    return idx;
   }
 
   /**

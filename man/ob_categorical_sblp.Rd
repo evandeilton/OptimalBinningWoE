@@ -41,11 +41,11 @@ before the dynamic programming optimization. If the number of unique
 categories exceeds this, similar adjacent categories are pre-merged.
 Default is 20.}
 
-\item{convergence_threshold}{Numeric. Threshold for determining algorithm
-convergence based on changes in total Information Value. Default is 1e-6.}
+\item{convergence_threshold}{Numeric. Kept for backward compatibility; the
+exact DP does not iterate. Must be positive. Default is 1e-6.}
 
-\item{max_iterations}{Integer. Maximum number of iterations for the
-optimization process. Default is 1000.}
+\item{max_iterations}{Integer. Kept for backward compatibility; the exact DP
+does not iterate. Must be positive. Default is 1000.}
 
 \item{bin_separator}{Character string used to separate category names when
 multiple categories are merged into a single bin. Default is "\%;\%".}
@@ -68,8 +68,10 @@ A list containing the results of the optimal binning procedure:
   \item{\code{rate}}{Numeric vector of the observed event rate in each bin}
   \item{\code{total_iv}}{Numeric scalar. Total Information Value across all
         bins}
-  \item{\code{converged}}{Logical. Whether the algorithm converged}
-  \item{\code{iterations}}{Integer. Number of iterations performed}
+  \item{\code{converged}}{Logical. \code{TRUE}: the DP is exact and no
+        iteration budget can stop it early}
+  \item{\code{iterations}}{Integer. 1 when the DP ran, 0 when every
+        (pre-merged) category already forms its own bin}
 }
 }
 \description{
@@ -87,13 +89,21 @@ The SBLP algorithm follows these steps:
         \code{bin_cutoff} are merged with statistically similar categories based
         on their target rates.
   \item \strong{Sorting}: Unique categories (or merged groups) are sorted by
-        their empirical event rate (probability of target=1).
-  \item \strong{Dynamic Programming}: An optimal partitioning algorithm
-        (similar to Jenks Natural Breaks but optimizing IV) is applied to the
-        sorted sequence to determine the cutpoints that maximize the total IV.
-  \item \strong{Refinement}: Post-processing ensures constraints like monotonicity
-        and minimum bin size are met.
+        their exact empirical event rate (probability of target=1).
+  \item \strong{Dynamic Programming}: for every number of bins \eqn{K} in
+        \code{[min_bins, max_bins]}, an exact DP over the sorted sequence
+        finds the contiguous partition that maximizes the total IV computed
+        with the same smoothing (\code{alpha}, \eqn{K}) as the reported
+        IV; the \eqn{K} with the largest IV is kept (the smallest on ties).
 }
+
+Since the forensic audit (finding B-02) the DP optimizes exactly the
+reported \code{total_iv} (it used to normalize the smoothing by the number
+of categories in each segment and to try only \code{max_bins}), categories
+are ordered by their exact event rate instead of a smoothed one, and the
+former post-processing (merging non-monotone bins, or re-chunking the
+categories into groups of equal size) was removed: bins contiguous in
+event-rate order are monotone by construction.
 
 A key feature of this implementation is the use of \strong{Laplace Smoothing}
 (controlled by the \code{alpha} parameter) to prevent infinite WoE values
@@ -120,11 +130,12 @@ the platform.
 \note{
 \itemize{
   \item Target variable must contain both 0 and 1 values.
-  \item Unlike heuristic methods, this algorithm uses Dynamic Programming
-        which guarantees an optimal partition given the sorted order of
-        categories.
-  \item Monotonicity is generally enforced by the sorting step, but strictly
-        checked and corrected in the final output.
+  \item For a binary target the IV-optimal grouping of categories is
+        contiguous in event-rate order (Fisher, 1958; Breiman et al., 1984,
+        Theorem 4.5), so the DP returns the IV-optimal partition of the
+        (pre-merged) categories for each number of bins.
+  \item The bins are reported in WoE order; their event rates are
+        monotone by construction.
 }
 }
 \examples{

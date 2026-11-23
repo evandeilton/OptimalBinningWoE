@@ -52,6 +52,11 @@
 #'     \item \code{total_iv}: The total Information Value of the binned variable.
 #'     \item \code{monotone_increasing}: Logical indicating if the final WoE trend is increasing.
 #'     \item \code{converged}: Logical indicating successful completion.
+#'     \item \code{monotonic}: Logical. TRUE when the final WoE of the regular bins is
+#'       monotone (in the reported direction when one is fixed), checked on the reported
+#'       WoE and on the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}.
+#'       When monotonicity was requested and this is FALSE (the merges stop at
+#'       \code{min_bins}), a warning is raised. Up to version 1.14.1 nothing signalled it.
 #'   }
 #'
 #' @details

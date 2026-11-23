@@ -12,6 +12,7 @@
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -135,6 +136,7 @@ private:
   bool   converged  = false;
   bool   exhausted  = false; // max_iterations reached before the IV tolerance
   size_t iterations = 0;
+  size_t woe_k = 1;           // K used by computeWoeIv (number of bins)
 
   // ------------ Utility: extend factorial cache -----------------
   inline void extendLogFactorials(size_t n) {
@@ -207,15 +209,30 @@ private:
   }
 
   // ------------ WoE & IV ----------------------------------------
+  // Normalized Jeffreys smoothing over the current partition (audit A-09,
+  // Section 7.1). A pure category is the most informative one; it used to
+  // get WoE = IV = 0, which put it in the middle of the WoE order and drove
+  // the adjacent merges with a wrong ordering.
   inline void computeWoeIv(CategoricalBin& bin) const {
-    double pos = static_cast<double>(bin.count_pos);
-    double neg = static_cast<double>(bin.count_neg);
-    if (pos <= EPSILON || neg <= EPSILON) { bin.woe = bin.iv = 0.0; return; }
+    const ob::WoeIv r = ob::woe_iv(static_cast<double>(bin.count_pos),
+                                   static_cast<double>(bin.count_neg),
+                                   static_cast<double>(total_pos),
+                                   static_cast<double>(total_neg),
+                                   static_cast<int>(woe_k));
+    bin.woe = r.woe;
+    bin.iv  = r.iv;
+  }
 
-    double dist_pos = pos / static_cast<double>(total_pos);
-    double dist_neg = neg / static_cast<double>(total_neg);
-    bin.woe = std::log(dist_pos / dist_neg);
-    bin.iv  = (dist_pos - dist_neg) * bin.woe;
+  // Exact event-rate order: a.pos / a.count < b.pos / b.count.
+  static bool rateLess(const CategoricalBin& a, const CategoricalBin& b) {
+    return !ob::rate_le(b.count_pos, b.count, a.count_pos, a.count);
+  }
+
+  // Recompute every bin with K = current number of bins, so all WoE values
+  // that are compared with each other share one normalization.
+  void refreshAll() {
+    woe_k = std::max<size_t>(bins.size(), 1);
+    for (auto& b : bins) computeWoeIv(b);
   }
 
   // ------------ Pre-processing ----------------------------------
@@ -245,6 +262,7 @@ private:
   // ------------ Initialise bins (rare categories together) ------
   void initialiseBins() {
     bins.clear();
+    woe_k = std::max<size_t>(category_counts.size(), 1);
     const double cutoff_cnt = bin_cutoff * static_cast<double>(feature.size());
 
     std::vector<std::pair<std::string,size_t>> sorted;
@@ -332,11 +350,15 @@ private:
       }
     }
 
-    // Ascending WoE; ties by ascending count, then the deterministic order
-    // built above (kept by the stable sort).
+    refreshAll();
+    // Ascending event rate, compared exactly in integers (the order of the
+    // likelihood ratio; audit A-09 / B-02). It used to be the WoE, which was
+    // 0 for pure categories and so misplaced them. Ties by ascending count,
+    // then the deterministic order built above (kept by the stable sort).
     std::stable_sort(bins.begin(), bins.end(),
                      [](const CategoricalBin& a, const CategoricalBin& b) {
-                       if (a.woe != b.woe) return a.woe < b.woe;
+                       if (rateLess(a, b)) return true;
+                       if (rateLess(b, a)) return false;
                        return a.count < b.count;
                      });
   }
@@ -348,6 +370,7 @@ private:
     bins[i].merge_with(bins[i+1]);
     computeWoeIv(bins[i]);
     bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(i) + 1);
+    refreshAll();
   }
 
   // ------------ Local monotonicity fix --------------------------
@@ -364,7 +387,7 @@ private:
   void enforceLocalMonotonicity(size_t start_idx=0) {
     size_t i = start_idx;
     while (bins.size() > min_bins && i + 1 < bins.size()) {
-      if (bins[i].woe > bins[i+1].woe + EPSILON) {
+      if (rateLess(bins[i+1], bins[i])) {
         mergeBins(i);
         if (i > 0) --i;
       } else {

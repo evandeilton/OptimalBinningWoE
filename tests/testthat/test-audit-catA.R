@@ -289,16 +289,19 @@ test_that("dp returns the IV-optimal contiguous partition", {
   o <- order(pos / cnt)
   p <- as.numeric(pos[o])
   q <- as.numeric(cnt[o]) - p
-  iv_seg <- function(i, j) {
-    a <- sum(p[i:j]) / tp
-    b <- sum(q[i:j]) / tn
+  # Objective: IV with normalized Jeffreys smoothing (alpha = 0.5, K = number
+  # of bins of the partition), the estimator reported by the engine since the
+  # forensic audit (B-01). It is additive only for a fixed K.
+  iv_seg <- function(i, j, k) {
+    a <- (sum(p[i:j]) + 0.5) / (tp + 0.5 * k)
+    b <- (sum(q[i:j]) + 0.5) / (tn + 0.5 * k)
     (a - b) * log(a / b)
   }
   best <- -Inf
   for (k in 2:4) {
     for (cuts in combn(6, k - 1, simplify = FALSE)) {
       e <- c(0, cuts, 7)
-      best <- max(best, sum(vapply(seq_len(k), function(s) iv_seg(e[s] + 1, e[s + 1]), 0)))
+      best <- max(best, sum(vapply(seq_len(k), function(s) iv_seg(e[s] + 1, e[s + 1], k), 0)))
     }
   }
   expect_equal(res$total_iv, best, tolerance = 1e-10)
@@ -319,9 +322,10 @@ test_that("dp does not discard partitions because of pure pre-bins", {
   res <- ob_categorical_dp(x, y)
   catA_check(res, x, y, max_bins = 5, min_bins = 3)
   expect_gt(res$total_iv, 2)
-  # Five pure categories share event rate 0. Ties are ordered by count, then
-  # by name, so the partition is the same on every platform.
-  expect_setequal(catA_canon(res$bin), c("L1", "L3+L4+L5+L6+L8", "L2+L7"))
+  # Five pure categories share event rate 0. Since the forensic audit (B-01)
+  # pure bins are valued at their smoothed (large) IV instead of 0, so the
+  # optimum groups all five of them and keeps L4 (rate 1/3) apart.
+  expect_setequal(catA_canon(res$bin), c("L1+L3+L5+L6+L8", "L4", "L2+L7"))
 })
 
 test_that("dp result does not depend on the row order", {

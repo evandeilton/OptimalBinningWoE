@@ -16,6 +16,7 @@
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -380,12 +381,54 @@ private:
       } else if (min_freq_idx == bins.size() - 1) {
         merge_bins(bins.size() - 2);
       } else {
-        const double iv_loss_left = bins[min_freq_idx - 1].iv + bins[min_freq_idx].iv;
-        const double iv_loss_right = bins[min_freq_idx].iv + bins[min_freq_idx + 1].iv;
-        merge_bins(iv_loss_left <= iv_loss_right ? min_freq_idx - 1 : min_freq_idx);
+        // IV actually lost by each merge (audit D-12 / X-08): the change of
+        // the total IV over all bins (K bins before, K - 1 after). The former
+        // "loss" IV_a + IV_b never subtracted the IV of the merged bin, so the
+        // direction did not follow the documented "minimize IV loss". Both
+        // candidates end with the same K - 1, so comparing the totals after
+        // the merge is enough. The IV that decides is the empirical-Bayes IV
+        // (eb_iv_after_merge(), audit Section 15.5): with the raw smoothed IV
+        // a rare bin was joined so as to leave a few rows with an extreme
+        // observed rate on their own, which lost hold-out log-loss on small
+        // samples (n = 60).
+        const double iv_after_left = eb_iv_after_merge(min_freq_idx - 1);
+        const double iv_after_right = eb_iv_after_merge(min_freq_idx);
+        merge_bins(iv_after_left >= iv_after_right ? min_freq_idx - 1 : min_freq_idx);
       }
       iterations++;
     }
+  }
+
+  /**
+   * @brief Empirical-Bayes total IV (ob::eb_woe_iv(), kMobEbM pseudo-
+   * observations per bin, beta prior centred on the overall rate) of the
+   * partition in which bins i and i+1 are merged (K - 1 bins).
+   *
+   * Used only to DECIDE the side a rare bin joins; the reported WoE / IV keep
+   * calculate_woe_iv()'s estimator. Shrinkage makes a few rows with an
+   * extreme observed rate worth little, so the rare bin is not merged so as
+   * to keep such a fragment apart (minimum evidence per bin).
+   */
+  double eb_iv_after_merge(size_t i) const {
+    static constexpr double kMobEbM = 50.0;
+    double tp = 0.0, tn = 0.0;
+    for (const auto& b : bins) {
+      tp += b.count_pos;
+      tn += b.count_neg;
+    }
+    if (tp == 0.0 || tn == 0.0) return 0.0;  // one class: WoE = IV = 0
+    const int k = static_cast<int>(bins.size()) - 1;
+    double s = 0.0;
+    for (size_t j = 0; j < bins.size(); ++j) {
+      if (j == i) {
+        s += ob::eb_woe_iv(bins[j].count_pos + bins[j + 1].count_pos,
+                           bins[j].count_neg + bins[j + 1].count_neg, tp, tn, k, kMobEbM).iv;
+        ++j;
+      } else {
+        s += ob::eb_woe_iv(bins[j].count_pos, bins[j].count_neg, tp, tn, k, kMobEbM).iv;
+      }
+    }
+    return s;
   }
 
   /**

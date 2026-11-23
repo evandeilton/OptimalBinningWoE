@@ -1,5 +1,6 @@
 // [[Rcpp::depends(Rcpp)]]
 #include <Rcpp.h>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -85,7 +86,6 @@ private:
   const int max_iterations;
   const std::string bin_method;      // 'woe' or 'woe1'
   const std::string divergence_method; // 'he', 'kl', 'tr', 'klj', 'sc', 'js', 'l1', 'l2', 'ln'
-  const int min_prebin_count = 5; // Min count threshold for pre-binning rare categories if max_n_prebins is exceeded
   
   // Small constant to handle numerical issues
   // Constant removed (uses shared definition)
@@ -235,62 +235,115 @@ private:
     for (const auto& item : total_count_map) names.push_back(item.first);
     std::sort(names.begin(), names.end());
     
-    // Pre-binning logic if unique categories exceed max_n_prebins
-    if (initial_unique_categories > max_n_prebins) {
-      bins.reserve(static_cast<size_t>(max_n_prebins)); // Approximate final size
-      // Pooled bin for the rare categories. It records the categories it
-      // holds, like every other bin. It used to be labelled with the
-      // placeholder "PREBIN_OTHER" instead, so the pooled categories appeared
-      // in no bin label and could not be mapped to a WoE when the binning was
-      // applied (obwoe_apply() matches categories against the labels).
-      CategoricalBin other_bin;
-
-      for (const std::string& cat : names) {
-        int cat_total = total_count_map[cat];
-
-        // Keep categories if count is >= min_prebin_count, otherwise add to 'other' bin
-        if (cat_total >= min_prebin_count) {
-          CategoricalBin bin;
-          bin.categories.push_back(cat);
-          bin.count_pos = count_pos_map[cat];
-          bin.count_neg = count_neg_map[cat];
-          bins.push_back(std::move(bin));
-        } else {
-          other_bin.categories.push_back(cat);
-          other_bin.count_pos += count_pos_map[cat];
-          other_bin.count_neg += count_neg_map[cat];
-        }
-      }
-      // Add the 'other' bin if it collected any categories
-      if (other_bin.total() > 0) {
-        bins.push_back(std::move(other_bin));
-      }
-
-      // Fallback: ignore pre-binning if it leaves fewer than min_bins bins,
-      // and proceed with the normal initialization below; the merge phase
-      // then groups the rare categories by divergence. The threshold used to
-      // be 2, so a feature with one frequent level and many rare ones was
-      // pre-binned into 2 bins, min_bins was clamped down to 2 to match, and
-      // the fit silently returned fewer bins than min_bins although more
-      // categories were available. (The console messages this block used to
-      // print unconditionally have been removed.)
-      if (bins.size() < static_cast<size_t>(std::max(2, min_bins))) {
-        bins.clear();
-      }
-    }
-    
-    // Normal initialization if no pre-binning occurred or if fallback triggered
-    if (bins.empty()) {
-      bins.reserve(initial_unique_categories);
-      for (const std::string& cat : names) {
+    // Pre-binning (audit D-06 / X-16). bin_cutoff used to be validated and
+    // then ignored: the only pre-grouping was "fewer than 5 rows" (a fixed
+    // constant), only when the number of categories exceeded max_n_prebins,
+    // and the number of bins entering the merge phase was not bounded by
+    // max_n_prebins at all (14 371 pre-bins for max_n_prebins = 20).
+    //
+    // 1. Categories holding less than bin_cutoff of the rows are rare. In
+    //    exact event-rate order, each run of consecutive rare categories is
+    //    pooled, a pool being closed as soon as it reaches bin_cutoff; a pool
+    //    still below the cutoff joins the adjacent bin with the closer event
+    //    rate. Frequent categories keep their own bin, and every bin is a
+    //    contiguous run of the rate order.
+    // 2. While more than max_n_prebins bins remain, the adjacent pair (in
+    //    event-rate order) with the smallest divergence (this engine's own
+    //    measure) is merged; ties go to the leftmost pair. min_bins wins
+    //    over max_n_prebins if the two conflict.
+    // If pooling would leave fewer than max(2, min_bins) bins, every category
+    // keeps its own bin (as before) and the merge phase does the grouping.
+    {
+      const double n_total = static_cast<double>(total_pos + total_neg);
+      auto rate_less = [](const CategoricalBin& x, const CategoricalBin& y) {
+        const int64_t px = x.count_pos, cx = x.total();
+        const int64_t py = y.count_pos, cy = y.total();
+        if (px * cy != py * cx) return px * cy < py * cx;
+        return cx < cy;
+      };
+      auto single = [&](const std::string& cat) {
         CategoricalBin bin;
         bin.categories.push_back(cat);
         bin.count_pos = count_pos_map[cat];
         bin.count_neg = count_neg_map[cat];
-        bins.push_back(std::move(bin));
+        return bin;
+      };
+      // All categories in exact event-rate order; runs of consecutive rare
+      // categories are pooled (a pool is closed once it reaches bin_cutoff or
+      // when a frequent category interrupts the run).
+      std::vector<CategoricalBin> ordered;
+      ordered.reserve(names.size());
+      for (const std::string& cat : names) ordered.push_back(single(cat));
+      std::stable_sort(ordered.begin(), ordered.end(), rate_less);
+      auto is_rare = [&](const CategoricalBin& x) {
+        return static_cast<double>(x.total()) / n_total < bin_cutoff;
+      };
+      std::vector<CategoricalBin> pooled;
+      std::vector<char> pooled_rare;   // 1 = a pool still below bin_cutoff
+      bool open = false;
+      for (auto& c : ordered) {
+        if (!is_rare(c)) {
+          open = false;
+          pooled.push_back(std::move(c));
+          pooled_rare.push_back(0);
+          continue;
+        }
+        if (!open) {
+          pooled.push_back(CategoricalBin());
+          pooled_rare.push_back(1);
+          open = true;
+        }
+        merge_two_bins(pooled.back(), c);
+        if (!is_rare(pooled.back())) {
+          pooled_rare.back() = 0;
+          open = false;
+        }
+      }
+      // A pool still below bin_cutoff joins the adjacent bin (in rate order)
+      // whose event rate is closer, left on ties.
+      const size_t floor_bins = static_cast<size_t>(std::max(2, min_bins));
+      for (size_t i = 0; i < pooled.size() && pooled.size() > floor_bins;) {
+        if (!pooled_rare[i]) { ++i; continue; }
+        const double r = static_cast<double>(pooled[i].count_pos) / pooled[i].total();
+        size_t to;
+        if (i == 0) {
+          to = 1;
+        } else if (i + 1 == pooled.size()) {
+          to = i - 1;
+        } else {
+          const double rl = static_cast<double>(pooled[i - 1].count_pos) / pooled[i - 1].total();
+          const double rr = static_cast<double>(pooled[i + 1].count_pos) / pooled[i + 1].total();
+          to = (std::fabs(r - rl) <= std::fabs(rr - r)) ? i - 1 : i + 1;
+        }
+        const size_t lo = std::min(i, to), hi = std::max(i, to);
+        merge_two_bins(pooled[lo], pooled[hi]);
+        pooled_rare[lo] = is_rare(pooled[lo]) ? 1 : 0;
+        pooled.erase(pooled.begin() + static_cast<std::ptrdiff_t>(hi));
+        pooled_rare.erase(pooled_rare.begin() + static_cast<std::ptrdiff_t>(hi));
+        i = lo;
+      }
+      bins = std::move(pooled);
+      if (bins.size() < static_cast<size_t>(std::max(2, min_bins))) {
+        bins.clear();
+        for (const std::string& cat : names) bins.push_back(single(cat));
+      }
+
+      const size_t cap = static_cast<size_t>(std::max(max_n_prebins, std::max(2, min_bins)));
+      if (bins.size() > cap) {
+        std::stable_sort(bins.begin(), bins.end(), rate_less);
+        while (bins.size() > cap) {
+          size_t best = 0;
+          double best_d = std::numeric_limits<double>::infinity();
+          for (size_t i = 0; i + 1 < bins.size(); ++i) {
+            const double d = compute_bin_divergence(bins[i], bins[i + 1]);
+            if (d < best_d) { best_d = d; best = i; }
+          }
+          merge_two_bins(bins[best], bins[best + 1]);
+          bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best) + 1);
+        }
       }
     }
-    
+
     // Adjust bin constraints based on the actual number of initial bins
     const int current_bins = static_cast<int>(bins.size());
     min_bins = std::max(2, std::min(min_bins, current_bins));

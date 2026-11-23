@@ -12,6 +12,7 @@
 // Include shared headers
 #include "common/optimal_binning_common.h"
 #include "common/bin_structures.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -469,52 +470,111 @@ private:
       return unique_values;
     }
     
-    // Information gain for every candidate split, in one sweep.
+    // Audit X-13 / C-01: the pre-bins used to be the max_cuts candidates with
+    // the largest information gain computed ONCE at the root. Candidates next
+    // to the best root split have almost the same gain, so all cuts piled up
+    // around one change point (20 cuts in [0.697, 0.701] for a 3-level step
+    // function), the other change points were lost and slivers of a few
+    // observations survived as bins. Pre-binning is now a best-first
+    // recursive tree (CART / C4.5 style): the gain of a split is recomputed
+    // inside each current leaf, the leaf whose best split has the largest
+    // size-weighted gain (n_node * gain, the absolute entropy reduction) is
+    // split next, and both children must hold at least min_leaf
+    // observations. Splitting stops at max_cuts cuts or when no leaf has a
+    // positive admissible gain (then only once min_bins leaves exist, see
+    // below).
     //
-    // This used to call calculate_info_gain() per candidate, and that function
-    // rescans all of x, allocates two vectors and recomputes the parent entropy
-    // every time -- O(u * n) with an allocation per candidate, measured at
-    // n^2.30 and by far the dominant cost of this algorithm. The gain depends
-    // only on integer counts, so the running totals collected above give the
-    // identical value with a single pass and no allocation.
+    // min_leaf = max(ceil(bin_cutoff * n), min(7, n / min_bins)). The
+    // bin_cutoff share alone is 2-3 rows when n = 28-42, and a tree that may
+    // cut off 2-3 rows isolates pure slivers (3/0, 0/3, 7/0) by chance: the
+    // 20-seed hold-out gate found the n = 40 / 60 samples significantly worse
+    // than 1.14.1 (audit Section 15.4). 7 is the minimum leaf size of CART
+    // implementations (rpart: minbucket = minsplit / 3 = 7); n / min_bins
+    // keeps min_bins leaves reachable on very small samples. It only binds
+    // when n < 140 at the default bin_cutoff = 0.05.
     const int total_n = static_cast<int>(y.size());
-    const int total_pos = std::accumulate(y.begin(), y.end(), 0);
-    const double entropy_before = calculate_entropy_counts(total_n, total_pos);
+    const int min_leaf = std::max(
+      std::max(1, static_cast<int>(std::ceil(bin_cutoff * static_cast<double>(total_n)))),
+      std::min(7, total_n / std::max(min_bins, 1)));
 
-    std::vector<std::pair<double, double>> info_gains; // (split_point, info_gain)
-    info_gains.reserve(unique_values.size());
-    for (size_t c = 0; c < unique_values.size(); ++c) {
-      const int ln = left_n[c];
-      const int lp = left_pos[c];
-      const int rn = total_n - ln;
-      const int rp = total_pos - lp;
+    // cum_pos[i]: events among the first i sorted observations
+    std::vector<int> cum_pos(data_pairs.size() + 1, 0);
+    for (size_t i = 0; i < data_pairs.size(); ++i) cum_pos[i + 1] = cum_pos[i] + data_pairs[i].second;
 
-      // calculate_info_gain() returned 0 when either side came out empty.
-      if (ln <= 0 || rn <= 0) {
-        info_gains.push_back({unique_values[c], 0.0});
-        continue;
+    struct Leaf {
+      int lo, hi;        // observations [lo, hi) of data_pairs
+      double gain;       // n_node * information gain of its best split
+      int cand;          // index into unique_values of that split, -1 if none
+    };
+    auto best_split = [&](int lo, int hi) {
+      Leaf lf{lo, hi, 0.0, -1};
+      const int n_node = hi - lo;
+      if (n_node < 2 * min_leaf) return lf;
+      const int p_node = cum_pos[hi] - cum_pos[lo];
+      const double h_node = calculate_entropy_counts(n_node, p_node);
+      // candidates c with lo + min_leaf <= left_n[c] <= hi - min_leaf
+      auto it = std::lower_bound(left_n.begin(), left_n.end(), lo + min_leaf);
+      for (size_t c = static_cast<size_t>(it - left_n.begin());
+           c < left_n.size() && left_n[c] <= hi - min_leaf; ++c) {
+        const int ln = left_n[c] - lo;
+        const int rn = n_node - ln;
+        const int lp = cum_pos[left_n[c]] - cum_pos[lo];
+        const double g = static_cast<double>(n_node) * h_node -
+          (static_cast<double>(ln) * calculate_entropy_counts(ln, lp) +
+           static_cast<double>(rn) * calculate_entropy_counts(rn, p_node - lp));
+        if (g > lf.gain) {
+          lf.gain = g;
+          lf.cand = static_cast<int>(c);
+        }
       }
+      return lf;
+    };
 
-      const double entropy_left = calculate_entropy_counts(ln, lp);
-      const double entropy_right = calculate_entropy_counts(rn, rp);
-      const double p_left = static_cast<double>(ln) / total_n;
-      const double p_right = static_cast<double>(rn) / total_n;
-
-      info_gains.push_back({unique_values[c],
-        entropy_before - (p_left * entropy_left + p_right * entropy_right)});
-    }
-    
-    // Sort by information gain in descending order
-    std::sort(info_gains.begin(), info_gains.end(), 
-              [](const auto &a, const auto &b) { return a.second > b.second; });
-    
-    // Take top max_cuts points
+    std::vector<Leaf> leaves;
+    leaves.push_back(best_split(0, total_n));
     std::vector<double> cutpoints;
     cutpoints.reserve(max_cuts);
-    for (size_t i = 0; i < std::min(static_cast<size_t>(max_cuts), info_gains.size()); ++i) {
-      cutpoints.push_back(info_gains[i].first);
+    while (static_cast<int>(cutpoints.size()) < max_cuts) {
+      // leaf with the largest positive gain (ties: leftmost, deterministic)
+      int pick = -1;
+      for (size_t l = 0; l < leaves.size(); ++l) {
+        if (leaves[l].cand < 0 || !(leaves[l].gain > 1e-12)) continue;
+        if (pick < 0 || leaves[l].gain > leaves[static_cast<size_t>(pick)].gain) pick = static_cast<int>(l);
+      }
+      int split_cand = pick >= 0 ? leaves[static_cast<size_t>(pick)].cand : -1;
+      if (pick < 0) {
+        // No leaf has a positive gain (e.g. perfectly separated data: both
+        // children of the first split are pure). Keep splitting only while
+        // fewer than min_bins leaves exist, so that min_bins stays reachable:
+        // the most populous leaf is cut at the admissible candidate closest
+        // to its median.
+        if (static_cast<int>(leaves.size()) >= min_bins) break;
+        int best_n = 0;
+        for (size_t l = 0; l < leaves.size(); ++l) {
+          const int lo = leaves[l].lo, hi = leaves[l].hi;
+          if (hi - lo < 2 * min_leaf || hi - lo <= best_n) continue;
+          auto it = std::lower_bound(left_n.begin(), left_n.end(), lo + min_leaf);
+          int c_best = -1;
+          for (size_t c = static_cast<size_t>(it - left_n.begin());
+               c < left_n.size() && left_n[c] <= hi - min_leaf; ++c) {
+            if (c_best < 0 || std::abs(2 * left_n[c] - lo - hi) <
+                std::abs(2 * left_n[static_cast<size_t>(c_best)] - lo - hi))
+              c_best = static_cast<int>(c);
+          }
+          if (c_best < 0) continue;
+          pick = static_cast<int>(l);
+          split_cand = c_best;
+          best_n = hi - lo;
+        }
+        if (pick < 0) break;
+      }
+      const Leaf lf = leaves[static_cast<size_t>(pick)];
+      const int split = left_n[static_cast<size_t>(split_cand)];
+      cutpoints.push_back(unique_values[static_cast<size_t>(split_cand)]);
+      leaves[static_cast<size_t>(pick)] = best_split(lf.lo, split);
+      leaves.insert(leaves.begin() + pick + 1, best_split(split, lf.hi));
     }
-    
+
     // Sort cutpoints in ascending order
     std::sort(cutpoints.begin(), cutpoints.end());
     
@@ -670,6 +730,36 @@ private:
       // Ensure number of bins within max_bins
       while (static_cast<int>(bins.size()) > max_bins) {
         merge_optimal_bins();
+      }
+      // Number of bins by minimum evidence (audit Section 15.5): from the
+      // max_bins partition, the greedy minimum-IV-loss merges are continued
+      // down to min_bins and the partition with the largest Schwarz (1978)
+      // BIC, ob::bic_score() = binomial log-likelihood - (K - 1) / 2 * log(n),
+      // is kept (ties: fewer bins). A bin survives only if it raises the
+      // log-likelihood by more than log(n) / 2, so max_bins is a ceiling, not
+      // a target. Done once, before the monotonicity and min_bins steps.
+      if (iterations_run == 0 && static_cast<int>(bins.size()) > min_bins) {
+        auto bic_of = [](const std::vector<NumericalBin> &bv) {
+          std::vector<double> bp, bn;
+          bp.reserve(bv.size());
+          bn.reserve(bv.size());
+          for (const auto &b : bv) {
+            bp.push_back(static_cast<double>(b.count_pos));
+            bn.push_back(static_cast<double>(b.count_neg));
+          }
+          return ob::bic_score(bp, bn);
+        };
+        std::vector<NumericalBin> best_bins = bins;
+        double best_bic = bic_of(bins);
+        while (static_cast<int>(bins.size()) > min_bins && bins.size() > 2) {
+          merge_optimal_bins();
+          const double b = bic_of(bins);
+          if (b >= best_bic - 1e-12) {
+            best_bic = b;
+            best_bins = bins;
+          }
+        }
+        bins = best_bins;
       }
       
       // Enforce monotonicity if requested
@@ -1262,6 +1352,60 @@ Rcpp::List handle_few_unique_values(
 
 } // namespace
 
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+// +1 / -1 / 0 for a reported direction label ("increasing"/"ascending",
+// "decreasing"/"descending", anything else).
+static int monotone_direction_of(const std::string &label) {
+  if (label == "increasing" || label == "ascending") return 1;
+  if (label == "decreasing" || label == "descending") return -1;
+  return 0;
+}
+
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_udt(
    Rcpp::IntegerVector target,
@@ -1330,7 +1474,11 @@ Rcpp::List optimal_binning_numerical_udt(
 
  // Handle features with <=2 unique values
  if (n_distinct <= 2) {
-   return handle_few_unique_values(feature_vec, target_vec, laplace_smoothing);
+   Rcpp::List res = handle_few_unique_values(feature_vec, target_vec, laplace_smoothing);
+   flag_monotonic_result(res, mono_dir != MonotonicityDirection::NONE,
+                         monotone_direction_of(mono_dir_str),
+                         "ob_numerical_udt");
+   return res;
  }
  
  // Perform optimal binning
@@ -1340,7 +1488,11 @@ Rcpp::List optimal_binning_numerical_udt(
      convergence_threshold, max_iterations);
  
  obj.fit();
- return obj.get_result();
+ Rcpp::List res = obj.get_result();
+ flag_monotonic_result(res, mono_dir != MonotonicityDirection::NONE,
+                       monotone_direction_of(mono_dir_str),
+                       "ob_numerical_udt");
+ return res;
 }
 
 

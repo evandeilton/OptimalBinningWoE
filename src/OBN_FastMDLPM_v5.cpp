@@ -357,10 +357,26 @@ void calc_bins_metrics(const Blocks& b,
 
 /**
  * Raise the number of bins to min_bins when MDLP found fewer.
+ *
+ * Fayyad & Irani define no minimum number of intervals, so the extension must
+ * keep every cut the MDL criterion accepted and only add cuts. The former code
+ * cleared `splits` and replaced them by cuts at equally spaced distinct values,
+ * which dropped the only significant cut of a step function (audit X-07 /
+ * A-04: a step at 0.5 with min_bins = 4 came back as 0.16 / 0.33 / 0.66).
+ *
+ * The added cuts are, by definition, cuts the MDL test rejected, i.e. not
+ * supported by the data. Placing them at the boundary point of largest
+ * entropy gain (the proposal in A-04) selects on sampling noise: in the
+ * differential gate it raised the training IV but cut the hold-out IV by up to
+ * 60-90% on small or very imbalanced samples (n = 40/60, 0.2% events), where
+ * the best rejected cut isolates a handful of tail observations. They are
+ * therefore placed without looking at the target. Without any MDL cut the
+ * former equally spaced cuts are kept unchanged; otherwise the MDL cuts are
+ * kept and each added cut bisects the interval holding the most observations,
+ * at the block boundary closest to its median.
  */
 void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
   if (static_cast<int>(splits.size()) + 1 >= min_bins) return;
-  splits.clear();
 
   const int N = b.n();
   const int n_unique = b.m();
@@ -368,24 +384,28 @@ void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
   if (n_unique < min_bins) {
     // Fewer distinct values than requested bins: one bin per distinct value is
     // the finest partition whose counts can be reproduced from its cutpoints.
+    splits.clear();
     for (int j = 0; j + 1 < n_unique; j++) splits.push_back(j);
     return;
   }
 
-  // Splits at approximately equal intervals in the distinct values.
-  const double step = static_cast<double>(n_unique - 1) / static_cast<double>(min_bins - 1);
-  for (int i = 1; i < min_bins; i++) {
-    const int unique_idx = static_cast<int>(std::floor(i * step));
-    if (unique_idx < n_unique - 1) {
-      // Raw index of the last observation holding this value.
-      const int idx = b.last_raw(unique_idx);
-      if (idx > 0 && idx < N - 1) splits.push_back(unique_idx);
+  if (splits.empty()) {
+    // MDL accepted no cut: nothing to keep, so the cuts are spread over the
+    // distinct values as before (equally spaced, target not used).
+    const double step = static_cast<double>(n_unique - 1) / static_cast<double>(min_bins - 1);
+    for (int i = 1; i < min_bins; i++) {
+      const int unique_idx = static_cast<int>(std::floor(i * step));
+      if (unique_idx < n_unique - 1) {
+        // Raw index of the last observation holding this value.
+        const int idx = b.last_raw(unique_idx);
+        if (idx > 0 && idx < N - 1) splits.push_back(unique_idx);
+      }
     }
+    std::sort(splits.begin(), splits.end());
+    splits.erase(std::unique(splits.begin(), splits.end()), splits.end());
   }
-  std::sort(splits.begin(), splits.end());
-  splits.erase(std::unique(splits.begin(), splits.end()), splits.end());
 
-  // Still short: bisect the widest gap (in observations) between existing
+  // Keep the MDL cuts and bisect the widest gap (in observations) between existing
   // splits, moving the cut to the nearest boundary between distinct values.
   // When the widest gap holds no such boundary, the next widest is tried; the
   // loop only gives up when no gap can be split, i.e. every distinct-value
@@ -434,6 +454,63 @@ void force_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
     splits.push_back(chosen);
     std::sort(splits.begin(), splits.end());
   }
+}
+
+/**
+ * Class-label code length N * H(Y | bins), in bits, of the partition given by
+ * `splits` (sorted block indices).
+ */
+double label_bits(const Blocks& b, const std::vector<int>& splits) {
+  std::vector<int> bnd;
+  bnd.reserve(splits.size() + 2);
+  bnd.push_back(0);
+  for (int q : splits) bnd.push_back(q + 1);
+  bnd.push_back(b.m());
+  double bits = 0.0;
+  for (size_t i = 0; i + 1 < bnd.size(); ++i) {
+    const size_t s = static_cast<size_t>(bnd[i]);
+    const size_t e = static_cast<size_t>(bnd[i + 1]);
+    const double p = b.cpos[e] - b.cpos[s];
+    const double n = b.cneg[e] - b.cneg[s];
+    const double c = p + n;
+    if (p > 0) bits -= p * std::log2(p / c);
+    if (n > 0) bits -= n * std::log2(n / c);
+  }
+  return bits;
+}
+
+/**
+ * Complete an MDL partition with fewer than min_bins bins (audit X-07 / A-04,
+ * minimum evidence of Section 15.5).
+ *
+ * Two completions are built: `keep` keeps the MDL cuts and adds
+ * target-blind cuts (force_min_bins), `blind` is the 1.14.1 completion, all
+ * min_bins - 1 cuts target-blind (equally spaced, the MDL cuts are dropped).
+ * Both have min_bins bins; they differ in that `keep` holds cuts whose
+ * position was chosen by looking at the target. In Fayyad & Irani's two-part
+ * code each such cut costs log2(N - 1) bits to transmit, so `keep` is used
+ * only when it shortens the class-label code of `blind` by more than
+ * |MDL cuts| * log2(N - 1) bits:
+ *
+ *   N H(Y | blind) - N H(Y | keep) > |MDL cuts| * log2(N - 1).
+ *
+ * On large samples a real change point clears this easily (the step that the
+ * former code erased, separation/near: hold-out log-loss -73%); on n = 28 an
+ * MDL cut that isolates a short pure tail does not, and the target-blind
+ * completion is kept. Without the test, keeping the MDL cuts was
+ * significantly worse than 1.14.1 out of sample on size/small_n40 (min_bins
+ * = 3, 6 of 20 seeds worse, none better).
+ */
+void complete_min_bins(const Blocks& b, int min_bins, std::vector<int>& splits) {
+  if (static_cast<int>(splits.size()) + 1 >= min_bins) return;
+  const size_t n_mdl = splits.size();
+  std::vector<int> keep = splits;
+  force_min_bins(b, min_bins, keep);
+  std::vector<int> blind;
+  force_min_bins(b, min_bins, blind);
+  const double cost = static_cast<double>(n_mdl) *
+    std::log2(static_cast<double>(b.n()) - 1.0);
+  splits = (n_mdl > 0 && label_bits(b, blind) - label_bits(b, keep) > cost) ? keep : blind;
 }
 
 /**
@@ -592,7 +669,7 @@ Rcpp::List optimal_binning_numerical_fast_mdlpm(
    converged = true;
  } else {
    splits = mdlp_cuts(b, max_bins - 1);
-   if (static_cast<int>(splits.size()) + 1 < min_bins) force_min_bins(b, min_bins, splits);
+   if (static_cast<int>(splits.size()) + 1 < min_bins) complete_min_bins(b, min_bins, splits);
 
    calc_bins_metrics(b, splits, counts, pos_counts, neg_counts, woe, iv, cutpoints);
 

@@ -16,6 +16,63 @@
 using namespace Rcpp;
 using namespace OptimalBinning;
 
+namespace {
+
+// Total IV of a partition with the engine's estimator (normalized smoothing,
+// 0.5 per bin, K = number of bins of THAT partition).
+double bb_partition_iv(const std::vector<NumericalBin>& v) {
+  double tp = 0.0, tn = 0.0;
+  for (const auto& b : v) { tp += b.count_pos; tn += b.count_neg; }
+  const double k = static_cast<double>(v.size());
+  double s = 0.0;
+  for (const auto& b : v) {
+    const double dp = (b.count_pos + 0.5) / (tp + 0.5 * k);
+    const double dn = (b.count_neg + 0.5) / (tn + 0.5 * k);
+    s += (dp - dn) * std::log(dp / dn);
+  }
+  return s;
+}
+
+// Total IV (engine estimator) of the partition obtained by merging bins i and
+// i+1 of v: K - 1 bins, every bin renormalized. O(K), no copy.
+double bb_iv_after_merge(const std::vector<NumericalBin>& v, size_t i) {
+  double tp = 0.0, tn = 0.0;
+  for (const auto& b : v) { tp += b.count_pos; tn += b.count_neg; }
+  const double k = static_cast<double>(v.size() - 1);
+  auto term = [&](double pos, double neg) {
+    const double dp = (pos + 0.5) / (tp + 0.5 * k);
+    const double dn = (neg + 0.5) / (tn + 0.5 * k);
+    return (dp - dn) * std::log(dp / dn);
+  };
+  double s = 0.0;
+  for (size_t j = 0; j < v.size(); ++j) {
+    if (j == i) {
+      s += term(v[j].count_pos + v[j + 1].count_pos, v[j].count_neg + v[j + 1].count_neg);
+      ++j;
+    } else {
+      s += term(v[j].count_pos, v[j].count_neg);
+    }
+  }
+  return s;
+}
+
+// Smoothed log-odds of a bin. The smoothed WoE of compute_woe_iv() equals this
+// value plus a constant that depends only on the partition (K and the class
+// totals), so WoE *differences* -- and therefore monotonicity -- can be judged
+// on it for any K, including the partition a candidate merge would produce.
+inline double bb_log_odds(double pos, double neg) {
+  return std::log((pos + 0.5) / (neg + 0.5));
+}
+
+// Orientation of the step a -> b: +1 increase, -1 decrease, 0 tie (EPSILON).
+inline int bb_step(double a, double b) {
+  if (b > a + EPSILON) return 1;
+  if (b < a - EPSILON) return -1;
+  return 0;
+}
+
+}  // namespace
+
 /**
  * Core class implementing Optimal Binning for numerical variables using Branch and Bound algorithm.
  * 
@@ -385,10 +442,11 @@ private:
       }
     }
     
-    // Recalculate IV for increasing scenario
-    for (auto &bin : temp_bins) {
-      iv_increase += bin.iv;
-    }
+    // IV of the simulated partition. It used to add up the stale per-bin IV
+    // of the surviving bins (computed before the simulated merges, with the
+    // old K), which is not the IV of any partition and could pick the
+    // direction that collapses the binning (audit C-05 follow-up, see fit()).
+    iv_increase = bb_partition_iv(temp_bins);
     
     // Reset and simulate decreasing monotonicity
     temp_bins = bins;
@@ -401,10 +459,8 @@ private:
       }
     }
     
-    // Recalculate IV for decreasing scenario
-    for (auto &bin : temp_bins) {
-      iv_decrease += bin.iv;
-    }
+    // IV of the simulated partition (see above).
+    iv_decrease = bb_partition_iv(temp_bins);
     
     // Choose direction with higher total IV
     bool prefer_increasing = (iv_increase >= iv_decrease);
@@ -508,28 +564,65 @@ public:
       
       iterations_run = 0;
       
-      // Step 4: Branch and Bound optimization
+      // Step 4: greedy reduction to max_bins (not a branch-and-bound search)
       while (bins.size() > static_cast<size_t>(max_bins) && iterations_run < max_iterations) {
-        // Find bin with minimum IV contribution
-        auto min_iv_it = std::min_element(bins.begin(), bins.end(),
-                                          [](const NumericalBin &a, const NumericalBin &b) { return a.iv < b.iv; });
-        
-        // Merge the minimum IV bin with an adjacent bin
-        if (min_iv_it != bins.begin()) {
-          // Prefer merging with previous bin
-          auto prev = std::prev(min_iv_it);
-          prev->merge_with(*min_iv_it);
-          bins.erase(min_iv_it);
-        } else {
-          // If it's the first bin, merge with the next one
-          auto nxt = std::next(min_iv_it);
-          // Manually handle lower bound extension for next bin
-          nxt->lower_bound = min_iv_it->lower_bound;
-          nxt->count_pos += min_iv_it->count_pos;
-          nxt->count_neg += min_iv_it->count_neg;
-          nxt->count += min_iv_it->count;
-          bins.erase(min_iv_it);
+        // Merge the ADJACENT PAIR whose fusion keeps the largest total IV
+        // (audit C-05 / X-08). The former rule took the bin with the smallest
+        // individual IV and always folded it into its left neighbour: a
+        // near-average bin between two informative ones destroyed the IV of
+        // whichever happened to sit on its left, and two neighbours with the
+        // same extreme WoE (nothing to lose) were never preferred. The loss of
+        // a candidate is the change of the REPORTED total IV, i.e. the IV of
+        // the K-bin partition minus that of the (K-1)-bin partition after the
+        // merge, both with compute_woe_iv()'s estimator (all bins
+        // renormalized): the exact one-step greedy on the objective that is
+        // reported. (A per-pair loss on a fixed-K scale was compared on 1800
+        // differential runs: same or worse; see audit/diffs/20-*.) Ties keep
+        // the leftmost pair.
+        //
+        // With is_monotonic = TRUE the candidates are first restricted to the
+        // merges that do not add a WoE monotonicity violation (counted in the
+        // better of the two directions): the smoothed WoE of a merged bin
+        // need not lie between its parts, and a merge that breaks the order
+        // triggers forced merges whose IV cost the loss above never saw. This
+        // is the "smallest loss among the merges that keep monotonicity" rule
+        // of audit B-05(b). If no merge qualifies, all pairs compete.
+        const size_t nb = bins.size();
+        const double iv_now = bb_partition_iv(bins);
+
+        std::vector<double> lo(nb);
+        for (size_t i = 0; i < nb; ++i) lo[i] = bb_log_odds(bins[i].count_pos, bins[i].count_neg);
+        int n_dec = 0, n_inc = 0;  // violations of "increasing" / "decreasing"
+        for (size_t i = 1; i < nb; ++i) {
+          const int st = bb_step(lo[i - 1], lo[i]);
+          if (st < 0) ++n_dec; else if (st > 0) ++n_inc;
         }
+        const int viol_now = std::min(n_dec, n_inc);
+
+        size_t best = 0, best_ok = 0;
+        double best_loss = std::numeric_limits<double>::infinity();
+        double best_ok_loss = std::numeric_limits<double>::infinity();
+        for (size_t i = 0; i + 1 < nb; ++i) {
+          const double loss = iv_now - bb_iv_after_merge(bins, i);
+          if (loss < best_loss) { best_loss = loss; best = i; }
+          if (!is_monotonic) continue;
+          // Steps (i-1,i), (i,i+1), (i+1,i+2) become (i-1,m), (m,i+2).
+          const double m = bb_log_odds(bins[i].count_pos + bins[i + 1].count_pos,
+                                       bins[i].count_neg + bins[i + 1].count_neg);
+          int d_dec = n_dec, d_inc = n_inc;
+          auto drop = [&](int st) { if (st < 0) --d_dec; else if (st > 0) --d_inc; };
+          auto add = [&](int st) { if (st < 0) ++d_dec; else if (st > 0) ++d_inc; };
+          if (i > 0) { drop(bb_step(lo[i - 1], lo[i])); add(bb_step(lo[i - 1], m)); }
+          drop(bb_step(lo[i], lo[i + 1]));
+          if (i + 2 < nb) { drop(bb_step(lo[i + 1], lo[i + 2])); add(bb_step(m, lo[i + 2])); }
+          if (std::min(d_dec, d_inc) <= viol_now && loss < best_ok_loss) {
+            best_ok_loss = loss;
+            best_ok = i;
+          }
+        }
+        if (is_monotonic && std::isfinite(best_ok_loss)) best = best_ok;
+        bins[best].merge_with(bins[best + 1]);
+        bins.erase(bins.begin() + static_cast<std::ptrdiff_t>(best + 1));
         
         // Recompute metrics after merge
         compute_woe_iv();

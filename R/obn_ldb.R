@@ -47,6 +47,11 @@
 #'     -Inf and +Inf).}
 #'   \item{converged}{Logical flag indicating whether the algorithm converged within
 #'     \code{max_iterations}.}
+#'   \item{monotonic}{Logical. TRUE when the final WoE of the regular bins is monotone
+#'     (in the reported direction when one is fixed), checked on the reported WoE and on
+#'     the reference WoE \code{log((count_pos + 0.5) / (count_neg + 0.5))}. When
+#'     monotonicity was requested and this is FALSE (the merges stop at \code{min_bins}),
+#'     a warning is raised. Up to version 1.14.1 nothing signalled it.}
 #'   \item{iterations}{Integer count of iterations performed during optimization.}
 #'   \item{total_iv}{Numeric scalar representing the total Information Value
 #'     (sum of all bin IVs).}
@@ -92,9 +97,10 @@
 #'
 #' and \eqn{K} is the total number of bins. The Information Value for bin \eqn{i} is:
 #'
-#' \deqn{\text{IV}_i = \left(\frac{n_i^{+}}{n^{+}} - \frac{n_i^{-}}{n^{-}}\right) \times \text{WoE}_i}
+#' \deqn{\text{IV}_i = \left(\text{DistGood}_i - \text{DistBad}_i\right) \times \text{WoE}_i \ge 0}
 #'
-#' (the unsmoothed class distributions; smoothing enters through the WoE only).
+#' (the same smoothed distributions as the WoE; up to version 1.14.1 the unsmoothed
+#' distributions were used here, which could make a bin's IV negative).
 #'
 #' Total IV aggregates discriminatory power: \eqn{\text{IV}_{\text{total}} = \sum_{i=1}^{K} \text{IV}_i}.
 #'

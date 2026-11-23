@@ -1,0 +1,521 @@
+diff --git a/src/OBN_MDLP_v5.cpp b/src/OBN_MDLP_v5.cpp
+index f9ad7a3..6318802 100644
+--- a/src/OBN_MDLP_v5.cpp
++++ b/src/OBN_MDLP_v5.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include <numeric>
+ #include <unordered_map>
++#include <queue>
+ 
+ 
+ // Include shared headers
+@@ -23,6 +24,252 @@
+ using namespace Rcpp;
+ using namespace OptimalBinning;
+ 
++// =============================================================================
++// Fayyad & Irani (1993) MDLP engine
++//
++// Audit X-06 / A-01 (+A-02): the former engine was not MDLP. It quantised the
++// sample into max_n_prebins equal-frequency pre-bins (so the class boundary
++// could not be located, A-02) and merged them bottom-up with the cost
++// log2(k - 1) + sum n_i H(S_i); since n H is concave the data term never
++// favours a merge and the model term saves less than one bit, so only
++// practically identical pre-bins were merged (41-43 of 50 pre-bins survived on
++// pure noise) and max_bins then decided everything. The engine below is the
++// recursive Fayyad-Irani discretisation on boundary points with the MDL
++// acceptance test, the same engine as ob_numerical_fast_mdlp() (copied here so
++// that this translation unit stays self-contained).
++// =============================================================================
++namespace {
++
++// One block per distinct feature value (ascending) with prefix sums: cpos[j],
++// cneg[j], cend[j] count the positives / negatives / observations in blocks
++// [0, j). A cut "after block j" separates the observations of blocks [0, j]
++// from the rest.
++struct FiBlocks {
++  std::vector<double> value;
++  std::vector<int> cpos;
++  std::vector<int> cneg;
++  std::vector<int> cend;
++
++  int m() const { return static_cast<int>(value.size()); }
++  int n() const { return cend.empty() ? 0 : cend.back(); }
++  int pos(int j) const { return cpos[static_cast<size_t>(j) + 1] - cpos[static_cast<size_t>(j)]; }
++  int neg(int j) const { return cneg[static_cast<size_t>(j) + 1] - cneg[static_cast<size_t>(j)]; }
++  int last_raw(int j) const { return cend[static_cast<size_t>(j) + 1] - 1; }
++  int block_of_raw(int r) const {
++    auto it = std::upper_bound(cend.begin(), cend.end(), r);
++    return static_cast<int>(it - cend.begin()) - 1;
++  }
++};
++
++// Blocks from (value, class) pairs sorted by value, NaN already removed.
++// -Inf / +Inf are folded into the adjacent finite block: a cut must never
++// isolate them (its cutpoint would be -Inf, or (x, +Inf] anyway).
++FiBlocks fi_build_blocks(const std::vector<std::pair<double, int>>& sorted) {
++  FiBlocks b;
++  b.cpos.push_back(0);
++  b.cneg.push_back(0);
++  b.cend.push_back(0);
++  size_t i = 0;
++  while (i < sorted.size()) {
++    const double v = sorted[i].first;
++    int cp = 0, cn = 0;
++    while (i < sorted.size() && sorted[i].first == v) {
++      if (sorted[i].second == 1) ++cp; else ++cn;
++      ++i;
++    }
++    b.value.push_back(v + 0.0);  // -0.0 and +0.0 are the same value
++    b.cpos.push_back(b.cpos.back() + cp);
++    b.cneg.push_back(b.cneg.back() + cn);
++    b.cend.push_back(b.cend.back() + cp + cn);
++  }
++  if (b.value.size() >= 2 && std::isinf(b.value.front()) && b.value.front() < 0) {
++    b.value.erase(b.value.begin());
++    b.cpos.erase(b.cpos.begin() + 1);
++    b.cneg.erase(b.cneg.begin() + 1);
++    b.cend.erase(b.cend.begin() + 1);
++  }
++  if (b.value.size() >= 2 && std::isinf(b.value.back()) && b.value.back() > 0) {
++    b.value.pop_back();
++    b.cpos.erase(b.cpos.end() - 2);
++    b.cneg.erase(b.cneg.end() - 2);
++    b.cend.erase(b.cend.end() - 2);
++  }
++  return b;
++}
++
++// c * log2(c) for c = 0..n; t E(S) = A(p, n) = t log2 t - p log2 p - n log2 n.
++struct FiXLogX {
++  std::vector<double> tab;
++  explicit FiXLogX(int n) : tab(static_cast<size_t>(n) + 1, 0.0) {
++    for (int c = 2; c <= n; ++c) {
++      const double x = static_cast<double>(c);
++      tab[static_cast<size_t>(c)] = x * std::log2(x);
++    }
++  }
++  double A(int p, int n) const {
++    return tab[static_cast<size_t>(p + n)] - tab[static_cast<size_t>(p)] - tab[static_cast<size_t>(n)];
++  }
++};
++
++// Boundary point (Fayyad & Irani 1992): unless both blocks are pure and of
++// the same class. The entropy-minimising cut is always a boundary point.
++inline bool fi_is_boundary(const FiBlocks& b, int j) {
++  const int p0 = b.pos(j), n0 = b.neg(j);
++  const int p1 = b.pos(j + 1), n1 = b.neg(j + 1);
++  return !((n0 == 0 && n1 == 0) || (p0 == 0 && p1 == 0));
++}
++
++struct FiCut {
++  double gain_bits;  // N * Gain(A, T; S), bits
++  int bstart;
++  int bend;
++  int cut;           // cut after this block
++};
++
++struct FiCutOrder {
++  bool operator()(const FiCut& a, const FiCut& b) const {
++    if (a.gain_bits != b.gain_bits) return a.gain_bits < b.gain_bits;
++    return a.cut > b.cut;  // ties: leftmost cut first
++  }
++};
++
++// Best cut of blocks [bstart, bend) and the MDL acceptance test:
++//   Gain > log2(N - 1) / N + Delta / N,
++//   Delta = log2(3^k - 2) - [k E(S) - k1 E(S1) - k2 E(S2)].
++bool fi_best_cut(const FiBlocks& b, const FiXLogX& xl, int bstart, int bend, FiCut& out) {
++  const size_t s = static_cast<size_t>(bstart);
++  const size_t e = static_cast<size_t>(bend);
++  const int N = b.cend[e] - b.cend[s];
++  if (N <= 1) return false;
++  const int pos_total = b.cpos[e] - b.cpos[s];
++  const int neg_total = b.cneg[e] - b.cneg[s];
++  if (pos_total == 0 || neg_total == 0) return false;
++
++  double best = std::numeric_limits<double>::infinity();
++  int best_cut = -1;
++  for (int j = bstart; j < bend - 1; ++j) {
++    if (!fi_is_boundary(b, j)) continue;
++    const int pl = b.cpos[static_cast<size_t>(j) + 1] - b.cpos[s];
++    const int nl = b.cneg[static_cast<size_t>(j) + 1] - b.cneg[s];
++    const double child = xl.A(pl, nl) + xl.A(pos_total - pl, neg_total - nl);
++    if (child < best) {
++      best = child;
++      best_cut = j;
++    }
++  }
++  if (best_cut < 0) return false;
++
++  const int pl = b.cpos[static_cast<size_t>(best_cut) + 1] - b.cpos[s];
++  const int nl = b.cneg[static_cast<size_t>(best_cut) + 1] - b.cneg[s];
++  const int pr = pos_total - pl;
++  const int nr = neg_total - nl;
++  const double A_S = xl.A(pos_total, neg_total);
++  const double A_1 = xl.A(pl, nl);
++  const double A_2 = xl.A(pr, nr);
++  const double Nd = static_cast<double>(N);
++  const double E_S = A_S / Nd;
++  const double E_1 = A_1 / static_cast<double>(pl + nl);
++  const double E_2 = A_2 / static_cast<double>(pr + nr);
++  const double gain = (A_S - A_1 - A_2) / Nd;
++  const int k = 2;
++  const int k1 = (pl > 0 ? 1 : 0) + (nl > 0 ? 1 : 0);
++  const int k2 = (pr > 0 ? 1 : 0) + (nr > 0 ? 1 : 0);
++  const double delta = std::log2(std::pow(3.0, k) - 2.0) - (k * E_S - k1 * E_1 - k2 * E_2);
++  const double threshold = (std::log2(Nd - 1.0) + delta) / Nd;
++  if (!(gain > threshold)) return false;
++
++  out.gain_bits = A_S - A_1 - A_2;
++  out.bstart = bstart;
++  out.bend = bend;
++  out.cut = best_cut;
++  return true;
++}
++
++// Recursive F&I, expanded best-first so that truncation to max_splits keeps
++// the most informative accepted cuts. Returns sorted block indices.
++std::vector<int> fi_mdlp_cuts(const FiBlocks& b, int max_splits) {
++  std::vector<int> splits;
++  if (max_splits <= 0 || b.m() < 2) return splits;
++  const FiXLogX xl(b.n());
++  std::priority_queue<FiCut, std::vector<FiCut>, FiCutOrder> heap;
++  FiCut c;
++  if (fi_best_cut(b, xl, 0, b.m(), c)) heap.push(c);
++  while (!heap.empty() && static_cast<int>(splits.size()) < max_splits) {
++    const FiCut top = heap.top();
++    heap.pop();
++    splits.push_back(top.cut);
++    FiCut child;
++    if (fi_best_cut(b, xl, top.bstart, top.cut + 1, child)) heap.push(child);
++    if (fi_best_cut(b, xl, top.cut + 1, top.bend, child)) heap.push(child);
++  }
++  std::sort(splits.begin(), splits.end());
++  return splits;
++}
++
++// min_bins extension (F&I has none). Same rule as ob_numerical_fast_mdlp()
++// (audit X-07): keep the accepted cuts; without any accepted cut spread the
++// cuts evenly over the distinct values; then bisect the most populated bin at
++// a distinct-value boundary. The target is not used for the forced cuts.
++void fi_force_min_bins(const FiBlocks& b, int min_bins, std::vector<int>& splits) {
++  if (static_cast<int>(splits.size()) + 1 >= min_bins) return;
++  const int N = b.n();
++  const int n_unique = b.m();
++  if (n_unique < min_bins) {
++    splits.clear();
++    for (int j = 0; j + 1 < n_unique; j++) splits.push_back(j);
++    return;
++  }
++  if (splits.empty()) {
++    const double step = static_cast<double>(n_unique - 1) / static_cast<double>(min_bins - 1);
++    for (int i = 1; i < min_bins; i++) {
++      const int unique_idx = static_cast<int>(std::floor(i * step));
++      if (unique_idx < n_unique - 1) {
++        const int idx = b.last_raw(unique_idx);
++        if (idx > 0 && idx < N - 1) splits.push_back(unique_idx);
++      }
++    }
++    std::sort(splits.begin(), splits.end());
++    splits.erase(std::unique(splits.begin(), splits.end()), splits.end());
++  }
++  struct Gap { int size; int start; bool first; };
++  while (splits.size() + 1 < static_cast<size_t>(min_bins)) {
++    std::vector<int> all_boundaries;
++    all_boundaries.reserve(splits.size() + 2);
++    all_boundaries.push_back(0);
++    for (int s : splits) all_boundaries.push_back(b.last_raw(s));
++    all_boundaries.push_back(N - 1);
++    std::vector<Gap> gaps;
++    gaps.reserve(all_boundaries.size());
++    for (size_t i = 0; i + 1 < all_boundaries.size(); i++) {
++      gaps.push_back(Gap{all_boundaries[i + 1] - all_boundaries[i], all_boundaries[i], i == 0});
++    }
++    std::stable_sort(gaps.begin(), gaps.end(),
++                     [](const Gap& x, const Gap& y) { return x.size > y.size; });
++    int chosen = -1;
++    for (const Gap& g : gaps) {
++      if (g.size < 1) continue;
++      const int gap_start = g.start;
++      const int gap_end = g.start + g.size;
++      const int lo = g.first ? -1 : gap_start;
++      const int new_split = gap_start + g.size / 2;
++      const int blk = b.block_of_raw(new_split);
++      int adj = b.last_raw(blk);
++      if (adj > lo && adj < gap_end && adj < N - 1) {
++        chosen = blk;
++      } else if (blk > 0) {
++        adj = b.last_raw(blk - 1);
++        if (adj > lo && adj < N - 1) chosen = blk - 1;
++      }
++      if (chosen >= 0) break;
++    }
++    if (chosen < 0) break;
++    splits.push_back(chosen);
++    std::sort(splits.begin(), splits.end());
++  }
++}
++
++} // namespace
++
+ /**
+  * WoE from smoothed class distributions, capped at +/-20 when one of them is
+  * zero (possible only with laplace_smoothing = 0 and a pure bin).
+@@ -104,12 +351,10 @@ private:
+     return entropy_binary(pos, neg);
+   }
+ 
+-  // MDL cost. Only its change under a merge is ever needed, and that is
+-  // computed analytically in apply_mdl_merging()/enforce_max_bins():
+-  //   MDL(k) = log2(k - 1) + sum_i n_i * H(S_i)
+-  // (model cost plus the bits needed to encode the classes given the bins).
+-  // The former full-cost helper was dead code -- its only call site discarded
+-  // the result -- and it carried the opposite sign on the data term.
++  // The MDL decision is the Fayyad-Irani acceptance test of fi_best_cut()
++  // (top of this file); the former bottom-up cost log2(k - 1) + sum n_i H(S_i)
++  // and its merge loops (apply_mdl_merging / enforce_max_bins) are gone
++  // (audit X-06 / A-01).
+ 
+   /**
+    * @brief Merge two adjacent bins
+@@ -497,15 +742,10 @@ public:
+       return;
+     }
+ 
+-    // Create initial pre-bins
+-    create_prebins(sorted_data);
+-
+-    // Apply MDLP-based merging
+-    apply_mdl_merging();
+-
+-    // Enforce the caller's bin budget: MDLP's own stopping rule does not
+-    // guarantee bins.size() <= max_bins.
+-    enforce_max_bins();
++    // Fayyad-Irani MDLP on boundary points (audit X-06 / A-01, A-02), at
++    // most max_bins - 1 accepted cuts (the most informative ones), extended
++    // to min_bins without using the target.
++    create_fi_bins(sorted_data);
+ 
+     // Handle rare bins
+     merge_rare_bins();
+@@ -680,189 +920,43 @@ public:
+   }
+ 
+   /**
+-   * @brief Create initial pre-bins before optimization
++   * @brief Bins from the Fayyad-Irani MDLP cuts
+    *
+-   * @param sorted_data Sorted vector of (feature, target) pairs
++   * Every distinct value is a candidate boundary (no quantile pre-binning:
++   * the entropy-minimising cut is always a boundary point, F&I 1992, and
++   * quantile edges cannot locate it -- audit A-02). Accepted cuts are taken
++   * best-first up to max_bins - 1; when fewer than min_bins - 1 are accepted
++   * the extension of fi_force_min_bins() adds target-independent cuts.
++   *
++   * @param sorted_data Sorted vector of (feature, target) pairs, NaN removed
+    */
+-  void create_prebins(const std::vector<std::pair<double, int>>& sorted_data) {
+-    // Clear any existing bins
++  void create_fi_bins(const std::vector<std::pair<double, int>>& sorted_data) {
+     bins.clear();
++    const FiBlocks b = fi_build_blocks(sorted_data);
++    std::vector<int> splits = fi_mdlp_cuts(b, max_bins - 1);
++    if (static_cast<int>(splits.size()) + 1 < min_bins) {
++      fi_force_min_bins(b, min_bins, splits);
++    }
+ 
+-    // Determine number of records per bin for equal-frequency pre-binning
+-    int records_per_bin = std::max(1, static_cast<int>(sorted_data.size()) / max_n_prebins);
+-
+-    // Create pre-bins by frequency
+-    for (size_t i = 0; i < sorted_data.size(); ) {
+-      size_t end = std::min(i + records_per_bin, sorted_data.size());
+-
+-      // Never split a run of tied values across two pre-bins. Otherwise the
+-      // reported boundary sits in the middle of a group of identical
+-      // observations, and the emitted counts cannot be reproduced from the
+-      // reported cutpoints by any interval convention.
+-      //
+-      // A pre-bin may not close on -Inf either: its upper bound would become
+-      // a cutpoint of -Inf, labelled "(-Inf;-inf]". Such a bin absorbs the
+-      // following run of values instead.
+-      while (end < sorted_data.size() &&
+-             (sorted_data[end].first == sorted_data[end - 1].first ||
+-              sorted_data[end - 1].first == -std::numeric_limits<double>::infinity())) {
+-        ++end;
+-      }
++    std::vector<int> bnd;
++    bnd.reserve(splits.size() + 2);
++    bnd.push_back(0);
++    for (int sp : splits) bnd.push_back(sp + 1);
++    bnd.push_back(b.m());
+ 
+-      // Create new bin
++    for (size_t i = 0; i + 1 < bnd.size(); ++i) {
++      const size_t s0 = static_cast<size_t>(bnd[i]);
++      const size_t e0 = static_cast<size_t>(bnd[i + 1]);
+       NumericalBin bin;
+-
+-      // Right-closed (lower, upper] bins, contiguous by construction.
+-      bin.lower_bound = bins.empty()
+-                            ? -std::numeric_limits<double>::infinity()
+-                            : bins.back().upper_bound;
+-
+-      if (end == sorted_data.size()) {
+-        bin.upper_bound = std::numeric_limits<double>::infinity();
+-      } else {
+-        // last value belonging to this bin, not the first of the next one
+-        bin.upper_bound = sorted_data[end - 1].first;
+-      }
+-
+-      // Set bin statistics
+-      bin.count = static_cast<int>(end - i);
+-      bin.count_pos = 0;
+-      bin.count_neg = 0;
+-
+-      for (size_t j = i; j < end; ++j) {
+-        if (sorted_data[j].second == 1) {
+-          bin.count_pos++;
+-        } else {
+-          bin.count_neg++;
+-        }
+-      }
+-
+-      // Calculate bin entropy
++      bin.lower_bound = bins.empty() ? -std::numeric_limits<double>::infinity()
++                                     : bins.back().upper_bound;
++      bin.upper_bound = (i + 2 < bnd.size()) ? b.value[e0 - 1]
++                                             : std::numeric_limits<double>::infinity();
++      bin.count_pos = b.cpos[e0] - b.cpos[s0];
++      bin.count_neg = b.cneg[e0] - b.cneg[s0];
++      bin.count = bin.count_pos + bin.count_neg;
+       bin.entropy = calculate_entropy(bin.count_pos, bin.count_neg);
+-
+       bins.push_back(bin);
+-      i = end;
+-    }
+-  }
+-
+-  /**
+-   * @brief Apply MDLP-based merging
+-   *
+-   * Iteratively merges bins to minimize MDL cost.  Each candidate merge is
+-   * evaluated by computing the MDL delta analytically — no full-vector copy
+-   * is needed, reducing complexity from O(k² × k) to O(k²) per outer step.
+-   */
+-  void apply_mdl_merging() {
+-    // True once the loop stops for an algorithmic reason (MDL optimum, bin
+-    // budget met, or min_bins reached) rather than on the iteration cap.
+-    bool finished = false;
+-    while (bins.size() > (size_t)min_bins && iterations_run < max_iterations) {
+-      size_t k = bins.size();
+-      double best_delta = 0.0;   // only accept merges that reduce MDL
+-      size_t best_merge_index = k; // sentinel
+-
+-      // Pre-compute current model_cost term once
+-      double cur_model = (k > 1) ? std::log2(static_cast<double>(k - 1)) : 0.0;
+-      double new_model = (k > 2) ? std::log2(static_cast<double>(k - 2)) : 0.0;
+-      double model_delta = new_model - cur_model;
+-
+-      for (size_t i = 0; i < k - 1; ++i) {
+-        const NumericalBin& b_i  = bins[i];
+-        const NumericalBin& b_i1 = bins[i + 1];
+-
+-        int m_pos = b_i.count_pos + b_i1.count_pos;
+-        int m_neg = b_i.count_neg + b_i1.count_neg;
+-        int m_cnt = b_i.count    + b_i1.count;
+-
+-        // data_cost delta: merged bin contribution replaces two individual ones
+-        double data_delta =
+-          m_cnt   * calculate_entropy(m_pos,      m_neg)
+-          - b_i.count  * calculate_entropy(b_i.count_pos,  b_i.count_neg)
+-          - b_i1.count * calculate_entropy(b_i1.count_pos, b_i1.count_neg);
+-
+-        double delta = model_delta + data_delta;
+-
+-        if (delta < best_delta) {
+-          best_delta = delta;
+-          best_merge_index = i;
+-        }
+-      }
+-
+-      if (best_merge_index < k) {
+-        merge_bins(best_merge_index);
+-      } else {
+-        finished = true;
+-        break;
+-      }
+-
+-      if (bins.size() <= (size_t)max_bins) {
+-        finished = true;
+-        break;
+-      }
+-
+-      iterations_run++;
+-    }
+-
+-    // Warn only when the cap really cut the phase short. The old test fired
+-    // whenever the counter had reached the cap, including after the loop had
+-    // already stopped at min_bins or at the MDL optimum.
+-    if (!finished && bins.size() > (size_t)min_bins &&
+-        iterations_run >= max_iterations) {
+-      converged = false;
+-      Rcpp::warning("MDL merging did not complete within %d iterations", max_iterations);
+-    }
+-  }
+-
+-  /**
+-   * @brief Enforce max_bins as a hard post-condition
+-   *
+-   * apply_mdl_merging() stops as soon as no candidate merge reduces the MDL
+-   * cost, and that `break` fires before the bins.size() <= max_bins test, so
+-   * the loop could leave far more bins than the caller asked for (18 against
+-   * max_bins = 5 on a plain continuous feature). max_bins is a documented
+-   * user-facing parameter and has to be honoured, so once MDLP's own stopping
+-   * rule is done we keep merging by the algorithm's own criterion -- the pair
+-   * with the smallest MDL delta, i.e. the least-cost merge -- until the cap is
+-   * met. Beyond the MDL optimum every remaining delta is positive; we take the
+-   * cheapest one each time, which is the standard way to impose a bin budget
+-   * on an MDL partition.
+-   *
+-   * min_bins still wins: we never merge below it.
+-   */
+-  void enforce_max_bins() {
+-    while (bins.size() > (size_t)max_bins && bins.size() > (size_t)min_bins &&
+-           bins.size() > 1) {
+-      size_t k = bins.size();
+-
+-      double cur_model = (k > 1) ? std::log2(static_cast<double>(k - 1)) : 0.0;
+-      double new_model = (k > 2) ? std::log2(static_cast<double>(k - 2)) : 0.0;
+-      double model_delta = new_model - cur_model;
+-
+-      double best_delta = std::numeric_limits<double>::infinity();
+-      size_t best_merge_index = 0;
+-
+-      for (size_t i = 0; i < k - 1; ++i) {
+-        const NumericalBin& b_i  = bins[i];
+-        const NumericalBin& b_i1 = bins[i + 1];
+-
+-        int m_pos = b_i.count_pos + b_i1.count_pos;
+-        int m_neg = b_i.count_neg + b_i1.count_neg;
+-        int m_cnt = b_i.count    + b_i1.count;
+-
+-        double data_delta =
+-          m_cnt   * calculate_entropy(m_pos,      m_neg)
+-          - b_i.count  * calculate_entropy(b_i.count_pos,  b_i.count_neg)
+-          - b_i1.count * calculate_entropy(b_i1.count_pos, b_i1.count_neg);
+-
+-        double delta = model_delta + data_delta;
+-
+-        if (delta < best_delta) {
+-          best_delta = delta;
+-          best_merge_index = i;
+-        }
+-      }
+-
+-      merge_bins(best_merge_index);
+     }
+   }
+ 

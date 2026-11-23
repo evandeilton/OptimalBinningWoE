@@ -6,6 +6,18 @@
 # convention, no bin is empty, WoE is finite and no unexpected warning is
 # raised.
 
+# Forensic audit X-11 (B-05, C-09, E-14): the numerical engines now warn when
+# a requested monotonic WoE is not reached (the merges stop at min_bins) and
+# report it in `$monotonic`. That warning is the documented signal, not a
+# defect, so the "no warning" checks in this file let it through and still
+# fail on any other warning.
+allow_x11_warning <- function(expr) {
+  withCallingHandlers(expr, warning = function(w) {
+    if (grepl("monotonic WoE was requested", conditionMessage(w), fixed = TRUE))
+      invokeRestart("muffleWarning")
+  })
+}
+
 # Recount the non-missing observations per bin from the reported cutpoints.
 numB_recount <- function(x, cutpoints) {
   x <- x[!is.na(x)]
@@ -268,7 +280,7 @@ test_that("NA feature rows are excluded silently by every algorithm", {
   x[3] <- NaN
   for (a in names(numB_algos)) {
     res <- NULL
-    expect_no_warning(res <- numB_algos[[a]](x, y))
+    expect_no_warning(res <- allow_x11_warning(numB_algos[[a]](x, y)))
     numB_check_binning(res, x, max_bins = 5, info = a)
     expect_equal(sum(res$count), 1899L, info = a)
   }
@@ -280,7 +292,7 @@ test_that("-Inf and +Inf are extreme values of the outer bins, never cutpoints",
   y <- c(rbinom(600, 1, 0.4), 0L, 1L, 1L, 0L, 1L)
   for (a in names(numB_algos)) {
     res <- NULL
-    expect_no_warning(res <- numB_algos[[a]](x, y))
+    expect_no_warning(res <- allow_x11_warning(numB_algos[[a]](x, y)))
     expect_true(all(is.finite(res$cutpoints)), info = a)
     numB_check_binning(res, x, max_bins = 5, info = a)
     expect_equal(sum(res$count), 605L, info = a)
@@ -344,13 +356,20 @@ test_that("jedi and jedi_mwoe results do not depend on the sort path", {
   y <- rbinom(length(x), 1, plogis(x))
   y3 <- as.integer((rank(x, ties.method = "first") + rbinom(length(x), 1, 0.3)) %% 3)
   k <- 40
+  # D-02 / audit Section 15.5 (manifest 50): ob_numerical_jedi decides the
+  # max_bins reduction on an empirical-Bayes IV with a fixed prior of 50
+  # pseudo-observations per bin, so that step depends on the sample size by
+  # design (k copies carry k times the evidence) and replication is no longer
+  # an invariance of the result. max_bins = 20 (= max_n_prebins) keeps that
+  # step out, so the comparison still isolates the sort path.
   for (fn in c("ob_numerical_jedi", "ob_numerical_jedi_mwoe")) {
     yy <- if (fn == "ob_numerical_jedi") y else y3
-    small <- do.call(fn, list(feature = x, target = yy))
-    big <- do.call(fn, list(feature = rep(x, k), target = rep(yy, k)))
+    mb <- if (fn == "ob_numerical_jedi") 20 else 5
+    small <- do.call(fn, list(feature = x, target = yy, max_bins = mb))
+    big <- do.call(fn, list(feature = rep(x, k), target = rep(yy, k), max_bins = mb))
     expect_equal(big$cutpoints, small$cutpoints, info = fn)
     expect_equal(big$count, small$count * k, info = fn)
-    numB_check_binning(big, rep(x, k), max_bins = 5, info = fn)
+    numB_check_binning(big, rep(x, k), max_bins = mb, info = fn)
   }
 })
 
@@ -473,7 +492,7 @@ test_that("numB algorithms return valid binnings without warnings", {
       for (a in names(algos)) {
         info <- paste(a, sh, n)
         res <- NULL
-        expect_no_warning(res <- algos[[a]](x, y))
+        expect_no_warning(res <- allow_x11_warning(algos[[a]](x, y)))
         numB_check_binning(res, x, max_bins = 6, info = info)
       }
     }

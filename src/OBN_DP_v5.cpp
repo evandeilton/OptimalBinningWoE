@@ -460,16 +460,24 @@ private:
    * IV = (% of events - % of non-events) * WoE
    */
   void calculate_iv() {
-    double safe_total_pos = std::max(total_pos, EPSILON);
-    double safe_total_neg = std::max(total_neg, EPSILON);
-    
     iv_values.resize(woe_values.size());
-    
+
+    // Audit E-06 / C-14 / B-09 (theme T3): the IV used the RAW shares
+    // pos/total_pos - neg/total_neg times the SMOOTHED WoE, so a bin could get a
+    // negative IV (e.g. a bin without events whose smoothed WoE is positive).
+    // The same smoothed shares now enter WoE and IV, IV = (p - q) * ln(p / q) >=
+    // 0; the WoE estimator is unchanged.
+    // Shares as in compute_woe(..., SmoothingMethod::BAYESIAN,
+    // BAYESIAN_PRIOR_STRENGTH), the estimator of woe_values.
+    const double tp = static_cast<double>(static_cast<int>(total_pos));
+    const double tn = static_cast<double>(static_cast<int>(total_neg));
+    const double prior_pos = BAYESIAN_PRIOR_STRENGTH * tp / (tp + tn);
+    const double prior_neg = BAYESIAN_PRIOR_STRENGTH - prior_pos;
     for (size_t i = 0; i < woe_values.size(); ++i) {
-      double p_rate = count_pos[i] / safe_total_pos;
-      double n_rate = count_neg[i] / safe_total_neg;
-      
-      // IV formula
+      const double p_rate = std::max((static_cast<double>(static_cast<int>(count_pos[i])) + prior_pos) /
+                                       (tp + BAYESIAN_PRIOR_STRENGTH), EPSILON);
+      const double n_rate = std::max((static_cast<double>(static_cast<int>(count_neg[i])) + prior_neg) /
+                                       (tn + BAYESIAN_PRIOR_STRENGTH), EPSILON);
       iv_values[i] = (p_rate - n_rate) * woe_values[i];
     }
   }
@@ -767,6 +775,60 @@ private:
   }
 };
 
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+// +1 / -1 / 0 for a reported direction label ("increasing"/"ascending",
+// "decreasing"/"descending", anything else).
+static int monotone_direction_of(const std::string &label) {
+  if (label == "increasing" || label == "ascending") return 1;
+  if (label == "decreasing" || label == "descending") return -1;
+  return 0;
+}
+
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_dp(
    Rcpp::IntegerVector target,
@@ -827,5 +889,9 @@ Rcpp::List optimal_binning_numerical_dp(
  
  ob.fit();
  
- return ob.get_results();
+ Rcpp::List res = ob.get_results();
+ flag_monotonic_result(res, monotonic_trend != "none",
+                       monotone_direction_of(Rcpp::as<std::string>(res["monotonic_trend"])),
+                       "ob_numerical_dp");
+ return res;
 }

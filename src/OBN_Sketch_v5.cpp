@@ -16,6 +16,7 @@
 // Include shared headers
 #include "common/bin_structures.h"
 #include "common/optimal_binning_common.h"
+#include "common/ob_core.h"
 
 using namespace Rcpp;
 using namespace OptimalBinning;
@@ -24,11 +25,6 @@ using namespace OptimalBinning;
 // Utilities
 // ============================================================================
 namespace utils {
-// Safe logarithm
-inline double safe_log(double x) {
-  return x > EPSILON ? std::log(x) : std::log(EPSILON);
-}
-
 // A finite cut c with a <= c < b between two consecutive distinct finite values
 // a < b (right-closed bins). The midpoint is used whenever it is valid; it
 // overflows near the largest double and can round up to b for adjacent doubles.
@@ -37,6 +33,104 @@ inline double safe_cut(double a, double b) {
   if (!std::isfinite(m)) m = a / 2.0 + b / 2.0;
   if (m >= a && m < b) return m;
   return a;
+}
+
+// Exact maximum-IV partition of m ordered slots into exactly K contiguous
+// bins (audit X-09). Same recursion as ob::partition_dp (common/ob_core.h,
+// validated against brute force), objective ob::woe_iv (normalized Jeffreys,
+// alpha = 0.5, fixed K), each bin with at least `min_count` observations.
+// The only difference is the optional monotone constraint: it compares the
+// SMOOTHED odds (pos + alpha) / (neg + alpha) of adjacent bins, i.e. the
+// order of the WoE that the IV objective is built on, instead of the raw
+// event rate. With few events the raw rates of several event-free bins tie at
+// 0 while their smoothed WoE differ, so a partition monotone in raw rate can
+// report a non-monotone WoE. With alpha = 0.5 the test is exact in integers:
+// (2 p1 + 1)(2 n2 + 1) <= (2 p2 + 1)(2 n1 + 1).
+// The WoE the engine reports (NumericalBin::calculate_metrics) is smoothed
+// differently -- a prior of BAYESIAN_PRIOR_STRENGTH = s pseudo-observations
+// centred on the overall rate r0, odds (p + s r0) / (n + s (1 - r0)) -- and the
+// `monotonic` flag checks both orders, so adjacent bins must be ordered under
+// both. With very rare events (0.2%) the two orders disagree on an event-free
+// bin next to a bin with 1-2 events, and the alpha = 0.5 test alone let the
+// DP return a reported WoE such as -8.1 / 1.0 / -5.7.
+ob::DpResult sketch_partition_dp(const std::vector<int64_t> &pos,
+                                 const std::vector<int64_t> &neg, int K,
+                                 bool monotone, bool asc, int64_t min_count) {
+  const int m = static_cast<int>(pos.size());
+  const double NEG = -std::numeric_limits<double>::infinity();
+  ob::DpResult r{NEG, {}};
+  if (K < 1 || m < K) return r;
+
+  std::vector<int64_t> P(m + 1, 0), N(m + 1, 0);
+  for (int i = 0; i < m; ++i) {
+    P[i + 1] = P[i] + pos[i];
+    N[i + 1] = N[i] + neg[i];
+  }
+  const double Tp = static_cast<double>(P[m]);
+  const double Tn = static_cast<double>(N[m]);
+
+  auto cnt = [&](int j, int i) { return (P[i] - P[j]) + (N[i] - N[j]); };
+  auto val = [&](int j, int i) {
+    return ob::woe_iv(static_cast<double>(P[i] - P[j]),
+                      static_cast<double>(N[i] - N[j]), Tp, Tn, K).iv;
+  };
+  auto odds_le = [&](int a0, int a1, int b0, int b1) {  // odds[a0,a1) <= odds[b0,b1)
+    const int64_t pa = 2 * (P[a1] - P[a0]) + 1, na = 2 * (N[a1] - N[a0]) + 1;
+    const int64_t pb = 2 * (P[b1] - P[b0]) + 1, nb = 2 * (N[b1] - N[b0]) + 1;
+    return pa * nb <= pb * na;
+  };
+  const double s_pr = BAYESIAN_PRIOR_STRENGTH;
+  const double r0 = (Tp + Tn) > 0.0 ? Tp / (Tp + Tn) : 0.5;
+  auto log_odds_rep = [&](int a0, int a1) {  // order of the reported WoE
+    return std::log((static_cast<double>(P[a1] - P[a0]) + s_pr * r0) /
+                    (static_cast<double>(N[a1] - N[a0]) + s_pr * (1.0 - r0)));
+  };
+  auto rep_le = [&](int a0, int a1, int b0, int b1) {
+    return log_odds_rep(a0, a1) <= log_odds_rep(b0, b1) + 1e-10;
+  };
+  auto ordered = [&](int j, int i, int e) {  // [j,i) followed by [i,e)
+    if (!monotone) return true;
+    return asc ? (odds_le(j, i, i, e) && rep_le(j, i, i, e))
+               : (odds_le(i, e, j, i) && rep_le(i, e, j, i));
+  };
+
+  using M2 = std::vector<std::vector<double>>;
+  using B2 = std::vector<std::vector<int>>;
+  std::vector<M2> f(K + 1, M2(m + 1, std::vector<double>(m + 1, NEG)));
+  std::vector<B2> bp(K + 1, B2(m + 1, std::vector<int>(m + 1, -1)));
+
+  for (int i = 1; i <= m; ++i)
+    if (cnt(0, i) >= min_count) f[1][i][0] = val(0, i);
+  for (int k = 2; k <= K; ++k)
+    for (int e = 1; e <= m; ++e)
+      for (int i = 1; i < e; ++i) {
+        if (cnt(i, e) < min_count) continue;
+        const double v = val(i, e);
+        for (int j = 0; j < i; ++j) {
+          if (f[k - 1][i][j] == NEG || !ordered(j, i, e)) continue;
+          const double c = f[k - 1][i][j] + v;
+          if (c > f[k][e][i]) {
+            f[k][e][i] = c;
+            bp[k][e][i] = j;
+          }
+        }
+      }
+
+  int bj = -1;
+  for (int j = 0; j < m; ++j)
+    if (f[K][m][j] > r.iv) {
+      r.iv = f[K][m][j];
+      bj = j;
+    }
+  if (bj < 0) return r;
+  for (int k = K, e = m, i = bj; k > 1; --k) {
+    r.cuts.push_back(i);
+    const int j = bp[k][e][i];
+    e = i;
+    i = j;
+  }
+  std::reverse(r.cuts.begin(), r.cuts.end());
+  return r;
 }
 } // namespace utils
 
@@ -161,145 +255,6 @@ public:
 };
 
 // ============================================================================
-// Target statistics per candidate cutpoint
-// ============================================================================
-struct CutpointStats {
-  double cutpoint;
-  int count_below;
-  int count_pos_below;
-  int count_neg_below;
-  int count_above;
-  int count_pos_above;
-  int count_neg_above;
-  double iv;
-
-  explicit CutpointStats(double cp = 0.0)
-    : cutpoint(cp), count_below(0), count_pos_below(0), count_neg_below(0),
-      count_above(0), count_pos_above(0), count_neg_above(0), iv(0.0) {}
-};
-
-// ============================================================================
-// Exact dynamic programming for small samples
-// ============================================================================
-class DynamicProgramming {
-private:
-  std::vector<double> sorted_values;
-  // prefix counts: cum_pos[i] = positives among the first i sorted values
-  std::vector<int> cum_pos;
-  std::vector<int> cum_neg;
-  int total_pos;  // Total events (target=1)
-  int total_neg;  // Total non-events (target=0)
-
-  // |IV| of the bin made of sorted observations i..j (inclusive)
-  double calculate_bin_iv(int i, int j) const {
-    const int bin_count_pos = cum_pos[static_cast<size_t>(j) + 1] - cum_pos[static_cast<size_t>(i)];
-    const int bin_count_neg = cum_neg[static_cast<size_t>(j) + 1] - cum_neg[static_cast<size_t>(i)];
-
-    double prop_event = static_cast<double>(bin_count_pos) / std::max(total_pos, 1);
-    double prop_non_event = static_cast<double>(bin_count_neg) / std::max(total_neg, 1);
-    prop_event = std::max(prop_event, EPSILON);
-    prop_non_event = std::max(prop_non_event, EPSILON);
-
-    const double woe = utils::safe_log(prop_event / prop_non_event);
-    return std::fabs((prop_event - prop_non_event) * woe);
-  }
-
-public:
-  DynamicProgramming(const std::vector<double> &values,
-                     const std::vector<int> &targets)
-    : total_pos(0), total_neg(0) {
-    std::vector<std::pair<double, int>> paired_data;
-    paired_data.reserve(values.size());
-    for (size_t i = 0; i < values.size(); ++i) {
-      paired_data.push_back(std::make_pair(values[i], targets[i]));
-    }
-    std::sort(paired_data.begin(), paired_data.end());
-
-    sorted_values.reserve(paired_data.size());
-    cum_pos.assign(1, 0);
-    cum_neg.assign(1, 0);
-    for (const auto &pair : paired_data) {
-      sorted_values.push_back(pair.first);
-      if (pair.second == 1) {
-        total_pos++;
-      } else {
-        total_neg++;
-      }
-      cum_pos.push_back(total_pos);
-      cum_neg.push_back(total_neg);
-    }
-  }
-
-  // Cutpoints of the partition into at most k bins that maximises the sum of
-  // |IV| over bins. Splits are only placed between two distinct values: a
-  // split inside a run of ties cannot be realised by any cutpoint, and the
-  // earlier version produced duplicate cutpoints and empty bins from them.
-  std::vector<double> optimize(int k) {
-    const int n = static_cast<int>(sorted_values.size());
-
-    // valid[l]: a split before sorted observation l separates two distinct
-    // finite values (-Inf / +Inf stay with the lowest / highest finite values
-    // and never produce a cutpoint)
-    std::vector<char> valid(static_cast<size_t>(n) + 1, 0);
-    int n_distinct = 1;  // 1 + number of valid split positions
-    for (int l = 1; l < n; ++l) {
-      const double lo = sorted_values[static_cast<size_t>(l) - 1];
-      const double hi = sorted_values[static_cast<size_t>(l)];
-      if (lo != hi && std::isfinite(lo) && std::isfinite(hi)) {
-        valid[static_cast<size_t>(l)] = 1;
-        n_distinct++;
-      }
-    }
-
-    k = std::max(2, std::min(k, std::min(n - 1, 50)));
-    k = std::min(k, n_distinct);
-
-    const size_t rows = static_cast<size_t>(n) + 1;
-    const size_t cols = static_cast<size_t>(k) + 1;
-    std::vector<std::vector<double>> dp_table(rows, std::vector<double>(cols, -1.0));
-    std::vector<std::vector<int>> split_points(rows, std::vector<int>(cols, -1));
-
-    // Base case: 1 bin
-    dp_table[0][1] = 0.0;
-    for (int i = 1; i <= n; ++i) {
-      dp_table[static_cast<size_t>(i)][1] = calculate_bin_iv(0, i - 1);
-    }
-
-    for (int j = 2; j <= k; ++j) {
-      for (int i = j; i <= n; ++i) {
-        double &best = dp_table[static_cast<size_t>(i)][static_cast<size_t>(j)];
-        for (int l = j - 1; l < i; ++l) {
-          if (!valid[static_cast<size_t>(l)]) continue;
-          const double prev = dp_table[static_cast<size_t>(l)][static_cast<size_t>(j) - 1];
-          if (prev < 0.0) continue;  // infeasible state
-
-          const double current_iv = prev + calculate_bin_iv(l, i - 1);
-          if (current_iv > best) {
-            best = current_iv;
-            split_points[static_cast<size_t>(i)][static_cast<size_t>(j)] = l;
-          }
-        }
-      }
-    }
-
-    // Recover the optimal split positions
-    std::vector<double> cutpoints;
-    int i = n;
-    int j = k;
-    while (j > 1) {
-      const int split = split_points[static_cast<size_t>(i)][static_cast<size_t>(j)];
-      cutpoints.push_back(utils::safe_cut(sorted_values[static_cast<size_t>(split) - 1],
-                                          sorted_values[static_cast<size_t>(split)]));
-      i = split;
-      j--;
-    }
-
-    std::sort(cutpoints.begin(), cutpoints.end());
-    return cutpoints;
-  }
-};
-
-// ============================================================================
 // Optimal numerical binning with a quantile sketch
 // ============================================================================
 class OBN_Sketch {
@@ -382,83 +337,140 @@ private:
     return candidates;
   }
 
-  // Split statistics of every candidate (sorted, distinct) in one pass:
-  // each observation is located by binary search among the candidates and
-  // the per-slot counts are accumulated, instead of testing every candidate
-  // against every observation.
-  std::vector<CutpointStats> calculate_cutpoint_stats(const std::vector<double> &candidates) const {
+  // Candidate cutpoints for small samples (n <= dp_size_limit): every
+  // boundary between two consecutive distinct finite values.
+  std::vector<double> extract_exact_candidates() const {
+    std::vector<double> v;
+    v.reserve(feature.size());
+    for (double x : feature) if (std::isfinite(x)) v.push_back(x);
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+    std::vector<double> candidates;
+    for (size_t i = 0; i + 1 < v.size(); ++i) candidates.push_back(utils::safe_cut(v[i], v[i + 1]));
+    candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+    return candidates;
+  }
+
+  // Audit X-09 / E-01 (+E-05): the cutpoints used to be the max_bins - 1
+  // candidates with the largest single-cut IV. Single-cut IVs of adjacent
+  // candidates are almost equal, so the chosen cuts clustered next to each
+  // other (-29% IV against the optimum over the same candidates), and the
+  // exact DP only ran for n <= 50 with an unsmoothed sum of |IV| and no
+  // minimum support (bins of 1-2 observations). Now both branches run the
+  // exact contiguous partition DP (utils::sketch_partition_dp, the
+  // ob::partition_dp recursion) over the slots between
+  // consecutive candidates: the objective is the normalized Jeffreys IV
+  // (alpha = 0.5, K = number of bins; the package reference estimator) and
+  // every bin must hold at least ceil(bin_cutoff * n) observations inside the
+  // DP.
+  //
+  // Number of bins (audit Section 15.5, minimum evidence): the DP solution for
+  // every K in [min_bins, max_bins] is scored with the Schwarz (1978) BIC of
+  // the binned event-rate model, ob::bic_score() = binomial log-likelihood -
+  // (K - 1) / 2 * log(n), and the highest score wins (ties: fewer bins). A bin
+  // is kept only when it raises the log-likelihood by more than log(n) / 2,
+  // so max_bins is a ceiling, not a target. Picking the K with the largest
+  // training IV (IV never falls when K grows) over-split small samples and
+  // rare events (n = 40-60, 0.2%-1% events) in the 20-seed hold-out gate.
+  //
+  // With monotonic = TRUE the DP is run with the monotone (smoothed-odds)
+  // constraint in both directions and the BIC decides between them, as it
+  // does between values of K (audit Section 7.2, T4): optimizing the unconstrained IV and then pooling violators (the
+  // later enforce_monotonicity step) would bring back a greedy, worse
+  // partition on non-monotone signals.
+  //
+  // Fallbacks, in order, when no K in [min_bins, max_bins] meets the support
+  // (e.g. 90% of the rows on one value): K = min_bins bins with the largest
+  // feasible minimum size; then the monotone constraint is dropped; and only
+  // then fewer than min_bins bins (features with too few distinct values,
+  // e.g. a binary flag).
+  void select_optimal_cutpoints(const std::vector<double> &candidates) {
+    cutpoints.clear();
     const size_t C = candidates.size();
-    std::vector<int> slot_pos(C + 1, 0);
-    std::vector<int> slot_neg(C + 1, 0);
+    std::vector<int64_t> slot_pos(C + 1, 0), slot_neg(C + 1, 0);
     for (size_t i = 0; i < feature.size(); ++i) {
-      // first candidate >= value: the value is "below" it and every later one
+      // first candidate >= value: slot s holds (candidates[s-1], candidates[s]]
       const size_t s = static_cast<size_t>(
         std::lower_bound(candidates.begin(), candidates.end(), feature[i]) - candidates.begin());
       if (target[i]) slot_pos[s]++; else slot_neg[s]++;
     }
 
-    std::vector<CutpointStats> stats;
-    stats.reserve(C);
-    int below_pos = 0;
-    int below_neg = 0;
-    const int n = static_cast<int>(feature.size());
-    for (size_t c = 0; c < C; ++c) {
-      below_pos += slot_pos[c];
-      below_neg += slot_neg[c];
-      CutpointStats cs(candidates[c]);
-      cs.count_pos_below = below_pos;
-      cs.count_neg_below = below_neg;
-      cs.count_below = below_pos + below_neg;
-      cs.count_pos_above = total_pos - below_pos;
-      cs.count_neg_above = total_neg - below_neg;
-      cs.count_above = n - cs.count_below;
-      stats.push_back(cs);
-    }
+    const int64_t support = std::max<int64_t>(1, static_cast<int64_t>(
+      std::ceil(bin_cutoff * static_cast<double>(feature.size()))));
+    const int m = static_cast<int>(C + 1);
+    const int k_hi = std::min(max_bins, m);
+    const int k_lo = std::min(min_bins, k_hi);
 
-    for (auto &cs : stats) {
-      if (cs.count_below == 0 || cs.count_above == 0) {
-        cs.iv = 0.0;
-        continue;
+    // BIC of the partition of the slots given by `cuts` (start slot of bins
+    // 2..K), to be maximized.
+    auto bic_of = [&](const std::vector<int> &cuts) {
+      std::vector<double> bp, bn;
+      size_t s0 = 0;
+      for (size_t q = 0; q <= cuts.size(); ++q) {
+        const size_t s1 = q < cuts.size() ? static_cast<size_t>(cuts[q]) : slot_pos.size();
+        double a = 0.0, b = 0.0;
+        for (size_t t = s0; t < s1; ++t) {
+          a += static_cast<double>(slot_pos[t]);
+          b += static_cast<double>(slot_neg[t]);
+        }
+        bp.push_back(a);
+        bn.push_back(b);
+        s0 = s1;
       }
-
-      double prop_event_below = static_cast<double>(cs.count_pos_below) / std::max(total_pos, 1);
-      double prop_non_event_below = static_cast<double>(cs.count_neg_below) / std::max(total_neg, 1);
-      prop_event_below = std::max(prop_event_below, EPSILON);
-      prop_non_event_below = std::max(prop_non_event_below, EPSILON);
-      const double woe_below = utils::safe_log(prop_event_below / prop_non_event_below);
-      const double iv_below = (prop_event_below - prop_non_event_below) * woe_below;
-
-      double prop_event_above = static_cast<double>(cs.count_pos_above) / std::max(total_pos, 1);
-      double prop_non_event_above = static_cast<double>(cs.count_neg_above) / std::max(total_neg, 1);
-      prop_event_above = std::max(prop_event_above, EPSILON);
-      prop_non_event_above = std::max(prop_non_event_above, EPSILON);
-      const double woe_above = utils::safe_log(prop_event_above / prop_non_event_above);
-      const double iv_above = (prop_event_above - prop_non_event_above) * woe_above;
-
-      cs.iv = std::fabs(iv_below) + std::fabs(iv_above);
-    }
-
-    return stats;
-  }
-
-  // Exact DP for small samples, greedy IV ranking of the candidates otherwise
-  void select_optimal_cutpoints(const std::vector<double> &candidates) {
-    cutpoints.clear();
-    if (feature.size() <= static_cast<size_t>(dp_size_limit)) {
-      DynamicProgramming dp(feature, target);
-      cutpoints = dp.optimize(max_bins);
-    } else {
-      std::vector<CutpointStats> stats = calculate_cutpoint_stats(candidates);
-      std::sort(stats.begin(), stats.end(),
-                [](const CutpointStats &a, const CutpointStats &b) {
-                  return a.iv > b.iv;
-                });
-
-      const size_t n_take = std::min(stats.size(), static_cast<size_t>(max_bins - 1));
-      for (size_t i = 0; i < n_take; ++i) {
-        cutpoints.push_back(stats[i].cutpoint);
+      return ob::bic_score(bp, bn);
+    };
+    ob::DpResult best{-std::numeric_limits<double>::infinity(), {}};
+    double best_score = -std::numeric_limits<double>::infinity();
+    auto stage = [&](int k_from, int k_to, int64_t min_count, bool mono) {
+      bool found = false;
+      for (int k = k_from; k <= k_to; ++k) {
+        for (int dir = 0; dir < (mono ? 2 : 1); ++dir) {
+          const ob::DpResult r = utils::sketch_partition_dp(slot_pos, slot_neg, k, mono,
+                                                  /*asc=*/dir == 0, min_count);
+          if (!std::isfinite(r.iv)) continue;
+          const double sc = bic_of(r.cuts);
+          if (!found || sc > best_score + 1e-12) {
+            best = r;
+            best_score = sc;
+            found = true;
+          }
+        }
       }
-      std::sort(cutpoints.begin(), cutpoints.end());
+      return found;
+    };
+
+    // Largest minimum bin size (<= support) for which k bins are feasible,
+    // 0 if none: feasibility is monotone in min_count, so bisect.
+    auto max_support = [&](int k, bool mono) {
+      int64_t lo = 0, hi = support;
+      while (lo < hi) {
+        const int64_t mid = lo + (hi - lo + 1) / 2;
+        bool ok = false;
+        for (int dir = 0; dir < (mono ? 2 : 1) && !ok; ++dir)
+          ok = std::isfinite(utils::sketch_partition_dp(slot_pos, slot_neg, k, mono,
+                                                        dir == 0, mid).iv);
+        if (ok) lo = mid; else hi = mid - 1;
+      }
+      return lo;
+    };
+
+    bool found = false;
+    for (int few = 0; few < 2 && !found; ++few) {
+      const int a = few ? 2 : k_lo, b = few ? k_lo - 1 : k_hi;
+      for (int pass = 0; pass < (monotonic ? 2 : 1) && !found; ++pass) {
+        const bool mono = monotonic && pass == 0;
+        found = stage(a, b, support, mono);
+        if (!found && a <= b) {
+          // No k in [a, b] meets bin_cutoff: use k = a bins (fewest allowed;
+          // enforce_bin_cutoff() would merge down to it anyway) that are as
+          // large as possible.
+          const int64_t mc = max_support(a, mono);
+          if (mc > 0) found = stage(a, a, mc, mono);
+        }
+      }
+    }
+    if (found) {
+      for (int c : best.cuts) cutpoints.push_back(candidates[static_cast<size_t>(c) - 1]);
     }
 
     create_initial_bins();
@@ -602,12 +614,14 @@ public:
     try {
       validate_inputs();
       build_sketch();
-      select_optimal_cutpoints(extract_candidates());
+      select_optimal_cutpoints(feature.size() <= static_cast<size_t>(dp_size_limit)
+                                 ? extract_exact_candidates()
+                                 : extract_candidates());
       enforce_bin_cutoff();
       calculate_initial_woe();
       enforce_monotonicity();
 
-      // DP and greedy selection both return at most max_bins - 1 cutpoints
+      // The DP returns at most max_bins - 1 cutpoints
       // and every later step only merges, so bins.size() <= max_bins holds
       // here and no further reduction is needed: the binning has converged.
       const bool converged_flag = true;
@@ -682,6 +696,52 @@ public:
 // ============================================================================
 // Exported function for R
 // ============================================================================
+
+// Audit X-11 (B-05, C-09, E-14): honest monotonicity flag. The merge loops
+// that enforce monotonicity stop at min_bins and used to return a WoE that is
+// not monotonic with no signal at all (converged = TRUE, a direction label
+// that only states the intended direction). The final WoE of the regular bins
+// (a missing-value bin labelled "NA" is excluded) is now verified and
+// reported as `monotonic`: non-decreasing for dir > 0, non-increasing for
+// dir < 0, either for dir == 0 (tolerance 1e-9). The same order is required
+// of the reference WoE, log((pos + 0.5) / (neg + 0.5)) up to a constant (the
+// package's normalized Jeffreys estimator), so that the flag does not depend
+// on how ties of the raw event rate (e.g. several event-free bins) are
+// smoothed. A warning is raised when monotonicity was requested and is not
+// met. The partition is unchanged.
+static void flag_monotonic_result(Rcpp::List &res, bool requested, int dir,
+                                  const char *engine) {
+  const Rcpp::NumericVector woe = res["woe"];
+  const Rcpp::NumericVector pos = res["count_pos"];
+  const Rcpp::NumericVector neg = res["count_neg"];
+  const Rcpp::CharacterVector lab = res["bin"];
+  bool inc = true, dec = true, rinc = true, rdec = true, have = false;
+  double prev = 0.0, rprev = 0.0;
+  for (R_xlen_t i = 0; i < woe.size(); ++i) {
+    if (i < lab.size() && std::string(lab[i]) == "NA") continue;
+    const double w = woe[i];
+    const double rw = std::log((pos[i] + 0.5) / (neg[i] + 0.5));
+    if (have) {
+      if (w < prev - 1e-9) inc = false;
+      if (w > prev + 1e-9) dec = false;
+      if (rw < rprev - 1e-9) rinc = false;
+      if (rw > rprev + 1e-9) rdec = false;
+    }
+    prev = w;
+    rprev = rw;
+    have = true;
+  }
+  inc = inc && rinc;
+  dec = dec && rdec;
+  const bool mono = dir > 0 ? inc : (dir < 0 ? dec : (inc || dec));
+  res.push_back(Rcpp::wrap(mono), "monotonic");
+  if (requested && !mono) {
+    Rcpp::warning("%s: a monotonic WoE was requested but the returned WoE "
+                  "(or its reference estimate, 0.5 per bin and class) is not "
+                  "monotonic; see $monotonic.", engine);
+  }
+}
+
 // [[Rcpp::export]]
 Rcpp::List optimal_binning_numerical_sketch(
     Rcpp::IntegerVector target,
@@ -777,10 +837,14 @@ Rcpp::List optimal_binning_numerical_sketch(
       Named("total_iv") = iv,
       Named("cutpoints") = NumericVector::create(),
       Named("converged") = true,
-      Named("iterations") = 0);
+      Named("iterations") = 0,
+      Named("monotonic") = true);  // one bin: trivially monotonic (audit X-11)
   }
 
   OBN_Sketch sketch_binner(feature_vec, target_vec, min_bins, max_bins,
                            bin_cutoff, monotonic, max_iterations, sketch_k);
-  return sketch_binner.fit();
+  Rcpp::List res = sketch_binner.fit();
+  flag_monotonic_result(res, monotonic, 0,
+                        "ob_numerical_sketch");
+  return res;
 }

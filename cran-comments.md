@@ -1,32 +1,22 @@
-# CRAN Submission Comments — OptimalBinningWoE 1.14.1
+# CRAN Submission Comments — OptimalBinningWoE 1.15.0
 
 ## Summary
 
-Bug-fix release. Fourteen categorical binners ordered tied categories by
-hash-table or first-appearance order, so the fitted bins could depend on the
-row order of the data and differ between platforms (Linux and macOS). Ties are
-now broken by count, then by category name, so the result no longer depends
-on the row order. `ob_categorical_dp()` with `monotonic_trend = "descending"`
-and at most `max_bins` categories now returns the bins in decreasing event
-rate. The release also corrects help pages, vignettes and `DESCRIPTION` where
-they disagreed with the code. No argument was added or removed. Details are in
-`NEWS.md`.
+Correctness release for the C++ binning engines, following a forensic audit.
+Bins without events (or non-events) no longer get a neutral WoE of 0;
+several engines now honour `min_bins` / `bin_cutoff` as documented; merge
+criteria and the exact dynamic programs optimize the IV they report, with a
+minimum-evidence rule (empirical-Bayes smoothing, BIC or a binomial test) so
+small samples and rare events are not overfitted; nine numerical engines
+return a verified `monotonic` flag. Fitted bins change for the engines listed
+in `NEWS.md`; every other engine gives the same result as 1.14.1. No argument
+was added or removed.
 
 ---
 
 ## R CMD check results
 
-### Local check
-
-x86_64-pc-linux-gnu, R 4.6.1, GCC 15.2, `R CMD check --as-cran` on the built
-tarball with vignettes:
-
-```
-0 errors | 0 warnings | 1 note
-```
-
-**NOTE — `checking HTML version of manual`.** The check machine has no `tidy`
-binary, so HTML validation was skipped.
+GitHub Actions, `R CMD check` on the matrix below: 0 errors | 0 warnings.
 
 ---
 
