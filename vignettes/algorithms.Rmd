@@ -185,7 +185,7 @@ matter on continuous variables with a long tail.
 | A multinomial target | `jedi_mwoe` | The only engine that accepts one |
 | A statistical stopping rule | `cm` (categorical) | The significance level decides the bin count. In numerical `cm` it does not: `max_bins` does (see below) |
 | IV-optimal bins given the ordering | `ivb`, `dp` (categorical), `sblp` | Dynamic programming over the ordered levels. Categorical `dp` scores a bin with no events or no non-events as WoE = IV = 0; `sblp` optimizes its own smoothing, not the IV it reports, and may merge bins afterwards |
-| The bin count decided by the data, with the shape enforced | `orbe` | Exact search on the Bayesian evidence: `max_bins` is a limit, not a target, and the WoE is strictly monotone (or a peak or valley) by construction |
+| The bin count decided by the data, with the shape enforced | `orbe` | Exact search on a Bayesian predictive score or on the evidence: `max_bins` is a limit, not a target, and the WoE is strictly monotone (or a peak or valley) by construction |
 | WoE with a measure of uncertainty | `orbe` | Posterior-mean WoE with credible intervals; finite in bins without events |
 | The bin count decided by theory | `fast_mdlp` | The only Fayyad–Irani criterion here; `max_bins`, `min_bins` and the default `force_monotonicity = TRUE` can still override it |
 | Monotone event rates by construction | `ir` | Isotonic regression pools the violating bins, so event rates are monotone; the smoothed WoE can still break that order when adjacent bins tie in event rate (two bins with no events, for example) or when a bin is tiny; `bin_cutoff` only guards against the second case |
@@ -252,18 +252,28 @@ threshold hardcoded as `dp_size_limit(50)` (`:595`), tested in
 `select_optimal_cutpoints()` (`:447`) and not exposed. For any real dataset,
 `sketch` takes its greedy branch.
 
-### Exact evidence maximization
+### Exact Bayesian score maximization
 
 **`orbe`** (`ob_numerical_orbe()`, `ob_categorical_orbe()`) scores a partition
-by the sum of the Beta-Binomial log marginal likelihoods of its bins plus the
-log prior of the partition, and maximizes that score by dynamic programming
+by the sum over its bins of a Beta-Binomial log score, and maximizes that
+score by dynamic programming
 (`run_dp()`, `src/common/orbe_core.h`). The state is the last bin of a partial
 partition, and a bin may follow another only when its posterior WoE respects
 the shape, so the minimum bin size, the number of bins and the shape are
 constraints of the recursion and not corrections applied afterwards. The
-number of bins is decided by the evidence, the prior and, in the numerical
-engine, the order-restriction factor; it is selected between `min_bins` and
-`max_bins` and not driven to `max_bins`.
+number of bins is decided by the score and, in the numerical engine, the
+order-restriction factor; it is selected between `min_bins` and `max_bins`
+and not driven to `max_bins`.
+
+The score of a bin is chosen with `criterion`. `"predictive"`, the default,
+is the leave-one-out log predictive probability of the rows of the bin; it
+charges about one unit for a split into bins with equal observed rates,
+favors out-of-sample accuracy and returns more bins. `"evidence"` is the log
+marginal likelihood; its charge for the same split grows as
+\(\tfrac{1}{2}\log n\), so it returns fewer bins in large samples. The cuts
+are chosen among many candidates, so with the default `bin_penalty = 0` a
+feature unrelated to the target can still be split; `bin_penalty` subtracts
+a cost per additional bin under either criterion and controls this.
 
 The atoms of the search are the distinct values of a numerical feature, or the
 categories ordered by posterior-mean event rate. With more than
@@ -271,7 +281,8 @@ categories ordered by posterior-mean event rate. With more than
 adjacent atoms are grouped by frequency, which restricts the candidate cuts;
 `obwoe()` passes its control value, 20 by default, so raise `max_n_prebins`
 in `control.obwoe()` for a finer search. `obwoe()` does not forward
-`monotonic_trend`, `prior_strength` or `credible_level`; call the engine
+`monotonic_trend`, `prior_strength`, `credible_level`, `bin_penalty` or
+`criterion`; call the engine
 directly to set them. For
 categorical features the search is exact among groupings contiguous in the
 rate order only. The order-restriction factor of the numerical engine is

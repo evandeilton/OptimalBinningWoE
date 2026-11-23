@@ -4,8 +4,11 @@
 
 *   **`ob_numerical_orbe()` and `ob_categorical_orbe()`**: Order-Restricted
     Bayesian Evidence binning, available in `obwoe()` and `step_obwoe()` as
-    `algorithm = "orbe"`. The bins and their number maximize the Bayesian
-    evidence of a constant event rate per bin, by exact dynamic programming.
+    `algorithm = "orbe"`. The bins and their number maximize a Bayesian
+    score of a constant event rate per bin, by exact dynamic programming:
+    the leave-one-out predictive probability (`criterion = "predictive"`,
+    the default) or the marginal likelihood (`criterion = "evidence"`, fewer
+    bins).
     The WoE shape (`"auto"`, `"ascending"`, `"descending"`, `"peak"`,
     `"valley"` or `"none"`) and the minimum bin size are constraints of the
     search, so

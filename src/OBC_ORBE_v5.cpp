@@ -14,9 +14,9 @@
  * @brief Order-Restricted Bayesian Evidence binning for categorical features
  *
  * Atoms are the categories ordered by their posterior-mean event rate. The
- * groups are contiguous in that order and maximize the Beta-Binomial evidence
- * of the grouping, so a category merges when the data do not support a rate
- * of its own.
+ * groups are contiguous in that order and maximize a Beta-Binomial score of
+ * the grouping (leave-one-out predictive or marginal likelihood), so a
+ * category merges when the data do not support a rate of its own.
  */
 
 #include "common/orbe_core.h"
@@ -44,7 +44,9 @@ Rcpp::List optimal_binning_categorical_orbe(
     int max_n_prebins = 200,
     std::string bin_separator = "%;%",
     double prior_strength = 1.0,
-    double credible_level = 0.95) {
+    double credible_level = 0.95,
+    double bin_penalty = 0.0,
+    std::string criterion = "predictive") {
 
   try {
     // ---- Validation -------------------------------------------------------
@@ -64,6 +66,12 @@ Rcpp::List optimal_binning_categorical_orbe(
     }
     if (!(credible_level > 0.0 && credible_level < 1.0)) {
       throw std::invalid_argument("credible_level must be in (0, 1).");
+    }
+    if (!(bin_penalty >= 0.0 && bin_penalty <= 1e6)) {
+      throw std::invalid_argument("bin_penalty must be in [0, 1e6].");
+    }
+    if (criterion != "predictive" && criterion != "evidence") {
+      throw std::invalid_argument("criterion must be 'predictive' or 'evidence'.");
     }
 
     // ---- Counts per category (a missing value is the category "NA") -------
@@ -145,20 +153,14 @@ Rcpp::List optimal_binning_categorical_orbe(
     }
     const int u = static_cast<int>(atom_end.size());
 
-    // ---- Prior: number of groups uniform on 1..L, and each category is
-    // assigned to one of the k groups uniformly
     const int kmax = std::min(max_bins, u);
-    const double n_lev = static_cast<double>(n_levels);
-    std::vector<double> log_prior(static_cast<size_t>(kmax) + 1, 0.0);
-    for (int k = 1; k <= kmax; ++k) {
-      log_prior[static_cast<size_t>(k)] = -std::log(n_lev) - n_lev * std::log(static_cast<double>(k));
-    }
 
     // ---- Fit: groups in strictly increasing posterior WoE -----------------
     const double n_min = orbe::min_bin_rows(bin_cutoff, tot_n);
     const std::vector<orbe::Shape> shapes = {orbe::Shape::Ascending};
     const orbe::Fit fit = orbe::fit(cum_n, cum_e, min_bins, max_bins, n_min, a, b,
-                                    log_prior, shapes, false);
+                                    shapes, false, bin_penalty,
+                                    criterion == "predictive");
     const size_t k = fit.ends.size();
 
     // ---- Output -----------------------------------------------------------
@@ -204,8 +206,9 @@ Rcpp::List optimal_binning_categorical_orbe(
       Rcpp::Named("woe_upper") = Rcpp::wrap(s.woe_upper),
       Rcpp::Named("total_iv") = s.total_iv,
       Rcpp::Named("total_iv_corrected") = s.total_iv_corrected,
-      Rcpp::Named("log_evidence") = fit.log_evidence,
-      Rcpp::Named("log_evidence_by_bins") = Rcpp::wrap(fit.score_by_k),
+      Rcpp::Named("log_score") = fit.log_score,
+      Rcpp::Named("log_score_by_bins") = Rcpp::wrap(fit.score_by_k),
+      Rcpp::Named("criterion") = criterion,
       Rcpp::Named("order_probability") = fit.order_probability,
       Rcpp::Named("converged") = true,
       Rcpp::Named("iterations") = kmax

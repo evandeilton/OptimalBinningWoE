@@ -15,9 +15,16 @@ orbe_f <- function(n, e, ab) {
   lbeta(ab[1] + e, ab[2] + n - e) - lbeta(ab[1], ab[2])
 }
 
+# Leave-one-out log predictive score of a bin
+orbe_f_loo <- function(n, e, ab) {
+  den <- sum(ab) + n - 1
+  ifelse(e > 0, e * log((ab[1] + e - 1) / den), 0) +
+    ifelse(n - e > 0, (n - e) * log((ab[2] + n - e - 1) / den), 0)
+}
+
 # Best additive score for every bin count, by enumeration of the cuts.
 # `ok` receives the posterior logits of the bins and returns TRUE or FALSE.
-orbe_brute <- function(n, e, ab, n_min, kmax, ok) {
+orbe_brute <- function(n, e, ab, n_min, kmax, ok, f = orbe_f) {
   u <- length(n)
   best <- rep(-Inf, kmax)
   part <- vector("list", kmax)
@@ -29,7 +36,7 @@ orbe_brute <- function(n, e, ab, n_min, kmax, ok) {
       be <- as.numeric(tapply(e, g, sum))
       if (any(bn < n_min)) next
       if (!ok(digamma(ab[1] + be) - digamma(ab[2] + bn - be))) next
-      val <- sum(orbe_f(bn, be, ab))
+      val <- sum(f(bn, be, ab))
       if (val > best[k]) {
         best[k] <- val
         part[[k]] <- bn
@@ -66,21 +73,20 @@ test_that("numerical orbe matches exhaustive search without a shape", {
     ab <- orbe_prior(mean(d$y))
     n_min <- ceiling(0.05 * length(d$x))
     ref <- orbe_brute(n, e, ab, n_min, 6, function(r) TRUE)
-    m <- length(n) - 1
-    ref_score <- ref$best - log(m + 1) - lchoose(m, 0:5)
+    ref_score <- ref$best
 
     fit <- ob_numerical_orbe(d$x, d$y,
       min_bins = 1, max_bins = 6,
-      monotonic_trend = "none"
+      monotonic_trend = "none", criterion = "evidence"
     )
-    got <- fit$log_evidence_by_bins
+    got <- fit$log_score_by_bins
     expect_equal(got[is.finite(ref_score)], ref_score[is.finite(ref_score)],
       tolerance = 1e-9
     )
     k <- which.max(ref_score)
     expect_equal(length(fit$bin), k)
     expect_equal(as.numeric(fit$count), ref$part[[k]])
-    expect_equal(fit$log_evidence, max(ref_score), tolerance = 1e-9)
+    expect_equal(fit$log_score, max(ref_score), tolerance = 1e-9)
   }
 })
 
@@ -97,29 +103,28 @@ test_that("numerical orbe matches exhaustive search under each shape", {
     e <- as.numeric(tapply(d$y, d$x, sum))
     ab <- orbe_prior(mean(d$y))
     n_min <- ceiling(0.05 * length(d$x))
-    m <- length(n) - 1
     for (shape in names(shapes)) {
       ref <- orbe_brute(n, e, ab, n_min, 5, shapes[[shape]])
       fit <- ob_numerical_orbe(d$x, d$y,
         min_bins = 1, max_bins = 5,
-        monotonic_trend = shape
+        monotonic_trend = shape, criterion = "evidence"
       )
       k <- length(fit$bin)
       expect_true(is.finite(ref$best[k]))
       expect_equal(as.numeric(fit$count), ref$part[[k]], info = paste(seed, shape))
 
-      # Score = additive part + log prior + log Bayes factor of the order
+      # Score = additive part + log Bayes factor of the order
       log_mass <- -lfactorial(k)
       if (shape %in% c("peak", "valley")) log_mass <- log_mass + (k - 1) * log(2)
       bf <- if (k > 1) log(fit$order_probability) - log_mass else 0
-      expect_equal(fit$log_evidence,
-        ref$best[k] - log(m + 1) - lchoose(m, k - 1) + bf,
+      expect_equal(fit$log_score,
+        ref$best[k] + bf,
         tolerance = 1e-8, info = paste(seed, shape)
       )
       # Feasibility of every bin count agrees with the enumeration
       expect_equal(
-        is.finite(fit$log_evidence_by_bins),
-        is.finite(ref$best[seq_along(fit$log_evidence_by_bins)])
+        is.finite(fit$log_score_by_bins),
+        is.finite(ref$best[seq_along(fit$log_score_by_bins)])
       )
     }
   }
@@ -190,18 +195,26 @@ test_that("numerical orbe WoE is the digamma posterior mean", {
 test_that("numerical orbe selects the number of bins from the data", {
   set.seed(503)
   x <- rnorm(3000)
-  # No relationship: one bin when allowed
+  # No relationship: one bin under the evidence, when allowed
   y0 <- rbinom(3000, 1, 0.2)
-  fit0 <- ob_numerical_orbe(x, y0, min_bins = 1, max_bins = 10)
+  fit0 <- ob_numerical_orbe(x, y0, min_bins = 1, max_bins = 10, criterion = "evidence")
   expect_equal(length(fit0$bin), 1)
   expect_equal(fit0$bin, "(-Inf;+Inf]")
   expect_equal(length(fit0$cutpoints), 0)
 
-  # Two-level step: two bins, cut near the step, max_bins is not reached
+  # Two-level step: max_bins is not reached and a cut falls near the step
   y2 <- rbinom(3000, 1, ifelse(x > 0.3, 0.45, 0.10))
   fit2 <- ob_numerical_orbe(x, y2, min_bins = 1, max_bins = 10)
-  expect_equal(length(fit2$bin), 2)
-  expect_lt(abs(fit2$cutpoints - 0.3), 0.15)
+  expect_lt(length(fit2$bin), 10)
+  expect_lt(min(abs(fit2$cutpoints - 0.3)), 0.15)
+
+  # A penalty per bin recovers the two levels
+  fit3 <- ob_numerical_orbe(x, y2,
+    min_bins = 1, max_bins = 10,
+    criterion = "evidence", bin_penalty = 3
+  )
+  expect_equal(length(fit3$bin), 2)
+  expect_lt(abs(fit3$cutpoints - 0.3), 0.15)
 })
 
 test_that("numerical orbe recovers a peak", {
@@ -332,12 +345,11 @@ test_that("categorical orbe matches exhaustive search over the rate order", {
     n_min <- ceiling(0.05 * 500)
     ref <- orbe_brute(n[ord], e[ord], ab, n_min, 6, strictly_increasing)
 
-    # Log prior of a grouping of 8 categories into k groups
-    ref_score <- ref$best - log(8) - 8 * log(1:6)
+    ref_score <- ref$best
 
-    fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 6)
+    fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 6, criterion = "evidence")
     ok <- is.finite(ref_score)
-    expect_equal(fit$log_evidence_by_bins[ok], ref_score[ok], tolerance = 1e-9)
+    expect_equal(fit$log_score_by_bins[ok], ref_score[ok], tolerance = 1e-9)
     k <- which.max(ref_score)
     expect_equal(length(fit$bin), k)
     expect_equal(as.numeric(fit$count), ref$part[[k]])
@@ -485,7 +497,7 @@ test_that("orbe keeps the atoms when max_bins is very large", {
   fit <- ob_numerical_orbe(x, y, max_bins = 1e6, bin_cutoff = 0.01)
   ref <- ob_numerical_orbe(x, y, max_bins = 100, bin_cutoff = 0.01)
   expect_identical(fit$bin, ref$bin)
-  expect_equal(fit$log_evidence, ref$log_evidence)
+  expect_equal(fit$log_score, ref$log_score)
 })
 
 test_that("orbe accepts a bin with exactly bin_cutoff of the rows", {
@@ -515,4 +527,80 @@ test_that("categorical orbe warns when the separator is inside a category", {
   f <- rep(c("a%;%b", "c", "d"), each = 30)
   y <- rep(c(0L, 1L, 1L, 0L, 0L, 1L), 15)
   expect_warning(ob_categorical_orbe(f, y), "bin_separator")
+})
+
+test_that("bin_penalty subtracts a cost per additional bin", {
+  d <- orbe_small(31)
+  free <- ob_numerical_orbe(d$x, d$y, min_bins = 1, max_bins = 6, monotonic_trend = "none")
+  pen <- ob_numerical_orbe(d$x, d$y,
+    min_bins = 1, max_bins = 6, monotonic_trend = "none",
+    bin_penalty = 1.5
+  )
+  k <- seq_along(free$log_score_by_bins)
+  expect_equal(pen$log_score_by_bins, free$log_score_by_bins - 1.5 * (k - 1))
+  expect_lte(length(pen$bin), length(free$bin))
+
+  f <- sample(letters[1:8], 600, replace = TRUE)
+  y <- rbinom(600, 1, plogis(-1 + match(f, letters) / 5))
+  free_c <- ob_categorical_orbe(f, y, min_bins = 1)
+  pen_c <- ob_categorical_orbe(f, y, min_bins = 1, bin_penalty = 2)
+  kc <- seq_along(free_c$log_score_by_bins)
+  expect_equal(pen_c$log_score_by_bins, free_c$log_score_by_bins - 2 * (kc - 1))
+
+  expect_error(ob_numerical_orbe(d$x, d$y, bin_penalty = -1), "bin_penalty")
+  expect_error(ob_categorical_orbe(f, y, bin_penalty = NA), "bin_penalty")
+})
+
+test_that("orbe matches exhaustive search with the predictive criterion", {
+  for (seed in 41:46) {
+    d <- orbe_small(seed)
+    n <- as.numeric(table(d$x))
+    e <- as.numeric(tapply(d$y, d$x, sum))
+    ab <- orbe_prior(mean(d$y))
+    n_min <- ceiling(0.05 * length(d$x))
+
+    ref <- orbe_brute(n, e, ab, n_min, 6, function(r) TRUE, orbe_f_loo)
+    fit <- ob_numerical_orbe(d$x, d$y, min_bins = 1, max_bins = 6, monotonic_trend = "none")
+    expect_equal(fit$criterion, "predictive")
+    ok <- is.finite(ref$best)
+    expect_equal(fit$log_score_by_bins[ok], ref$best[ok], tolerance = 1e-9)
+    expect_equal(as.numeric(fit$count), ref$part[[which.max(ref$best)]])
+
+    ref_a <- orbe_brute(n, e, ab, n_min, 6, strictly_increasing, orbe_f_loo)
+    fit_a <- ob_numerical_orbe(d$x, d$y, min_bins = 1, max_bins = 6, monotonic_trend = "ascending")
+    k <- length(fit_a$bin)
+    expect_equal(as.numeric(fit_a$count), ref_a$part[[k]])
+    bf <- if (k > 1) log(fit_a$order_probability) + lfactorial(k) else 0
+    expect_equal(fit_a$log_score, ref_a$best[k] + bf, tolerance = 1e-8)
+  }
+
+  # Categorical: same engine over the rate order
+  set.seed(47)
+  lev <- letters[1:7]
+  f <- sample(lev, 400, replace = TRUE)
+  y <- rbinom(400, 1, plogis(-1 + rnorm(7)[match(f, lev)]))
+  ab <- orbe_prior(mean(y))
+  n <- as.numeric(table(f))
+  e <- as.numeric(tapply(y, f, sum))
+  ord <- order((ab[1] + e) / (sum(ab) + n), n, names(table(f)))
+  ref <- orbe_brute(n[ord], e[ord], ab, 20, 6, strictly_increasing, orbe_f_loo)
+  fit <- ob_categorical_orbe(f, y, min_bins = 1, max_bins = 6)
+  ok <- is.finite(ref$best)
+  expect_equal(fit$log_score_by_bins[ok], ref$best[ok], tolerance = 1e-9)
+  expect_equal(as.numeric(fit$count), ref$part[[which.max(ref$best)]])
+})
+
+test_that("orbe validates the criterion and the evidence is more parsimonious", {
+  set.seed(48)
+  x <- rnorm(3000)
+  y <- rbinom(3000, 1, plogis(-2 + 0.8 * x))
+  expect_error(ob_numerical_orbe(x, y, criterion = "aic"), "criterion")
+  expect_error(ob_numerical_orbe(x, y, criterion = c("predictive", "evidence")), "criterion")
+  expect_error(ob_numerical_orbe(x, y, bin_penalty = 1e308), "bin_penalty")
+  expect_error(ob_categorical_orbe(letters[1 + (x > 0)], y, criterion = "aic"), "criterion")
+  pred <- ob_numerical_orbe(x, y)
+  evid <- ob_numerical_orbe(x, y, criterion = "evidence", bin_penalty = 2)
+  expect_equal(evid$criterion, "evidence")
+  expect_gt(length(pred$bin), length(evid$bin))
+  expect_gte(length(pred$bin), 5)
 })

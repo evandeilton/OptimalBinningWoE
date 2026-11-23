@@ -15,10 +15,11 @@
  *
  * The feature is reduced to an ordered sequence of atoms (distinct values or
  * categories). A partition of the atoms into contiguous bins is scored by the
- * sum of the Beta-Binomial log marginal likelihoods of its bins plus a log
- * prior on the partition. The engine maximizes that score exactly by dynamic
- * programming, with the minimum bin size, the number of bins and the shape of
- * the posterior WoE (monotone or unimodal) as constraints of the recursion.
+ * sum over its bins of a Beta-Binomial log score (leave-one-out predictive
+ * or marginal likelihood), minus an optional penalty per additional bin. The engine maximizes that score exactly
+ * by dynamic programming, with the minimum bin size, the number of bins and
+ * the shape of the posterior WoE (monotone or unimodal) as constraints of the
+ * recursion.
  */
 
 namespace OptimalBinning {
@@ -51,6 +52,16 @@ inline void prior_parameters(double pi0, double strength, double& a, double& b) 
 // events; c0 = lgamma(a + b) - lgamma(a) - lgamma(b).
 inline double bin_log_evidence(double n, double e, double a, double b, double c0) {
   return R::lgammafn(a + e) + R::lgammafn(b + n - e) - R::lgammafn(a + b + n) + c0;
+}
+
+// Leave-one-out log predictive score of a bin: every row is predicted from
+// the posterior given the other rows of the bin.
+inline double bin_log_predictive(double n, double e, double a, double b) {
+  const double den = a + b + n - 1.0;
+  double s = 0.0;
+  if (e > 0.0) s += e * std::log((a + e - 1.0) / den);
+  if (n - e > 0.0) s += (n - e) * std::log((b + n - e - 1.0) / den);
+  return s;
 }
 
 // Posterior mean of logit(theta) for a bin: digamma(A) - digamma(B).
@@ -361,7 +372,7 @@ inline DpResult run_dp(int u, int kmax, const std::vector<double>& score,
 struct Fit {
   std::vector<int> ends;           // bin ends as atom prefix indices
   Shape shape = Shape::None;       // shape of the selected model
-  double log_evidence = NEG_INF;   // score of the selected partition
+  double log_score = NEG_INF;   // score of the selected partition
   double order_probability = 1.0;  // posterior probability of the shape
   std::vector<double> score_by_k;  // score of the best partition of each size
 };
@@ -369,14 +380,16 @@ struct Fit {
 /**
  * @param cum_n,cum_e prefix sums of rows and events over the atoms (size u + 1)
  * @param n_min minimum number of rows in a bin
- * @param log_prior log prior of a partition with k bins, indexed by k
  * @param shapes candidate shapes; with two (auto) the direction is unknown
  * @param order_factor add the Bayes factor of the order restriction
+ * @param bin_penalty cost of each bin beyond the first, in log-score units
+ *   (0 makes every partition equally likely)
+ * @param predictive score bins by leave-one-out prediction, else by evidence
  */
 inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_e,
                int min_bins, int max_bins, double n_min, double a, double b,
-               const std::vector<double>& log_prior, const std::vector<Shape>& shapes,
-               bool order_factor) {
+               const std::vector<Shape>& shapes, bool order_factor,
+               double bin_penalty, bool predictive) {
   const int u = static_cast<int>(cum_n.size()) - 1;
   const int kmax = std::min(max_bins, u);
   const size_t w = static_cast<size_t>(u) + 1;
@@ -390,7 +403,8 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
       if (n < n_min) continue;
       const double e = cum_e[static_cast<size_t>(j)] - cum_e[static_cast<size_t>(i)];
       const size_t id = static_cast<size_t>(i) * w + static_cast<size_t>(j);
-      score[id] = bin_log_evidence(n, e, a, b, c0);
+      score[id] = predictive ? bin_log_predictive(n, e, a, b)
+                             : bin_log_evidence(n, e, a, b, c0);
       rate[id] = posterior_logit(n, e, a, b);
     }
   }
@@ -413,7 +427,7 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
     for (int k = 1; k <= kmax; ++k) {
       const size_t ks = static_cast<size_t>(k);
       if (dp.best[ks] == NEG_INF) continue;
-      double total = dp.best[ks] + log_prior[ks];
+      double total = dp.best[ks] - (k - 1.0) * bin_penalty;
       double prob = 1.0;
 
       if (k > 1 && shape != Shape::None) {
@@ -445,8 +459,8 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
       bool better = false;
       if (!have) better = true;
       else if (in_range != best_in_range) better = in_range;
-      else if (in_range) better = total > best.log_evidence;
-      else better = (k > best_k) || (k == best_k && total > best.log_evidence);
+      else if (in_range) better = total > best.log_score;
+      else better = (k > best_k) || (k == best_k && total > best.log_score);
 
       if (better) {
         have = true;
@@ -454,7 +468,7 @@ inline Fit fit(const std::vector<double>& cum_n, const std::vector<double>& cum_
         best_k = k;
         best.ends = dp.ends[ks];
         best.shape = shape;
-        best.log_evidence = total;
+        best.log_score = total;
         best.order_probability = prob;
       }
     }

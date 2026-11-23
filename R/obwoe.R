@@ -115,7 +115,7 @@
 #'   \code{dmiv} \tab Metric Divergence Measures \tab Divergence-based merging (nine measures) \cr
 #'   \code{fetb} \tab Fisher's Exact Test \tab Statistical significance-based \cr
 #'   \code{mob} \tab Monotonic Optimal Binning \tab Greedy IV-loss merging with monotonicity \cr
-#'   \code{orbe} \tab Order-Restricted Bayesian Evidence \tab Exact DP on the Beta-Binomial evidence; selects the number of bins; shape constraint inside the search \cr
+#'   \code{orbe} \tab Order-Restricted Bayesian Evidence \tab Exact DP on a Beta-Binomial predictive score or evidence; selects the number of bins; shape constraint inside the search \cr
 #'   \code{sketch} \tab Sketching \tab Probabilistic data structures \cr
 #'   \code{udt} \tab Unsupervised Decision Tree (misnomer) \tab Supervised: entropy-ranked cuts, then bottom-up merging; no tree
 #' }
