@@ -1,0 +1,522 @@
+# OptimalBinningWoE
+
+Optimal binning and Weight of Evidence transformation for credit scoring
+and risk modeling, with 39 C++ binning algorithms behind one R
+interface.
+
+The package covers the whole path from a raw feature store to a deployed
+scorecard: fit the binning, screen the variables against IV strength and
+bin ordering, transform the data, and export the same transformation as
+SQL so the scoring runs where the data lives.
+
+|  |  |
+|----|----|
+| **39 algorithms** | 22 numerical, 17 categorical — entropy, $`\chi^2`$, exact optimization, Bayesian scoring, shape-constrained and streaming methods |
+| **C++ engine** | Rcpp throughout, no linear-algebra dependency; 500 variables over 20,000 rows bin and screen in about two seconds |
+| **Automated screening** | [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md) returns a verdict and a reason for every candidate, never dropping a row |
+| **In-database scoring** | [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_sql.md) emits exact `CASE` expressions for 14 SQL dialects |
+| **Regulatory fit** | monotonic binning, auditable bin-level evidence, reason codes |
+| **tidymodels ready** | [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/step_obwoe.md) is a first-class, tunable `recipes` step |
+
+## Installation
+
+``` r
+
+install.packages("OptimalBinningWoE")
+
+# development version
+# install.packages("pak")
+pak::pak("evandeilton/OptimalBinningWoE")
+```
+
+## Quick start
+
+The Statlog (German Credit) benchmark ships with the package, so the
+example below runs as-is.
+
+``` r
+
+library(OptimalBinningWoE)
+
+german <- read.csv(
+  gzfile(system.file("extdata", "germancredit.csv.gz",
+                     package = "OptimalBinningWoE")),
+  stringsAsFactors = FALSE
+)
+german$default <- 1L - german$credit_risk
+german$credit_risk <- NULL
+
+model <- obwoe(german, target = "default", min_bins = 2, max_bins = 6)
+summary(model)
+```
+
+## The four steps
+
+**1. Fit.** One call bins every column, routing numerical and
+categorical variables to the right algorithm.
+
+``` r
+
+model <- obwoe(german, target = "default", max_bins = 6)
+```
+
+**2. Screen.**
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md)
+applies the two criteria that govern variable admission — Information
+Value strength and guaranteed rank ordering — and returns one row per
+candidate with the decision and the reason behind it.
+
+``` r
+
+sel <- obwoe_select(model)
+sel[, c("feature", "total_iv", "iv_class", "ks", "monotonic", "selected", "reason")]
+#>            feature total_iv     iv_class      ks monotonic selected        reason
+#> 1:  credit_history   0.2932       Medium  0.1805      TRUE     TRUE            OK
+#> 2:        duration   0.2727       Medium  0.1900      TRUE     TRUE            OK
+#> ...
+#> 14:         status   0.6660   Suspicious  0.3671      TRUE    FALSE IV_SUSPICIOUS
+#> 15: number_credits   0.0101 Unpredictive  0.0481      TRUE    FALSE  IV_BELOW_MIN
+```
+
+`status` is the strongest variable in the file and is rejected for it:
+an IV above 0.50 is far more often leakage than signal. Nothing is
+silently dropped — 500 candidates return 500 rows, so the automatic
+verdict can be reviewed.
+
+**3. Transform.** Apply the fitted binning to any frame, in R or inside
+a `recipes` pipeline.
+
+``` r
+
+scored <- obwoe_apply(new_data, model)
+
+rec <- recipes::recipe(default ~ ., data = german) |>
+  step_obwoe(recipes::all_predictors(), outcome = "default", max_bins = 6)
+```
+
+**4. Deploy.** Export the same transformation as SQL.
+
+``` r
+
+obwoe_sql(model, table = "risk.applications",
+          features = sel$feature[sel$selected], dialect = "postgres")
+```
+
+``` sql
+CASE
+    WHEN duration IS NULL THEN 0
+    WHEN duration <= 7 THEN -1.3121863889661687
+    WHEN duration > 7 AND duration <= 10 THEN -0.45198512374305744
+    WHEN duration > 10 AND duration <= 16 THEN -0.3028722379457563
+    WHEN duration > 16 AND duration <= 33 THEN 0.10461674470498177
+    WHEN duration > 33 AND duration <= 39 THEN 0.5728610146854435
+    WHEN duration > 39 THEN 0.993901334579079
+    ELSE 0
+END AS duration_woe
+```
+
+Intervals are half-open on the right, `(a, b]`, reproducing
+[`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_apply.md)
+exactly; cut points are written at full round-trip precision; and every
+expression opens with an explicit `IS NULL` branch, because `NULL <= 5`
+is `NULL` in SQL, not `FALSE`.
+
+## The whole pipeline in one call
+
+[`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_scorecard.md)
+runs the four steps above end to end — split, bin, screen by IV and
+correlation, fit, scale to points — and writes the result as an `.xlsx`
+model document.
+
+``` r
+
+card <- obwoe_scorecard(
+  german,
+  target = "default",
+  split  = 0.7,
+  engine = "glm",
+  file   = "scorecard.xlsx"
+)
+
+card
+head(card$points[, c("variable", "bin", "woe", "points")])
+predict(card, german, type = "score")
+```
+
+The workbook holds thirteen sheets: the model summary, the scorecard
+points table, the coefficients with standard errors, the bin statistics
+of the variables that entered, the screening funnel with a reason per
+rejected variable, the correlation matrix before and after pruning,
+score gains, PSI stability between samples, a cut-off strategy table,
+the deployment SQL in both WoE and points form, and a reproducibility
+record.
+
+Three properties are enforced rather than assumed. The binning is fitted
+on the **training rows only**, so the hold-out numbers are not inflated
+by supervised leakage. A variable whose WoE coefficient comes out
+negative — the WoE already carries the direction, so a negative slope
+means the model is reversing it — is dropped and the model refitted. And
+the generated points SQL reproduces the R card score **exactly**, unseen
+categories included.
+
+## Vignettes
+
+Two long-form articles carry the detailed documentation and worked
+cases.
+
+**[Optimal Binning and Weight of Evidence: A Practical
+Guide](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html)**
+— the working reference. What WoE and IV measure and why monotonicity of
+the event rate and of the WoE are the same statement; reading a bin
+table and a gains table; screening a whole base with
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md);
+how the algorithm families differ and how to pick one; applying the
+transformation to new data; exporting to SQL; preprocessing missing
+values and outliers. Uses the bundled German Credit benchmark
+throughout.
+
+**[An Industrial Scorecard
+Pipeline](https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html)**
+— an origination scorecard built the way a risk department builds one. A
+wide synthetic base carrying the pathologies that matter (missing bureau
+data, rare dealer codes, near-duplicate vendor fields, pure noise, and a
+leaky post-booking field), screening at scale, redundancy pruning with
+[`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obcorr.md)
+in the WoE space, a `recipes` pipeline around
+[`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/step_obwoe.md),
+logistic regression with the coefficient sign check, scorecard points
+and PDO scaling, out-of-time validation with gains and PSI, deployment
+to SQL, tuning with tidymodels, and the governance checklist that closes
+a model document.
+
+## Choosing an algorithm
+
+Three questions settle it in practice.
+
+``` mermaid
+flowchart TD
+    A[What is the variable?] --> B[Numerical]
+    A --> C[Categorical]
+
+    B --> D{Must the WoE be<br/>monotone?}
+    D -->|"Yes — regulatory"| E["<b>ir</b> · <b>mrblp</b> · <b>mblp</b><br/><b>mob</b> · oslp"]
+    D -->|No| F{Millions of rows<br/>or streaming?}
+    F -->|Yes| G["<b>sketch</b> · ewb · kmb"]
+    F -->|No| H{Need the global<br/>optimum?}
+    H -->|Yes| I["<b>dp</b> · milp · bb · sblp"]
+    H -->|No| J["<b>jedi</b> · <b>mdlp</b><br/>fast_mdlp · dmiv · cm"]
+
+    C --> K{High cardinality<br/>with rare levels?}
+    K -->|Yes| L["<b>sketch</b> · mba · swb"]
+    K -->|No| M{Must the WoE be<br/>monotone?}
+    M -->|Yes| N["<b>gmb</b> · <b>mob</b> · udt"]
+    M -->|No| O["<b>jedi</b> · <b>cm</b><br/>ivb · dmiv · fetb · dp"]
+
+    E --> P([obwoe algorithm = ...])
+    G --> P
+    I --> P
+    J --> P
+    L --> P
+    N --> P
+    O --> P
+```
+
+Bold entries are the defaults worth trying first. `algorithm = "auto"`
+picks `jedi`, a good general-purpose choice for both types.
+
+| Family | Algorithms | Optimises |
+|----|----|----|
+| Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb`, `jedi` | entropy or IV gain per split, with an MDL stopping rule |
+| Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $`\chi^2`$ or Fisher test |
+| Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp`, `gmb` | best fit subject to a monotonicity constraint |
+| Exact optimization | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Bayesian score | `orbe` | bins and their number by exact maximization of a predictive score or the evidence, under a monotone, peak or valley WoE; posterior WoE with credible intervals |
+| Metaheuristic | `sab`, `mba`, `swb`, `udt` | simulated annealing, agglomerative or tree-based search |
+| Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
+
+[`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_algorithms.md)
+lists all 39 with the feature types each supports; every one is also
+callable directly as `ob_numerical_*()` or `ob_categorical_*()`.
+
+## Key functions
+
+| Function | Purpose |
+|----|----|
+| [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe.md) | Fit optimal binning and WoE across a data frame |
+| [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md) | Screen variables by IV strength and bin ordering |
+| [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_apply.md) | Apply a fitted binning to new data |
+| [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_gains.md) | Gains table with KS, Gini, lift and capture rates |
+| [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_sql.md) | Generate the equivalent SQL `CASE` expressions |
+| [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_scorecard.md) | Run the full pipeline and write the `.xlsx` model document |
+| [`obwoe_report()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_report.md) | Write the workbook for an existing scorecard |
+| [`obwoe_scale()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_scale.md) / [`obwoe_score()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_score.md) | PDO scaling of log-odds to points |
+| [`obwoe_prune()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_prune.md) | Drop redundant variables by correlation in the WoE space |
+| [`obwoe_psi()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_psi.md) | Population Stability Index between two samples |
+| [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/step_obwoe.md) | tidymodels recipe step, tunable |
+| [`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obcorr.md) | Fast pairwise correlations for redundancy pruning |
+| [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_preprocess.md) | Missing-value and outlier handling before binning |
+| [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_algorithms.md) | List the available algorithms |
+| [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/control.obwoe.md) | Algorithm control parameters |
+
+## Interpreting Information Value
+
+The package grades IV with the bands from Siddiqi (2006), and
+[`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md)
+acts on them.
+
+| IV                | Band         | Reading                          |
+|-------------------|--------------|----------------------------------|
+| $`< 0.02`$        | Unpredictive | drop                             |
+| $`[0.02,\ 0.10)`$ | Weak         | keep only if it adds diversity   |
+| $`[0.10,\ 0.30)`$ | Medium       | the workhorses of a scorecard    |
+| $`[0.30,\ 0.50)`$ | Strong       | strong, verify it is not a proxy |
+| $`\ge 0.50`$      | Suspicious   | almost always leakage            |
+
+## Documentation
+
+- [Function
+  reference](https://evandeilton.github.io/OptimalBinningWoE/reference/)
+- [Practical
+  guide](https://evandeilton.github.io/OptimalBinningWoE/articles/introduction.html)
+- [Industrial
+  pipeline](https://evandeilton.github.io/OptimalBinningWoE/articles/industrial-pipeline.html)
+- [Issue
+  tracker](https://github.com/evandeilton/OptimalBinningWoE/issues)
+
+## Contributing
+
+Contributions are welcome. See the [Contributing
+Guidelines](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CONTRIBUTING.md)
+and the [Code of
+Conduct](https://github.com/evandeilton/OptimalBinningWoE/blob/main/CODE_OF_CONDUCT.md).
+
+## Citation
+
+``` bibtex
+@software{optimalbinningwoe,
+  author = {José Evandeilton Lopes},
+  title  = {OptimalBinningWoE: Optimal Binning and Weight of Evidence Framework for Modeling},
+  year   = {2026},
+  url    = {https://github.com/evandeilton/OptimalBinningWoE}
+}
+```
+
+## References
+
+- Siddiqi, N. (2006). *Credit Risk Scorecards: Developing and
+  Implementing Intelligent Credit Scoring*. John Wiley & Sons.
+- Thomas, L. C., Edelman, D. B., & Crook, J. N. (2002). *Credit Scoring
+  and Its Applications*. SIAM.
+- Navas-Palencia, G. (2020). Optimal Binning: Mathematical Programming
+  Formulation. arXiv:2001.08025.
+- Fayyad, U. M., & Irani, K. B. (1993). Multi-interval discretization of
+  continuous-valued attributes for classification learning. *IJCAI*.
+- Anderson, R. (2007). *The Credit Scoring Toolkit: Theory and Practice
+  for Retail Credit Risk Management*. Oxford University Press.
+
+## License
+
+MIT License © 2026 José Evandeilton Lopes
+
+# Package index
+
+## All functions
+
+- [`bake(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/bake.step_obwoe.md)
+  : Apply the Optimal Binning Transformation
+- [`control.obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/control.obwoe.md)
+  : Control Parameters for Optimal Binning Algorithms
+- [`control.obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/control.obwoe_scorecard.md)
+  : Control Parameters for the Scorecard Pipeline
+- [`.categorical_only_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/dot-categorical_only_algorithms.md)
+  : Categorical-Only Algorithms
+- [`.numerical_only_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/dot-numerical_only_algorithms.md)
+  : Numerical-Only Algorithms
+- [`.universal_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/dot-universal_algorithms.md)
+  : Universal Algorithms
+- [`.valid_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/dot-valid_algorithms.md)
+  : Valid Binning Algorithms
+- [`ob_apply_woe_cat()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_apply_woe_cat.md)
+  : Apply Optimal Weight of Evidence (WoE) to a Categorical Feature
+- [`ob_apply_woe_num()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_apply_woe_num.md)
+  : Apply Optimal Weight of Evidence (WoE) to a Numerical Feature
+- [`ob_categorical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_cm.md)
+  : Optimal Binning for Categorical Variables using Enhanced ChiMerge
+  Algorithm
+- [`ob_categorical_dmiv()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_dmiv.md)
+  : Optimal Binning for Categorical Variables using Divergence Measures
+- [`ob_categorical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_dp.md)
+  : Optimal Binning for Categorical Variables using Dynamic Programming
+- [`ob_categorical_fetb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_fetb.md)
+  : Optimal Binning for Categorical Variables using Fisher's Exact Test
+- [`ob_categorical_gmb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_gmb.md)
+  : Optimal Binning for Categorical Variables using Greedy Merge
+  Algorithm
+- [`ob_categorical_ivb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_ivb.md)
+  : Optimal Binning for Categorical Variables using Information Value
+  Dynamic Programming
+- [`ob_categorical_jedi()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_jedi.md)
+  : Optimal Binning for Categorical Variables using JEDI Algorithm
+- [`ob_categorical_jedi_mwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_jedi_mwoe.md)
+  : Optimal Binning for Categorical Variables with Multinomial Target
+  using JEDI-MWoE
+- [`ob_categorical_mba()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_mba.md)
+  : Optimal Binning for Categorical Variables using Monotonic Binning
+  Algorithm
+- [`ob_categorical_milp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_milp.md)
+  : Optimal Binning for Categorical Variables using Heuristic Algorithm
+- [`ob_categorical_mob()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_mob.md)
+  : Optimal Binning for Categorical Variables using Monotonic Optimal
+  Binning (MOB)
+- [`ob_categorical_orbe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_orbe.md)
+  : Optimal Binning for Categorical Variables using Order-Restricted
+  Bayesian Evidence
+- [`ob_categorical_sab()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_sab.md)
+  : Optimal Binning for Categorical Variables (SAB interface, exact
+  search)
+- [`ob_categorical_sblp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_sblp.md)
+  : Optimal Binning for Categorical Variables using SBLP
+- [`ob_categorical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_sketch.md)
+  : Optimal Binning for Categorical Variables using Sketch-based
+  Algorithm
+- [`ob_categorical_swb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_swb.md)
+  : Optimal Binning for Categorical Variables using Sliding Window
+  Binning (SWB)
+- [`ob_categorical_udt()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_udt.md)
+  : Optimal Binning for Categorical Variables using a User-Defined
+  Technique (UDT)
+- [`ob_cutpoints_cat()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_cutpoints_cat.md)
+  : Binning Categorical Variables using Custom Cutpoints
+- [`ob_cutpoints_num()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_cutpoints_num.md)
+  : Binning Numerical Variables using Custom Cutpoints
+- [`ob_numerical_bb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_bb.md)
+  : Optimal Binning for Numerical Variables using Branch and Bound
+  Algorithm
+- [`ob_numerical_cm()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_cm.md)
+  : Optimal Binning for Numerical Variables using Enhanced ChiMerge
+  Algorithm
+- [`ob_numerical_dmiv()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_dmiv.md)
+  : Optimal Binning using Metric Divergence Measures (Zeng, 2013)
+- [`ob_numerical_dp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_dp.md)
+  : Optimal Binning for Numerical Variables using Dynamic Programming
+- [`ob_numerical_ewb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_ewb.md)
+  : Hybrid Optimal Binning using Equal-Width Initialization and IV
+  Optimization
+- [`ob_numerical_fast_mdlp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_fast_mdlp.md)
+  : Optimal Binning using MDLP with Monotonicity Constraints
+- [`ob_numerical_fetb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_fetb.md)
+  : Optimal Binning using Fisher's Exact Test
+- [`ob_numerical_ir()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_ir.md)
+  : Optimal Binning using Isotonic Regression (PAVA)
+- [`ob_numerical_jedi()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_jedi.md)
+  : Optimal Binning using Joint Entropy-Driven Interval Discretization
+  (JEDI)
+- [`ob_numerical_jedi_mwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_jedi_mwoe.md)
+  : Optimal Binning for Multiclass Targets using JEDI M-WOE
+- [`ob_numerical_kmb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_kmb.md)
+  : Optimal Binning using K-means Inspired Initialization (KMB)
+- [`ob_numerical_ldb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_ldb.md)
+  : Optimal Binning for Numerical Variables using Local Density Binning
+- [`ob_numerical_lpdb()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_lpdb.md)
+  : Optimal Binning using Local Polynomial Density Binning (LPDB)
+- [`ob_numerical_mblp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_mblp.md)
+  : Optimal Binning for Numerical Features Using Monotonic Binning via
+  Linear Programming
+- [`ob_numerical_mdlp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_mdlp.md)
+  : Optimal Binning for Numerical Features using Minimum Description
+  Length Principle
+- [`ob_numerical_mob()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_mob.md)
+  : Optimal Binning for Numerical Features using Monotonic Optimal
+  Binning
+- [`ob_numerical_mrblp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_mrblp.md)
+  : Optimal Binning for Numerical Features using Monotonic Risk Binning
+  with Likelihood Ratio Pre-binning
+- [`ob_numerical_orbe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_orbe.md)
+  : Optimal Binning for Numerical Variables using Order-Restricted
+  Bayesian Evidence
+- [`ob_numerical_oslp()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_oslp.md)
+  : Optimal Binning for Numerical Variables using Optimal Supervised
+  Learning Partitioning
+- [`ob_numerical_sketch()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_sketch.md)
+  : Optimal Binning for Numerical Variables using Sketch-based Algorithm
+- [`ob_numerical_ubsd()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_ubsd.md)
+  : Optimal Binning for Numerical Variables using Unsupervised Binning
+  with Standard Deviation
+- [`ob_numerical_udt()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_numerical_udt.md)
+  : Optimal Binning for Numerical Variables using Entropy-Based
+  Partitioning
+- [`ob_preprocess()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_preprocess.md)
+  : Data Preprocessor for Optimal Binning
+- [`obcorr()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obcorr.md)
+  : Compute Multiple Robust Correlations Between Numeric Variables
+- [`obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe.md)
+  : Unified Optimal Binning and Weight of Evidence Transformation
+- [`obwoe_algorithm()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_algorithm.md)
+  : Binning Algorithm Parameter
+- [`obwoe_algorithms()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_algorithms.md)
+  : List Available Algorithms
+- [`obwoe_apply()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_apply.md)
+  : Apply Weight of Evidence Transformations to New Data
+- [`obwoe_bin_cutoff()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_bin_cutoff.md)
+  : Bin Cutoff Parameter
+- [`obwoe_gains()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_gains.md)
+  : Gains Table Statistics for Credit Risk Scorecard Evaluation
+- [`obwoe_gains_score()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_gains_score.md)
+  : Compute Comprehensive Gains Table from Binning Results
+- [`obwoe_gains_variable()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_gains_variable.md)
+  : Compute Gains Table for a Binned Feature Vector
+- [`obwoe_max_bins()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_max_bins.md)
+  : Maximum Bins Parameter
+- [`obwoe_min_bins()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_min_bins.md)
+  : Minimum Bins Parameter
+- [`obwoe_prune()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_prune.md)
+  : Prune Redundant Variables by Correlation
+- [`obwoe_psi()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_psi.md)
+  : Population Stability Index
+- [`obwoe_report()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_report.md)
+  : Write a Scorecard Workbook
+- [`obwoe_scale()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_scale.md)
+  : Points-to-Double-the-Odds Score Scaling
+- [`obwoe_score()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_score.md)
+  : Turn Log-Odds into Scorecard Points
+- [`obwoe_scorecard()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_scorecard.md)
+  : Automated Scorecard Pipeline
+- [`obwoe_select()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_select.md)
+  : Automated Variable Selection for Weight of Evidence Scorecards
+- [`obwoe_sql()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/obwoe_sql.md)
+  : Generate SQL for a Fitted Optimal Binning
+- [`plot(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/plot.obwoe.md)
+  : Plot Method for obwoe Objects
+- [`plot(`*`<obwoe_gains>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/plot.obwoe_gains.md)
+  : Plot Gains Table
+- [`predict(`*`<obwoe_scorecard>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/predict.obwoe_scorecard.md)
+  : Score New Data With a Fitted Scorecard
+- [`prep(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/prep.step_obwoe.md)
+  : Prepare the Optimal Binning Step
+- [`print(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/print.obwoe.md)
+  : Print Method for obwoe Objects
+- [`print(`*`<obwoe_sql>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/print.obwoe_sql.md)
+  : Print Method for Generated SQL
+- [`print(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/print.step_obwoe.md)
+  : Print Method for step_obwoe
+- [`required_pkgs(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/required_pkgs.step_obwoe.md)
+  : Required Packages for step_obwoe
+- [`step_obwoe()`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/step_obwoe.md)
+  : Optimal Binning and WoE Transformation Step
+- [`summary(`*`<obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/summary.obwoe.md)
+  : Summary Method for obwoe Objects
+- [`tidy(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/tidy.step_obwoe.md)
+  : Tidy Method for step_obwoe
+- [`tunable(`*`<step_obwoe>`*`)`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/tunable.step_obwoe.md)
+  : Tunable Parameters for step_obwoe
+
+# Articles
+
+### Guides
+
+- [Optimal Binning and Weight of Evidence: A Practical
+  Guide](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/introduction.md):
+- [An Industrial Scorecard
+  Pipeline](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/industrial-pipeline.md):
+- [Algorithm Reference: the 39 Binning
+  Engines](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/algorithms.md):

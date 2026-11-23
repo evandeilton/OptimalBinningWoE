@@ -1,0 +1,117 @@
+/* ==========================================================================
+   OptimalBinningWoE — pkgdown extra styles (elegant, readable)
+   ========================================================================== */
+
+/* ----- Typography ----- */
+body {
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-header {
+  border-bottom: 1px solid rgba(26, 82, 118, 0.12);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #1a5276;
+}
+
+/* ----- Navbar ----- */
+.navbar {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.navbar-dark .navbar-nav .nav-link,
+.navbar .navbar-nav .nav-link {
+  font-weight: 500;
+}
+
+/* ----- Sidebar (reference index) ----- */
+.list-group-item.active {
+  background-color: #1a5276;
+  border-color: #1a5276;
+}
+
+/* ----- Reference cards ----- */
+.contents .section {
+  margin-bottom: 2rem;
+}
+
+.contents .section h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-top: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ----- Code blocks ----- */
+pre, pre code {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: 6px;
+}
+
+pre {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 1rem 1.25rem;
+}
+
+/* ----- Inline code ----- */
+code {
+  background-color: rgba(26, 82, 118, 0.08);
+  color: #1a5276;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* ----- Links ----- */
+a {
+  font-weight: 500;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ----- Articles (vignettes) ----- */
+.contents .page-inner {
+  max-width: 100%;
+}
+
+/* ----- Footer ----- */
+footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* ----- Buttons / badges ----- */
+.btn-primary {
+  background-color: #1a5276;
+  border-color: #1a5276;
+}
+
+.btn-primary:hover {
+  background-color: #154360;
+  border-color: #154360;
+}
+
+.badge.bg-primary {
+  background-color: #1a5276 !important;
+}

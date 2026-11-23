@@ -1,0 +1,10 @@
+# Articles
+
+### Guides
+
+- [Optimal Binning and Weight of Evidence: A Practical
+  Guide](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/introduction.md):
+- [An Industrial Scorecard
+  Pipeline](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/industrial-pipeline.md):
+- [Algorithm Reference: the 39 Binning
+  Engines](https://evandeilton.github.io/OptimalBinningWoE/dev/articles/algorithms.md):

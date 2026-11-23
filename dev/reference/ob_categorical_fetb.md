@@ -1,0 +1,412 @@
+# Optimal Binning for Categorical Variables using Fisher's Exact Test
+
+Performs supervised discretization of categorical variables using
+Fisher's Exact Test as the similarity criterion for hierarchical bin
+merging. This method iteratively merges the most statistically similar
+bins (highest p-value) while enforcing Weight of Evidence monotonicity,
+providing a statistically rigorous approach to optimal binning.
+
+## Usage
+
+``` r
+ob_categorical_fetb(
+  feature,
+  target,
+  min_bins = 3,
+  max_bins = 5,
+  bin_cutoff = 0.05,
+  max_n_prebins = 20,
+  convergence_threshold = 1e-06,
+  max_iterations = 1000,
+  bin_separator = "%;%"
+)
+```
+
+## Arguments
+
+- feature:
+
+  A character vector or factor representing the categorical predictor
+  variable to be binned. Missing values are automatically converted to
+  the category `"NA"`.
+
+- target:
+
+  An integer vector of binary outcomes (0/1) corresponding to each
+  observation in `feature`. Missing values are not permitted.
+
+- min_bins:
+
+  Integer. Minimum number of bins to produce. Must be \>= 2. The
+  algorithm will not merge below this threshold. Defaults to 3.
+
+- max_bins:
+
+  Integer. Maximum number of bins to produce. Must be \>= `min_bins`.
+  The algorithm merges bins until this constraint is satisfied. Defaults
+  to 5.
+
+- bin_cutoff:
+
+  Numeric. Minimum proportion of total observations required for a
+  category to avoid being classified as rare. Rare categories are
+  pre-merged before the main algorithm. Must be in (0, 1). Defaults to
+  0.05.
+
+- max_n_prebins:
+
+  Integer. Maximum number of initial bins before the merging phase.
+  Controls computational complexity for high-cardinality features. Must
+  be \>= 2. Defaults to 20.
+
+- convergence_threshold:
+
+  Numeric. Convergence tolerance based on Information Value change
+  between iterations. Algorithm stops when \\\|\Delta IV\| \<\\
+  `convergence_threshold`. Must be \> 0. Defaults to 1e-6.
+
+- max_iterations:
+
+  Integer. Iteration budget for the merge phase. Must be \> 0. Defaults
+  to 1000. When it is used up before the convergence tolerance is met,
+  `converged` is `FALSE`; merging still continues until `max_bins` is
+  satisfied, since `max_bins` is a hard constraint.
+
+- bin_separator:
+
+  Character string used to concatenate category names when multiple
+  categories are merged into a single bin. Defaults to "%;%". A warning
+  is issued when a category name contains it, since such labels cannot
+  be split back into categories.
+
+## Value
+
+A list containing the binning results with the following components:
+
+- `id`:
+
+  Integer vector of bin identifiers (1-indexed)
+
+- `bin`:
+
+  Character vector of bin labels (merged category names)
+
+- `woe`:
+
+  Numeric vector of Weight of Evidence values per bin
+
+- `iv`:
+
+  Numeric vector of Information Value contribution per bin
+
+- `count`:
+
+  Integer vector of total observations per bin
+
+- `count_pos`:
+
+  Integer vector of positive cases (target=1) per bin
+
+- `count_neg`:
+
+  Integer vector of negative cases (target=0) per bin
+
+- `converged`:
+
+  Logical indicating algorithm convergence
+
+- `iterations`:
+
+  Integer count of merge operations performed
+
+## Details
+
+This algorithm employs Fisher's Exact Test to quantify statistical
+similarity between bins based on their 2×2 contingency tables. Unlike
+chi-square based methods, Fisher's test provides exact p-values without
+relying on asymptotic approximations, making it particularly suitable
+for small sample sizes.
+
+**Algorithm Workflow:**
+
+1.  Data preprocessing and frequency computation
+
+2.  Rare category identification and pre-merging (frequencies \<
+    `bin_cutoff`); if pooling all rare categories would leave fewer than
+    `min_bins` bins, they are pooled in event-rate order into groups of
+    at least `bin_cutoff`
+
+3.  Initial bin creation (one category per bin)
+
+4.  Iterative merging phase:
+
+    - Compute Fisher's Exact Test p-values for all adjacent bin pairs
+
+    - Merge the pair with the **highest** p-value (most similar)
+
+    - Enforce WoE monotonicity after each merge
+
+    - Check convergence based on IV change
+
+5.  Final monotonicity enforcement
+
+**Fisher's Exact Test:**
+
+For two bins with contingency table:
+
+|           |       |       |
+|-----------|-------|-------|
+|           | Bin 1 | Bin 2 |
+| Positives | \\a\\ | \\c\\ |
+| Negatives | \\b\\ | \\d\\ |
+
+Under the null hypothesis of identical event rates, with all margins
+fixed, the number of positives in Bin 1 is hypergeometric, and the
+probability of a table with \\x\\ positives in Bin 1 is
+
+\$\$P(x) = \frac{\binom{a+b}{x}\binom{c+d}{a+c-x}}{\binom{n}{a+c}},
+\quad n = a + b + c + d.\$\$
+
+The two-sided p-value is the total probability of all tables with the
+same margins that are no more likely than the observed one, \\p =
+\sum\_{x:\\P(x) \le P(a)} P(x)\\ (with the relative tolerance
+\\10^{-7}\\ used by
+[`fisher.test`](https://rdrr.io/r/stats/fisher.test.html)), which is the
+value [`fisher.test()`](https://rdrr.io/r/stats/fisher.test.html)
+reports. Higher p-values indicate greater similarity (less evidence
+against the null hypothesis of identical distributions). Monotonicity
+repairs stop at `min_bins`.
+
+**Key Features:**
+
+- **Exact inference**: No asymptotic approximations required
+
+- **Small sample robustness**: Valid for any sample size
+
+- **Automatic monotonicity**: WoE ordering enforced after each merge
+
+- **Efficient caching**: Log-factorial and p-value caching for speed
+
+- **Rare category handling**: Pre-merging prevents sparse bins
+
+**Computational Complexity:**
+
+- Time: \\O(k^2 \cdot m)\\ where \\k\\ = initial bins, \\m\\ =
+  iterations
+
+- Space: \\O(k + n\_{max})\\ for bins and factorial cache
+
+**Ties:** categories with equal event rates or WoE values are ordered by
+ascending count, then by category name (byte-wise), and equal counts by
+name, so the fitted bins do not depend on the row order of the data or
+on the platform.
+
+## References
+
+Fisher, R. A. (1922). On the interpretation of chi-squared from
+contingency tables, and the calculation of P. *Journal of the Royal
+Statistical Society*, 85(1), 87-94.
+[doi:10.2307/2340521](https://doi.org/10.2307/2340521)
+
+Agresti, A. (2013). *Categorical Data Analysis* (3rd ed.). Wiley.
+
+Mehta, C. R., & Patel, N. R. (1983). A network algorithm for performing
+Fisher's exact test in r×c contingency tables. *Journal of the American
+Statistical Association*, 78(382), 427-434.
+
+Zeng, G. (2014). A necessary condition for a good binning algorithm in
+credit scoring. *Applied Mathematical Sciences*, 8(65), 3229-3242.
+
+## See also
+
+[`ob_categorical_cm`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_cm.md)
+for ChiMerge-based binning,
+[`ob_categorical_dp`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_dp.md)
+for dynamic programming approach,
+[`ob_categorical_dmiv`](https://evandeilton.github.io/OptimalBinningWoE/dev/reference/ob_categorical_dmiv.md)
+for divergence measure-based binning
+
+## Examples
+
+``` r
+# \donttest{
+# Example 1: Basic usage with Fisher's Exact Test
+set.seed(42)
+n_obs <- 800
+
+# Simulate customer segments with different risk profiles
+segments <- c("Premium", "Standard", "Basic", "Budget", "Economy")
+risk_rates <- c(0.05, 0.10, 0.15, 0.22, 0.30)
+
+cat_feature <- sample(segments, n_obs,
+  replace = TRUE,
+  prob = c(0.15, 0.25, 0.30, 0.20, 0.10)
+)
+bin_target <- sapply(cat_feature, function(x) {
+  rbinom(1, 1, risk_rates[which(segments == x)])
+})
+
+# Apply Fisher's Exact Test binning
+result_fetb <- ob_categorical_fetb(
+  cat_feature,
+  bin_target,
+  min_bins = 2,
+  max_bins = 4
+)
+
+# Display results
+print(data.frame(
+  Bin = result_fetb$bin,
+  WoE = round(result_fetb$woe, 3),
+  IV = round(result_fetb$iv, 4),
+  Count = result_fetb$count,
+  EventRate = round(result_fetb$count_pos / result_fetb$count, 3)
+))
+#>              Bin    WoE     IV Count EventRate
+#> 1        Premium -1.263 0.1333   106     0.038
+#> 2       Standard -0.417 0.0410   220     0.091
+#> 3 Basic%;%Budget  0.161 0.0132   385     0.153
+#> 4        Economy  0.823 0.1004    89     0.258
+
+cat("\nAlgorithm converged:", result_fetb$converged, "\n")
+#> 
+#> Algorithm converged: TRUE 
+cat("Iterations performed:", result_fetb$iterations, "\n")
+#> Iterations performed: 1 
+
+# Example 2: Comparing with ChiMerge method
+result_cm <- ob_categorical_cm(
+  cat_feature,
+  bin_target,
+  min_bins = 2,
+  max_bins = 4
+)
+
+cat("\nFisher's Exact Test:\n")
+#> 
+#> Fisher's Exact Test:
+cat("  Final bins:", length(result_fetb$bin), "\n")
+#>   Final bins: 4 
+cat("  Total IV:", round(sum(result_fetb$iv), 4), "\n")
+#>   Total IV: 0.2879 
+
+cat("\nChiMerge:\n")
+#> 
+#> ChiMerge:
+cat("  Final bins:", length(result_cm$bin), "\n")
+#>   Final bins: 3 
+cat("  Total IV:", round(sum(result_cm$iv), 4), "\n")
+#>   Total IV: 0.25 
+
+# Example 3: Small sample size (Fisher's advantage)
+set.seed(123)
+n_obs_small <- 150
+
+# Small sample with sparse categories
+occupation <- c(
+  "Doctor", "Lawyer", "Teacher", "Engineer",
+  "Sales", "Manager"
+)
+
+cat_feature_small <- sample(occupation, n_obs_small,
+  replace = TRUE,
+  prob = c(0.10, 0.10, 0.20, 0.25, 0.20, 0.15)
+)
+bin_target_small <- rbinom(n_obs_small, 1, 0.12)
+
+result_fetb_small <- ob_categorical_fetb(
+  cat_feature_small,
+  bin_target_small,
+  min_bins = 2,
+  max_bins = 3,
+  bin_cutoff = 0.03 # Allow smaller bins for small sample
+)
+
+cat("\nSmall sample binning:\n")
+#> 
+#> Small sample binning:
+cat("  Observations:", n_obs_small, "\n")
+#>   Observations: 150 
+cat("  Original categories:", length(unique(cat_feature_small)), "\n")
+#>   Original categories: 6 
+cat("  Final bins:", length(result_fetb_small$bin), "\n")
+#>   Final bins: 3 
+cat("  Converged:", result_fetb_small$converged, "\n")
+#>   Converged: TRUE 
+
+# Example 4: High cardinality with rare categories
+set.seed(789)
+n_obs_hc <- 2000
+
+# Simulate product codes (high cardinality)
+product_codes <- paste0("PROD_", sprintf("%03d", 1:30))
+
+cat_feature_hc <- sample(product_codes, n_obs_hc,
+  replace = TRUE,
+  prob = c(
+    rep(0.05, 10), rep(0.02, 10),
+    rep(0.01, 10)
+  )
+)
+bin_target_hc <- rbinom(n_obs_hc, 1, 0.08)
+
+result_fetb_hc <- ob_categorical_fetb(
+  cat_feature_hc,
+  bin_target_hc,
+  min_bins = 3,
+  max_bins = 6,
+  bin_cutoff = 0.02,
+  max_n_prebins = 15
+)
+
+cat("\nHigh cardinality example:\n")
+#> 
+#> High cardinality example:
+cat("  Original categories:", length(unique(cat_feature_hc)), "\n")
+#>   Original categories: 30 
+cat("  Final bins:", length(result_fetb_hc$bin), "\n")
+#>   Final bins: 6 
+cat("  Iterations:", result_fetb_hc$iterations, "\n")
+#>   Iterations: 15 
+
+# Check for rare category merging
+for (i in seq_along(result_fetb_hc$bin)) {
+  n_merged <- length(strsplit(result_fetb_hc$bin[i], "%;%")[[1]])
+  if (n_merged > 1) {
+    cat("  Bin", i, "contains", n_merged, "merged categories\n")
+  }
+}
+#>   Bin 2 contains 3 merged categories
+#>   Bin 3 contains 5 merged categories
+#>   Bin 4 contains 12 merged categories
+#>   Bin 5 contains 7 merged categories
+#>   Bin 6 contains 2 merged categories
+
+# Example 5: Missing value handling
+set.seed(456)
+cat_feature_na <- cat_feature
+na_indices <- sample(n_obs, 40) # 5% missing
+cat_feature_na[na_indices] <- NA
+
+result_fetb_na <- ob_categorical_fetb(
+  cat_feature_na,
+  bin_target,
+  min_bins = 2,
+  max_bins = 4
+)
+
+# Check NA treatment
+na_bin_idx <- grep("NA", result_fetb_na$bin)
+if (length(na_bin_idx) > 0) {
+  cat("\nMissing value handling:\n")
+  cat("  NA bin:", result_fetb_na$bin[na_bin_idx], "\n")
+  cat("  NA count:", result_fetb_na$count[na_bin_idx], "\n")
+  cat("  NA WoE:", round(result_fetb_na$woe[na_bin_idx], 3), "\n")
+}
+#> 
+#> Missing value handling:
+#>   NA bin: Budget%;%NA%;%Economy 
+#>   NA count: 260 
+#>   NA WoE: 0.531 
+# }
+```
