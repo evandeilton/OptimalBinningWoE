@@ -1,5 +1,5 @@
 ---
-title: "Algorithm Reference: the 37 Binning Engines"
+title: "Algorithm Reference: the 39 Binning Engines"
 author: "José Evandeilton Lopes"
 date: "`r Sys.Date()`"
 output:
@@ -7,7 +7,7 @@ output:
     toc: true
     toc_depth: 3
 vignette: >
-  %\VignetteIndexEntry{Algorithm Reference: the 37 Binning Engines}
+  %\VignetteIndexEntry{Algorithm Reference: the 39 Binning Engines}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -28,8 +28,8 @@ library(OptimalBinningWoE)
 
 ## Scope, and how this was written
 
-The package ships **28 algorithms** covering **37 algorithm/feature-type
-combinations**: 21 accept numerical features, 16 accept categorical ones, 9
+The package ships **29 algorithms** covering **39 algorithm/feature-type
+combinations**: 22 accept numerical features, 17 accept categorical ones, 10
 accept both, and 1 accepts a multinomial target.
 
 This reference was produced by reading the C++ implementation of every engine
@@ -185,6 +185,8 @@ matter on continuous variables with a long tail.
 | A multinomial target | `jedi_mwoe` | The only engine that accepts one |
 | A statistical stopping rule | `cm` (categorical) | The significance level decides the bin count. In numerical `cm` it does not: `max_bins` does (see below) |
 | IV-optimal bins given the ordering | `ivb`, `dp` (categorical), `sblp` | Dynamic programming over the ordered levels. Categorical `dp` scores a bin with no events or no non-events as WoE = IV = 0; `sblp` optimizes its own smoothing, not the IV it reports, and may merge bins afterwards |
+| The bin count decided by the data, with the shape enforced | `orbe` | Exact search on the Bayesian evidence: `max_bins` is a limit, not a target, and the WoE is strictly monotone (or a peak or valley) by construction |
+| WoE with a measure of uncertainty | `orbe` | Posterior-mean WoE with credible intervals; finite in bins without events |
 | The bin count decided by theory | `fast_mdlp` | The only Fayyad–Irani criterion here; `max_bins`, `min_bins` and the default `force_monotonicity = TRUE` can still override it |
 | Monotone event rates by construction | `ir` | Isotonic regression pools the violating bins, so event rates are monotone; the smoothed WoE can still break that order when adjacent bins tie in event rate (two bins with no events, for example) or when a bin is tiny; `bin_cutoff` only guards against the second case |
 | Very high cardinality | `sketch` (categorical) | Heavy hitters are found with fixed-size Count-Min sketches; exact counts are still kept for every level |
@@ -249,6 +251,36 @@ points into *j* bins" (`DynamicProgramming::optimize()`,
 threshold hardcoded as `dp_size_limit(50)` (`:595`), tested in
 `select_optimal_cutpoints()` (`:447`) and not exposed. For any real dataset,
 `sketch` takes its greedy branch.
+
+### Exact evidence maximization
+
+**`orbe`** (`ob_numerical_orbe()`, `ob_categorical_orbe()`) scores a partition
+by the sum of the Beta-Binomial log marginal likelihoods of its bins plus the
+log prior of the partition, and maximizes that score by dynamic programming
+(`run_dp()`, `src/common/orbe_core.h`). The state is the last bin of a partial
+partition, and a bin may follow another only when its posterior WoE respects
+the shape, so the minimum bin size, the number of bins and the shape are
+constraints of the recursion and not corrections applied afterwards. The
+number of bins is decided by the evidence, the prior and, in the numerical
+engine, the order-restriction factor; it is selected between `min_bins` and
+`max_bins` and not driven to `max_bins`.
+
+The atoms of the search are the distinct values of a numerical feature, or the
+categories ordered by posterior-mean event rate. With more than
+`max_n_prebins` of them (at most 1000, fewer when `max_bins` is large),
+adjacent atoms are grouped by frequency, which restricts the candidate cuts;
+`obwoe()` passes its control value, 20 by default, so raise `max_n_prebins`
+in `control.obwoe()` for a finer search. `obwoe()` does not forward
+`monotonic_trend`, `prior_strength` or `credible_level`; call the engine
+directly to set them. For
+categorical features the search is exact among groupings contiguous in the
+rate order only. The order-restriction factor of the numerical engine is
+applied to the best partition of each size, not inside the recursion.
+
+The reported WoE is the posterior mean
+\(\psi(a + e_i) - \psi(b + n_i - e_i) - \mathrm{logit}(\pi_0)\), finite in
+bins without events, and comes with a posterior standard deviation and a
+credible interval that are conditional on the selected bins.
 
 ### Recursive entropy partitioning
 
@@ -598,7 +630,7 @@ set.
 
 ## Measured behavior
 
-All 37 combinations on the bundled German Credit data, identical constraints:
+All 39 combinations on the bundled German Credit data, identical constraints:
 
 ```{r bench, results = "asis"}
 run_all <- function(feature, type) {

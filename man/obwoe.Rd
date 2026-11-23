@@ -121,7 +121,7 @@ divergence between the event and non-event distributions.
 
 \subsection{Algorithm Taxonomy}{
 
-The package provides 28 algorithms (37 implementations: 21 numerical and 16
+The package provides 29 algorithms (39 implementations: 22 numerical and 17
 categorical) organized by supported feature types. The last column says what
 the code does, which is not always what the name suggests; the algorithm
 reference vignette (\code{vignette("algorithms", package = "OptimalBinningWoE")})
@@ -137,6 +137,7 @@ gives the mechanism of each engine.
   \code{dmiv} \tab Metric Divergence Measures \tab Divergence-based merging (nine measures) \cr
   \code{fetb} \tab Fisher's Exact Test \tab Statistical significance-based \cr
   \code{mob} \tab Monotonic Optimal Binning \tab Greedy IV-loss merging with monotonicity \cr
+  \code{orbe} \tab Order-Restricted Bayesian Evidence \tab Exact DP on the Beta-Binomial evidence; selects the number of bins; shape constraint inside the search \cr
   \code{sketch} \tab Sketching \tab Probabilistic data structures \cr
   \code{udt} \tab Unsupervised Decision Tree (misnomer) \tab Supervised: entropy-ranked cuts, then bottom-up merging; no tree
 }

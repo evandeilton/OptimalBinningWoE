@@ -1,3 +1,18 @@
+# OptimalBinningWoE (development version)
+
+## New features
+
+*   **`ob_numerical_orbe()` and `ob_categorical_orbe()`**: Order-Restricted
+    Bayesian Evidence binning, available in `obwoe()` and `step_obwoe()` as
+    `algorithm = "orbe"`. The bins and their number maximize the Bayesian
+    evidence of a constant event rate per bin, by exact dynamic programming.
+    The WoE shape (`"auto"`, `"ascending"`, `"descending"`, `"peak"`,
+    `"valley"` or `"none"`) and the minimum bin size are constraints of the
+    search, so
+    `max_bins` is a limit and not a target. The fit reports posterior-mean
+    WoE, finite in bins without events, with standard deviations and
+    credible intervals, and an IV corrected for sampling bias.
+
 # OptimalBinningWoE 1.14.1
 
 ## Bug fixes

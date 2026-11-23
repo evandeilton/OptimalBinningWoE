@@ -333,7 +333,7 @@ setNames(sapply(cuts, function(cut) {
 
 # Choosing an algorithm
 
-The package ships 37 algorithms: 21 numerical, 16 categorical. They differ in
+The package ships 39 algorithms: 22 numerical, 17 categorical. They differ in
 what they optimise, not in what they return.
 
 | Family | Algorithms | Optimises |
@@ -341,7 +341,8 @@ what they optimise, not in what they return.
 | Information-theoretic | `mdlp`, `fast_mdlp`, `dmiv`, `ivb` | entropy or IV gain per split, with an MDL stopping rule |
 | Statistical merging | `cm`, `fetb`, `mob` | merges neighbours whose difference fails a $\chi^2$ or Fisher test |
 | Shape-constrained | `ir`, `mrblp`, `mblp`, `oslp` | best fit subject to a monotonicity constraint |
-| Exact optimisation | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Exact optimization | `dp`, `milp`, `sblp`, `bb` | global optimum of IV under bin-count and size constraints |
+| Bayesian evidence | `orbe` | bins and their number by exact evidence maximization under a monotone, peak or valley WoE |
 | Metaheuristic | `sab`, `gmb`, `mba` | simulated annealing, greedy or agglomerative search |
 | Unsupervised | `ewb`, `kmb`, `ubsd`, `sketch` | equal width, k-means, standard deviation, streaming quantiles |
 

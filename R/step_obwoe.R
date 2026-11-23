@@ -16,7 +16,7 @@
   c(
     "auto",
     # Universal (numerical and categorical)
-    "jedi", "jedi_mwoe", "cm", "dp", "dmiv", "fetb", "mob", "sketch", "udt",
+    "jedi", "jedi_mwoe", "cm", "dp", "dmiv", "fetb", "mob", "orbe", "sketch", "udt",
     # Categorical only
     "gmb", "ivb", "mba", "milp", "sab", "sblp", "swb",
     # Numerical only
@@ -67,7 +67,7 @@
 #'
 #' @export
 .universal_algorithms <- function() {
-  c("jedi", "jedi_mwoe", "cm", "dp", "dmiv", "fetb", "mob", "sketch", "udt")
+  c("jedi", "jedi_mwoe", "cm", "dp", "dmiv", "fetb", "mob", "orbe", "sketch", "udt")
 }
 
 
@@ -75,7 +75,7 @@
 #'
 #' @description
 #' \code{step_obwoe()} creates a \emph{specification} of a recipe step that
-#' discretizes predictor variables using one of 28 state-of-the-art optimal
+#' discretizes predictor variables using one of 29 state-of-the-art optimal
 #' binning algorithms and transforms them into Weight of Evidence (WoE) values.
 #' This step fully integrates the \strong{OptimalBinningWoE} package into the
 #' \code{tidymodels} framework, supporting supervised discretization for both
@@ -108,7 +108,8 @@
 #'
 #'   \strong{Universal (numerical and categorical):}
 #'   \code{"auto"}, \code{"jedi"}, \code{"jedi_mwoe"}, \code{"cm"}, \code{"dp"},
-#'   \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"sketch"}, \code{"udt"}
+#'   \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"orbe"}, \code{"sketch"},
+#'   \code{"udt"}
 #'
 #'   \strong{Numerical only:}
 #'   \code{"bb"}, \code{"ewb"}, \code{"fast_mdlp"}, \code{"ir"}, \code{"kmb"},
@@ -188,7 +189,7 @@
 #'
 #' \subsection{Algorithm Selection Strategy}{
 #'
-#' The \code{algorithm} parameter provides access to 28 binning algorithms:
+#' The \code{algorithm} parameter provides access to 29 binning algorithms:
 #'
 #' \itemize{
 #'   \item Use \code{algorithm = "auto"} (default) for automatic selection:
@@ -1111,7 +1112,7 @@ required_pkgs.step_obwoe <- function(x, ...) {
 #'
 #' @param values A character vector of algorithm names to include in the
 #'   parameter space. If \code{NULL} (default), includes all 29 algorithms
-#'   (28 specific algorithms plus \code{"auto"}).
+#'   (29 specific algorithms plus \code{"auto"}).
 #'
 #' @return A \code{dials} qualitative parameter object.
 #'
@@ -1120,7 +1121,8 @@ required_pkgs.step_obwoe <- function(x, ...) {
 #'
 #' \strong{Universal} (support both numerical and categorical features):
 #' \code{"auto"}, \code{"jedi"}, \code{"jedi_mwoe"}, \code{"cm"}, \code{"dp"},
-#' \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"sketch"}, \code{"udt"}
+#' \code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"orbe"}, \code{"sketch"},
+#'   \code{"udt"}
 #'
 #' \strong{Numerical only}:
 #' \code{"bb"}, \code{"ewb"}, \code{"fast_mdlp"}, \code{"ir"}, \code{"kmb"},

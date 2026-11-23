@@ -1,7 +1,7 @@
 Package: OptimalBinningWoE
 Type: Package
 Title: Optimal Binning and Weight of Evidence Framework for Modeling
-Version: 1.14.1
+Version: 1.14.1.9000
 Date: 2026-11-15
 Authors@R: 
     person(given = "José Evandeilton",
@@ -9,10 +9,11 @@ Authors@R:
            role = c("aut", "cre", "cph"),
            email = "evandeilton@gmail.com",
            comment = c(ORCID = "0009-0007-5887-4084"))
-Description: High-performance implementation of 28 binning algorithms (37
-    implementations: 21 numerical, 16 categorical) for Weight of Evidence
+Description: High-performance implementation of 29 binning algorithms (39
+    implementations: 22 numerical, 17 categorical) for Weight of Evidence
     ('WoE') transformation, credit scoring, and risk modeling. Methods include
-    dynamic programming over ordered levels, entropy-based ('MDLP') and
+    dynamic programming over ordered levels, Bayesian evidence maximization
+    under order restrictions, entropy-based ('MDLP') and
     chi-square ('ChiMerge') partitioning, isotonic regression, simulated
     annealing, kernel-density binning, sketch-based binning (KLL and
     Count-Min), and greedy merging heuristics. Features a default algorithm

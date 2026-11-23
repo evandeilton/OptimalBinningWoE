@@ -1,0 +1,174 @@
+#' Optimal Binning for Numerical Variables using Order-Restricted Bayesian Evidence
+#'
+#' Chooses the cutpoints and the number of bins that maximize the Bayesian
+#' evidence of a piecewise-constant event rate, with the shape of the Weight of
+#' Evidence (monotone, peak or valley) enforced inside an exact dynamic
+#' program. Reports posterior-mean WoE with credible intervals.
+#'
+#' @param feature A numeric vector of feature values. \code{NA} and \code{NaN}
+#'   rows are excluded from the fit. \code{-Inf} and \code{+Inf} are kept and
+#'   fall in the first and last bin.
+#' @param target A binary vector (0/1 or logical) with the same length as
+#'   \code{feature}. Missing values are an error.
+#' @param min_bins Minimum number of bins (default: 2). It is honored whenever
+#'   a partition with that many bins satisfies the shape and \code{bin_cutoff};
+#'   otherwise the largest feasible number of bins is returned. With
+#'   \code{min_bins = 1} a single bin is returned when the evidence does not
+#'   support any cut.
+#' @param max_bins Maximum number of bins (default: 10). The number of bins is
+#'   selected by the evidence between \code{min_bins} and \code{max_bins}, so
+#'   \code{max_bins} is an upper limit, not a target.
+#' @param bin_cutoff Minimum fraction of the non-missing rows in a bin, in
+#'   \eqn{[0, 1)} (default: 0.05). It is a constraint of the optimization.
+#' @param max_n_prebins Maximum number of atoms, the candidate units the bins
+#'   are built from (default: 200). A feature with at most this many distinct
+#'   values is searched over every boundary between distinct values. Above it,
+#'   adjacent distinct values are grouped into atoms of about equal frequency,
+#'   which restricts the candidate cutpoints. Values above 1000 are treated as
+#'   1000, and the limit is lowered further when \code{max_bins} is large, to
+#'   bound memory.
+#' @param monotonic_trend Shape of the WoE across bins: \code{"auto"}
+#'   (default; ascending or descending, whichever has the larger evidence),
+#'   \code{"ascending"}, \code{"descending"}, \code{"peak"} (increasing then
+#'   decreasing), \code{"valley"} (decreasing then increasing) or
+#'   \code{"none"}.
+#' @param prior_strength Weight of the prior, in pseudo-events of the minority
+#'   class (default: 1). Larger values shrink the WoE of small bins more
+#'   strongly toward zero.
+#' @param credible_level Probability content of the WoE credible intervals, in
+#'   \eqn{(0, 1)} (default: 0.95).
+#'
+#' @return A list with one element per bin in the vectors below:
+#' \describe{
+#'   \item{id}{Bin identifiers (1-based).}
+#'   \item{bin}{Interval labels, e.g. \code{"(-Inf;1.500000]"}.}
+#'   \item{woe}{Posterior-mean Weight of Evidence.}
+#'   \item{iv}{Information Value contribution,
+#'     \eqn{(p_i - q_i) \, \mathrm{WoE}_i}, with \eqn{p_i} and \eqn{q_i} the
+#'     observed shares of events and non-events.}
+#'   \item{count, count_pos, count_neg}{Rows, events and non-events.}
+#'   \item{event_rate}{Observed event rate.}
+#'   \item{woe_se}{Posterior standard deviation of the WoE.}
+#'   \item{woe_lower, woe_upper}{Limits of the equal-tailed credible interval
+#'     of the WoE.}
+#' }
+#' and the following:
+#' \describe{
+#'   \item{cutpoints}{Upper limits of all bins but the last.}
+#'   \item{total_iv}{Sum of \code{iv}.}
+#'   \item{total_iv_corrected}{\code{total_iv} minus the first-order sampling
+#'     bias of a plug-in IV, floored at zero.}
+#'   \item{log_evidence}{Log evidence of the selected partition.}
+#'   \item{log_evidence_by_bins}{Log evidence of the best partition with
+#'     \eqn{1, 2, \ldots} bins under the selected shape; \code{NA} where no
+#'     partition is feasible.}
+#'   \item{monotonic_trend}{Shape of the selected model.}
+#'   \item{order_probability}{Posterior probability that the bin event rates
+#'     follow the selected shape.}
+#'   \item{converged}{Always \code{TRUE}: the search is exact.}
+#'   \item{iterations}{Number of bin counts evaluated.}
+#' }
+#'
+#' @details
+#' \strong{Model.} Let bin \eqn{i} hold \eqn{n_i} rows and \eqn{e_i} events,
+#' and let \eqn{\pi_0} be the overall event rate. The event rates of the bins
+#' are independent \eqn{\mathrm{Beta}(a, b)} with mean \eqn{\pi_0} and
+#' \eqn{\min(a, b)} equal to \code{prior_strength}, which is the uniform prior
+#' when \eqn{\pi_0 = 0.5}. The log evidence of a bin is
+#' \deqn{f(n_i, e_i) = \log \frac{B(a + e_i,\; b + n_i - e_i)}{B(a, b)} .}
+#' With \eqn{m} boundaries between distinct values, a partition with \eqn{K}
+#' bins has prior probability
+#' \eqn{\{(m + 1) \binom{m}{K - 1}\}^{-1}}: the number of bins is uniform and
+#' so are the cuts given their number. No other penalty on the number of bins
+#' is applied: the evidence of the bins, this prior and the order restriction
+#' below decide it.
+#'
+#' \strong{Optimization.} The engine maximizes \eqn{\sum_i f(n_i, e_i)} plus
+#' the log prior over all partitions into contiguous bins that respect
+#' \code{bin_cutoff}, the limits on the number of bins and the shape. The
+#' state of the dynamic program is the last bin of a partial partition, and a
+#' bin may follow another only when its posterior WoE respects the shape, so
+#' the reported WoE satisfies the shape strictly. The search is exact over the
+#' atoms and takes \eqn{O(K u^2 \log u)} time for \eqn{u} atoms.
+#'
+#' \strong{Order restriction.} Restricting \eqn{K} exchangeable rates to an
+#' order multiplies the evidence by the ratio of the posterior to the prior
+#' probability of that order. The prior probability is \eqn{1/K!} for a given
+#' monotone direction, \eqn{2/K!} for \code{"auto"} and \eqn{2^{K-1}/K!} for a
+#' peak or a valley. The logarithm of this ratio is added to the score of the
+#' best partition of each size before the number of bins and, for
+#' \code{"auto"}, the direction are selected. \code{order_probability} is the posterior
+#' probability in that ratio.
+#'
+#' \strong{WoE.} With \eqn{A_i = a + e_i} and \eqn{B_i = b + n_i - e_i}, the
+#' reported WoE is the posterior mean
+#' \deqn{\mathrm{WoE}_i = \psi(A_i) - \psi(B_i) - \log\frac{\pi_0}{1 - \pi_0},}
+#' where \eqn{\psi} is the digamma function. Its posterior variance is
+#' \eqn{\psi'(A_i) + \psi'(B_i)} and the interval limits are the logits of the
+#' Beta quantiles. The WoE is finite for bins without events or without
+#' non-events. The credible intervals are conditional on the selected bins.
+#'
+#' @references
+#' \enc{Boullé}{Boulle}, M. (2006). MODL: A Bayes optimal discretization method for
+#' continuous attributes. \emph{Machine Learning}, 65(1), 131-165.
+#'
+#' Barlow, R. E., Bartholomew, D. J., Bremner, J. M., & Brunk, H. D. (1972).
+#' \emph{Statistical inference under order restrictions}. John Wiley & Sons.
+#'
+#' @seealso \code{\link{ob_categorical_orbe}} for categorical features,
+#'   \code{\link{ob_numerical_ir}} for isotonic regression binning and
+#'   \code{\link{ob_numerical_mdlp}} for entropy-based binning.
+#'
+#' @examples
+#' set.seed(123)
+#' feature <- rnorm(2000)
+#' target <- rbinom(2000, 1, plogis(-2 + 0.8 * feature))
+#'
+#' fit <- ob_numerical_orbe(feature, target)
+#'
+#' # Bins, posterior-mean WoE and its credible interval
+#' data.frame(
+#'   bin = fit$bin, count = fit$count,
+#'   woe = round(fit$woe, 3),
+#'   lower = round(fit$woe_lower, 3),
+#'   upper = round(fit$woe_upper, 3)
+#' )
+#'
+#' # Evidence of the best partition for each number of bins
+#' round(fit$log_evidence_by_bins, 1)
+#' fit$monotonic_trend
+#'
+#' # A non-monotone relationship
+#' target2 <- rbinom(2000, 1, plogis(-1 - feature^2))
+#' fit2 <- ob_numerical_orbe(feature, target2, monotonic_trend = "peak")
+#' round(fit2$woe, 3)
+#'
+#' @export
+ob_numerical_orbe <- function(feature, target, min_bins = 2, max_bins = 10,
+                              bin_cutoff = 0.05, max_n_prebins = 200,
+                              monotonic_trend = "auto", prior_strength = 1,
+                              credible_level = 0.95) {
+  # Type validation and coercion
+  if (!is.numeric(feature)) {
+    warning("Feature converted to numeric for processing.")
+    feature <- as.numeric(feature)
+  }
+  target <- .ob_integer_target(target)
+
+  if (length(feature) != length(target)) {
+    stop("Length of 'feature' and 'target' must match.")
+  }
+
+  .Call("_OptimalBinningWoE_optimal_binning_numerical_orbe",
+    target,
+    feature,
+    as.integer(min_bins),
+    as.integer(max_bins),
+    as.numeric(bin_cutoff),
+    as.integer(max_n_prebins),
+    as.character(monotonic_trend),
+    as.numeric(prior_strength),
+    as.numeric(credible_level),
+    PACKAGE = "OptimalBinningWoE"
+  )
+}

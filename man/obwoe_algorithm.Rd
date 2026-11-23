@@ -9,7 +9,7 @@ obwoe_algorithm(values = NULL)
 \arguments{
 \item{values}{A character vector of algorithm names to include in the
 parameter space. If \code{NULL} (default), includes all 29 algorithms
-(28 specific algorithms plus \code{"auto"}).}
+(29 specific algorithms plus \code{"auto"}).}
 }
 \value{
 A \code{dials} qualitative parameter object.
@@ -23,7 +23,8 @@ The algorithms are organized into three groups:
 
 \strong{Universal} (support both numerical and categorical features):
 \code{"auto"}, \code{"jedi"}, \code{"jedi_mwoe"}, \code{"cm"}, \code{"dp"},
-\code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"sketch"}, \code{"udt"}
+\code{"dmiv"}, \code{"fetb"}, \code{"mob"}, \code{"orbe"}, \code{"sketch"},
+  \code{"udt"}
 
 \strong{Numerical only}:
 \code{"bb"}, \code{"ewb"}, \code{"fast_mdlp"}, \code{"ir"}, \code{"kmb"},

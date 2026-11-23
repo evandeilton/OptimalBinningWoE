@@ -59,7 +59,7 @@ test_that(".valid_algorithms returns correct algorithms", {
   algos <- .valid_algorithms()
 
   expect_type(algos, "character")
-  expect_true(length(algos) == 29L) # 28 algorithms + "auto"
+  expect_true(length(algos) == 30L) # 29 algorithms + "auto"
   expect_true("auto" %in% algos)
   expect_true("jedi" %in% algos)
   expect_true("mdlp" %in% algos)
@@ -786,7 +786,7 @@ test_that("obwoe_algorithm returns valid dials parameter", {
   param <- obwoe_algorithm()
 
   expect_s3_class(param, "qual_param")
-  expect_true(length(param$values) == 29L)
+  expect_true(length(param$values) == 30L)
   expect_true("auto" %in% param$values)
   expect_true("jedi" %in% param$values)
 })
